@@ -1,13 +1,13 @@
-#include "posix_history.h"
 #include "config.h"
+#include "posix_history.h"
 #include "symtable.h"
 
+#include <ctype.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <ctype.h>
 
 /**
  * @file enhanced_history.c
@@ -52,7 +52,8 @@ bool is_posix_mode_enabled(void);
  * @param options History command options
  * @return Exit status (0 for success, non-zero for error)
  */
-int posix_history_execute(posix_history_manager_t *manager, const posix_history_options_t *options) {
+int posix_history_execute(posix_history_manager_t *manager,
+                          const posix_history_options_t *options) {
     if (!manager || !options) {
         fprintf(stderr, "history: invalid parameters\n");
         return 1;
@@ -72,7 +73,8 @@ int posix_history_execute(posix_history_manager_t *manager, const posix_history_
     if (options->delete_entry) {
         if (!posix_history_delete(manager, options->delete_offset)) {
             const char *error = posix_history_get_last_error();
-            fprintf(stderr, "history: %s\n", error ? error : "failed to delete entry");
+            fprintf(stderr, "history: %s\n",
+                    error ? error : "failed to delete entry");
             return 1;
         }
         printf("Deleted history entry %d\n", options->delete_offset);
@@ -84,7 +86,8 @@ int posix_history_execute(posix_history_manager_t *manager, const posix_history_
         int result = posix_history_load(manager, options->filename, true);
         if (result < 0) {
             const char *error = posix_history_get_last_error();
-            fprintf(stderr, "history: %s\n", error ? error : "failed to read history file");
+            fprintf(stderr, "history: %s\n",
+                    error ? error : "failed to read history file");
             return 1;
         }
         printf("Read %d history entries\n", result);
@@ -92,10 +95,12 @@ int posix_history_execute(posix_history_manager_t *manager, const posix_history_
     }
 
     if (options->write_file) {
-        int result = posix_history_save(manager, options->filename, options->show_timestamps);
+        int result = posix_history_save(manager, options->filename,
+                                        options->show_timestamps);
         if (result < 0) {
             const char *error = posix_history_get_last_error();
-            fprintf(stderr, "history: %s\n", error ? error : "failed to write history file");
+            fprintf(stderr, "history: %s\n",
+                    error ? error : "failed to write history file");
             return 1;
         }
         printf("Wrote %d history entries\n", result);
@@ -106,7 +111,8 @@ int posix_history_execute(posix_history_manager_t *manager, const posix_history_
         int result = posix_history_append_new(manager, options->filename);
         if (result < 0) {
             const char *error = posix_history_get_last_error();
-            fprintf(stderr, "history: %s\n", error ? error : "failed to append to history file");
+            fprintf(stderr, "history: %s\n",
+                    error ? error : "failed to append to history file");
             return 1;
         }
         printf("Appended %d new entries\n", result);
@@ -117,7 +123,8 @@ int posix_history_execute(posix_history_manager_t *manager, const posix_history_
         int result = posix_history_read_new(manager, options->filename);
         if (result < 0) {
             const char *error = posix_history_get_last_error();
-            fprintf(stderr, "history: %s\n", error ? error : "failed to read new entries");
+            fprintf(stderr, "history: %s\n",
+                    error ? error : "failed to read new entries");
             return 1;
         }
         printf("Read %d new entries\n", result);
@@ -125,7 +132,8 @@ int posix_history_execute(posix_history_manager_t *manager, const posix_history_
     }
 
     // Default action: list history
-    return posix_history_list(manager, options->count, options->show_timestamps);
+    return posix_history_list(manager, options->count,
+                              options->show_timestamps);
 }
 
 /**
@@ -136,7 +144,8 @@ int posix_history_execute(posix_history_manager_t *manager, const posix_history_
  * @param show_timestamps Whether to include timestamps
  * @return 0 on success, non-zero on error
  */
-int posix_history_list(posix_history_manager_t *manager, int count, bool show_timestamps) {
+int posix_history_list(posix_history_manager_t *manager, int count,
+                       bool show_timestamps) {
     if (!manager) {
         fprintf(stderr, "history: invalid history manager\n");
         return 1;
@@ -156,7 +165,7 @@ int posix_history_list(posix_history_manager_t *manager, int count, bool show_ti
     // List entries
     for (size_t i = start_index; i < manager->count; i++) {
         posix_history_entry_t *entry = &manager->entries[i];
-        
+
         if (show_timestamps) {
             char time_str[64];
             struct tm *tm_info = localtime(&entry->timestamp);
@@ -188,11 +197,11 @@ static int parse_count_argument(const char *arg) {
     // Check if argument is a valid number
     char *endptr;
     long count = strtol(arg, &endptr, 10);
-    
+
     if (*endptr != '\0' || count < 0 || count > POSIX_HISTORY_MAX_ENTRIES) {
         return -1;
     }
-    
+
     return (int)count;
 }
 
@@ -209,11 +218,11 @@ static int parse_delete_offset(const char *arg) {
 
     char *endptr;
     long offset = strtol(arg, &endptr, 10);
-    
+
     if (*endptr != '\0' || offset <= 0) {
         return -1;
     }
-    
+
     return (int)offset;
 }
 
@@ -224,10 +233,11 @@ static int parse_delete_offset(const char *arg) {
  */
 static char *get_default_history_filename(void) {
     const char *home = symtable_get_global_default("HOME", "");
-    
+
     // Use POSIX-compliant history file in posix mode
-    const char *history_file = is_posix_mode_enabled() ? ".sh_history" : POSIX_HISTORY_DEFAULT_FILE;
-    
+    const char *history_file =
+        is_posix_mode_enabled() ? ".sh_history" : POSIX_HISTORY_DEFAULT_FILE;
+
     if (!home || !*home) {
         return strdup(history_file);
     }
@@ -260,14 +270,19 @@ static void enhanced_history_usage(void) {
     fprintf(stderr, "options:\n");
     fprintf(stderr, "  -c         Clear the history list\n");
     fprintf(stderr, "  -d offset  Delete the history entry at offset\n");
-    fprintf(stderr, "  -r [file]  Read history from file (default: ~/.lusush_history)\n");
-    fprintf(stderr, "  -w [file]  Write history to file (default: ~/.lusush_history)\n");
+    fprintf(
+        stderr,
+        "  -r [file]  Read history from file (default: ~/.lusush_history)\n");
+    fprintf(
+        stderr,
+        "  -w [file]  Write history to file (default: ~/.lusush_history)\n");
     fprintf(stderr, "  -a [file]  Append new entries to file\n");
     fprintf(stderr, "  -n [file]  Read new entries from file\n");
     fprintf(stderr, "  -t         Show timestamps with entries\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "arguments:\n");
-    fprintf(stderr, "  n          Show last n history entries (default: all)\n");
+    fprintf(stderr,
+            "  n          Show last n history entries (default: all)\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "examples:\n");
     fprintf(stderr, "  history           Show all history\n");
@@ -286,15 +301,18 @@ static void enhanced_history_usage(void) {
  * @return Exit status
  */
 int bin_enhanced_history(int argc, char **argv) {
-    // Check if LLE is enabled - ehistory command uses GNU readline/POSIX history API
+    // Check if LLE is enabled - ehistory command uses GNU readline/POSIX
+    // history API
     extern config_values_t config;
     if (config.use_lle) {
         fprintf(stderr, "ehistory: command disabled when LLE is enabled\n");
-        fprintf(stderr, "ehistory: LLE will have its own history system (Spec 09)\n");
-        fprintf(stderr, "ehistory: use 'display lle disable' to switch back to GNU readline\n");
+        fprintf(stderr,
+                "ehistory: LLE will have its own history system (Spec 09)\n");
+        fprintf(stderr, "ehistory: use 'display lle disable' to switch back to "
+                        "GNU readline\n");
         return 1;
     }
-    
+
     // Initialize history manager if not already done
     if (!global_posix_history) {
         global_posix_history = posix_history_create(0);
@@ -302,7 +320,7 @@ int bin_enhanced_history(int argc, char **argv) {
             fprintf(stderr, "history: failed to initialize history manager\n");
             return 1;
         }
-        
+
         // Set default filename
         char *default_filename = get_default_history_filename();
         if (default_filename) {
@@ -313,65 +331,65 @@ int bin_enhanced_history(int argc, char **argv) {
 
     // Initialize options
     posix_history_options_t options = {0};
-    
+
     // Parse command line options
     int opt;
     optind = 1; // Reset getopt
     while ((opt = getopt(argc, argv, "cd:r::w::a::n::t")) != -1) {
         switch (opt) {
-            case 'c':
-                options.clear_history = true;
-                break;
-            case 'd':
-                options.delete_entry = true;
-                options.delete_offset = parse_delete_offset(optarg);
-                if (options.delete_offset == -1) {
-                    fprintf(stderr, "history: invalid offset for -d option\n");
-                    return 1;
-                }
-                break;
-            case 'r':
-                options.read_file = true;
-                if (optarg) {
-                    options.filename = strdup(optarg);
-                }
-                break;
-            case 'w':
-                options.write_file = true;
-                if (optarg) {
-                    options.filename = strdup(optarg);
-                }
-                break;
-            case 'a':
-                options.append_file = true;
-                if (optarg) {
-                    options.filename = strdup(optarg);
-                }
-                break;
-            case 'n':
-                options.read_new = true;
-                if (optarg) {
-                    options.filename = strdup(optarg);
-                }
-                break;
-            case 't':
-                options.show_timestamps = true;
-                break;
-            default:
-                enhanced_history_usage();
+        case 'c':
+            options.clear_history = true;
+            break;
+        case 'd':
+            options.delete_entry = true;
+            options.delete_offset = parse_delete_offset(optarg);
+            if (options.delete_offset == -1) {
+                fprintf(stderr, "history: invalid offset for -d option\n");
                 return 1;
+            }
+            break;
+        case 'r':
+            options.read_file = true;
+            if (optarg) {
+                options.filename = strdup(optarg);
+            }
+            break;
+        case 'w':
+            options.write_file = true;
+            if (optarg) {
+                options.filename = strdup(optarg);
+            }
+            break;
+        case 'a':
+            options.append_file = true;
+            if (optarg) {
+                options.filename = strdup(optarg);
+            }
+            break;
+        case 'n':
+            options.read_new = true;
+            if (optarg) {
+                options.filename = strdup(optarg);
+            }
+            break;
+        case 't':
+            options.show_timestamps = true;
+            break;
+        default:
+            enhanced_history_usage();
+            return 1;
         }
     }
 
     // Parse count argument if no options specified
-    if (!options.clear_history && !options.delete_entry && 
-        !options.read_file && !options.write_file && 
-        !options.append_file && !options.read_new) {
-        
+    if (!options.clear_history && !options.delete_entry && !options.read_file &&
+        !options.write_file && !options.append_file && !options.read_new) {
+
         if (optind < argc) {
             options.count = parse_count_argument(argv[optind]);
             if (options.count == -1) {
-                fprintf(stderr, "history: invalid count argument '%s'\n", argv[optind]);
+                fprintf(stderr, "history: invalid count argument '%s'\n",
+                        argv[optind]);
                 return 1;
             }
         }
@@ -379,13 +397,19 @@ int bin_enhanced_history(int argc, char **argv) {
 
     // Validate mutually exclusive options
     int operation_count = 0;
-    if (options.clear_history) operation_count++;
-    if (options.delete_entry) operation_count++;
-    if (options.read_file) operation_count++;
-    if (options.write_file) operation_count++;
-    if (options.append_file) operation_count++;
-    if (options.read_new) operation_count++;
-    
+    if (options.clear_history)
+        operation_count++;
+    if (options.delete_entry)
+        operation_count++;
+    if (options.read_file)
+        operation_count++;
+    if (options.write_file)
+        operation_count++;
+    if (options.append_file)
+        operation_count++;
+    if (options.read_new)
+        operation_count++;
+
     if (operation_count > 1) {
         fprintf(stderr, "history: conflicting options specified\n");
         free(options.filename);
@@ -412,7 +436,7 @@ void enhanced_history_print(void) {
         printf("No history available\n");
         return;
     }
-    
+
     posix_history_list(global_posix_history, 0, false);
 }
 
@@ -426,13 +450,14 @@ char *enhanced_history_lookup(const char *s) {
     if (!global_posix_history || !s) {
         return NULL;
     }
-    
+
     int number = posix_history_resolve_number(global_posix_history, s);
     if (number == -1) {
         return NULL;
     }
-    
-    posix_history_entry_t *entry = posix_history_get(global_posix_history, number);
+
+    posix_history_entry_t *entry =
+        posix_history_get(global_posix_history, number);
     return entry ? entry->command : NULL;
 }
 
@@ -463,7 +488,8 @@ void enhanced_history_init(void) {
 
     global_posix_history = posix_history_create(0);
     if (!global_posix_history) {
-        fprintf(stderr, "Warning: Failed to initialize enhanced history system\n");
+        fprintf(stderr,
+                "Warning: Failed to initialize enhanced history system\n");
         return;
     }
 
@@ -471,10 +497,10 @@ void enhanced_history_init(void) {
     char *default_filename = get_default_history_filename();
     if (default_filename) {
         posix_history_set_filename(global_posix_history, default_filename);
-        
+
         // Load existing history
         posix_history_load(global_posix_history, default_filename, false);
-        
+
         free(default_filename);
     }
 
@@ -491,7 +517,7 @@ void enhanced_history_add(const char *command) {
     if (!global_posix_history) {
         enhanced_history_init();
     }
-    
+
     if (global_posix_history && command) {
         posix_history_add(global_posix_history, command);
     }

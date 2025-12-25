@@ -1,7 +1,7 @@
 /**
  * @file performance_benchmark.c
  * @brief Performance benchmarks for LLE Spec 03
- * 
+ *
  * Validates that operations meet spec performance requirements:
  * - Insert: < 0.5ms (500,000 ns)
  * - Delete: < 0.5ms (500,000 ns)
@@ -13,8 +13,8 @@
 #include "../../../include/lle/memory_management.h"
 
 #include <stdio.h>
-#include <time.h>
 #include <string.h>
+#include <time.h>
 
 /* External global from test_memory_mock.c */
 extern lusush_memory_pool_t *global_memory_pool;
@@ -27,29 +27,31 @@ static uint64_t get_nanos(void) {
 }
 
 /* Spec requirements (in nanoseconds) */
-#define SPEC_INSERT_MAX_NS    500000ULL   /* 0.5ms */
-#define SPEC_DELETE_MAX_NS    500000ULL   /* 0.5ms */
-#define SPEC_UTF8_CALC_MAX_NS 100000ULL   /* 0.1ms */
+#define SPEC_INSERT_MAX_NS 500000ULL    /* 0.5ms */
+#define SPEC_DELETE_MAX_NS 500000ULL    /* 0.5ms */
+#define SPEC_UTF8_CALC_MAX_NS 100000ULL /* 0.1ms */
 
-#define BENCHMARK(name, iterations) \
-    printf("\n[ BENCHMARK ] %s\n", name); \
+#define BENCHMARK(name, iterations)                                            \
+    printf("\n[ BENCHMARK ] %s\n", name);                                      \
     printf("  Iterations: %d\n", iterations)
 
-#define RUN_BENCHMARK(code_block, spec_max) \
-    do { \
-        uint64_t bench_start = get_nanos(); \
-        code_block; \
-        uint64_t bench_end = get_nanos(); \
-        uint64_t bench_elapsed = bench_end - bench_start; \
-        double bench_ms = bench_elapsed / 1000000.0; \
-        printf("  Time: %.3f ms (%.0f ns)\n", bench_ms, (double)bench_elapsed); \
-        printf("  Spec requirement: < %.3f ms\n", spec_max / 1000000.0); \
-        if (bench_elapsed <= spec_max) { \
-            printf("  Result: PASS (within spec)\n"); \
-        } else { \
-            printf("  Result: FAIL (exceeds spec by %.0f ns)\n", (double)(bench_elapsed - spec_max)); \
-        } \
-    } while(0)
+#define RUN_BENCHMARK(code_block, spec_max)                                    \
+    do {                                                                       \
+        uint64_t bench_start = get_nanos();                                    \
+        code_block;                                                            \
+        uint64_t bench_end = get_nanos();                                      \
+        uint64_t bench_elapsed = bench_end - bench_start;                      \
+        double bench_ms = bench_elapsed / 1000000.0;                           \
+        printf("  Time: %.3f ms (%.0f ns)\n", bench_ms,                        \
+               (double)bench_elapsed);                                         \
+        printf("  Spec requirement: < %.3f ms\n", spec_max / 1000000.0);       \
+        if (bench_elapsed <= spec_max) {                                       \
+            printf("  Result: PASS (within spec)\n");                          \
+        } else {                                                               \
+            printf("  Result: FAIL (exceeds spec by %.0f ns)\n",               \
+                   (double)(bench_elapsed - spec_max));                        \
+        }                                                                      \
+    } while (0)
 
 int main(void) {
     printf("=================================================\n");
@@ -61,30 +63,34 @@ int main(void) {
 
     /* ========================================================================
      * BENCHMARK 1: Buffer Insert Performance
-     * ======================================================================== */
-    
+     * ========================================================================
+     */
+
     BENCHMARK("Buffer Insert (small text)", 1000);
-    
+
     result = lle_buffer_create(&buffer, global_memory_pool, 0);
     if (result != LLE_SUCCESS) {
         printf("Failed to create buffer\n");
         return 1;
     }
 
-    RUN_BENCHMARK({
-        for (int i = 0; i < 1000; i++) {
-            lle_buffer_insert_text(buffer, buffer->length, "test", 4);
-        }
-    }, SPEC_INSERT_MAX_NS);
+    RUN_BENCHMARK(
+        {
+            for (int i = 0; i < 1000; i++) {
+                lle_buffer_insert_text(buffer, buffer->length, "test", 4);
+            }
+        },
+        SPEC_INSERT_MAX_NS);
 
     lle_buffer_destroy(buffer);
 
     /* ========================================================================
      * BENCHMARK 2: Buffer Delete Performance
-     * ======================================================================== */
-    
+     * ========================================================================
+     */
+
     BENCHMARK("Buffer Delete (small text)", 1000);
-    
+
     result = lle_buffer_create(&buffer, global_memory_pool, 0);
     if (result != LLE_SUCCESS) {
         printf("Failed to create buffer\n");
@@ -96,20 +102,23 @@ int main(void) {
         lle_buffer_insert_text(buffer, buffer->length, "test", 4);
     }
 
-    RUN_BENCHMARK({
-        for (int i = 0; i < 1000; i++) {
-            lle_buffer_delete_text(buffer, buffer->length - 4, 4);
-        }
-    }, SPEC_DELETE_MAX_NS);
+    RUN_BENCHMARK(
+        {
+            for (int i = 0; i < 1000; i++) {
+                lle_buffer_delete_text(buffer, buffer->length - 4, 4);
+            }
+        },
+        SPEC_DELETE_MAX_NS);
 
     lle_buffer_destroy(buffer);
 
     /* ========================================================================
      * BENCHMARK 3: UTF-8 Index Building
-     * ======================================================================== */
-    
+     * ========================================================================
+     */
+
     BENCHMARK("UTF-8 Index Rebuild (100 char text)", 100);
-    
+
     result = lle_buffer_create(&buffer, global_memory_pool, 0);
     if (result != LLE_SUCCESS) {
         printf("Failed to create buffer\n");
@@ -117,30 +126,34 @@ int main(void) {
     }
 
     /* Insert text with UTF-8 */
-    const char *utf8_text = "Hello 🌍 World! This is a test with émojis and spëcial çharacters.";
+    const char *utf8_text =
+        "Hello 🌍 World! This is a test with émojis and spëcial çharacters.";
     size_t text_len = strlen(utf8_text);
 
     lle_buffer_insert_text(buffer, 0, utf8_text, text_len);
 
-    RUN_BENCHMARK({
-        for (int i = 0; i < 100; i++) {
-            /* Rebuild UTF-8 index */
-            if (buffer->utf8_index) {
-                lle_utf8_index_rebuild(buffer->utf8_index, 
-                                       (const char*)buffer->data, 
-                                       buffer->length);
+    RUN_BENCHMARK(
+        {
+            for (int i = 0; i < 100; i++) {
+                /* Rebuild UTF-8 index */
+                if (buffer->utf8_index) {
+                    lle_utf8_index_rebuild(buffer->utf8_index,
+                                           (const char *)buffer->data,
+                                           buffer->length);
+                }
             }
-        }
-    }, SPEC_UTF8_CALC_MAX_NS);
+        },
+        SPEC_UTF8_CALC_MAX_NS);
 
     lle_buffer_destroy(buffer);
 
     /* ========================================================================
      * BENCHMARK 4: Cursor Movement
-     * ======================================================================== */
-    
+     * ========================================================================
+     */
+
     BENCHMARK("Cursor Movement (by codepoints)", 1000);
-    
+
     result = lle_buffer_create(&buffer, global_memory_pool, 0);
     if (result != LLE_SUCCESS) {
         printf("Failed to create buffer\n");
@@ -155,26 +168,30 @@ int main(void) {
     }
 
     /* Insert test text */
-    lle_buffer_insert_text(buffer, 0, "This is a test string for cursor movement", 42);
+    lle_buffer_insert_text(buffer, 0,
+                           "This is a test string for cursor movement", 42);
 
-    RUN_BENCHMARK({
-        for (int i = 0; i < 1000; i++) {
-            lle_cursor_manager_move_by_codepoints(cursor_mgr, 1);
-            if (buffer->cursor.codepoint_index >= buffer->codepoint_count) {
-                lle_cursor_manager_move_to_byte_offset(cursor_mgr, 0);
+    RUN_BENCHMARK(
+        {
+            for (int i = 0; i < 1000; i++) {
+                lle_cursor_manager_move_by_codepoints(cursor_mgr, 1);
+                if (buffer->cursor.codepoint_index >= buffer->codepoint_count) {
+                    lle_cursor_manager_move_to_byte_offset(cursor_mgr, 0);
+                }
             }
-        }
-    }, SPEC_INSERT_MAX_NS);
+        },
+        SPEC_INSERT_MAX_NS);
 
     lle_cursor_manager_destroy(cursor_mgr);
     lle_buffer_destroy(buffer);
 
     /* ========================================================================
      * BENCHMARK 5: Undo/Redo Performance
-     * ======================================================================== */
-    
+     * ========================================================================
+     */
+
     BENCHMARK("Undo/Redo Operations", 100);
-    
+
     result = lle_buffer_create(&buffer, global_memory_pool, 0);
     if (result != LLE_SUCCESS) {
         printf("Failed to create buffer\n");
@@ -199,27 +216,30 @@ int main(void) {
         lle_change_tracker_complete_sequence(tracker);
     }
 
-    RUN_BENCHMARK({
-        /* Undo all */
-        for (int i = 0; i < 100; i++) {
-            lle_change_tracker_undo(tracker, buffer);
-        }
-        
-        /* Redo all */
-        for (int i = 0; i < 100; i++) {
-            lle_change_tracker_redo(tracker, buffer);
-        }
-    }, SPEC_INSERT_MAX_NS * 2);  /* Allow 1ms for 200 operations */
+    RUN_BENCHMARK(
+        {
+            /* Undo all */
+            for (int i = 0; i < 100; i++) {
+                lle_change_tracker_undo(tracker, buffer);
+            }
+
+            /* Redo all */
+            for (int i = 0; i < 100; i++) {
+                lle_change_tracker_redo(tracker, buffer);
+            }
+        },
+        SPEC_INSERT_MAX_NS * 2); /* Allow 1ms for 200 operations */
 
     lle_change_tracker_destroy(tracker);
     lle_buffer_destroy(buffer);
 
     /* ========================================================================
      * BENCHMARK 6: Buffer Validation
-     * ======================================================================== */
-    
+     * ========================================================================
+     */
+
     BENCHMARK("Buffer Validation (complete)", 1000);
-    
+
     result = lle_buffer_create(&buffer, global_memory_pool, 0);
     if (result != LLE_SUCCESS) {
         printf("Failed to create buffer\n");
@@ -234,20 +254,24 @@ int main(void) {
     }
 
     /* Insert some text */
-    lle_buffer_insert_text(buffer, 0, "Test validation performance with UTF-8: 🌍", 46);
+    lle_buffer_insert_text(buffer, 0,
+                           "Test validation performance with UTF-8: 🌍", 46);
 
-    RUN_BENCHMARK({
-        for (int i = 0; i < 1000; i++) {
-            lle_buffer_validate_complete(buffer, validator);
-        }
-    }, SPEC_UTF8_CALC_MAX_NS);
+    RUN_BENCHMARK(
+        {
+            for (int i = 0; i < 1000; i++) {
+                lle_buffer_validate_complete(buffer, validator);
+            }
+        },
+        SPEC_UTF8_CALC_MAX_NS);
 
     lle_buffer_validator_destroy(validator);
     lle_buffer_destroy(buffer);
 
     /* ========================================================================
      * Summary
-     * ======================================================================== */
+     * ========================================================================
+     */
 
     printf("\n=================================================\n");
     printf("Performance Benchmark Summary\n");

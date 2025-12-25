@@ -17,7 +17,8 @@ trap_entry_t *trap_list = NULL;
 static pid_t current_child_pid = 0;
 
 // Global flag for LLE integration: set when SIGINT received during readline
-// This is volatile because it's modified by signal handler and read by main code
+// This is volatile because it's modified by signal handler and read by main
+// code
 static volatile sig_atomic_t sigint_received_during_readline = 0;
 
 // Check and clear the SIGINT flag (called by LLE)
@@ -32,9 +33,7 @@ int check_and_clear_sigint_flag(void) {
 // Set a flag indicating LLE readline is active (for SIGINT handler to know)
 static volatile sig_atomic_t lle_readline_active = 0;
 
-void set_lle_readline_active(int active) {
-    lle_readline_active = active;
-}
+void set_lle_readline_active(int active) { lle_readline_active = active; }
 
 // SIGINT handler that properly manages shell vs child process behavior
 static void sigint_handler(int signo) {
@@ -61,7 +60,7 @@ static void sigint_handler(int signo) {
 void init_signal_handlers(void) {
     set_signal_handler(SIGINT, sigint_handler);
     set_signal_handler(SIGSEGV, sigsegv_handler);
-    
+
     // Ignore SIGQUIT (Ctrl+\) like bash/zsh do
     // This prevents accidental core dumps from Ctrl+\ keypresses
     set_signal_handler(SIGQUIT, SIG_IGN);
@@ -228,7 +227,7 @@ void execute_exit_traps(void) {
         // shell's executor
         system(trap->command);
     }
-    
+
     // Reset terminal to clean state on exit
     lle_terminal_reset();
 }

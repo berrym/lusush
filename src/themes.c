@@ -13,9 +13,9 @@
 #include "themes.h"
 #include "display_integration.h"
 
-#include "prompt.h"
 #include "lle/adaptive_terminal_integration.h"
 #include "lle/utf8_support.h"
+#include "prompt.h"
 
 #include <sys/time.h>
 
@@ -97,7 +97,8 @@ static bool debug_enabled = false;
 // Forward declarations
 static bool theme_register(theme_definition_t *theme);
 static bool detect_terminal_unicode_support(void);
-static bool convert_symbols_in_string(const char *input, char *output, size_t output_size);
+static bool convert_symbols_in_string(const char *input, char *output,
+                                      size_t output_size);
 static void set_dark_syntax_colors(syntax_color_scheme_t *syntax);
 static void set_light_syntax_colors(syntax_color_scheme_t *syntax);
 
@@ -110,37 +111,46 @@ static void set_light_syntax_colors(syntax_color_scheme_t *syntax);
  * Uses bright colors on dark background
  */
 static void set_dark_syntax_colors(syntax_color_scheme_t *syntax) {
-    if (!syntax) return;
-    
+    if (!syntax)
+        return;
+
     // Commands - green for valid, red for invalid, cyan for builtins
-    strncpy(syntax->command_valid, "\033[1;32m", COLOR_CODE_MAX - 1);      // Bold green
-    strncpy(syntax->command_invalid, "\033[1;31m", COLOR_CODE_MAX - 1);    // Bold red
-    strncpy(syntax->command_builtin, "\033[1;36m", COLOR_CODE_MAX - 1);    // Bold cyan
-    strncpy(syntax->command_alias, "\033[36m", COLOR_CODE_MAX - 1);        // Cyan
-    
+    strncpy(syntax->command_valid, "\033[1;32m",
+            COLOR_CODE_MAX - 1); // Bold green
+    strncpy(syntax->command_invalid, "\033[1;31m",
+            COLOR_CODE_MAX - 1); // Bold red
+    strncpy(syntax->command_builtin, "\033[1;36m",
+            COLOR_CODE_MAX - 1);                                    // Bold cyan
+    strncpy(syntax->command_alias, "\033[36m", COLOR_CODE_MAX - 1); // Cyan
+
     // Keywords - orange/bold blue
-    strncpy(syntax->keyword, "\033[1;34m", COLOR_CODE_MAX - 1);            // Bold blue
-    
+    strncpy(syntax->keyword, "\033[1;34m", COLOR_CODE_MAX - 1); // Bold blue
+
     // Strings - yellow
-    strncpy(syntax->string, "\033[33m", COLOR_CODE_MAX - 1);               // Yellow
-    
+    strncpy(syntax->string, "\033[33m", COLOR_CODE_MAX - 1); // Yellow
+
     // Variables - magenta/purple
-    strncpy(syntax->variable, "\033[35m", COLOR_CODE_MAX - 1);             // Magenta
-    strncpy(syntax->variable_special, "\033[1;35m", COLOR_CODE_MAX - 1);   // Bold magenta
-    
+    strncpy(syntax->variable, "\033[35m", COLOR_CODE_MAX - 1); // Magenta
+    strncpy(syntax->variable_special, "\033[1;35m",
+            COLOR_CODE_MAX - 1); // Bold magenta
+
     // Operators
-    strncpy(syntax->operator_sym, "\033[37m", COLOR_CODE_MAX - 1);         // White
-    strncpy(syntax->redirect, "\033[1;35m", COLOR_CODE_MAX - 1);           // Bold magenta
-    strncpy(syntax->pipe, "\033[1;34m", COLOR_CODE_MAX - 1);               // Bold blue
-    
+    strncpy(syntax->operator_sym, "\033[37m", COLOR_CODE_MAX - 1); // White
+    strncpy(syntax->redirect, "\033[1;35m", COLOR_CODE_MAX - 1); // Bold magenta
+    strncpy(syntax->pipe, "\033[1;34m", COLOR_CODE_MAX - 1);     // Bold blue
+
     // Other
-    strncpy(syntax->comment, "\033[90m", COLOR_CODE_MAX - 1);              // Bright black (gray)
-    strncpy(syntax->number, "\033[36m", COLOR_CODE_MAX - 1);               // Cyan
-    strncpy(syntax->path_valid, "\033[4;32m", COLOR_CODE_MAX - 1);         // Underline green
-    strncpy(syntax->path_invalid, "\033[4;31m", COLOR_CODE_MAX - 1);       // Underline red
-    strncpy(syntax->option, "\033[37m", COLOR_CODE_MAX - 1);               // White
-    strncpy(syntax->glob, "\033[33m", COLOR_CODE_MAX - 1);                 // Yellow
-    strncpy(syntax->error_syntax, "\033[41;37m", COLOR_CODE_MAX - 1);      // White on red
+    strncpy(syntax->comment, "\033[90m",
+            COLOR_CODE_MAX - 1); // Bright black (gray)
+    strncpy(syntax->number, "\033[36m", COLOR_CODE_MAX - 1); // Cyan
+    strncpy(syntax->path_valid, "\033[4;32m",
+            COLOR_CODE_MAX - 1); // Underline green
+    strncpy(syntax->path_invalid, "\033[4;31m",
+            COLOR_CODE_MAX - 1);                             // Underline red
+    strncpy(syntax->option, "\033[37m", COLOR_CODE_MAX - 1); // White
+    strncpy(syntax->glob, "\033[33m", COLOR_CODE_MAX - 1);   // Yellow
+    strncpy(syntax->error_syntax, "\033[41;37m",
+            COLOR_CODE_MAX - 1); // White on red
 }
 
 /**
@@ -148,37 +158,42 @@ static void set_dark_syntax_colors(syntax_color_scheme_t *syntax) {
  * Uses darker colors for light background
  */
 static void set_light_syntax_colors(syntax_color_scheme_t *syntax) {
-    if (!syntax) return;
-    
+    if (!syntax)
+        return;
+
     // Commands - darker colors for light background
-    strncpy(syntax->command_valid, "\033[32m", COLOR_CODE_MAX - 1);        // Green
-    strncpy(syntax->command_invalid, "\033[31m", COLOR_CODE_MAX - 1);      // Red
-    strncpy(syntax->command_builtin, "\033[36m", COLOR_CODE_MAX - 1);      // Cyan
-    strncpy(syntax->command_alias, "\033[36m", COLOR_CODE_MAX - 1);        // Cyan
-    
+    strncpy(syntax->command_valid, "\033[32m", COLOR_CODE_MAX - 1);   // Green
+    strncpy(syntax->command_invalid, "\033[31m", COLOR_CODE_MAX - 1); // Red
+    strncpy(syntax->command_builtin, "\033[36m", COLOR_CODE_MAX - 1); // Cyan
+    strncpy(syntax->command_alias, "\033[36m", COLOR_CODE_MAX - 1);   // Cyan
+
     // Keywords
-    strncpy(syntax->keyword, "\033[34m", COLOR_CODE_MAX - 1);              // Blue
-    
+    strncpy(syntax->keyword, "\033[34m", COLOR_CODE_MAX - 1); // Blue
+
     // Strings
-    strncpy(syntax->string, "\033[33m", COLOR_CODE_MAX - 1);               // Yellow/brown
-    
+    strncpy(syntax->string, "\033[33m", COLOR_CODE_MAX - 1); // Yellow/brown
+
     // Variables
-    strncpy(syntax->variable, "\033[35m", COLOR_CODE_MAX - 1);             // Magenta
-    strncpy(syntax->variable_special, "\033[35m", COLOR_CODE_MAX - 1);     // Magenta
-    
+    strncpy(syntax->variable, "\033[35m", COLOR_CODE_MAX - 1); // Magenta
+    strncpy(syntax->variable_special, "\033[35m",
+            COLOR_CODE_MAX - 1); // Magenta
+
     // Operators
-    strncpy(syntax->operator_sym, "\033[30m", COLOR_CODE_MAX - 1);         // Black
-    strncpy(syntax->redirect, "\033[35m", COLOR_CODE_MAX - 1);             // Magenta
-    strncpy(syntax->pipe, "\033[34m", COLOR_CODE_MAX - 1);                 // Blue
-    
+    strncpy(syntax->operator_sym, "\033[30m", COLOR_CODE_MAX - 1); // Black
+    strncpy(syntax->redirect, "\033[35m", COLOR_CODE_MAX - 1);     // Magenta
+    strncpy(syntax->pipe, "\033[34m", COLOR_CODE_MAX - 1);         // Blue
+
     // Other
-    strncpy(syntax->comment, "\033[37m", COLOR_CODE_MAX - 1);              // Light gray
-    strncpy(syntax->number, "\033[36m", COLOR_CODE_MAX - 1);               // Cyan
-    strncpy(syntax->path_valid, "\033[4;32m", COLOR_CODE_MAX - 1);         // Underline green
-    strncpy(syntax->path_invalid, "\033[4;31m", COLOR_CODE_MAX - 1);       // Underline red
-    strncpy(syntax->option, "\033[30m", COLOR_CODE_MAX - 1);               // Black
-    strncpy(syntax->glob, "\033[33m", COLOR_CODE_MAX - 1);                 // Yellow
-    strncpy(syntax->error_syntax, "\033[41;37m", COLOR_CODE_MAX - 1);      // White on red
+    strncpy(syntax->comment, "\033[37m", COLOR_CODE_MAX - 1); // Light gray
+    strncpy(syntax->number, "\033[36m", COLOR_CODE_MAX - 1);  // Cyan
+    strncpy(syntax->path_valid, "\033[4;32m",
+            COLOR_CODE_MAX - 1); // Underline green
+    strncpy(syntax->path_invalid, "\033[4;31m",
+            COLOR_CODE_MAX - 1);                             // Underline red
+    strncpy(syntax->option, "\033[30m", COLOR_CODE_MAX - 1); // Black
+    strncpy(syntax->glob, "\033[33m", COLOR_CODE_MAX - 1);   // Yellow
+    strncpy(syntax->error_syntax, "\033[41;37m",
+            COLOR_CODE_MAX - 1); // White on red
 }
 
 // =============================================================================
@@ -223,7 +238,8 @@ static theme_definition_t *create_corporate_theme(void) {
             COLOR_CODE_MAX - 1); // Orange
     strncpy(theme->colors.error, "\001\033[38;5;124m\002",
             COLOR_CODE_MAX - 1); // Dark red
-    strncpy(theme->colors.info, "\001\033[38;5;31m\002", COLOR_CODE_MAX - 1); // Cyan
+    strncpy(theme->colors.info, "\001\033[38;5;31m\002",
+            COLOR_CODE_MAX - 1); // Cyan
     strncpy(theme->colors.text, "\001\033[38;5;250m\002",
             COLOR_CODE_MAX - 1); // Light gray
     strncpy(theme->colors.text_dim, "\001\033[38;5;242m\002",
@@ -315,7 +331,8 @@ static theme_definition_t *create_dark_theme(void) {
             COLOR_CODE_MAX - 1); // Bright red
     strncpy(theme->colors.info, "\001\033[38;5;51m\002",
             COLOR_CODE_MAX - 1); // Bright cyan
-    strncpy(theme->colors.text, "\001\033[38;5;255m\002", COLOR_CODE_MAX - 1); // White
+    strncpy(theme->colors.text, "\001\033[38;5;255m\002",
+            COLOR_CODE_MAX - 1); // White
     strncpy(theme->colors.text_dim, "\001\033[38;5;244m\002",
             COLOR_CODE_MAX - 1); // Gray
     strncpy(theme->colors.background, "\001\033[48;5;232m\002",
@@ -487,11 +504,13 @@ static theme_definition_t *create_colorful_theme(void) {
     strncpy(theme->colors.success, "\001\033[38;5;118m\002",
             COLOR_CODE_MAX - 1); // Lime
     strncpy(theme->colors.warning, "\001\033[38;5;220m\002",
-            COLOR_CODE_MAX - 1);                                        // Gold
-    strncpy(theme->colors.error, "\001\033[38;5;196m\002", COLOR_CODE_MAX - 1); // Red
+            COLOR_CODE_MAX - 1); // Gold
+    strncpy(theme->colors.error, "\001\033[38;5;196m\002",
+            COLOR_CODE_MAX - 1); // Red
     strncpy(theme->colors.info, "\001\033[38;5;75m\002",
             COLOR_CODE_MAX - 1); // Sky blue
-    strncpy(theme->colors.text, "\001\033[38;5;255m\002", COLOR_CODE_MAX - 1); // White
+    strncpy(theme->colors.text, "\001\033[38;5;255m\002",
+            COLOR_CODE_MAX - 1); // White
     strncpy(theme->colors.text_dim, "\001\033[38;5;245m\002",
             COLOR_CODE_MAX - 1); // Gray
     strncpy(theme->colors.background, "\001\033[48;5;233m\002",
@@ -569,23 +588,38 @@ static theme_definition_t *create_minimal_theme(void) {
     theme->requires_powerline_fonts = false;
 
     // Minimal colors - only basic ANSI
-    strncpy(theme->colors.primary, "\001\033[0m\002", COLOR_CODE_MAX - 1);    // Reset
-    strncpy(theme->colors.secondary, "\001\033[0m\002", COLOR_CODE_MAX - 1);  // Reset
-    strncpy(theme->colors.success, "\001\033[32m\002", COLOR_CODE_MAX - 1);   // Green
-    strncpy(theme->colors.warning, "\001\033[33m\002", COLOR_CODE_MAX - 1);   // Yellow
-    strncpy(theme->colors.error, "\001\033[31m\002", COLOR_CODE_MAX - 1);     // Red
-    strncpy(theme->colors.info, "\001\033[36m\002", COLOR_CODE_MAX - 1);      // Cyan
-    strncpy(theme->colors.text, "\001\033[0m\002", COLOR_CODE_MAX - 1);       // Default
-    strncpy(theme->colors.text_dim, "\001\033[2m\002", COLOR_CODE_MAX - 1);   // Dim
-    strncpy(theme->colors.background, "\001\033[0m\002", COLOR_CODE_MAX - 1); // Default
-    strncpy(theme->colors.border, "\001\033[0m\002", COLOR_CODE_MAX - 1);     // Default
-    strncpy(theme->colors.highlight, "\001\033[1m\002", COLOR_CODE_MAX - 1);  // Bold
-    strncpy(theme->colors.git_clean, "\001\033[32m\002", COLOR_CODE_MAX - 1); // Green
-    strncpy(theme->colors.git_dirty, "\001\033[33m\002", COLOR_CODE_MAX - 1); // Yellow
-    strncpy(theme->colors.git_staged, "\001\033[32m\002", COLOR_CODE_MAX - 1); // Green
-    strncpy(theme->colors.git_branch, "\001\033[0m\002", COLOR_CODE_MAX - 1); // Default
-    strncpy(theme->colors.path_home, "\001\033[0m\002", COLOR_CODE_MAX - 1);  // Default
-    strncpy(theme->colors.path_root, "\001\033[31m\002", COLOR_CODE_MAX - 1); // Red
+    strncpy(theme->colors.primary, "\001\033[0m\002",
+            COLOR_CODE_MAX - 1); // Reset
+    strncpy(theme->colors.secondary, "\001\033[0m\002",
+            COLOR_CODE_MAX - 1); // Reset
+    strncpy(theme->colors.success, "\001\033[32m\002",
+            COLOR_CODE_MAX - 1); // Green
+    strncpy(theme->colors.warning, "\001\033[33m\002",
+            COLOR_CODE_MAX - 1); // Yellow
+    strncpy(theme->colors.error, "\001\033[31m\002", COLOR_CODE_MAX - 1); // Red
+    strncpy(theme->colors.info, "\001\033[36m\002", COLOR_CODE_MAX - 1); // Cyan
+    strncpy(theme->colors.text, "\001\033[0m\002",
+            COLOR_CODE_MAX - 1); // Default
+    strncpy(theme->colors.text_dim, "\001\033[2m\002",
+            COLOR_CODE_MAX - 1); // Dim
+    strncpy(theme->colors.background, "\001\033[0m\002",
+            COLOR_CODE_MAX - 1); // Default
+    strncpy(theme->colors.border, "\001\033[0m\002",
+            COLOR_CODE_MAX - 1); // Default
+    strncpy(theme->colors.highlight, "\001\033[1m\002",
+            COLOR_CODE_MAX - 1); // Bold
+    strncpy(theme->colors.git_clean, "\001\033[32m\002",
+            COLOR_CODE_MAX - 1); // Green
+    strncpy(theme->colors.git_dirty, "\001\033[33m\002",
+            COLOR_CODE_MAX - 1); // Yellow
+    strncpy(theme->colors.git_staged, "\001\033[32m\002",
+            COLOR_CODE_MAX - 1); // Green
+    strncpy(theme->colors.git_branch, "\001\033[0m\002",
+            COLOR_CODE_MAX - 1); // Default
+    strncpy(theme->colors.path_home, "\001\033[0m\002",
+            COLOR_CODE_MAX - 1); // Default
+    strncpy(theme->colors.path_root, "\001\033[31m\002",
+            COLOR_CODE_MAX - 1); // Red
     strncpy(theme->colors.path_normal, "\001\033[0m\002",
             COLOR_CODE_MAX - 1); // Default
 
@@ -634,25 +668,38 @@ static theme_definition_t *create_classic_theme(void) {
     theme->requires_powerline_fonts = false;
 
     // Classic ANSI colors
-    strncpy(theme->colors.primary, "\001\033[34m\002", COLOR_CODE_MAX - 1);   // Blue
-    strncpy(theme->colors.secondary, "\001\033[35m\002", COLOR_CODE_MAX - 1); // Magenta
-    strncpy(theme->colors.success, "\001\033[32m\002", COLOR_CODE_MAX - 1);   // Green
-    strncpy(theme->colors.warning, "\001\033[33m\002", COLOR_CODE_MAX - 1);   // Yellow
-    strncpy(theme->colors.error, "\001\033[31m\002", COLOR_CODE_MAX - 1);     // Red
-    strncpy(theme->colors.info, "\001\033[36m\002", COLOR_CODE_MAX - 1);      // Cyan
-    strncpy(theme->colors.text, "\001\033[0m\002", COLOR_CODE_MAX - 1);       // Default
-    strncpy(theme->colors.text_dim, "\001\033[2m\002", COLOR_CODE_MAX - 1);   // Dim
-    strncpy(theme->colors.background, "\001\033[0m\002", COLOR_CODE_MAX - 1); // Default
-    strncpy(theme->colors.border, "\001\033[37m\002", COLOR_CODE_MAX - 1);    // White
+    strncpy(theme->colors.primary, "\001\033[34m\002",
+            COLOR_CODE_MAX - 1); // Blue
+    strncpy(theme->colors.secondary, "\001\033[35m\002",
+            COLOR_CODE_MAX - 1); // Magenta
+    strncpy(theme->colors.success, "\001\033[32m\002",
+            COLOR_CODE_MAX - 1); // Green
+    strncpy(theme->colors.warning, "\001\033[33m\002",
+            COLOR_CODE_MAX - 1); // Yellow
+    strncpy(theme->colors.error, "\001\033[31m\002", COLOR_CODE_MAX - 1); // Red
+    strncpy(theme->colors.info, "\001\033[36m\002", COLOR_CODE_MAX - 1); // Cyan
+    strncpy(theme->colors.text, "\001\033[0m\002",
+            COLOR_CODE_MAX - 1); // Default
+    strncpy(theme->colors.text_dim, "\001\033[2m\002",
+            COLOR_CODE_MAX - 1); // Dim
+    strncpy(theme->colors.background, "\001\033[0m\002",
+            COLOR_CODE_MAX - 1); // Default
+    strncpy(theme->colors.border, "\001\033[37m\002",
+            COLOR_CODE_MAX - 1); // White
     strncpy(theme->colors.highlight, "\001\033[1;37m\002",
             COLOR_CODE_MAX - 1); // Bright white
-    strncpy(theme->colors.git_clean, "\001\033[32m\002", COLOR_CODE_MAX - 1);  // Green
-    strncpy(theme->colors.git_dirty, "\001\033[33m\002", COLOR_CODE_MAX - 1);  // Yellow
-    strncpy(theme->colors.git_staged, "\001\033[32m\002", COLOR_CODE_MAX - 1); // Green
+    strncpy(theme->colors.git_clean, "\001\033[32m\002",
+            COLOR_CODE_MAX - 1); // Green
+    strncpy(theme->colors.git_dirty, "\001\033[33m\002",
+            COLOR_CODE_MAX - 1); // Yellow
+    strncpy(theme->colors.git_staged, "\001\033[32m\002",
+            COLOR_CODE_MAX - 1); // Green
     strncpy(theme->colors.git_branch, "\001\033[35m\002",
-            COLOR_CODE_MAX - 1);                                      // Magenta
-    strncpy(theme->colors.path_home, "\001\033[34m\002", COLOR_CODE_MAX - 1); // Blue
-    strncpy(theme->colors.path_root, "\001\033[31m\002", COLOR_CODE_MAX - 1); // Red
+            COLOR_CODE_MAX - 1); // Magenta
+    strncpy(theme->colors.path_home, "\001\033[34m\002",
+            COLOR_CODE_MAX - 1); // Blue
+    strncpy(theme->colors.path_root, "\001\033[31m\002",
+            COLOR_CODE_MAX - 1); // Red
     strncpy(theme->colors.path_normal, "\001\033[0m\002",
             COLOR_CODE_MAX - 1); // Default
 
@@ -727,7 +774,7 @@ bool theme_init(void) {
         lle_integrated = true;
         // Use LLE for more accurate terminal detection
         terminal_color_support = theme_detect_color_support();
-        
+
         // Adjust theme capabilities based on terminal type
         if (lle_is_iterm2(detection)) {
             theme_ctx.auto_detect_capabilities = true;
@@ -867,24 +914,27 @@ bool symbol_compatibility_init(void) {
     if (symbol_system_initialized) {
         return true;
     }
-    
+
     // Auto-detect terminal capability
     terminal_supports_unicode = detect_terminal_unicode_support();
-    
+
     // Set default mode based on detection
     if (current_symbol_mode == SYMBOL_MODE_AUTO) {
-        current_symbol_mode = terminal_supports_unicode ? SYMBOL_MODE_UNICODE : SYMBOL_MODE_ASCII;
+        current_symbol_mode =
+            terminal_supports_unicode ? SYMBOL_MODE_UNICODE : SYMBOL_MODE_ASCII;
     }
-    
+
     symbol_system_initialized = true;
-    
+
     if (debug_enabled) {
-        printf("DEBUG: Symbol compatibility initialized - Mode: %s, Unicode support: %s\n",
-               current_symbol_mode == SYMBOL_MODE_UNICODE ? "Unicode" :
-               current_symbol_mode == SYMBOL_MODE_ASCII ? "ASCII" : "Auto",
+        printf("DEBUG: Symbol compatibility initialized - Mode: %s, Unicode "
+               "support: %s\n",
+               current_symbol_mode == SYMBOL_MODE_UNICODE ? "Unicode"
+               : current_symbol_mode == SYMBOL_MODE_ASCII ? "ASCII"
+                                                          : "Auto",
                terminal_supports_unicode ? "Yes" : "No");
     }
-    
+
     return true;
 }
 
@@ -896,22 +946,23 @@ static bool detect_terminal_unicode_support(void) {
     const char *term = getenv("TERM");
     const char *lang = getenv("LANG");
     const char *lc_all = getenv("LC_ALL");
-    
+
     // Basic heuristics for Unicode support detection
     if (term) {
         // Most modern terminals support Unicode
-        if (strstr(term, "xterm") || strstr(term, "screen") || 
+        if (strstr(term, "xterm") || strstr(term, "screen") ||
             strstr(term, "tmux") || strstr(term, "alacritty") ||
             strstr(term, "kitty") || strstr(term, "iterm")) {
             return true;
         }
     }
-    
+
     // Check locale settings
-    if ((lang && strstr(lang, "UTF-8")) || (lc_all && strstr(lc_all, "UTF-8"))) {
+    if ((lang && strstr(lang, "UTF-8")) ||
+        (lc_all && strstr(lc_all, "UTF-8"))) {
         return true;
     }
-    
+
     // Conservative default - assume ASCII only for unknown terminals
     return false;
 }
@@ -923,7 +974,7 @@ symbol_compatibility_t symbol_detect_terminal_capability(void) {
     if (!symbol_system_initialized) {
         symbol_compatibility_init();
     }
-    
+
     return terminal_supports_unicode ? SYMBOL_MODE_UNICODE : SYMBOL_MODE_ASCII;
 }
 
@@ -934,19 +985,21 @@ bool symbol_set_compatibility_mode(symbol_compatibility_t mode) {
     if (mode < SYMBOL_MODE_UNICODE || mode > SYMBOL_MODE_AUTO) {
         return false;
     }
-    
+
     current_symbol_mode = mode;
-    
+
     // Re-evaluate if set to auto
     if (mode == SYMBOL_MODE_AUTO) {
-        current_symbol_mode = terminal_supports_unicode ? SYMBOL_MODE_UNICODE : SYMBOL_MODE_ASCII;
+        current_symbol_mode =
+            terminal_supports_unicode ? SYMBOL_MODE_UNICODE : SYMBOL_MODE_ASCII;
     }
-    
+
     if (debug_enabled) {
         printf("DEBUG: Symbol mode set to: %s\n",
-               current_symbol_mode == SYMBOL_MODE_UNICODE ? "Unicode" : "ASCII");
+               current_symbol_mode == SYMBOL_MODE_UNICODE ? "Unicode"
+                                                          : "ASCII");
     }
-    
+
     return true;
 }
 
@@ -957,36 +1010,39 @@ symbol_compatibility_t symbol_get_compatibility_mode(void) {
     if (!symbol_system_initialized) {
         symbol_compatibility_init();
     }
-    
+
     return current_symbol_mode;
 }
 
 /**
  * Convert symbols in a string based on compatibility mode
  */
-static bool convert_symbols_in_string(const char *input, char *output, size_t output_size) {
+static bool convert_symbols_in_string(const char *input, char *output,
+                                      size_t output_size) {
     if (!input || !output || output_size == 0) {
         return false;
     }
-    
+
     const char *src = input;
     char *dest = output;
     size_t remaining = output_size - 1; // Leave space for null terminator
-    
+
     while (*src && remaining > 0) {
         bool found_symbol = false;
-        
+
         // Check for Unicode symbols to replace
         for (int i = 0; symbol_mappings[i].unicode_symbol != NULL; i++) {
             const char *unicode_sym = symbol_mappings[i].unicode_symbol;
             size_t sym_len = strlen(unicode_sym);
-            
+
             if (strncmp(src, unicode_sym, sym_len) == 0) {
                 // Found a symbol to replace
-                const char *replacement = (current_symbol_mode == SYMBOL_MODE_ASCII) ?
-                                        symbol_mappings[i].ascii_fallback : unicode_sym;
+                const char *replacement =
+                    (current_symbol_mode == SYMBOL_MODE_ASCII)
+                        ? symbol_mappings[i].ascii_fallback
+                        : unicode_sym;
                 size_t repl_len = strlen(replacement);
-                
+
                 if (repl_len <= remaining) {
                     strcpy(dest, replacement);
                     dest += repl_len;
@@ -997,14 +1053,14 @@ static bool convert_symbols_in_string(const char *input, char *output, size_t ou
                 }
             }
         }
-        
+
         if (!found_symbol) {
             // Copy regular character
             *dest++ = *src++;
             remaining--;
         }
     }
-    
+
     *dest = '\0';
     return true;
 }
@@ -1012,38 +1068,40 @@ static bool convert_symbols_in_string(const char *input, char *output, size_t ou
 /**
  * Convert Unicode symbols to ASCII fallbacks in text
  */
-bool symbol_convert_to_ascii(const char *input, char *output, size_t output_size) {
+bool symbol_convert_to_ascii(const char *input, char *output,
+                             size_t output_size) {
     if (!input || !output || output_size == 0) {
         return false;
     }
-    
+
     // Temporarily set mode to ASCII for conversion
     symbol_compatibility_t original_mode = current_symbol_mode;
     current_symbol_mode = SYMBOL_MODE_ASCII;
-    
+
     bool result = convert_symbols_in_string(input, output, output_size);
-    
+
     // Restore original mode
     current_symbol_mode = original_mode;
-    
+
     return result;
 }
 
 /**
  * Process template with symbol compatibility
  */
-bool symbol_process_template(const char *template_str, char *output, size_t output_size, bool force_ascii) {
+bool symbol_process_template(const char *template_str, char *output,
+                             size_t output_size, bool force_ascii) {
     if (!template_str || !output || output_size == 0) {
         return false;
     }
-    
+
     if (!symbol_system_initialized) {
         symbol_compatibility_init();
     }
-    
+
     // Use ASCII mode if forced or if current mode is ASCII
     bool use_ascii = force_ascii || (current_symbol_mode == SYMBOL_MODE_ASCII);
-    
+
     if (use_ascii) {
         return convert_symbols_in_string(template_str, output, output_size);
     } else {
@@ -1057,7 +1115,7 @@ bool symbol_process_template(const char *template_str, char *output, size_t outp
 /**
  * Get symbol mapping table
  */
-const symbol_mapping_t* symbol_get_mapping_table(void) {
+const symbol_mapping_t *symbol_get_mapping_table(void) {
     return symbol_mappings;
 }
 
@@ -1190,8 +1248,9 @@ bool theme_set_active(const char *name) {
 
     // Enhanced Performance Monitoring: Record theme change timing
     gettimeofday(&end_time, NULL);
-    uint64_t operation_time_ns = ((uint64_t)(end_time.tv_sec - start_time.tv_sec)) * 1000000000ULL +
-                                 ((uint64_t)(end_time.tv_usec - start_time.tv_usec)) * 1000ULL;
+    uint64_t operation_time_ns =
+        ((uint64_t)(end_time.tv_sec - start_time.tv_sec)) * 1000000000ULL +
+        ((uint64_t)(end_time.tv_usec - start_time.tv_usec)) * 1000ULL;
     display_integration_record_display_timing(operation_time_ns);
 
     return true;
@@ -1321,12 +1380,14 @@ bool theme_validate_color_code(const char *color_code) {
     // Handle readline escape sequences: \001\033[...m\002
     if (color_code[0] == '\001') {
         // Must start with \001\033[
-        if (strlen(color_code) < 4 || strncmp(color_code, "\001\033[", 3) != 0) {
+        if (strlen(color_code) < 4 ||
+            strncmp(color_code, "\001\033[", 3) != 0) {
             return false;
         }
         // Must end with m\002
         size_t len = strlen(color_code);
-        if (len < 6 || color_code[len - 1] != '\002' || color_code[len - 2] != 'm') {
+        if (len < 6 || color_code[len - 1] != '\002' ||
+            color_code[len - 2] != 'm') {
             return false;
         }
     } else {
@@ -1661,7 +1722,9 @@ bool template_process(const char *template_str, template_context_t *ctx,
 
                         // Add reset if color was applied
                         if (var_color && strlen(var_color) > 0) {
-                            const char *reset = "\001\033[0m\002";  // With readline escape markers
+                            const char *reset =
+                                "\001\033[0m\002"; // With readline escape
+                                                   // markers
                             size_t reset_len = strlen(reset);
                             if (output_pos + reset_len < output_size) {
                                 strcpy(output + output_pos, reset);
@@ -1714,9 +1777,10 @@ bool template_process(const char *template_str, template_context_t *ctx,
 /**
  * Process template with responsive layout for terminal-aware rendering
  */
-bool template_process_responsive(const char *template_str, template_context_t *ctx,
-                               char *output, size_t output_size,
-                               int terminal_width, bool use_colors) {
+bool template_process_responsive(const char *template_str,
+                                 template_context_t *ctx, char *output,
+                                 size_t output_size, int terminal_width,
+                                 bool use_colors) {
     if (!template_str || !ctx || !output || output_size < 1) {
         return false;
     }
@@ -1732,13 +1796,13 @@ bool template_process_responsive(const char *template_str, template_context_t *c
         char simple_output[output_size];
         size_t len = strlen(output);
         size_t pos = 0;
-        
+
         // Remove excessive spacing and decorations for narrow terminals
         for (size_t i = 0; i < len && pos < output_size - 1; i++) {
             if (output[i] == '\t') {
                 // Replace tabs with single spaces in narrow terminals
                 simple_output[pos++] = ' ';
-            } else if (output[i] == ' ' && i > 0 && output[i-1] == ' ') {
+            } else if (output[i] == ' ' && i > 0 && output[i - 1] == ' ') {
                 // Skip multiple consecutive spaces
                 continue;
             } else {
@@ -1755,7 +1819,7 @@ bool template_process_responsive(const char *template_str, template_context_t *c
         char no_color_output[output_size];
         size_t len = strlen(output);
         size_t pos = 0;
-        
+
         for (size_t i = 0; i < len && pos < output_size - 1; i++) {
             if (output[i] == '\033') {
                 // Skip ANSI escape sequences
@@ -1790,26 +1854,27 @@ bool theme_generate_primary_prompt(char *output, size_t output_size) {
         return true;
     }
 
-    // Enhanced Theme Caching: Check for repeated operations with symbol compatibility
+    // Enhanced Theme Caching: Check for repeated operations with symbol
+    // compatibility
     time_t now = time(NULL);
     int current_symbol_mode = (int)symbol_get_compatibility_mode();
-    
+
     // Temporarily disable theme caching to test theme functionality
     if (false && now - last_theme_time <= 2 && // 2 second cache - DISABLED
         strcmp(theme->name, last_theme_name) == 0 &&
         current_symbol_mode == last_symbol_mode &&
         strlen(last_theme_output) > 0) {
-        
+
         // Validate cached output doesn't have malformed escapes
         bool cache_has_malformed = false;
         for (size_t i = 0; i < strlen(last_theme_output) - 1; i++) {
-            if ((unsigned char)last_theme_output[i] == 0x01 && 
-                (unsigned char)last_theme_output[i+1] == 0x02) {
+            if ((unsigned char)last_theme_output[i] == 0x01 &&
+                (unsigned char)last_theme_output[i + 1] == 0x02) {
                 cache_has_malformed = true;
                 break;
             }
         }
-        
+
         if (!cache_has_malformed) {
             // Quick cache hit for rapid theme operations
             strncpy(output, last_theme_output, output_size - 1);
@@ -1818,7 +1883,7 @@ bool theme_generate_primary_prompt(char *output, size_t output_size) {
             return true;
         }
     }
-    
+
     // Cache miss - record it
     display_integration_record_cache_operation(false);
 
@@ -1890,10 +1955,10 @@ bool theme_generate_primary_prompt(char *output, size_t output_size) {
     template_add_variable(ctx, "d", directory, NULL, false);
     template_add_variable(ctx, "t", time_str, NULL, false);
     template_add_variable(ctx, "g", git_info, NULL, false);
-    
+
     // Add terminal capability variables
     theme_add_terminal_variables(ctx);
-    
+
     // Update dynamic variables with current state
     theme_update_dynamic_variables(ctx);
 
@@ -1915,54 +1980,55 @@ bool theme_generate_primary_prompt(char *output, size_t output_size) {
     // Process template with responsive layout and symbol compatibility
     char temp_output[1024];
 
-    bool success = template_process_responsive(theme->templates.primary_template, ctx,
-                                             temp_output, sizeof(temp_output),
-                                             terminal_width, use_colors);
+    bool success = template_process_responsive(
+        theme->templates.primary_template, ctx, temp_output,
+        sizeof(temp_output), terminal_width, use_colors);
 
-    
     // Check for malformed escape sequences that cause display truncation
     if (success && strlen(temp_output) > 0) {
         bool has_malformed_escapes = false;
         for (size_t i = 0; i < strlen(temp_output) - 1; i++) {
             // Detect \x01\x02 pattern (empty escape sequence)
-            if ((unsigned char)temp_output[i] == 0x01 && (unsigned char)temp_output[i+1] == 0x02) {
+            if ((unsigned char)temp_output[i] == 0x01 &&
+                (unsigned char)temp_output[i + 1] == 0x02) {
                 has_malformed_escapes = true;
                 break;
             }
         }
         (void)has_malformed_escapes; /* Reserved for future escape validation */
     }
-    
+
     // Temporarily disable malformed escape detection to test theme fix
     // Only activate fallback for actual failures, not working prompts
     if (!success) {
-        // Create simple fallback prompt without color codes  
-        snprintf(temp_output, sizeof(temp_output), "[%s@%s] %s%s $ ",
-                username, hostname, directory, git_info);
+        // Create simple fallback prompt without color codes
+        snprintf(temp_output, sizeof(temp_output), "[%s@%s] %s%s $ ", username,
+                 hostname, directory, git_info);
         success = true;
     }
-    
+
     // Apply symbol compatibility processing
     if (success) {
 
-        success = symbol_process_template(temp_output, output, output_size, false);
-
+        success =
+            symbol_process_template(temp_output, output, output_size, false);
     }
-    
+
     // Final validation - ensure no remaining malformed escape sequences
     if (success && strlen(output) > 0) {
         bool final_check_failed = false;
         for (size_t i = 0; i < strlen(output) - 1; i++) {
-            if ((unsigned char)output[i] == 0x01 && (unsigned char)output[i+1] == 0x02) {
+            if ((unsigned char)output[i] == 0x01 &&
+                (unsigned char)output[i + 1] == 0x02) {
                 final_check_failed = true;
                 break;
             }
         }
-        
+
         // Last resort fallback only if symbol processing introduced issues
         if (final_check_failed) {
-            snprintf(output, output_size, "[%s@%s] %s%s $ ", 
-                    username, hostname, directory, git_info);
+            snprintf(output, output_size, "[%s@%s] %s%s $ ", username, hostname,
+                     directory, git_info);
         }
     }
 
@@ -2009,19 +2075,20 @@ bool theme_generate_secondary_prompt(char *output, size_t output_size) {
 
     // Add terminal capability variables for consistent access
     theme_add_terminal_variables(ctx);
-    
+
     // Update dynamic variables with current state
     theme_update_dynamic_variables(ctx);
 
     // Process template with responsive layout and symbol compatibility
     char temp_output[1024];
-    bool success = template_process_responsive(theme->templates.secondary_template, ctx,
-                                             temp_output, sizeof(temp_output),
-                                             terminal_width, use_colors);
-    
+    bool success = template_process_responsive(
+        theme->templates.secondary_template, ctx, temp_output,
+        sizeof(temp_output), terminal_width, use_colors);
+
     // Apply symbol compatibility processing
     if (success) {
-        success = symbol_process_template(temp_output, output, output_size, false);
+        success =
+            symbol_process_template(temp_output, output, output_size, false);
     }
 
     template_free_context(ctx);
@@ -2081,15 +2148,18 @@ void theme_display_startup_branding(void) {
     }
 
     if (strlen(current_branding.company_name) > 0) {
-        const char *primary_color = use_colors ? theme_get_color("primary") : "";
+        const char *primary_color =
+            use_colors ? theme_get_color("primary") : "";
         const char *reset = use_colors ? "\001\033[0m\002" : "";
-        
+
         // Center the company name if terminal is wide enough
         // Use Unicode display width for proper alignment with CJK/emoji
         if (terminal_width >= 40) {
             char company_text[256];
-            snprintf(company_text, sizeof(company_text), "%s Shell Environment", current_branding.company_name);
-            size_t display_width = lle_utf8_string_width(company_text, strlen(company_text));
+            snprintf(company_text, sizeof(company_text), "%s Shell Environment",
+                     current_branding.company_name);
+            size_t display_width =
+                lle_utf8_string_width(company_text, strlen(company_text));
             int padding = (terminal_width - (int)display_width) / 2;
             if (padding > 0) {
                 printf("%*s", padding, "");
@@ -2097,7 +2167,8 @@ void theme_display_startup_branding(void) {
             printf("%s%s%s\n", primary_color, company_text, reset);
         } else {
             // Simple display for narrow terminals
-            printf("%s%s%s\n", primary_color, current_branding.company_name, reset);
+            printf("%s%s%s\n", primary_color, current_branding.company_name,
+                   reset);
         }
     }
 }
@@ -2113,16 +2184,16 @@ void theme_update_dynamic_variables(template_context_t *ctx) {
     if (!ctx) {
         return;
     }
-    
+
     // Get current terminal capabilities
     int cols = 80, rows = 24;
     lle_get_terminal_size(&cols, &rows);
-    
+
     // Update terminal size variables
     char cols_str[16], rows_str[16];
     snprintf(cols_str, sizeof(cols_str), "%d", cols);
     snprintf(rows_str, sizeof(rows_str), "%d", rows);
-    
+
     // Update or add terminal capability variables
     for (size_t i = 0; i < ctx->count; i++) {
         if (ctx->variables[i].dynamic) {
@@ -2135,10 +2206,12 @@ void theme_update_dynamic_variables(template_context_t *ctx) {
             } else if (strcmp(ctx->variables[i].name, "terminal") == 0) {
                 free(ctx->variables[i].value);
                 const char *term_type = lle_get_terminal_type(NULL);
-                ctx->variables[i].value = strdup(term_type ? term_type : "unknown");
+                ctx->variables[i].value =
+                    strdup(term_type ? term_type : "unknown");
             } else if (strcmp(ctx->variables[i].name, "has_colors") == 0) {
                 free(ctx->variables[i].value);
-                ctx->variables[i].value = strdup(lle_is_tty() && terminal_color_support ? "1" : "0");
+                ctx->variables[i].value =
+                    strdup(lle_is_tty() && terminal_color_support ? "1" : "0");
             }
         }
     }
@@ -2151,23 +2224,26 @@ void theme_add_terminal_variables(template_context_t *ctx) {
     if (!ctx) {
         return;
     }
-    
+
     // Get terminal info via LLE
     int cols = 80, rows = 24;
     lle_get_terminal_size(&cols, &rows);
     const char *term_type = lle_get_terminal_type(NULL);
     bool is_tty = lle_is_tty();
-    
+
     // Add dynamic terminal variables
     char cols_str[16], rows_str[16];
     snprintf(cols_str, sizeof(cols_str), "%d", cols);
     snprintf(rows_str, sizeof(rows_str), "%d", rows);
-    
+
     template_add_variable(ctx, "cols", cols_str, NULL, true);
     template_add_variable(ctx, "rows", rows_str, NULL, true);
-    template_add_variable(ctx, "terminal", term_type ? term_type : "unknown", NULL, true);
-    template_add_variable(ctx, "has_colors", is_tty && terminal_color_support ? "1" : "0", NULL, true);
-    
+    template_add_variable(ctx, "terminal", term_type ? term_type : "unknown",
+                          NULL, true);
+    template_add_variable(ctx, "has_colors",
+                          is_tty && terminal_color_support ? "1" : "0", NULL,
+                          true);
+
     // Add platform-specific variables
     if (lle_is_iterm2(NULL)) {
         template_add_variable(ctx, "iterm2", "1", NULL, false);

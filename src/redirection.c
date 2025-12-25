@@ -133,7 +133,10 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
 
     // Privileged mode security check for redirection target
     if (!is_privileged_redirection_allowed(target)) {
-        fprintf(stderr, "lusush: %s: restricted redirection target in privileged mode\n", target);
+        fprintf(
+            stderr,
+            "lusush: %s: restricted redirection target in privileged mode\n",
+            target);
         free(target);
         return 1;
     }
@@ -148,12 +151,15 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
             struct stat st;
             if (stat(target, &st) == 0) {
                 // File exists and noclobber is enabled
-                fprintf(stderr, "lusush: %s: cannot overwrite existing file (noclobber)\n", target);
+                fprintf(
+                    stderr,
+                    "lusush: %s: cannot overwrite existing file (noclobber)\n",
+                    target);
                 result = 1;
                 break;
             }
         }
-        
+
         int fd = open(target, O_WRONLY | O_CREAT | O_TRUNC, 0644);
         if (fd == -1) {
             perror(target);

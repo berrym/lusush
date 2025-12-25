@@ -180,7 +180,10 @@ int symtable_set_readonly_global(const char *name, const char *value);
 // Debugging and introspection
 void symtable_debug_dump_global_scope(void);
 void symtable_debug_dump_all_scopes(void);
-void symtable_debug_enumerate_global_vars(void (*callback)(const char *key, const char *value, void *userdata), void *userdata);
+void symtable_debug_enumerate_global_vars(void (*callback)(const char *key,
+                                                           const char *value,
+                                                           void *userdata),
+                                          void *userdata);
 size_t symtable_count_global_vars(void);
 
 // Environment array operations

@@ -83,11 +83,9 @@ void lle_lusush_display_client_destroy(lle_lusush_display_client_t *client) {
  * This function translates LLE's internal display representation to
  * the format expected by Lusush display system.
  */
-static lle_result_t
-LLE_MAYBE_UNUSED
-convert_to_lusush_format(lle_lusush_display_client_t *client,
-                         lle_display_content_t *content,
-                         lusush_layer_content_t **lusush_content) {
+static lle_result_t LLE_MAYBE_UNUSED convert_to_lusush_format(
+    lle_lusush_display_client_t *client, lle_display_content_t *content,
+    lusush_layer_content_t **lusush_content) {
     if (!client || !content || !lusush_content) {
         return LLE_ERROR_INVALID_PARAMETER;
     }

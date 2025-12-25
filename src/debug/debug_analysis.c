@@ -427,9 +427,9 @@ void debug_show_analysis_report(debug_context_t *ctx) {
     // Summary and recommendations
     debug_printf(ctx, "Summary:\n");
     if (error_count > 0) {
-        debug_printf(ctx,
-                     "  WARNING: %d syntax or critical errors need to be fixed\n",
-                     error_count);
+        debug_printf(
+            ctx, "  WARNING: %d syntax or critical errors need to be fixed\n",
+            error_count);
     }
     if (warning_count > 0) {
         debug_printf(ctx, "  WARNING: %d warnings should be addressed\n",

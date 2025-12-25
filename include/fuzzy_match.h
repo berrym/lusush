@@ -2,7 +2,8 @@
  * fuzzy_match.h - Unicode-Aware Fuzzy String Matching Library
  *
  * Provides fuzzy string matching algorithms with full Unicode support.
- * Used by both the shell's autocorrect system and LLE's completion/history search.
+ * Used by both the shell's autocorrect system and LLE's completion/history
+ * search.
  *
  * Features:
  * - Levenshtein (edit) distance
@@ -23,16 +24,17 @@
 
 /* ============================================================================
  * CONFIGURATION
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Fuzzy matching options
  */
 typedef struct fuzzy_match_options {
-    bool case_sensitive;        /* Case-sensitive comparison (default: false) */
-    bool unicode_normalize;     /* Use NFC normalization (default: true) */
-    bool use_damerau;           /* Use Damerau-Levenshtein instead of Levenshtein */
-    int max_distance;           /* Maximum edit distance to consider (0 = unlimited) */
+    bool case_sensitive;    /* Case-sensitive comparison (default: false) */
+    bool unicode_normalize; /* Use NFC normalization (default: true) */
+    bool use_damerau;       /* Use Damerau-Levenshtein instead of Levenshtein */
+    int max_distance; /* Maximum edit distance to consider (0 = unlimited) */
 } fuzzy_match_options_t;
 
 /**
@@ -52,7 +54,8 @@ extern const fuzzy_match_options_t FUZZY_MATCH_FAST;
 
 /* ============================================================================
  * SIMILARITY SCORE FUNCTIONS
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Calculate combined fuzzy similarity score between two strings
@@ -81,9 +84,8 @@ int fuzzy_match_score(const char *s1, const char *s2,
  * @param options Matching options (NULL for defaults)
  * @return Similarity score 0-100
  */
-int fuzzy_match_score_n(const char *s1, size_t len1,
-                        const char *s2, size_t len2,
-                        const fuzzy_match_options_t *options);
+int fuzzy_match_score_n(const char *s1, size_t len1, const char *s2,
+                        size_t len2, const fuzzy_match_options_t *options);
 
 /**
  * Check if two strings are a fuzzy match above a threshold
@@ -94,13 +96,13 @@ int fuzzy_match_score_n(const char *s1, size_t len1,
  * @param options   Matching options (NULL for defaults)
  * @return true if score >= threshold
  */
-bool fuzzy_match_is_match(const char *s1, const char *s2,
-                          int threshold,
+bool fuzzy_match_is_match(const char *s1, const char *s2, int threshold,
                           const fuzzy_match_options_t *options);
 
 /* ============================================================================
  * INDIVIDUAL ALGORITHM FUNCTIONS
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Calculate Levenshtein (edit) distance
@@ -196,15 +198,16 @@ bool fuzzy_is_subsequence(const char *pattern, const char *text,
 
 /* ============================================================================
  * BATCH MATCHING (for completion/suggestion lists)
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Match result for batch operations
  */
 typedef struct fuzzy_match_result {
-    const char *text;       /* Matched text (not owned) */
-    int score;              /* Similarity score 0-100 */
-    int index;              /* Original index in input array */
+    const char *text; /* Matched text (not owned) */
+    int score;        /* Similarity score 0-100 */
+    int index;        /* Original index in input array */
 } fuzzy_match_result_t;
 
 /**
@@ -222,10 +225,9 @@ typedef struct fuzzy_match_result {
  * @param options     Matching options (NULL for defaults)
  * @return Number of results found
  */
-int fuzzy_match_best(const char *pattern,
-                     const char **candidates, int num_candidates,
-                     fuzzy_match_result_t *results, int max_results,
-                     int threshold,
+int fuzzy_match_best(const char *pattern, const char **candidates,
+                     int num_candidates, fuzzy_match_result_t *results,
+                     int max_results, int threshold,
                      const fuzzy_match_options_t *options);
 
 /**
@@ -242,15 +244,14 @@ int fuzzy_match_best(const char *pattern,
  * @param options       Matching options (NULL for defaults)
  * @return Number of matching candidates
  */
-int fuzzy_match_filter(const char *pattern,
-                       const char **candidates, int num_candidates,
-                       int *indices, int max_indices,
-                       int threshold,
-                       const fuzzy_match_options_t *options);
+int fuzzy_match_filter(const char *pattern, const char **candidates,
+                       int num_candidates, int *indices, int max_indices,
+                       int threshold, const fuzzy_match_options_t *options);
 
 /* ============================================================================
  * UTILITY FUNCTIONS
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Convert edit distance to similarity score

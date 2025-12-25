@@ -705,9 +705,7 @@ lle_result_t lle_get_terminal_size(int *cols, int *rows) {
 /**
  * Check if stdout is a TTY.
  */
-bool lle_is_tty(void) {
-    return isatty(STDOUT_FILENO) != 0;
-}
+bool lle_is_tty(void) { return isatty(STDOUT_FILENO) != 0; }
 
 /**
  * Reset terminal to clean state.

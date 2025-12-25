@@ -1,14 +1,15 @@
 /*
  * libhashtable - A generic hash table implementation
- * 
+ *
  * Original Project: https://github.com/berrym/libhashtable (MIT License)
  * Copyright (C) 2023-2025 Michael Berry <trismegustis@gmail.com>
  *
- * NOTE: This is integrated source code from the author's own libhashtable project.
- * The standalone libhashtable repository remains MIT licensed, but this integrated
- * version is relicensed under GPL-3.0+ as part of the Lusush project.
- * 
- * As the copyright holder of libhashtable, the author has full rights to 
+ * NOTE: This is integrated source code from the author's own libhashtable
+ * project. The standalone libhashtable repository remains MIT licensed, but
+ * this integrated version is relicensed under GPL-3.0+ as part of the Lusush
+ * project.
+ *
+ * As the copyright holder of libhashtable, the author has full rights to
  * relicense this code for integration into GPL-licensed projects.
  *
  * This program is free software: you can redistribute it and/or modify

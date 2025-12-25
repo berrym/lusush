@@ -179,9 +179,10 @@ bool is_azure_instance(void);
 bool is_network_command(const char *command);
 void complete_network_command_args(const char *command, const char *text,
                                    lusush_completions_t *lc);
-void complete_network_command_args_with_context(const char *command, const char *text,
-                                                lusush_completions_t *lc, const char *buf,
-                                                int start_pos);
+void complete_network_command_args_with_context(const char *command,
+                                                const char *text,
+                                                lusush_completions_t *lc,
+                                                const char *buf, int start_pos);
 void complete_ssh_command(const char *text, lusush_completions_t *lc);
 void complete_scp_command(const char *text, lusush_completions_t *lc);
 void complete_rsync_command(const char *text, lusush_completions_t *lc);

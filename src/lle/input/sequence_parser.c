@@ -342,7 +342,8 @@ lle_sequence_parser_process_data(lle_sequence_parser_t *parser,
                 // ESC + printable ASCII or DEL = Meta/Alt + character
                 // This is how macOS Terminal sends Alt+key when Option is Meta,
                 // or when user physically presses ESC then a letter (e.g., ESC
-                // f for M-f). 0x7F (DEL/Backspace) is included for Alt+Backspace.
+                // f for M-f). 0x7F (DEL/Backspace) is included for
+                // Alt+Backspace.
                 lle_parsed_input_t *result =
                     lle_pool_alloc(sizeof(lle_parsed_input_t));
                 if (!result) {

@@ -1,8 +1,8 @@
 #ifndef PROMPT_H
 #define PROMPT_H
 
-#include <stddef.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <time.h>
 
 // Intelligent Prompt Caching System

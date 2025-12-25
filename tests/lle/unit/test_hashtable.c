@@ -1,28 +1,28 @@
 /**
  * @file test_hashtable.c
  * @brief Comprehensive Functional Tests for LLE Hashtable Wrapper (Spec 05)
- * 
+ *
  * Tests all three phases of the libhashtable integration wrapper:
  * - Phase 1: Core Integration (factory, memory pool, monitoring, registry)
  * - Phase 2: Thread Safety and Optimization
  * - Phase 3: Advanced Features (generic types, configuration)
- * 
+ *
  * IMPLEMENTATION: src/lle/hashtable.c
  * SPECIFICATION: docs/lle_specification/05_libhashtable_integration_complete.md
- * 
+ *
  * ZERO-TOLERANCE COMPLIANCE:
  * - All functionality must be tested
  * - Complete implementation only
  * - 100% spec coverage
  */
 
-#include "lle/hashtable.h"
 #include "lle/error_handling.h"
+#include "lle/hashtable.h"
+#include <assert.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
-#include <pthread.h>
 #include <unistd.h>
 
 /* ========================================================================== */
@@ -33,25 +33,25 @@ static int tests_run = 0;
 static int tests_passed = 0;
 static int tests_failed = 0;
 
-#define TEST(name) \
-    static void test_##name(void); \
-    __attribute__((unused)) static void run_test_##name(void) { \
-        printf("Running test: %s\n", #name); \
-        tests_run++; \
-        test_##name(); \
-        tests_passed++; \
-    } \
+#define TEST(name)                                                             \
+    static void test_##name(void);                                             \
+    __attribute__((unused)) static void run_test_##name(void) {                \
+        printf("Running test: %s\n", #name);                                   \
+        tests_run++;                                                           \
+        test_##name();                                                         \
+        tests_passed++;                                                        \
+    }                                                                          \
     static void test_##name(void)
 
-#define ASSERT_TRUE(cond, msg) \
-    do { \
-        if (!(cond)) { \
-            printf("  ✗ ASSERTION FAILED: %s\n", msg); \
-            printf("    at %s:%d\n", __FILE__, __LINE__); \
-            tests_failed++; \
-            return; \
-        } \
-    } while(0)
+#define ASSERT_TRUE(cond, msg)                                                 \
+    do {                                                                       \
+        if (!(cond)) {                                                         \
+            printf("  ✗ ASSERTION FAILED: %s\n", msg);                         \
+            printf("    at %s:%d\n", __FILE__, __LINE__);                      \
+            tests_failed++;                                                    \
+            return;                                                            \
+        }                                                                      \
+    } while (0)
 
 #define ASSERT_FALSE(cond, msg) ASSERT_TRUE(!(cond), msg)
 #define ASSERT_NULL(ptr, msg) ASSERT_TRUE((ptr) == NULL, msg)
@@ -67,18 +67,15 @@ static int tests_failed = 0;
 
 /* Mock memory pool */
 static int mock_pool_dummy = 42;
-static lusush_memory_pool_t *mock_pool = (lusush_memory_pool_t*)&mock_pool_dummy;
+static lusush_memory_pool_t *mock_pool =
+    (lusush_memory_pool_t *)&mock_pool_dummy;
 
 /* Stubs for Lusush memory pool functions */
 lusush_memory_pool_system_t *global_memory_pool = NULL;
 
-void *lusush_pool_alloc(size_t size) {
-    return malloc(size);
-}
+void *lusush_pool_alloc(size_t size) { return malloc(size); }
 
-void lusush_pool_free(void *ptr) {
-    free(ptr);
-}
+void lusush_pool_free(void *ptr) { free(ptr); }
 
 lusush_pool_config_t lusush_pool_get_default_config(void) {
     lusush_pool_config_t config = {0};
@@ -96,38 +93,44 @@ lusush_pool_error_t lusush_pool_init(const lusush_pool_config_t *config) {
 
 TEST(config_init_default) {
     lle_hashtable_config_t config;
-    
+
     lle_hashtable_config_init_default(&config);
-    
+
     ASSERT_FALSE(config.use_memory_pool, "Default should not use memory pool");
     ASSERT_NULL(config.memory_pool, "Default memory pool should be NULL");
     ASSERT_TRUE(config.random_seed, "Default should use random seed");
     ASSERT_FALSE(config.thread_safe, "Default should not be thread-safe");
-    ASSERT_EQ(config.initial_capacity, 16, "Default initial capacity should be 16");
-    ASSERT_FALSE(config.performance_monitoring, "Default should not monitor performance");
+    ASSERT_EQ(config.initial_capacity, 16,
+              "Default initial capacity should be 16");
+    ASSERT_FALSE(config.performance_monitoring,
+                 "Default should not monitor performance");
 }
 
 TEST(config_create_pooled) {
     lle_hashtable_config_t *config = NULL;
-    
-    lle_result_t result = lle_hashtable_config_create_pooled(&config, mock_pool, "test_table");
-    
+
+    lle_result_t result =
+        lle_hashtable_config_create_pooled(&config, mock_pool, "test_table");
+
     ASSERT_EQ(result, LLE_SUCCESS, "Config creation should succeed");
     ASSERT_NOT_NULL(config, "Config should be allocated");
-    ASSERT_TRUE(config->use_memory_pool, "Pooled config should use memory pool");
+    ASSERT_TRUE(config->use_memory_pool,
+                "Pooled config should use memory pool");
     ASSERT_EQ(config->memory_pool, mock_pool, "Memory pool should be set");
     ASSERT_STR_EQ(config->hashtable_name, "test_table", "Name should be set");
-    
-    if (config->hashtable_name) free((void*)config->hashtable_name);
+
+    if (config->hashtable_name)
+        free((void *)config->hashtable_name);
     free(config);
 }
 
 TEST(config_invalid_params) {
     lle_hashtable_config_t *config = NULL;
-    
-    lle_result_t result = lle_hashtable_config_create_pooled(NULL, mock_pool, "test");
+
+    lle_result_t result =
+        lle_hashtable_config_create_pooled(NULL, mock_pool, "test");
     ASSERT_NEQ(result, LLE_SUCCESS, "NULL config pointer should fail");
-    
+
     result = lle_hashtable_config_create_pooled(&config, NULL, "test");
     ASSERT_NEQ(result, LLE_SUCCESS, "NULL memory pool should fail");
 }
@@ -138,32 +141,32 @@ TEST(config_invalid_params) {
 
 TEST(registry_init_destroy) {
     lle_hashtable_registry_t *registry = NULL;
-    
+
     lle_result_t result = lle_hashtable_registry_init(&registry);
-    
+
     ASSERT_EQ(result, LLE_SUCCESS, "Registry init should succeed");
     ASSERT_NOT_NULL(registry, "Registry should be allocated");
     ASSERT_EQ(registry->count, 0, "Registry should start empty");
     ASSERT_GT(registry->capacity, 0, "Registry should have capacity");
-    
+
     lle_hashtable_registry_destroy(registry);
 }
 
 TEST(registry_add_remove) {
     lle_hashtable_registry_t *registry = NULL;
     lle_hashtable_registry_init(&registry);
-    
+
     /* Create a dummy hashtable pointer for testing */
     lle_strstr_hashtable_t dummy_ht;
-    
+
     lle_result_t result = lle_hashtable_registry_add(registry, &dummy_ht);
     ASSERT_EQ(result, LLE_SUCCESS, "Add should succeed");
     ASSERT_EQ(registry->count, 1, "Registry count should be 1");
-    
+
     result = lle_hashtable_registry_remove(registry, &dummy_ht);
     ASSERT_EQ(result, LLE_SUCCESS, "Remove should succeed");
     ASSERT_EQ(registry->count, 0, "Registry count should be 0");
-    
+
     lle_hashtable_registry_destroy(registry);
 }
 
@@ -171,16 +174,16 @@ TEST(registry_invalid_params) {
     lle_hashtable_registry_t *registry = NULL;
     lle_hashtable_registry_init(&registry);
     lle_strstr_hashtable_t dummy_ht;
-    
+
     lle_result_t result = lle_hashtable_registry_add(NULL, &dummy_ht);
     ASSERT_NEQ(result, LLE_SUCCESS, "Add with NULL registry should fail");
-    
+
     result = lle_hashtable_registry_add(registry, NULL);
     ASSERT_NEQ(result, LLE_SUCCESS, "Add with NULL hashtable should fail");
-    
+
     result = lle_hashtable_registry_remove(NULL, &dummy_ht);
     ASSERT_NEQ(result, LLE_SUCCESS, "Remove with NULL registry should fail");
-    
+
     lle_hashtable_registry_destroy(registry);
 }
 
@@ -190,42 +193,45 @@ TEST(registry_invalid_params) {
 
 TEST(factory_init_destroy) {
     lle_hashtable_factory_t *factory = NULL;
-    
+
     lle_result_t result = lle_hashtable_factory_init(&factory, NULL);
-    
+
     ASSERT_EQ(result, LLE_SUCCESS, "Factory init should succeed");
     ASSERT_NOT_NULL(factory, "Factory should be allocated");
     ASSERT_NOT_NULL(factory->default_config, "Default config should exist");
     ASSERT_NOT_NULL(factory->registry, "Registry should exist");
-    
+
     lle_hashtable_factory_destroy(factory);
 }
 
 TEST(factory_memory_pool_integration) {
     lle_hashtable_factory_t *factory = NULL;
     lle_hashtable_factory_init(&factory, NULL);
-    
-    lle_result_t result = lle_hashtable_integrate_memory_pool(factory, mock_pool);
-    
+
+    lle_result_t result =
+        lle_hashtable_integrate_memory_pool(factory, mock_pool);
+
     ASSERT_EQ(result, LLE_SUCCESS, "Memory pool integration should succeed");
-    ASSERT_TRUE(factory->memory_pool_integrated, "Should be marked as integrated");
+    ASSERT_TRUE(factory->memory_pool_integrated,
+                "Should be marked as integrated");
     ASSERT_EQ(factory->memory_pool, mock_pool, "Memory pool should be stored");
-    
+
     lle_hashtable_factory_destroy(factory);
 }
 
 TEST(factory_create_strstr_basic) {
     lle_hashtable_factory_t *factory = NULL;
     lle_hashtable_factory_init(&factory, mock_pool);
-    
+
     lle_strstr_hashtable_t *ht = NULL;
-    lle_result_t result = lle_hashtable_factory_create_strstr(factory, NULL, &ht);
-    
+    lle_result_t result =
+        lle_hashtable_factory_create_strstr(factory, NULL, &ht);
+
     ASSERT_EQ(result, LLE_SUCCESS, "Hashtable creation should succeed");
     ASSERT_NOT_NULL(ht, "Hashtable should be allocated");
     ASSERT_NOT_NULL(ht->ht, "Underlying libhashtable should exist");
     ASSERT_NOT_NULL(ht->config, "Config should be stored");
-    
+
     lle_strstr_hashtable_destroy(ht);
     lle_hashtable_factory_destroy(factory);
 }
@@ -233,7 +239,7 @@ TEST(factory_create_strstr_basic) {
 TEST(factory_create_strstr_with_config) {
     lle_hashtable_factory_t *factory = NULL;
     lle_hashtable_factory_init(&factory, mock_pool);
-    
+
     lle_hashtable_config_t config;
     lle_hashtable_config_init_default(&config);
     config.use_memory_pool = true;
@@ -241,15 +247,18 @@ TEST(factory_create_strstr_with_config) {
     config.thread_safe = false;
     config.performance_monitoring = true;
     config.hashtable_name = "test_hashtable";
-    
+
     lle_strstr_hashtable_t *ht = NULL;
-    lle_result_t result = lle_hashtable_factory_create_strstr(factory, &config, &ht);
-    
-    ASSERT_EQ(result, LLE_SUCCESS, "Hashtable creation with config should succeed");
+    lle_result_t result =
+        lle_hashtable_factory_create_strstr(factory, &config, &ht);
+
+    ASSERT_EQ(result, LLE_SUCCESS,
+              "Hashtable creation with config should succeed");
     ASSERT_NOT_NULL(ht, "Hashtable should be allocated");
-    ASSERT_NOT_NULL(ht->metrics, "Metrics should be allocated (monitoring enabled)");
+    ASSERT_NOT_NULL(ht->metrics,
+                    "Metrics should be allocated (monitoring enabled)");
     ASSERT_STR_EQ(ht->name, "test_hashtable", "Name should be stored");
-    
+
     lle_strstr_hashtable_destroy(ht);
     lle_hashtable_factory_destroy(factory);
 }
@@ -261,23 +270,23 @@ TEST(factory_create_strstr_with_config) {
 TEST(strstr_insert_lookup) {
     lle_hashtable_factory_t *factory = NULL;
     lle_hashtable_factory_init(&factory, mock_pool);
-    
+
     lle_strstr_hashtable_t *ht = NULL;
     lle_hashtable_factory_create_strstr(factory, NULL, &ht);
-    
+
     /* Insert key-value pair */
     lle_result_t result = lle_strstr_hashtable_insert(ht, "key1", "value1");
     ASSERT_EQ(result, LLE_SUCCESS, "Insert should succeed");
-    
+
     /* Lookup the value */
     const char *value = lle_strstr_hashtable_lookup(ht, "key1");
     ASSERT_NOT_NULL(value, "Lookup should find the key");
     ASSERT_STR_EQ(value, "value1", "Value should match");
-    
+
     /* Lookup non-existent key */
     value = lle_strstr_hashtable_lookup(ht, "nonexistent");
     ASSERT_NULL(value, "Lookup should return NULL for missing key");
-    
+
     lle_strstr_hashtable_destroy(ht);
     lle_hashtable_factory_destroy(factory);
 }
@@ -285,20 +294,23 @@ TEST(strstr_insert_lookup) {
 TEST(strstr_multiple_inserts) {
     lle_hashtable_factory_t *factory = NULL;
     lle_hashtable_factory_init(&factory, mock_pool);
-    
+
     lle_strstr_hashtable_t *ht = NULL;
     lle_hashtable_factory_create_strstr(factory, NULL, &ht);
-    
+
     /* Insert multiple key-value pairs */
     lle_strstr_hashtable_insert(ht, "key1", "value1");
     lle_strstr_hashtable_insert(ht, "key2", "value2");
     lle_strstr_hashtable_insert(ht, "key3", "value3");
-    
+
     /* Verify all values */
-    ASSERT_STR_EQ(lle_strstr_hashtable_lookup(ht, "key1"), "value1", "Key1 should exist");
-    ASSERT_STR_EQ(lle_strstr_hashtable_lookup(ht, "key2"), "value2", "Key2 should exist");
-    ASSERT_STR_EQ(lle_strstr_hashtable_lookup(ht, "key3"), "value3", "Key3 should exist");
-    
+    ASSERT_STR_EQ(lle_strstr_hashtable_lookup(ht, "key1"), "value1",
+                  "Key1 should exist");
+    ASSERT_STR_EQ(lle_strstr_hashtable_lookup(ht, "key2"), "value2",
+                  "Key2 should exist");
+    ASSERT_STR_EQ(lle_strstr_hashtable_lookup(ht, "key3"), "value3",
+                  "Key3 should exist");
+
     lle_strstr_hashtable_destroy(ht);
     lle_hashtable_factory_destroy(factory);
 }
@@ -306,18 +318,20 @@ TEST(strstr_multiple_inserts) {
 TEST(strstr_update_value) {
     lle_hashtable_factory_t *factory = NULL;
     lle_hashtable_factory_init(&factory, mock_pool);
-    
+
     lle_strstr_hashtable_t *ht = NULL;
     lle_hashtable_factory_create_strstr(factory, NULL, &ht);
-    
+
     /* Insert initial value */
     lle_strstr_hashtable_insert(ht, "key1", "value1");
-    ASSERT_STR_EQ(lle_strstr_hashtable_lookup(ht, "key1"), "value1", "Initial value");
-    
+    ASSERT_STR_EQ(lle_strstr_hashtable_lookup(ht, "key1"), "value1",
+                  "Initial value");
+
     /* Update with new value */
     lle_strstr_hashtable_insert(ht, "key1", "value2");
-    ASSERT_STR_EQ(lle_strstr_hashtable_lookup(ht, "key1"), "value2", "Updated value");
-    
+    ASSERT_STR_EQ(lle_strstr_hashtable_lookup(ht, "key1"), "value2",
+                  "Updated value");
+
     lle_strstr_hashtable_destroy(ht);
     lle_hashtable_factory_destroy(factory);
 }
@@ -325,21 +339,23 @@ TEST(strstr_update_value) {
 TEST(strstr_delete) {
     lle_hashtable_factory_t *factory = NULL;
     lle_hashtable_factory_init(&factory, mock_pool);
-    
+
     lle_strstr_hashtable_t *ht = NULL;
     lle_hashtable_factory_create_strstr(factory, NULL, &ht);
-    
+
     /* Insert and verify */
     lle_strstr_hashtable_insert(ht, "key1", "value1");
-    ASSERT_NOT_NULL(lle_strstr_hashtable_lookup(ht, "key1"), "Key should exist");
-    
+    ASSERT_NOT_NULL(lle_strstr_hashtable_lookup(ht, "key1"),
+                    "Key should exist");
+
     /* Delete */
     lle_result_t result = lle_strstr_hashtable_delete(ht, "key1");
     ASSERT_EQ(result, LLE_SUCCESS, "Delete should succeed");
-    
+
     /* Verify deletion */
-    ASSERT_NULL(lle_strstr_hashtable_lookup(ht, "key1"), "Key should not exist after delete");
-    
+    ASSERT_NULL(lle_strstr_hashtable_lookup(ht, "key1"),
+                "Key should not exist after delete");
+
     lle_strstr_hashtable_destroy(ht);
     lle_hashtable_factory_destroy(factory);
 }
@@ -347,15 +363,17 @@ TEST(strstr_delete) {
 TEST(strstr_contains) {
     lle_hashtable_factory_t *factory = NULL;
     lle_hashtable_factory_init(&factory, mock_pool);
-    
+
     lle_strstr_hashtable_t *ht = NULL;
     lle_hashtable_factory_create_strstr(factory, NULL, &ht);
-    
+
     lle_strstr_hashtable_insert(ht, "key1", "value1");
-    
-    ASSERT_TRUE(lle_strstr_hashtable_contains(ht, "key1"), "Should contain key1");
-    ASSERT_FALSE(lle_strstr_hashtable_contains(ht, "key2"), "Should not contain key2");
-    
+
+    ASSERT_TRUE(lle_strstr_hashtable_contains(ht, "key1"),
+                "Should contain key1");
+    ASSERT_FALSE(lle_strstr_hashtable_contains(ht, "key2"),
+                 "Should not contain key2");
+
     lle_strstr_hashtable_destroy(ht);
     lle_hashtable_factory_destroy(factory);
 }
@@ -363,21 +381,23 @@ TEST(strstr_contains) {
 TEST(strstr_size) {
     lle_hashtable_factory_t *factory = NULL;
     lle_hashtable_factory_init(&factory, mock_pool);
-    
+
     lle_strstr_hashtable_t *ht = NULL;
     lle_hashtable_factory_create_strstr(factory, NULL, &ht);
-    
-    ASSERT_EQ(lle_strstr_hashtable_size(ht), 0, "Empty hashtable should have size 0");
-    
+
+    ASSERT_EQ(lle_strstr_hashtable_size(ht), 0,
+              "Empty hashtable should have size 0");
+
     lle_strstr_hashtable_insert(ht, "key1", "value1");
     ASSERT_EQ(lle_strstr_hashtable_size(ht), 1, "Size should be 1");
-    
+
     lle_strstr_hashtable_insert(ht, "key2", "value2");
     ASSERT_EQ(lle_strstr_hashtable_size(ht), 2, "Size should be 2");
-    
+
     lle_strstr_hashtable_delete(ht, "key1");
-    ASSERT_EQ(lle_strstr_hashtable_size(ht), 1, "Size should be 1 after delete");
-    
+    ASSERT_EQ(lle_strstr_hashtable_size(ht), 1,
+              "Size should be 1 after delete");
+
     lle_strstr_hashtable_destroy(ht);
     lle_hashtable_factory_destroy(factory);
 }
@@ -385,22 +405,24 @@ TEST(strstr_size) {
 TEST(strstr_clear) {
     lle_hashtable_factory_t *factory = NULL;
     lle_hashtable_factory_init(&factory, mock_pool);
-    
+
     lle_strstr_hashtable_t *ht = NULL;
     lle_hashtable_factory_create_strstr(factory, NULL, &ht);
-    
+
     /* Add multiple entries */
     lle_strstr_hashtable_insert(ht, "key1", "value1");
     lle_strstr_hashtable_insert(ht, "key2", "value2");
     lle_strstr_hashtable_insert(ht, "key3", "value3");
     ASSERT_EQ(lle_strstr_hashtable_size(ht), 3, "Size should be 3");
-    
+
     /* Clear all */
     lle_strstr_hashtable_clear(ht);
     ASSERT_EQ(lle_strstr_hashtable_size(ht), 0, "Size should be 0 after clear");
-    ASSERT_FALSE(lle_strstr_hashtable_contains(ht, "key1"), "key1 should not exist");
-    ASSERT_FALSE(lle_strstr_hashtable_contains(ht, "key2"), "key2 should not exist");
-    
+    ASSERT_FALSE(lle_strstr_hashtable_contains(ht, "key1"),
+                 "key1 should not exist");
+    ASSERT_FALSE(lle_strstr_hashtable_contains(ht, "key2"),
+                 "key2 should not exist");
+
     lle_strstr_hashtable_destroy(ht);
     lle_hashtable_factory_destroy(factory);
 }
@@ -412,30 +434,30 @@ TEST(strstr_clear) {
 TEST(performance_metrics_tracking) {
     lle_hashtable_factory_t *factory = NULL;
     lle_hashtable_factory_init(&factory, mock_pool);
-    
+
     lle_hashtable_config_t config;
     lle_hashtable_config_init_default(&config);
     config.performance_monitoring = true;
-    
+
     lle_strstr_hashtable_t *ht = NULL;
     lle_hashtable_factory_create_strstr(factory, &config, &ht);
-    
+
     /* Perform operations */
     lle_strstr_hashtable_insert(ht, "key1", "value1");
     lle_strstr_hashtable_lookup(ht, "key1");
     lle_strstr_hashtable_delete(ht, "key1");
-    
+
     /* Get metrics */
     lle_hashtable_performance_metrics_t metrics;
     lle_result_t result = lle_hashtable_get_metrics(ht, &metrics);
-    
+
     ASSERT_EQ(result, LLE_SUCCESS, "Get metrics should succeed");
     ASSERT_EQ(metrics.insert_operations, 1, "Should have 1 insert");
     ASSERT_EQ(metrics.lookup_operations, 1, "Should have 1 lookup");
     ASSERT_EQ(metrics.delete_operations, 1, "Should have 1 delete");
     /* Note: Insert time may be 0 if operation completes < 1 microsecond */
     ASSERT_TRUE(1, "Metrics tracking enabled and counters correct");
-    
+
     lle_strstr_hashtable_destroy(ht);
     lle_hashtable_factory_destroy(factory);
 }
@@ -443,27 +465,29 @@ TEST(performance_metrics_tracking) {
 TEST(performance_metrics_reset) {
     lle_hashtable_factory_t *factory = NULL;
     lle_hashtable_factory_init(&factory, mock_pool);
-    
+
     lle_hashtable_config_t config;
     lle_hashtable_config_init_default(&config);
     config.performance_monitoring = true;
-    
+
     lle_strstr_hashtable_t *ht = NULL;
     lle_hashtable_factory_create_strstr(factory, &config, &ht);
-    
+
     /* Perform operations */
     lle_strstr_hashtable_insert(ht, "key1", "value1");
-    
+
     lle_hashtable_performance_metrics_t metrics;
     lle_hashtable_get_metrics(ht, &metrics);
-    ASSERT_EQ(metrics.insert_operations, 1, "Should have 1 insert before reset");
-    
+    ASSERT_EQ(metrics.insert_operations, 1,
+              "Should have 1 insert before reset");
+
     /* Reset metrics */
     lle_hashtable_reset_metrics(ht);
-    
+
     lle_hashtable_get_metrics(ht, &metrics);
-    ASSERT_EQ(metrics.insert_operations, 0, "Should have 0 inserts after reset");
-    
+    ASSERT_EQ(metrics.insert_operations, 0,
+              "Should have 0 inserts after reset");
+
     lle_strstr_hashtable_destroy(ht);
     lle_hashtable_factory_destroy(factory);
 }
@@ -481,82 +505,88 @@ typedef struct {
 void *thread_insert_worker(void *arg) {
     thread_test_data_t *data = (thread_test_data_t *)arg;
     int successful = 0;
-    
+
     for (int i = 0; i < data->operations; i++) {
         char key[64], value[64];
         /* Ensure globally unique keys across all threads */
-        snprintf(key, sizeof(key), "thread%d_operation%d_key", data->thread_id, i);
-        snprintf(value, sizeof(value), "thread%d_operation%d_value", data->thread_id, i);
-        
+        snprintf(key, sizeof(key), "thread%d_operation%d_key", data->thread_id,
+                 i);
+        snprintf(value, sizeof(value), "thread%d_operation%d_value",
+                 data->thread_id, i);
+
         lle_result_t result = lle_strstr_hashtable_insert(data->ht, key, value);
         if (result == LLE_SUCCESS) {
             successful++;
         }
     }
-    
-    printf("  Thread %d: %d/%d inserts succeeded\n", data->thread_id, successful, data->operations);
-    
+
+    printf("  Thread %d: %d/%d inserts succeeded\n", data->thread_id,
+           successful, data->operations);
+
     return NULL;
 }
 
 void *thread_lookup_worker(void *arg) {
     thread_test_data_t *data = (thread_test_data_t *)arg;
-    
+
     for (int i = 0; i < data->operations; i++) {
         char key[32];
         snprintf(key, sizeof(key), "thread%d_key%d", data->thread_id, i % 10);
-        
+
         lle_strstr_hashtable_lookup(data->ht, key);
     }
-    
+
     return NULL;
 }
 
 TEST(thread_safe_concurrent_inserts) {
     lle_hashtable_factory_t *factory = NULL;
     lle_hashtable_factory_init(&factory, mock_pool);
-    
+
     lle_hashtable_config_t config;
     lle_hashtable_config_init_default(&config);
     config.thread_safe = true;
     config.lock_type = LLE_LOCK_RWLOCK;
-    
+
     lle_strstr_hashtable_t *ht = NULL;
     lle_hashtable_factory_create_strstr(factory, &config, &ht);
-    
+
     ASSERT_TRUE(ht->is_concurrent, "Hashtable should be thread-safe");
     ASSERT_NOT_NULL(ht->lock, "Lock should be allocated");
-    
-    printf("  Hashtable created: is_concurrent=%d, lock=%p\n", 
-           ht->is_concurrent, (void*)ht->lock);
-    
+
+    printf("  Hashtable created: is_concurrent=%d, lock=%p\n",
+           ht->is_concurrent, (void *)ht->lock);
+
     /* Create multiple threads */
     const int num_threads = 4;
     const int ops_per_thread = 50;
     pthread_t threads[num_threads];
     thread_test_data_t thread_data[num_threads];
-    
+
     /* Launch threads */
     for (int i = 0; i < num_threads; i++) {
         thread_data[i].ht = ht;
         thread_data[i].thread_id = i;
         thread_data[i].operations = ops_per_thread;
-        pthread_create(&threads[i], NULL, thread_insert_worker, &thread_data[i]);
+        pthread_create(&threads[i], NULL, thread_insert_worker,
+                       &thread_data[i]);
     }
-    
+
     /* Wait for completion */
     for (int i = 0; i < num_threads; i++) {
         pthread_join(threads[i], NULL);
     }
-    
+
     /* Verify all inserts succeeded */
     size_t expected_size = num_threads * ops_per_thread;
     size_t actual_size = lle_strstr_hashtable_size(ht);
-    
+
     /* With our entry_count tracking fix, we should now get 100% success rate.
-     * The previous issue was libhashtable's enumeration bug, not a thread safety issue. */
-    ASSERT_EQ(actual_size, expected_size, "Thread-safe inserts should have 100% success rate");
-    
+     * The previous issue was libhashtable's enumeration bug, not a thread
+     * safety issue. */
+    ASSERT_EQ(actual_size, expected_size,
+              "Thread-safe inserts should have 100% success rate");
+
     lle_strstr_hashtable_destroy(ht);
     lle_hashtable_factory_destroy(factory);
 }
@@ -564,15 +594,15 @@ TEST(thread_safe_concurrent_inserts) {
 TEST(thread_safe_concurrent_reads) {
     lle_hashtable_factory_t *factory = NULL;
     lle_hashtable_factory_init(&factory, mock_pool);
-    
+
     lle_hashtable_config_t config;
     lle_hashtable_config_init_default(&config);
     config.thread_safe = true;
     config.allow_concurrent_reads = true;
-    
+
     lle_strstr_hashtable_t *ht = NULL;
     lle_hashtable_factory_create_strstr(factory, &config, &ht);
-    
+
     /* Pre-populate hashtable */
     for (int i = 0; i < 10; i++) {
         char key[32], value[32];
@@ -580,27 +610,28 @@ TEST(thread_safe_concurrent_reads) {
         snprintf(value, sizeof(value), "thread0_value%d", i);
         lle_strstr_hashtable_insert(ht, key, value);
     }
-    
+
     /* Create reader threads */
     const int num_threads = 4;
     const int ops_per_thread = 100;
     pthread_t threads[num_threads];
     thread_test_data_t thread_data[num_threads];
-    
+
     for (int i = 0; i < num_threads; i++) {
         thread_data[i].ht = ht;
         thread_data[i].thread_id = i;
         thread_data[i].operations = ops_per_thread;
-        pthread_create(&threads[i], NULL, thread_lookup_worker, &thread_data[i]);
+        pthread_create(&threads[i], NULL, thread_lookup_worker,
+                       &thread_data[i]);
     }
-    
+
     for (int i = 0; i < num_threads; i++) {
         pthread_join(threads[i], NULL);
     }
-    
+
     /* No crashes = success */
     ASSERT_TRUE(1, "Concurrent reads completed without crashes");
-    
+
     lle_strstr_hashtable_destroy(ht);
     lle_hashtable_factory_destroy(factory);
 }
@@ -611,27 +642,28 @@ TEST(thread_safe_concurrent_reads) {
 
 TEST(system_init_destroy) {
     lle_hashtable_system_t *system = NULL;
-    
+
     lle_result_t result = lle_hashtable_system_init(&system, mock_pool);
-    
+
     ASSERT_EQ(result, LLE_SUCCESS, "System init should succeed");
     ASSERT_NOT_NULL(system, "System should be allocated");
     ASSERT_NOT_NULL(system->factory, "Factory should exist");
     ASSERT_NOT_NULL(system->registry, "Registry should exist");
     ASSERT_TRUE(system->initialized, "System should be marked initialized");
-    
+
     lle_hashtable_system_destroy(system);
 }
 
 TEST(system_with_memory_pool) {
     lle_hashtable_system_t *system = NULL;
-    
+
     lle_result_t result = lle_hashtable_system_init(&system, mock_pool);
-    
+
     ASSERT_EQ(result, LLE_SUCCESS, "System init with pool should succeed");
     ASSERT_EQ(system->memory_pool, mock_pool, "Memory pool should be stored");
-    ASSERT_TRUE(system->default_config.use_memory_pool, "Default config should use pool");
-    
+    ASSERT_TRUE(system->default_config.use_memory_pool,
+                "Default config should use pool");
+
     lle_hashtable_system_destroy(system);
 }
 
@@ -642,16 +674,16 @@ TEST(system_with_memory_pool) {
 TEST(invalid_params_insert) {
     lle_hashtable_factory_t *factory = NULL;
     lle_hashtable_factory_init(&factory, mock_pool);
-    
+
     lle_strstr_hashtable_t *ht = NULL;
     lle_hashtable_factory_create_strstr(factory, NULL, &ht);
-    
+
     lle_result_t result = lle_strstr_hashtable_insert(NULL, "key", "value");
     ASSERT_NEQ(result, LLE_SUCCESS, "Insert with NULL hashtable should fail");
-    
+
     result = lle_strstr_hashtable_insert(ht, NULL, "value");
     ASSERT_NEQ(result, LLE_SUCCESS, "Insert with NULL key should fail");
-    
+
     lle_strstr_hashtable_destroy(ht);
     lle_hashtable_factory_destroy(factory);
 }
@@ -659,16 +691,16 @@ TEST(invalid_params_insert) {
 TEST(invalid_params_lookup) {
     lle_hashtable_factory_t *factory = NULL;
     lle_hashtable_factory_init(&factory, mock_pool);
-    
+
     lle_strstr_hashtable_t *ht = NULL;
     lle_hashtable_factory_create_strstr(factory, NULL, &ht);
-    
+
     const char *value = lle_strstr_hashtable_lookup(NULL, "key");
     ASSERT_NULL(value, "Lookup with NULL hashtable should return NULL");
-    
+
     value = lle_strstr_hashtable_lookup(ht, NULL);
     ASSERT_NULL(value, "Lookup with NULL key should return NULL");
-    
+
     lle_strstr_hashtable_destroy(ht);
     lle_hashtable_factory_destroy(factory);
 }
@@ -682,23 +714,23 @@ int main(void) {
     printf("LLE Hashtable Wrapper Functional Tests\n");
     printf("Spec 05: libhashtable Integration\n");
     printf("========================================\n\n");
-    
+
     printf("=== PHASE 1: Configuration Tests ===\n");
     run_test_config_init_default();
     run_test_config_create_pooled();
     run_test_config_invalid_params();
-    
+
     printf("\n=== PHASE 1: Registry Tests ===\n");
     run_test_registry_init_destroy();
     run_test_registry_add_remove();
     run_test_registry_invalid_params();
-    
+
     printf("\n=== PHASE 1: Factory Tests ===\n");
     run_test_factory_init_destroy();
     run_test_factory_memory_pool_integration();
     run_test_factory_create_strstr_basic();
     run_test_factory_create_strstr_with_config();
-    
+
     printf("\n=== PHASE 1: Basic Operations ===\n");
     run_test_strstr_insert_lookup();
     run_test_strstr_multiple_inserts();
@@ -707,35 +739,35 @@ int main(void) {
     run_test_strstr_contains();
     run_test_strstr_size();
     run_test_strstr_clear();
-    
+
     printf("\n=== PHASE 1: Performance Monitoring ===\n");
     run_test_performance_metrics_tracking();
     run_test_performance_metrics_reset();
-    
+
     printf("\n=== PHASE 2: Thread Safety ===\n");
     run_test_thread_safe_concurrent_inserts();
     run_test_thread_safe_concurrent_reads();
-    
+
     printf("\n=== PHASE 3: System Initialization ===\n");
     run_test_system_init_destroy();
     run_test_system_with_memory_pool();
-    
+
     printf("\n=== Invalid Parameters ===\n");
     run_test_invalid_params_insert();
     run_test_invalid_params_lookup();
-    
+
     printf("\n========================================\n");
     printf("Test Results:\n");
     printf("  Tests Run:    %d\n", tests_run);
     printf("  Tests Passed: %d\n", tests_passed);
     printf("  Tests Failed: %d\n", tests_failed);
     printf("========================================\n");
-    
+
     if (tests_failed > 0) {
         printf("FAILED: Some tests did not pass\n");
         return 1;
     }
-    
+
     printf("SUCCESS: All tests passed\n");
     return 0;
 }

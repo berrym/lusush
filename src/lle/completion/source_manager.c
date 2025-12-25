@@ -16,7 +16,7 @@
 
 #include "lle/completion/source_manager.h"
 #include "lle/completion/completion_generator.h" /* For existing source functions */
-#include "lle/completion/completion_sources.h"   /* For lle_completion_source_aliases */
+#include "lle/completion/completion_sources.h" /* For lle_completion_source_aliases */
 #include <string.h>
 
 // ============================================================================
@@ -88,10 +88,10 @@ builtin_source_generate(lle_memory_pool_t *pool,
 /**
  * Alias command source - shell aliases
  */
-static lle_result_t
-alias_source_generate(lle_memory_pool_t *pool,
-                      const lle_context_analyzer_t *context, const char *prefix,
-                      lle_completion_result_t *result) {
+static lle_result_t alias_source_generate(lle_memory_pool_t *pool,
+                                          const lle_context_analyzer_t *context,
+                                          const char *prefix,
+                                          lle_completion_result_t *result) {
     (void)context; /* Not needed for aliases */
 
     /* Call the alias source function */

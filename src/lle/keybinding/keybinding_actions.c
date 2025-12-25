@@ -321,8 +321,8 @@ static lle_result_t replace_word_at_cursor(lle_editor_t *editor,
  * because after the first replacement, the original boundaries are stale
  */
 static void update_inline_completion(lle_editor_t *editor,
-                                        lle_completion_menu_state_t *menu,
-                                        lle_completion_state_t *state) {
+                                     lle_completion_menu_state_t *menu,
+                                     lle_completion_state_t *state) {
     if (!editor || !menu || !state || !state->results) {
         return;
     }
@@ -474,16 +474,15 @@ lle_result_t lle_forward_char(lle_editor_t *editor) {
 
     /* If completion menu is active, navigate columns */
     if (editor->completion_system &&
-        lle_completion_system_is_menu_visible(
-            editor->completion_system)) {
+        lle_completion_system_is_menu_visible(editor->completion_system)) {
         lle_completion_menu_state_t *menu =
             lle_completion_system_get_menu(editor->completion_system);
         if (menu) {
             lle_completion_menu_move_right(menu);
 
             /* Update inline text for completion */
-            lle_completion_state_t *state = lle_completion_system_get_state(
-                editor->completion_system);
+            lle_completion_state_t *state =
+                lle_completion_system_get_state(editor->completion_system);
             if (state) {
                 update_inline_completion(editor, menu, state);
             }
@@ -520,16 +519,15 @@ lle_result_t lle_backward_char(lle_editor_t *editor) {
 
     /* If completion menu is active, navigate columns */
     if (editor->completion_system &&
-        lle_completion_system_is_menu_visible(
-            editor->completion_system)) {
+        lle_completion_system_is_menu_visible(editor->completion_system)) {
         lle_completion_menu_state_t *menu =
             lle_completion_system_get_menu(editor->completion_system);
         if (menu) {
             lle_completion_menu_move_left(menu);
 
             /* Update inline text for completion */
-            lle_completion_state_t *state = lle_completion_system_get_state(
-                editor->completion_system);
+            lle_completion_state_t *state =
+                lle_completion_system_get_state(editor->completion_system);
             if (state) {
                 update_inline_completion(editor, menu, state);
             }
@@ -872,16 +870,15 @@ lle_result_t lle_smart_up_arrow(lle_editor_t *editor) {
 
     /* If completion menu is active, navigate within menu */
     if (editor->completion_system &&
-        lle_completion_system_is_menu_visible(
-            editor->completion_system)) {
+        lle_completion_system_is_menu_visible(editor->completion_system)) {
         lle_completion_menu_state_t *menu =
             lle_completion_system_get_menu(editor->completion_system);
         if (menu) {
             lle_completion_menu_move_up(menu);
 
             /* Update inline text for completion */
-            lle_completion_state_t *state = lle_completion_system_get_state(
-                editor->completion_system);
+            lle_completion_state_t *state =
+                lle_completion_system_get_state(editor->completion_system);
             if (state) {
                 update_inline_completion(editor, menu, state);
             }
@@ -932,16 +929,15 @@ lle_result_t lle_smart_down_arrow(lle_editor_t *editor) {
 
     /* If completion menu is active, navigate within menu */
     if (editor->completion_system &&
-        lle_completion_system_is_menu_visible(
-            editor->completion_system)) {
+        lle_completion_system_is_menu_visible(editor->completion_system)) {
         lle_completion_menu_state_t *menu =
             lle_completion_system_get_menu(editor->completion_system);
         if (menu) {
             lle_completion_menu_move_down(menu);
 
             /* Update inline text for completion */
-            lle_completion_state_t *state = lle_completion_system_get_state(
-                editor->completion_system);
+            lle_completion_state_t *state =
+                lle_completion_system_get_state(editor->completion_system);
             if (state) {
                 update_inline_completion(editor, menu, state);
             }
@@ -981,8 +977,7 @@ lle_result_t lle_delete_char(lle_editor_t *editor) {
 
     /* Dismiss completion menu on delete */
     if (editor->completion_system &&
-        lle_completion_system_is_menu_visible(
-            editor->completion_system)) {
+        lle_completion_system_is_menu_visible(editor->completion_system)) {
         clear_completion_menu(editor);
     }
 
@@ -1042,8 +1037,7 @@ lle_result_t lle_backward_delete_char(lle_editor_t *editor) {
 
     /* Dismiss completion menu on backspace */
     if (editor->completion_system &&
-        lle_completion_system_is_menu_visible(
-            editor->completion_system)) {
+        lle_completion_system_is_menu_visible(editor->completion_system)) {
         clear_completion_menu(editor);
     }
 
@@ -2058,8 +2052,7 @@ lle_result_t lle_complete(lle_editor_t *editor) {
     /* If completion is already active, cycle to next item
      * This is standard shell behavior: TAB cycles through completions
      */
-    bool is_active =
-        lle_completion_system_is_active(editor->completion_system);
+    bool is_active = lle_completion_system_is_active(editor->completion_system);
     bool is_menu_visible =
         lle_completion_system_is_menu_visible(editor->completion_system);
 
@@ -2073,8 +2066,8 @@ lle_result_t lle_complete(lle_editor_t *editor) {
 
             /* Update command line with newly selected completion (inline
              * update) */
-            lle_completion_state_t *state = lle_completion_system_get_state(
-                editor->completion_system);
+            lle_completion_state_t *state =
+                lle_completion_system_get_state(editor->completion_system);
 
             if (state) {
                 update_inline_completion(editor, menu, state);
@@ -2149,7 +2142,8 @@ lle_result_t lle_complete(lle_editor_t *editor) {
     }
 
     /* Multiple completions - activate completion system with menu */
-    /* Completion system stores state internally during generate, just need to show menu
+    /* Completion system stores state internally during generate, just need to
+     * show menu
      */
     lle_completion_menu_state_t *menu =
         lle_completion_system_get_menu(editor->completion_system);
@@ -2166,8 +2160,8 @@ lle_result_t lle_complete(lle_editor_t *editor) {
     if (dc) {
         if (menu) {
             /* CRITICAL: Update text to show first selected item */
-            lle_completion_state_t *state = lle_completion_system_get_state(
-                editor->completion_system);
+            lle_completion_state_t *state =
+                lle_completion_system_get_state(editor->completion_system);
             if (state) {
                 update_inline_completion(editor, menu, state);
             }
@@ -2215,8 +2209,7 @@ lle_result_t lle_accept_line(lle_editor_t *editor) {
 
     /* If completion menu is active, accept the selected completion */
     if (editor->completion_system &&
-        lle_completion_system_is_menu_visible(
-            editor->completion_system)) {
+        lle_completion_system_is_menu_visible(editor->completion_system)) {
         lle_completion_state_t *state =
             lle_completion_system_get_state(editor->completion_system);
         lle_completion_menu_state_t *menu =
@@ -2254,8 +2247,7 @@ lle_result_t lle_abort_line(lle_editor_t *editor) {
 
     /* If completion menu is active, just cancel it without aborting */
     if (editor->completion_system &&
-        lle_completion_system_is_menu_visible(
-            editor->completion_system)) {
+        lle_completion_system_is_menu_visible(editor->completion_system)) {
         clear_completion_menu(editor);
         return LLE_SUCCESS;
     }
@@ -2549,8 +2541,7 @@ lle_result_t lle_self_insert(lle_editor_t *editor, uint32_t codepoint) {
 
     /* Dismiss completion menu on character input */
     if (editor->completion_system &&
-        lle_completion_system_is_menu_visible(
-            editor->completion_system)) {
+        lle_completion_system_is_menu_visible(editor->completion_system)) {
         clear_completion_menu(editor);
     }
 

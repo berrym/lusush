@@ -500,7 +500,8 @@ lle_result_t lle_cursor_manager_move_by_lines(lle_cursor_manager_t *manager,
 
     /* Try to restore preferred visual column */
     if (manager->sticky_column) {
-        (void)byte_offset; /* line_start tracking for future column restoration */
+        (void)
+            byte_offset; /* line_start tracking for future column restoration */
         size_t column_graphemes = 0;
 
         /* Move to preferred column on this line */

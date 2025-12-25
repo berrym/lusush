@@ -1,14 +1,14 @@
 /**
  * @file realistic_scenarios_test.c
  * @brief Comprehensive end-to-end scenario tests for LLE Spec 03
- * 
+ *
  * Tests realistic editing workflows that combine all subsystems:
  * - Buffer management
  * - UTF-8 index
  * - Cursor manager
  * - Change tracker (undo/redo)
  * - Buffer validator
- * 
+ *
  * Scenarios simulate real-world shell command editing patterns.
  */
 
@@ -16,45 +16,48 @@
 #include "../../../include/lle/error_handling.h"
 #include "../../../include/lle/memory_management.h"
 
+#include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
 
 /* External global from test_memory_mock.c */
 extern lusush_memory_pool_t *global_memory_pool;
 
 /* Test macros */
-#define TEST(name) static void name(void); \
-    static void name##_wrapper(void) { \
-        printf("[ TEST ] %s\n", #name); \
-        name(); \
-        printf("[ PASS ] %s\n\n", #name); \
-    } \
+#define TEST(name)                                                             \
+    static void name(void);                                                    \
+    static void name##_wrapper(void) {                                         \
+        printf("[ TEST ] %s\n", #name);                                        \
+        name();                                                                \
+        printf("[ PASS ] %s\n\n", #name);                                      \
+    }                                                                          \
     static void name(void)
 
-#define ASSERT_SUCCESS(result, msg) \
-    do { \
-        if ((result) != LLE_SUCCESS) { \
-            printf("[ FAIL ] %s: %s (code %d)\n", msg, #result, result); \
-            assert(0); \
-        } \
-    } while(0)
+#define ASSERT_SUCCESS(result, msg)                                            \
+    do {                                                                       \
+        if ((result) != LLE_SUCCESS) {                                         \
+            printf("[ FAIL ] %s: %s (code %d)\n", msg, #result, result);       \
+            assert(0);                                                         \
+        }                                                                      \
+    } while (0)
 
-#define ASSERT_EQ(actual, expected, msg) \
-    do { \
-        if ((actual) != (expected)) { \
-            printf("[ FAIL ] %s: expected %zu, got %zu\n", msg, (size_t)(expected), (size_t)(actual)); \
-            assert(0); \
-        } \
-    } while(0)
+#define ASSERT_EQ(actual, expected, msg)                                       \
+    do {                                                                       \
+        if ((actual) != (expected)) {                                          \
+            printf("[ FAIL ] %s: expected %zu, got %zu\n", msg,                \
+                   (size_t)(expected), (size_t)(actual));                      \
+            assert(0);                                                         \
+        }                                                                      \
+    } while (0)
 
-#define ASSERT_STR_EQ(actual, expected, msg) \
-    do { \
-        if (strncmp(actual, expected, strlen(expected)) != 0) { \
-            printf("[ FAIL ] %s: expected '%s', got '%.*s'\n", msg, expected, (int)strlen(expected), actual); \
-            assert(0); \
-        } \
-    } while(0)
+#define ASSERT_STR_EQ(actual, expected, msg)                                   \
+    do {                                                                       \
+        if (strncmp(actual, expected, strlen(expected)) != 0) {                \
+            printf("[ FAIL ] %s: expected '%s', got '%.*s'\n", msg, expected,  \
+                   (int)strlen(expected), actual);                             \
+            assert(0);                                                         \
+        }                                                                      \
+    } while (0)
 
 /* ============================================================================
  * SCENARIO 1: BASIC COMMAND EDITING
@@ -62,8 +65,9 @@ extern lusush_memory_pool_t *global_memory_pool;
  */
 
 TEST(scenario_basic_command_editing) {
-    printf("  Scenario: User types 'ls -la', realizes they want 'ls -lah', edits to add 'h'\n");
-    
+    printf("  Scenario: User types 'ls -la', realizes they want 'ls -lah', "
+           "edits to add 'h'\n");
+
     lle_buffer_t *buffer = NULL;
     lle_change_tracker_t *tracker = NULL;
     lle_result_t result;
@@ -91,7 +95,7 @@ TEST(scenario_basic_command_editing) {
 
     /* Verify state */
     ASSERT_EQ(buffer->length, 6, "Buffer length is 6");
-    ASSERT_STR_EQ((char*)buffer->data, "ls -la", "Buffer content");
+    ASSERT_STR_EQ((char *)buffer->data, "ls -la", "Buffer content");
 
     /* User realizes they want "-lah", moves cursor to end and adds 'h' */
     lle_change_sequence_t *seq2 = NULL;
@@ -107,19 +111,19 @@ TEST(scenario_basic_command_editing) {
 
     /* Verify final state */
     ASSERT_EQ(buffer->length, 7, "Buffer length is 7");
-    ASSERT_STR_EQ((char*)buffer->data, "ls -lah", "Final buffer content");
+    ASSERT_STR_EQ((char *)buffer->data, "ls -lah", "Final buffer content");
 
     /* User can undo the 'h' addition */
     result = lle_change_tracker_undo(tracker, buffer);
     ASSERT_SUCCESS(result, "Undo add h");
     ASSERT_EQ(buffer->length, 6, "Buffer length back to 6");
-    ASSERT_STR_EQ((char*)buffer->data, "ls -la", "Buffer after undo");
+    ASSERT_STR_EQ((char *)buffer->data, "ls -la", "Buffer after undo");
 
     /* And redo it */
     result = lle_change_tracker_redo(tracker, buffer);
     ASSERT_SUCCESS(result, "Redo add h");
     ASSERT_EQ(buffer->length, 7, "Buffer length is 7 again");
-    ASSERT_STR_EQ((char*)buffer->data, "ls -lah", "Buffer after redo");
+    ASSERT_STR_EQ((char *)buffer->data, "ls -lah", "Buffer after redo");
 
     /* Cleanup */
     lle_change_tracker_destroy(tracker);
@@ -132,8 +136,9 @@ TEST(scenario_basic_command_editing) {
  */
 
 TEST(scenario_typo_correction_with_utf8) {
-    printf("  Scenario: User types command with emoji, makes typo, corrects it\n");
-    
+    printf(
+        "  Scenario: User types command with emoji, makes typo, corrects it\n");
+
     lle_buffer_t *buffer = NULL;
     lle_change_tracker_t *tracker = NULL;
     lle_cursor_manager_t *cursor_mgr = NULL;
@@ -163,7 +168,8 @@ TEST(scenario_typo_correction_with_utf8) {
     ASSERT_SUCCESS(result, "Complete sequence");
 
     /* Verify UTF-8 counts */
-    ASSERT_EQ(buffer->codepoint_count, 20, "Codepoint count (emoji is 1 codepoint)");
+    ASSERT_EQ(buffer->codepoint_count, 20,
+              "Codepoint count (emoji is 1 codepoint)");
 
     /* User notices typo, deletes "Wrold" and types "World" */
     result = lle_change_tracker_begin_sequence(tracker, "fix typo", &seq);
@@ -182,16 +188,19 @@ TEST(scenario_typo_correction_with_utf8) {
     ASSERT_SUCCESS(result, "Complete fix");
 
     /* Verify corrected text */
-    ASSERT_STR_EQ((char*)buffer->data, "echo 'Hello 🌍 World'", "Corrected text");
+    ASSERT_STR_EQ((char *)buffer->data, "echo 'Hello 🌍 World'",
+                  "Corrected text");
 
     /* Undo and redo work correctly */
     result = lle_change_tracker_undo(tracker, buffer);
     ASSERT_SUCCESS(result, "Undo correction");
-    ASSERT_STR_EQ((char*)buffer->data, "echo 'Hello 🌍 Wrold'", "Back to typo");
+    ASSERT_STR_EQ((char *)buffer->data, "echo 'Hello 🌍 Wrold'",
+                  "Back to typo");
 
     result = lle_change_tracker_redo(tracker, buffer);
     ASSERT_SUCCESS(result, "Redo correction");
-    ASSERT_STR_EQ((char*)buffer->data, "echo 'Hello 🌍 World'", "Corrected again");
+    ASSERT_STR_EQ((char *)buffer->data, "echo 'Hello 🌍 World'",
+                  "Corrected again");
 
     /* Cleanup */
     lle_cursor_manager_destroy(cursor_mgr);
@@ -206,7 +215,7 @@ TEST(scenario_typo_correction_with_utf8) {
 
 TEST(scenario_complex_command_construction) {
     printf("  Scenario: Build complex pipeline command incrementally\n");
-    
+
     lle_buffer_t *buffer = NULL;
     lle_change_tracker_t *tracker = NULL;
     lle_buffer_validator_t *validator = NULL;
@@ -250,7 +259,8 @@ TEST(scenario_complex_command_construction) {
     result = lle_change_tracker_complete_sequence(tracker);
     ASSERT_SUCCESS(result, "Complete sequence");
 
-    ASSERT_STR_EQ((char*)buffer->data, "grep error app.log", "After adding filename");
+    ASSERT_STR_EQ((char *)buffer->data, "grep error app.log",
+                  "After adding filename");
 
     /* Step 3: Add pipe to sort */
     result = lle_change_tracker_begin_sequence(tracker, "add pipe", &seq);
@@ -275,7 +285,8 @@ TEST(scenario_complex_command_construction) {
     ASSERT_SUCCESS(result, "Complete sequence");
 
     /* Verify final complex command */
-    ASSERT_STR_EQ((char*)buffer->data, "grep error app.log | sort | uniq -c", "Final complex command");
+    ASSERT_STR_EQ((char *)buffer->data, "grep error app.log | sort | uniq -c",
+                  "Final complex command");
     ASSERT_EQ(buffer->length, 35, "Final buffer length");
 
     /* Validate final buffer */
@@ -283,17 +294,18 @@ TEST(scenario_complex_command_construction) {
     ASSERT_SUCCESS(result, "Buffer valid after complete construction");
 
     /* User can undo steps */
-    result = lle_change_tracker_undo(tracker, buffer);  /* Remove uniq */
+    result = lle_change_tracker_undo(tracker, buffer); /* Remove uniq */
     ASSERT_SUCCESS(result, "Undo step 4");
-    ASSERT_STR_EQ((char*)buffer->data, "grep error app.log | sort", "After undo 1");
+    ASSERT_STR_EQ((char *)buffer->data, "grep error app.log | sort",
+                  "After undo 1");
 
-    result = lle_change_tracker_undo(tracker, buffer);  /* Remove sort */
+    result = lle_change_tracker_undo(tracker, buffer); /* Remove sort */
     ASSERT_SUCCESS(result, "Undo step 3");
-    ASSERT_STR_EQ((char*)buffer->data, "grep error app.log", "After undo 2");
+    ASSERT_STR_EQ((char *)buffer->data, "grep error app.log", "After undo 2");
 
-    result = lle_change_tracker_undo(tracker, buffer);  /* Remove filename */
+    result = lle_change_tracker_undo(tracker, buffer); /* Remove filename */
     ASSERT_SUCCESS(result, "Undo step 2");
-    ASSERT_STR_EQ((char*)buffer->data, "grep error", "After undo 3");
+    ASSERT_STR_EQ((char *)buffer->data, "grep error", "After undo 3");
 
     /* Redo all steps */
     result = lle_change_tracker_redo(tracker, buffer);
@@ -305,7 +317,8 @@ TEST(scenario_complex_command_construction) {
     result = lle_change_tracker_redo(tracker, buffer);
     ASSERT_SUCCESS(result, "Redo step 4");
 
-    ASSERT_STR_EQ((char*)buffer->data, "grep error app.log | sort | uniq -c", "Back to final state");
+    ASSERT_STR_EQ((char *)buffer->data, "grep error app.log | sort | uniq -c",
+                  "Back to final state");
 
     /* Cleanup */
     lle_buffer_validator_destroy(validator);
@@ -320,7 +333,7 @@ TEST(scenario_complex_command_construction) {
 
 TEST(scenario_cursor_navigation_editing) {
     printf("  Scenario: Navigate and edit in middle of command\n");
-    
+
     lle_buffer_t *buffer = NULL;
     lle_cursor_manager_t *cursor_mgr = NULL;
     lle_change_tracker_t *tracker = NULL;
@@ -339,7 +352,8 @@ TEST(scenario_cursor_navigation_editing) {
 
     /* Initial command: "find . -name test.txt" */
     lle_change_sequence_t *seq = NULL;
-    result = lle_change_tracker_begin_sequence(tracker, "initial command", &seq);
+    result =
+        lle_change_tracker_begin_sequence(tracker, "initial command", &seq);
     ASSERT_SUCCESS(result, "Begin sequence");
     buffer->current_sequence = seq;
 
@@ -366,7 +380,8 @@ TEST(scenario_cursor_navigation_editing) {
     ASSERT_SUCCESS(result, "Complete delete");
 
     /* Insert "*" */
-    result = lle_change_tracker_begin_sequence(tracker, "insert asterisk", &seq);
+    result =
+        lle_change_tracker_begin_sequence(tracker, "insert asterisk", &seq);
     ASSERT_SUCCESS(result, "Begin insert");
     buffer->current_sequence = seq;
 
@@ -377,17 +392,19 @@ TEST(scenario_cursor_navigation_editing) {
     ASSERT_SUCCESS(result, "Complete insert");
 
     /* Verify result */
-    ASSERT_STR_EQ((char*)buffer->data, "find . -name *.txt", "Modified command");
+    ASSERT_STR_EQ((char *)buffer->data, "find . -name *.txt",
+                  "Modified command");
     ASSERT_EQ(buffer->length, 18, "Modified buffer length");
 
     /* Undo changes */
-    result = lle_change_tracker_undo(tracker, buffer);  /* Undo insert * */
+    result = lle_change_tracker_undo(tracker, buffer); /* Undo insert * */
     ASSERT_SUCCESS(result, "Undo insert");
 
-    result = lle_change_tracker_undo(tracker, buffer);  /* Undo delete test */
+    result = lle_change_tracker_undo(tracker, buffer); /* Undo delete test */
     ASSERT_SUCCESS(result, "Undo delete");
 
-    ASSERT_STR_EQ((char*)buffer->data, "find . -name test.txt", "Back to original");
+    ASSERT_STR_EQ((char *)buffer->data, "find . -name test.txt",
+                  "Back to original");
 
     /* Cleanup */
     lle_change_tracker_destroy(tracker);
@@ -401,8 +418,9 @@ TEST(scenario_cursor_navigation_editing) {
  */
 
 TEST(scenario_continuous_validation) {
-    printf("  Scenario: Validate buffer integrity throughout complex editing session\n");
-    
+    printf("  Scenario: Validate buffer integrity throughout complex editing "
+           "session\n");
+
     lle_buffer_t *buffer = NULL;
     lle_buffer_validator_t *validator = NULL;
     lle_change_tracker_t *tracker = NULL;
@@ -464,14 +482,15 @@ TEST(scenario_continuous_validation) {
     result = lle_buffer_validate_complete(buffer, validator);
     ASSERT_SUCCESS(result, "Valid after op3");
 
-    ASSERT_STR_EQ((char*)buffer->data, "cat big_file.txt | grep pattern", "After all ops");
+    ASSERT_STR_EQ((char *)buffer->data, "cat big_file.txt | grep pattern",
+                  "After all ops");
 
     /* Op 4: Delete */
     result = lle_change_tracker_begin_sequence(tracker, "op4", &seq);
     ASSERT_SUCCESS(result, "Begin op4");
     buffer->current_sequence = seq;
 
-    result = lle_buffer_delete_text(buffer, 4, 4);  /* Remove "big_" */
+    result = lle_buffer_delete_text(buffer, 4, 4); /* Remove "big_" */
     ASSERT_SUCCESS(result, "Delete text");
 
     result = lle_change_tracker_complete_sequence(tracker);
@@ -480,7 +499,8 @@ TEST(scenario_continuous_validation) {
     result = lle_buffer_validate_complete(buffer, validator);
     ASSERT_SUCCESS(result, "Valid after op4");
 
-    ASSERT_STR_EQ((char*)buffer->data, "cat file.txt | grep pattern", "After delete");
+    ASSERT_STR_EQ((char *)buffer->data, "cat file.txt | grep pattern",
+                  "After delete");
 
     /* Verify validation statistics */
     printf("    Validations performed: %u\n", validator->validation_count);

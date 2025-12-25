@@ -45,9 +45,9 @@ extern "C" {
 #define LLE_INPUT_PARSE_BUFFER_SIZE 2048 /* Parse buffer size */
 #define LLE_MAX_SEQUENCE_LENGTH 256      /* Max escape sequence */
 #ifndef LLE_MAX_KEY_SEQUENCE_LENGTH
-#define LLE_MAX_KEY_SEQUENCE_LENGTH 64   /* Max key sequence */
+#define LLE_MAX_KEY_SEQUENCE_LENGTH 64 /* Max key sequence */
 #endif
-#define LLE_MAX_CSI_PARAMETERS 16        /* Max CSI parameters */
+#define LLE_MAX_CSI_PARAMETERS 16 /* Max CSI parameters */
 
 /* Performance limits */
 #define LLE_MAX_PARSE_TIME_US 250                  /* 250μs max parse time */

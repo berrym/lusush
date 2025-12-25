@@ -28,10 +28,11 @@ typedef enum {
 
 // LLE History - Arrow key behavior modes
 typedef enum {
-    LLE_ARROW_MODE_CONTEXT_AWARE,    // Smart: multiline navigation when in multiline
-    LLE_ARROW_MODE_CLASSIC,          // GNU Readline: always history navigation
-    LLE_ARROW_MODE_ALWAYS_HISTORY,   // Always history, use Ctrl-P/N only
-    LLE_ARROW_MODE_MULTILINE_FIRST   // Prioritize multiline navigation
+    LLE_ARROW_MODE_CONTEXT_AWARE,  // Smart: multiline navigation when in
+                                   // multiline
+    LLE_ARROW_MODE_CLASSIC,        // GNU Readline: always history navigation
+    LLE_ARROW_MODE_ALWAYS_HISTORY, // Always history, use Ctrl-P/N only
+    LLE_ARROW_MODE_MULTILINE_FIRST // Prioritize multiline navigation
 } lle_arrow_key_mode_t;
 
 // LLE History - Storage modes
@@ -44,19 +45,20 @@ typedef enum {
 
 // LLE History - Deduplication scope
 typedef enum {
-    LLE_DEDUP_SCOPE_NONE,            // No deduplication
-    LLE_DEDUP_SCOPE_SESSION,         // Within current session
-    LLE_DEDUP_SCOPE_RECENT,          // Last N entries
-    LLE_DEDUP_SCOPE_GLOBAL           // Entire history
+    LLE_DEDUP_SCOPE_NONE,    // No deduplication
+    LLE_DEDUP_SCOPE_SESSION, // Within current session
+    LLE_DEDUP_SCOPE_RECENT,  // Last N entries
+    LLE_DEDUP_SCOPE_GLOBAL   // Entire history
 } lle_dedup_scope_t;
 
 // LLE History - Deduplication strategy
 typedef enum {
-    LLE_DEDUP_STRATEGY_IGNORE,       // Reject new duplicates, keep old
-    LLE_DEDUP_STRATEGY_KEEP_RECENT,  // Keep newest, mark old as deleted (default)
-    LLE_DEDUP_STRATEGY_KEEP_FREQUENT,// Keep entry with highest usage count
-    LLE_DEDUP_STRATEGY_MERGE,        // Merge forensic metadata, keep existing
-    LLE_DEDUP_STRATEGY_KEEP_ALL      // No dedup (track frequency only)
+    LLE_DEDUP_STRATEGY_IGNORE,        // Reject new duplicates, keep old
+    LLE_DEDUP_STRATEGY_KEEP_RECENT,   // Keep newest, mark old as deleted
+                                      // (default)
+    LLE_DEDUP_STRATEGY_KEEP_FREQUENT, // Keep entry with highest usage count
+    LLE_DEDUP_STRATEGY_MERGE,         // Merge forensic metadata, keep existing
+    LLE_DEDUP_STRATEGY_KEEP_ALL       // No dedup (track frequency only)
 } lle_dedup_strategy_t;
 
 // Configuration context
@@ -107,10 +109,14 @@ typedef struct {
     bool lle_enable_forensic_tracking;
     bool lle_enable_deduplication;
     lle_dedup_scope_t lle_dedup_scope;
-    lle_dedup_strategy_t lle_dedup_strategy;      // Dedup strategy (default: KEEP_RECENT)
-    bool lle_dedup_navigation;                     // Skip duplicates during history navigation (default: true)
-    bool lle_dedup_navigation_unique;              // Show only unique entries during navigation session (default: true)
-    bool lle_dedup_unicode_normalize;              // Use Unicode NFC normalization for comparison (default: true)
+    lle_dedup_strategy_t
+        lle_dedup_strategy;    // Dedup strategy (default: KEEP_RECENT)
+    bool lle_dedup_navigation; // Skip duplicates during history navigation
+                               // (default: true)
+    bool lle_dedup_navigation_unique; // Show only unique entries during
+                                      // navigation session (default: true)
+    bool lle_dedup_unicode_normalize; // Use Unicode NFC normalization for
+                                      // comparison (default: true)
 
     // Performance
     bool lle_enable_history_cache;
@@ -128,7 +134,8 @@ typedef struct {
     bool hints_enabled;
 
     // Prompt settings
-    bool use_theme_prompt;    // Use theme system for prompts (false = respect user PS1/PS2)
+    bool use_theme_prompt; // Use theme system for prompts (false = respect user
+                           // PS1/PS2)
     char *prompt_theme;
     bool git_prompt_enabled;
     int git_cache_timeout;
@@ -173,13 +180,13 @@ typedef struct {
     // Advanced settings
     bool verbose_errors;
     bool debug_mode;
-    
+
     // Display system settings - v1.3.0: Layered display is now exclusive
     bool display_syntax_highlighting;    // Enable syntax highlighting
     bool display_autosuggestions;        // Enable autosuggestions
     bool display_performance_monitoring; // Enable performance monitoring
     int display_optimization_level;      // Optimization level (0-4)
-    
+
     // Legacy display setting (deprecated)
     bool enhanced_display_mode;
 
@@ -194,9 +201,9 @@ typedef struct {
 
     // Script execution control
     bool script_execution;
-    
+
     // Line editor selection (GNU readline vs LLE)
-    bool use_lle;  // Use LLE instead of GNU readline (default: false)
+    bool use_lle; // Use LLE instead of GNU readline (default: false)
 } config_values_t;
 
 // Global configuration instance

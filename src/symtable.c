@@ -452,12 +452,12 @@ int symtable_export_var(symtable_manager_t *manager, const char *name) {
 
     // Reset with export flag
     int result = symtable_set_var(manager, name, value, SYMVAR_EXPORTED);
-    
+
     // Actually export to system environment
     if (result == 0) {
         setenv(name, value, 1);
     }
-    
+
     free(value);
 
     return result;
@@ -497,7 +497,7 @@ void symtable_dump_scope(symtable_manager_t *manager, scope_type_t scope) {
     // Find the requested scope in the scope chain
     symtable_scope_t *target_scope = NULL;
     symtable_scope_t *current = manager->current_scope;
-    
+
     while (current) {
         if (current->scope_type == scope) {
             target_scope = current;
@@ -505,7 +505,7 @@ void symtable_dump_scope(symtable_manager_t *manager, scope_type_t scope) {
         }
         current = current->parent;
     }
-    
+
     if (!target_scope) {
         printf("DEBUG: Scope type %d not found\n", scope);
         return;
@@ -513,15 +513,25 @@ void symtable_dump_scope(symtable_manager_t *manager, scope_type_t scope) {
 
     const char *scope_name = "unknown";
     switch (scope) {
-        case SCOPE_GLOBAL: scope_name = "global"; break;
-        case SCOPE_FUNCTION: scope_name = "function"; break;
-        case SCOPE_LOOP: scope_name = "loop"; break;
-        case SCOPE_SUBSHELL: scope_name = "subshell"; break;
-        case SCOPE_CONDITIONAL: scope_name = "conditional"; break;
+    case SCOPE_GLOBAL:
+        scope_name = "global";
+        break;
+    case SCOPE_FUNCTION:
+        scope_name = "function";
+        break;
+    case SCOPE_LOOP:
+        scope_name = "loop";
+        break;
+    case SCOPE_SUBSHELL:
+        scope_name = "subshell";
+        break;
+    case SCOPE_CONDITIONAL:
+        scope_name = "conditional";
+        break;
     }
 
     printf("=== %s scope (level %zu) ===\n", scope_name, target_scope->level);
-    
+
     if (!target_scope->vars_ht) {
         printf("  (no variables)\n");
         return;
@@ -536,16 +546,17 @@ void symtable_dump_scope(symtable_manager_t *manager, scope_type_t scope) {
 
     const char *key, *value;
     bool has_vars = false;
-    
+
     while (ht_strstr_enum_next(enum_iter, &key, &value)) {
         has_vars = true;
-        printf("  %-12s = '%s'\n", key ? key : "(null)", value ? value : "(null)");
+        printf("  %-12s = '%s'\n", key ? key : "(null)",
+               value ? value : "(null)");
     }
-    
+
     if (!has_vars) {
         printf("  (no variables in scope)\n");
     }
-    
+
     ht_strstr_enum_destroy(enum_iter);
 }
 
@@ -557,29 +568,41 @@ void symtable_dump_all_scopes(symtable_manager_t *manager) {
     }
 
     printf("=== Symbol Table Scope Dump ===\n");
-    printf("Current scope level: %zu\n", manager->current_scope ? manager->current_scope->level : 0);
+    printf("Current scope level: %zu\n",
+           manager->current_scope ? manager->current_scope->level : 0);
     printf("Max scope level: %zu\n", manager->max_scope_level);
     printf("\n");
 
     // Walk through the scope chain from current to global
     symtable_scope_t *current = manager->current_scope;
     int scope_count = 0;
-    
+
     while (current) {
-        const char *scope_name = current->scope_name ? current->scope_name : "unnamed";
+        const char *scope_name =
+            current->scope_name ? current->scope_name : "unnamed";
         const char *type_name = "unknown";
-        
+
         switch (current->scope_type) {
-            case SCOPE_GLOBAL: type_name = "global"; break;
-            case SCOPE_FUNCTION: type_name = "function"; break;
-            case SCOPE_LOOP: type_name = "loop"; break;
-            case SCOPE_SUBSHELL: type_name = "subshell"; break;
-            case SCOPE_CONDITIONAL: type_name = "conditional"; break;
+        case SCOPE_GLOBAL:
+            type_name = "global";
+            break;
+        case SCOPE_FUNCTION:
+            type_name = "function";
+            break;
+        case SCOPE_LOOP:
+            type_name = "loop";
+            break;
+        case SCOPE_SUBSHELL:
+            type_name = "subshell";
+            break;
+        case SCOPE_CONDITIONAL:
+            type_name = "conditional";
+            break;
         }
-        
-        printf("--- Scope #%d: %s (%s, level %zu) ---\n", 
-               scope_count++, scope_name, type_name, current->level);
-        
+
+        printf("--- Scope #%d: %s (%s, level %zu) ---\n", scope_count++,
+               scope_name, type_name, current->level);
+
         if (!current->vars_ht) {
             printf("  (no hashtable)\n");
         } else {
@@ -590,24 +613,25 @@ void symtable_dump_all_scopes(symtable_manager_t *manager) {
             } else {
                 const char *key, *value;
                 bool has_vars = false;
-                
+
                 while (ht_strstr_enum_next(enum_iter, &key, &value)) {
                     has_vars = true;
-                    printf("  %-12s = '%s'\n", key ? key : "(null)", value ? value : "(null)");
+                    printf("  %-12s = '%s'\n", key ? key : "(null)",
+                           value ? value : "(null)");
                 }
-                
+
                 if (!has_vars) {
                     printf("  (no variables in this scope)\n");
                 }
-                
+
                 ht_strstr_enum_destroy(enum_iter);
             }
         }
-        
+
         printf("\n");
         current = current->parent;
     }
-    
+
     printf("=== End Scope Dump ===\n");
 }
 
@@ -743,12 +767,17 @@ void symtable_debug_dump_all_scopes(void) {
 }
 
 // Debug enumeration function for external access to variables
-void symtable_debug_enumerate_global_vars(void (*callback)(const char *key, const char *value, void *userdata), void *userdata) {
-    if (!global_manager || !global_manager->global_scope || !global_manager->global_scope->vars_ht || !callback) {
+void symtable_debug_enumerate_global_vars(void (*callback)(const char *key,
+                                                           const char *value,
+                                                           void *userdata),
+                                          void *userdata) {
+    if (!global_manager || !global_manager->global_scope ||
+        !global_manager->global_scope->vars_ht || !callback) {
         return;
     }
 
-    ht_enum_t *enum_iter = ht_strstr_enum_create(global_manager->global_scope->vars_ht);
+    ht_enum_t *enum_iter =
+        ht_strstr_enum_create(global_manager->global_scope->vars_ht);
     if (!enum_iter) {
         return;
     }
@@ -757,7 +786,7 @@ void symtable_debug_enumerate_global_vars(void (*callback)(const char *key, cons
     while (ht_strstr_enum_next(enum_iter, &key, &value)) {
         callback(key, value, userdata);
     }
-    
+
     ht_strstr_enum_destroy(enum_iter);
 }
 

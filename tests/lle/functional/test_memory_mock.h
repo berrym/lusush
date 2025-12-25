@@ -1,8 +1,8 @@
 /**
  * Mock Memory Pool Header for LLE Testing
- * 
+ *
  * Declares mock memory pool functions for standalone unit tests.
- * 
+ *
  * IMPORTANT: This must be included BEFORE any LLE headers to avoid
  * type conflicts with the real memory management system.
  */
@@ -36,13 +36,13 @@ typedef struct lle_memory_optimizer {
 extern lusush_memory_pool_t *global_memory_pool;
 
 /* Mock memory pool functions */
-void* lle_pool_alloc(size_t size);
+void *lle_pool_alloc(size_t size);
 void lle_pool_free(void *ptr);
-void* lusush_pool_alloc(lusush_memory_pool_t *pool, size_t size);
+void *lusush_pool_alloc(lusush_memory_pool_t *pool, size_t size);
 void lusush_pool_free(lusush_memory_pool_t *pool, void *ptr);
 
 /* LLE memory pool API */
-lle_memory_pool_t* lle_pool_create(void);
+lle_memory_pool_t *lle_pool_create(void);
 void lle_pool_destroy(lle_memory_pool_t *pool);
 int lle_pool_init(lle_memory_pool_t **pool, size_t size);
 

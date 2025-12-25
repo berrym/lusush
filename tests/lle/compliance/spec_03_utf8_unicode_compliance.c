@@ -1,56 +1,56 @@
 /**
  * Spec 03 UTF-8 and Unicode TR#29 Compliance Tests
- * 
+ *
  * Verifies foundation modules for buffer management comply with:
  * - Unicode UTF-8 encoding standard
  * - Unicode TR#29 (UAX #29) grapheme cluster boundary specification
  */
 
-#include "../../../include/lle/utf8_support.h"
 #include "../../../include/lle/unicode_grapheme.h"
+#include "../../../include/lle/utf8_support.h"
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 
 static int tests_run = 0;
 static int tests_passed = 0;
 static int tests_failed = 0;
 
-#define TEST(name) \
-    do { \
-        printf("  Testing: %s ... ", name); \
-        fflush(stdout); \
-        tests_run++; \
-    } while(0)
+#define TEST(name)                                                             \
+    do {                                                                       \
+        printf("  Testing: %s ... ", name);                                    \
+        fflush(stdout);                                                        \
+        tests_run++;                                                           \
+    } while (0)
 
-#define PASS() \
-    do { \
-        printf("PASS\n"); \
-        tests_passed++; \
-    } while(0)
+#define PASS()                                                                 \
+    do {                                                                       \
+        printf("PASS\n");                                                      \
+        tests_passed++;                                                        \
+    } while (0)
 
-#define FAIL(msg) \
-    do { \
-        printf("FAIL: %s\n", msg); \
-        tests_failed++; \
-    } while(0)
+#define FAIL(msg)                                                              \
+    do {                                                                       \
+        printf("FAIL: %s\n", msg);                                             \
+        tests_failed++;                                                        \
+    } while (0)
 
-#define ASSERT_EQ(a, b, msg) \
-    do { \
-        if ((a) != (b)) { \
-            FAIL(msg); \
-            return; \
-        } \
-    } while(0)
+#define ASSERT_EQ(a, b, msg)                                                   \
+    do {                                                                       \
+        if ((a) != (b)) {                                                      \
+            FAIL(msg);                                                         \
+            return;                                                            \
+        }                                                                      \
+    } while (0)
 
-#define ASSERT_TRUE(cond, msg) \
-    do { \
-        if (!(cond)) { \
-            FAIL(msg); \
-            return; \
-        } \
-    } while(0)
+#define ASSERT_TRUE(cond, msg)                                                 \
+    do {                                                                       \
+        if (!(cond)) {                                                         \
+            FAIL(msg);                                                         \
+            return;                                                            \
+        }                                                                      \
+    } while (0)
 
 /* UTF-8 Encoding Tests */
 static void test_utf8_ascii() {
@@ -72,7 +72,7 @@ static void test_utf8_validation() {
     TEST("UTF-8 validation");
     const char *valid = "Hello";
     const char *invalid = "\xFF\xFE";
-    
+
     ASSERT_TRUE(lle_utf8_is_valid(valid, strlen(valid)), "Valid ASCII");
     ASSERT_TRUE(!lle_utf8_is_valid(invalid, 2), "Invalid sequence rejected");
     PASS();
@@ -80,8 +80,9 @@ static void test_utf8_validation() {
 
 static void test_utf8_codepoint_counting() {
     TEST("UTF-8 codepoint counting");
-    const char *text = "AB";  // 2 ASCII chars = 2 codepoints
-    ASSERT_EQ(lle_utf8_count_codepoints(text, strlen(text)), 2, "Count ASCII codepoints");
+    const char *text = "AB"; // 2 ASCII chars = 2 codepoints
+    ASSERT_EQ(lle_utf8_count_codepoints(text, strlen(text)), 2,
+              "Count ASCII codepoints");
     PASS();
 }
 
@@ -97,7 +98,8 @@ static void test_grapheme_ascii() {
 static void test_grapheme_boundary_start() {
     TEST("Grapheme boundary at start (GB1)");
     const char *text = "A";
-    ASSERT_TRUE(lle_is_grapheme_boundary(text, text, text + 1), "Start is always boundary");
+    ASSERT_TRUE(lle_is_grapheme_boundary(text, text, text + 1),
+                "Start is always boundary");
     PASS();
 }
 

@@ -2,23 +2,23 @@
 
 #include "config.h"
 #include "debug.h"
+#include "display_integration.h"
 #include "errors.h"
 #include "executor.h"
 #include "history.h"
 #include "ht.h"
-#include "display_integration.h"
+#include "input.h"
+#include "lle/adaptive_terminal_integration.h"
+#include "lle/history.h"
+#include "lle/keybinding.h"
+#include "lle/lle_editor.h"
 #include "lusush.h"
+#include "lusush_memory_pool.h"
 #include "network.h"
 #include "prompt.h"
 #include "signals.h"
 #include "symtable.h"
-#include "lle/adaptive_terminal_integration.h"
 #include "themes.h"
-#include "input.h"
-#include "lusush_memory_pool.h"
-#include "lle/lle_editor.h"
-#include "lle/history.h"
-#include "lle/keybinding.h"
 
 #include <dirent.h>
 #include <stdio.h>
@@ -59,57 +59,57 @@ ht_strstr_t *command_hash = NULL;
 
 // Table of builtin commands
 builtin builtins[] = {
-    {    "exit",                       "exit shell",     bin_exit},
-    {    "help",                     "builtin help",     bin_help},
-    {      "cd",                 "change directory",       bin_cd},
-    {     "pwd",          "print working directory",      bin_pwd},
-    { "history",            "print command history",  bin_history},
-    {      "fc",         "POSIX history edit/list",      bin_fc},
-    {"ehistory",       "enhanced history commands", bin_enhanced_history},
-    {   "alias",                     "set an alias",    bin_alias},
-    { "unalias",                   "unset an alias",  bin_unalias},
-    {   "clear",                 "clear the screen",    bin_clear},
-    { "terminal",     "display terminal information",  bin_terminal},
+    {"exit", "exit shell", bin_exit},
+    {"help", "builtin help", bin_help},
+    {"cd", "change directory", bin_cd},
+    {"pwd", "print working directory", bin_pwd},
+    {"history", "print command history", bin_history},
+    {"fc", "POSIX history edit/list", bin_fc},
+    {"ehistory", "enhanced history commands", bin_enhanced_history},
+    {"alias", "set an alias", bin_alias},
+    {"unalias", "unset an alias", bin_unalias},
+    {"clear", "clear the screen", bin_clear},
+    {"terminal", "display terminal information", bin_terminal},
 
-    {    "type",             "display command type",     bin_type},
-    {   "unset",           "unset a shell variable",    bin_unset},
+    {"type", "display command type", bin_type},
+    {"unset", "unset a shell variable", bin_unset},
 
-    {    "echo",              "echo text to stdout",     bin_echo},
-    {  "printf",                 "formatted output",   bin_printf},
-    {  "export",           "export shell variables",   bin_export},
-    {  "source",                  "source a script",   bin_source},
-    {       ".",                  "source a script",   bin_source},
-    {    "test",                 "test expressions",     bin_test},
-    {       "[",                 "test expressions",     bin_test},
-    {    "read",                  "read user input",     bin_read},
-    {    "eval",               "evaluate arguments",     bin_eval},
-    {    "true",            "return success status",     bin_true},
-    {   "false",            "return failure status",    bin_false},
-    {     "set",                "set shell options",      bin_set},
-    {    "jobs",                 "list active jobs",     bin_jobs},
-    {      "fg",          "bring job to foreground",       bin_fg},
-    {      "bg",           "send job to background",       bin_bg},
-    {   "shift",      "shift positional parameters",    bin_shift},
-    {   "break",               "break out of loops",    bin_break},
-    {"continue",  "continue to next loop iteration", bin_continue},
-    {  "return",            "return from functions",   bin_return},
-    {"return_value",     "set function return value", bin_return_value},
-    {    "trap",              "set signal handlers",     bin_trap},
-    {    "exec",       "replace shell with command",     bin_exec},
-    {    "wait",         "wait for background jobs",     bin_wait},
-    {   "umask",   "set/display file creation mask",    bin_umask},
-    {  "ulimit",      "set/display resource limits",   bin_ulimit},
-    {   "times",            "display process times",    bin_times},
-    { "getopts",            "parse command options",  bin_getopts},
-    {   "local",          "declare local variables",    bin_local},
-    {       ":",             "null command (no-op)",    bin_colon},
-    {"readonly",       "create read-only variables", bin_readonly},
-    {  "config",       "manage shell configuration",   bin_config},
-    {    "hash",       "remember utility locations",     bin_hash},
-    {   "theme",              "manage shell themes",    bin_theme},
-    { "display",       "manage layered display system", bin_display},
-    { "network",     "manage network and SSH hosts",  bin_network},
-    {   "debug", "advanced debugging and profiling",    bin_debug},
+    {"echo", "echo text to stdout", bin_echo},
+    {"printf", "formatted output", bin_printf},
+    {"export", "export shell variables", bin_export},
+    {"source", "source a script", bin_source},
+    {".", "source a script", bin_source},
+    {"test", "test expressions", bin_test},
+    {"[", "test expressions", bin_test},
+    {"read", "read user input", bin_read},
+    {"eval", "evaluate arguments", bin_eval},
+    {"true", "return success status", bin_true},
+    {"false", "return failure status", bin_false},
+    {"set", "set shell options", bin_set},
+    {"jobs", "list active jobs", bin_jobs},
+    {"fg", "bring job to foreground", bin_fg},
+    {"bg", "send job to background", bin_bg},
+    {"shift", "shift positional parameters", bin_shift},
+    {"break", "break out of loops", bin_break},
+    {"continue", "continue to next loop iteration", bin_continue},
+    {"return", "return from functions", bin_return},
+    {"return_value", "set function return value", bin_return_value},
+    {"trap", "set signal handlers", bin_trap},
+    {"exec", "replace shell with command", bin_exec},
+    {"wait", "wait for background jobs", bin_wait},
+    {"umask", "set/display file creation mask", bin_umask},
+    {"ulimit", "set/display resource limits", bin_ulimit},
+    {"times", "display process times", bin_times},
+    {"getopts", "parse command options", bin_getopts},
+    {"local", "declare local variables", bin_local},
+    {":", "null command (no-op)", bin_colon},
+    {"readonly", "create read-only variables", bin_readonly},
+    {"config", "manage shell configuration", bin_config},
+    {"hash", "remember utility locations", bin_hash},
+    {"theme", "manage shell themes", bin_theme},
+    {"display", "manage layered display system", bin_display},
+    {"network", "manage network and SSH hosts", bin_network},
+    {"debug", "advanced debugging and profiling", bin_debug},
 };
 
 const size_t builtins_count = sizeof(builtins) / sizeof(builtins[0]);
@@ -166,27 +166,32 @@ int bin_help(int argc __attribute__((unused)),
 /**
  * canonicalize_logical_path:
  *      Canonicalize a path by resolving . and .. components logically
- *      (without following symlinks). Returns a malloc'd string or NULL on error.
+ *      (without following symlinks). Returns a malloc'd string or NULL on
+ * error.
  */
 static char *canonicalize_logical_path(const char *path) {
-    if (!path) return NULL;
-    
+    if (!path)
+        return NULL;
+
     size_t path_len = strlen(path);
     char *result = malloc(path_len + 1);
-    if (!result) return NULL;
-    
+    if (!result)
+        return NULL;
+
     strcpy(result, path);
-    
+
     // Simple canonicalization: remove /./  and resolve /../
     char *src = result;
     char *dst = result;
-    
+
     while (*src) {
         if (*src == '/') {
             // Skip multiple slashes
-            while (*src == '/') src++;
-            if (dst > result || dst == result) *dst++ = '/';
-            
+            while (*src == '/')
+                src++;
+            if (dst > result || dst == result)
+                *dst++ = '/';
+
             // Check for . and ..
             if (*src == '.') {
                 if (src[1] == '/' || src[1] == '\0') {
@@ -199,7 +204,8 @@ static char *canonicalize_logical_path(const char *path) {
                     // Remove last component from dst
                     if (dst > result + 1) {
                         dst--; // Back up from the /
-                        while (dst > result && dst[-1] != '/') dst--;
+                        while (dst > result && dst[-1] != '/')
+                            dst--;
                     }
                     continue;
                 }
@@ -207,19 +213,19 @@ static char *canonicalize_logical_path(const char *path) {
         }
         *dst++ = *src++;
     }
-    
+
     // Remove trailing slash unless it's root
     if (dst > result + 1 && dst[-1] == '/') {
         dst--;
     }
-    
+
     *dst = '\0';
-    
+
     // Handle empty path
     if (dst == result) {
         strcpy(result, "/");
     }
-    
+
     return result;
 }
 
@@ -315,7 +321,8 @@ int bin_cd(int argc __attribute__((unused)),
     } else {
         // In logical mode, preserve the logical path taken
         if (argc == 2 && strcmp(argv[1], "-") == 0) {
-            // cd - case: PWD becomes old OLDPWD (already handled above in cd - logic)
+            // cd - case: PWD becomes old OLDPWD (already handled above in cd -
+            // logic)
             char *new_dir = getcwd(NULL, 0);
             if (new_dir) {
                 symtable_set_global("PWD", new_dir);
@@ -343,9 +350,10 @@ int bin_cd(int argc __attribute__((unused)),
                         strcat(logical_path, "/");
                     }
                     strcat(logical_path, target_dir);
-                    
+
                     // Canonicalize the logical path to handle . and ..
-                    char *canonical_path = canonicalize_logical_path(logical_path);
+                    char *canonical_path =
+                        canonicalize_logical_path(logical_path);
                     if (canonical_path) {
                         symtable_set_global("PWD", canonical_path);
                         free(canonical_path);
@@ -434,11 +442,13 @@ int bin_history(int argc __attribute__((unused)),
     extern config_values_t config;
     if (config.use_lle) {
         fprintf(stderr, "history: command disabled when LLE is enabled\n");
-        fprintf(stderr, "history: LLE will have its own history system (Spec 09)\n");
-        fprintf(stderr, "history: use 'display lle disable' to switch back to GNU readline\n");
+        fprintf(stderr,
+                "history: LLE will have its own history system (Spec 09)\n");
+        fprintf(stderr, "history: use 'display lle disable' to switch back to "
+                        "GNU readline\n");
         return 1;
     }
-    
+
     char *line = NULL;
 
     switch (argc) {
@@ -481,7 +491,8 @@ int bin_terminal(int argc, char **argv) {
         return 1;
     }
 
-    if (argc == 2 && (strcmp(argv[1], "help") == 0 || strcmp(argv[1], "--help") == 0)) {
+    if (argc == 2 &&
+        (strcmp(argv[1], "help") == 0 || strcmp(argv[1], "--help") == 0)) {
         printf("terminal - Display terminal capability information\n\n");
         printf("Usage: terminal [option]\n\n");
         printf("Options:\n");
@@ -493,7 +504,8 @@ int bin_terminal(int argc, char **argv) {
     }
 
     lle_terminal_detection_result_t *detection = NULL;
-    if (lle_detect_terminal_capabilities_optimized(&detection) != LLE_SUCCESS || !detection) {
+    if (lle_detect_terminal_capabilities_optimized(&detection) != LLE_SUCCESS ||
+        !detection) {
         error_message("terminal: failed to detect terminal capabilities");
         return 1;
     }
@@ -507,9 +519,12 @@ int bin_terminal(int argc, char **argv) {
     printf("  stderr: %s\n", detection->stderr_is_tty ? "yes" : "no");
 
     printf("\nTerminal Type:\n");
-    printf("  TERM:         %s\n", detection->term_name[0] ? detection->term_name : "(not set)");
-    printf("  TERM_PROGRAM: %s\n", detection->term_program[0] ? detection->term_program : "(not set)");
-    printf("  COLORTERM:    %s\n", detection->colorterm[0] ? detection->colorterm : "(not set)");
+    printf("  TERM:         %s\n",
+           detection->term_name[0] ? detection->term_name : "(not set)");
+    printf("  TERM_PROGRAM: %s\n",
+           detection->term_program[0] ? detection->term_program : "(not set)");
+    printf("  COLORTERM:    %s\n",
+           detection->colorterm[0] ? detection->colorterm : "(not set)");
 
     printf("\nDimensions:\n");
     printf("  Columns: %d\n", detection->terminal_cols);
@@ -517,11 +532,14 @@ int bin_terminal(int argc, char **argv) {
 
     printf("\nCapabilities:\n");
     printf("  Colors:        %s\n", detection->supports_colors ? "yes" : "no");
-    printf("  256 colors:    %s\n", detection->supports_256_colors ? "yes" : "no");
-    printf("  True color:    %s\n", detection->supports_truecolor ? "yes" : "no");
+    printf("  256 colors:    %s\n",
+           detection->supports_256_colors ? "yes" : "no");
+    printf("  True color:    %s\n",
+           detection->supports_truecolor ? "yes" : "no");
     printf("  Unicode:       %s\n", detection->supports_unicode ? "yes" : "no");
     printf("  Mouse:         %s\n", detection->supports_mouse ? "yes" : "no");
-    printf("  Bracketed paste: %s\n", detection->supports_bracketed_paste ? "yes" : "no");
+    printf("  Bracketed paste: %s\n",
+           detection->supports_bracketed_paste ? "yes" : "no");
 
     printf("\nMultiplexer:\n");
     if (lle_is_tmux(detection)) {
@@ -537,8 +555,10 @@ int bin_terminal(int argc, char **argv) {
     }
 
     printf("\nLLE Mode:\n");
-    printf("  Recommended: %s\n", lle_adaptive_mode_to_string(detection->recommended_mode));
-    printf("  Capability:  %s\n", lle_capability_level_to_string(detection->capability_level));
+    printf("  Recommended: %s\n",
+           lle_adaptive_mode_to_string(detection->recommended_mode));
+    printf("  Capability:  %s\n",
+           lle_capability_level_to_string(detection->capability_level));
 
     return 0;
 }
@@ -574,11 +594,11 @@ int bin_unset(int argc __attribute__((unused)),
  *      Display the type of a command (builtin, function, file, alias, etc.)
  */
 int bin_type(int argc, char **argv) {
-    bool type_only = false;   // -t flag: output only the type
-    bool path_only = false;   // -p flag: output only the path
-    bool show_all = false;    // -a flag: show all locations
+    bool type_only = false; // -t flag: output only the type
+    bool path_only = false; // -p flag: output only the path
+    bool show_all = false;  // -a flag: show all locations
     int name_start = 1;
-    
+
     // Parse options
     for (int i = 1; i < argc && argv[i][0] == '-'; i++) {
         if (strcmp(argv[i], "-t") == 0) {
@@ -598,7 +618,7 @@ int bin_type(int argc, char **argv) {
             return 1;
         }
     }
-    
+
     if (name_start >= argc) {
         error_message("usage: type [-t] [-p] [-a] name [name ...]");
         return 1;
@@ -609,7 +629,7 @@ int bin_type(int argc, char **argv) {
         const char *name = argv[i];
 
         bool found_any = false;
-        
+
         // Check if it's a builtin command
         if (is_builtin(name)) {
             found_any = true;
@@ -620,7 +640,8 @@ int bin_type(int argc, char **argv) {
             } else {
                 printf("%s is a shell builtin\n", name);
             }
-            if (!show_all) continue;
+            if (!show_all)
+                continue;
         }
 
         // Check if it's an alias (simplified - would need full alias parsing)
@@ -634,7 +655,8 @@ int bin_type(int argc, char **argv) {
             } else {
                 printf("%s is aliased\n", name);
             }
-            if (!show_all) continue;
+            if (!show_all)
+                continue;
         }
 
         // Check if it's a function (stored in symbol table)
@@ -648,7 +670,8 @@ int bin_type(int argc, char **argv) {
             } else {
                 printf("%s is a function\n", name);
             }
-            if (!show_all) continue;
+            if (!show_all)
+                continue;
         }
 
         // Check if it's an executable file in PATH
@@ -665,7 +688,7 @@ int bin_type(int argc, char **argv) {
                 if (access(full_path, X_OK) == 0) {
                     found_any = true;
                     found_in_path = true;
-                    
+
                     if (type_only) {
                         printf("file\n");
                     } else if (path_only) {
@@ -673,8 +696,9 @@ int bin_type(int argc, char **argv) {
                     } else {
                         printf("%s is %s\n", name, full_path);
                     }
-                    
-                    if (!show_all) break;
+
+                    if (!show_all)
+                        break;
                 }
                 dir = strtok(NULL, ":");
             }
@@ -698,8 +722,6 @@ int bin_type(int argc, char **argv) {
 
     return result;
 }
-
-
 
 /**
  * process_escape_sequences:
@@ -773,7 +795,8 @@ static char *process_escape_sequences(const char *str) {
  *      Echo arguments to stdout with escape sequence processing.
  */
 int bin_echo(int argc, char **argv) {
-    bool interpret_escapes = false; // POSIX: echo does not interpret escapes by default
+    bool interpret_escapes =
+        false; // POSIX: echo does not interpret escapes by default
     bool no_newline = false;
     int arg_start = 1;
 
@@ -904,7 +927,8 @@ int bin_printf(int argc, char **argv) {
 
             // Handle conversion specifier
             char specifier = format[i];
-            // Get the argument for the format specifier (after width/precision parsing)
+            // Get the argument for the format specifier (after width/precision
+            // parsing)
             const char *format_arg = (arg_index < argc) ? argv[arg_index] : "";
 
             switch (specifier) {
@@ -956,23 +980,23 @@ int bin_printf(int argc, char **argv) {
             case 'c': {
                 // Character format
                 int value = (arg_index < argc) ? atoi(format_arg) : 0;
-                
+
                 if (!left_align && width > 1) {
                     // Right-align with padding
                     for (int p = 1; p < width; p++) {
                         putchar(' ');
                     }
                 }
-                
+
                 putchar(value);
-                
+
                 if (left_align && width > 1) {
                     // Left-align with padding
                     for (int p = 1; p < width; p++) {
                         putchar(' ');
                     }
                 }
-                
+
                 if (arg_index < argc) {
                     arg_index++;
                 }
@@ -981,11 +1005,13 @@ int bin_printf(int argc, char **argv) {
             case 'x':
             case 'X': {
                 // Hexadecimal format
-                unsigned int value = (arg_index < argc)
-                                         ? (unsigned int)strtoul(format_arg, NULL, 10)
-                                         : 0;
+                unsigned int value =
+                    (arg_index < argc)
+                        ? (unsigned int)strtoul(format_arg, NULL, 10)
+                        : 0;
                 int effective_width = left_align ? -width : width;
-                printf(specifier == 'x' ? "%*x" : "%*X", effective_width, value);
+                printf(specifier == 'x' ? "%*x" : "%*X", effective_width,
+                       value);
                 if (arg_index < argc) {
                     arg_index++;
                 }
@@ -993,9 +1019,10 @@ int bin_printf(int argc, char **argv) {
             }
             case 'o': {
                 // Octal format
-                unsigned int value = (arg_index < argc)
-                                         ? (unsigned int)strtoul(format_arg, NULL, 10)
-                                         : 0;
+                unsigned int value =
+                    (arg_index < argc)
+                        ? (unsigned int)strtoul(format_arg, NULL, 10)
+                        : 0;
                 int effective_width = left_align ? -width : width;
                 printf("%*o", effective_width, value);
                 if (arg_index < argc) {
@@ -1005,9 +1032,10 @@ int bin_printf(int argc, char **argv) {
             }
             case 'u': {
                 // Unsigned integer format
-                unsigned int value = (arg_index < argc)
-                                         ? (unsigned int)strtoul(format_arg, NULL, 10)
-                                         : 0;
+                unsigned int value =
+                    (arg_index < argc)
+                        ? (unsigned int)strtoul(format_arg, NULL, 10)
+                        : 0;
                 int effective_width = left_align ? -width : width;
                 printf("%*u", effective_width, value);
                 if (arg_index < argc) {
@@ -1018,7 +1046,8 @@ int bin_printf(int argc, char **argv) {
             case 'f':
             case 'F': {
                 // Float format
-                double value = (arg_index < argc) ? strtod(format_arg, NULL) : 0.0;
+                double value =
+                    (arg_index < argc) ? strtod(format_arg, NULL) : 0.0;
                 int effective_width = left_align ? -width : width;
                 if (precision >= 0) {
                     printf("%*.*f", effective_width, precision, value);
@@ -1033,13 +1062,15 @@ int bin_printf(int argc, char **argv) {
             case 'g':
             case 'G': {
                 // General float format
-                double value = (arg_index < argc) ? strtod(format_arg, NULL) : 0.0;
+                double value =
+                    (arg_index < argc) ? strtod(format_arg, NULL) : 0.0;
                 int effective_width = left_align ? -width : width;
                 if (precision >= 0) {
-                    printf(specifier == 'g' ? "%*.*g" : "%*.*G", effective_width,
-                           precision, value);
+                    printf(specifier == 'g' ? "%*.*g" : "%*.*G",
+                           effective_width, precision, value);
                 } else {
-                    printf(specifier == 'g' ? "%*g" : "%*G", effective_width, value);
+                    printf(specifier == 'g' ? "%*g" : "%*G", effective_width,
+                           value);
                 }
                 if (arg_index < argc) {
                     arg_index++;
@@ -1049,13 +1080,15 @@ int bin_printf(int argc, char **argv) {
             case 'e':
             case 'E': {
                 // Scientific notation
-                double value = (arg_index < argc) ? strtod(format_arg, NULL) : 0.0;
+                double value =
+                    (arg_index < argc) ? strtod(format_arg, NULL) : 0.0;
                 int effective_width = left_align ? -width : width;
                 if (precision >= 0) {
-                    printf(specifier == 'e' ? "%*.*e" : "%*.*E", effective_width,
-                           precision, value);
+                    printf(specifier == 'e' ? "%*.*e" : "%*.*E",
+                           effective_width, precision, value);
                 } else {
-                    printf(specifier == 'e' ? "%*e" : "%*E", effective_width, value);
+                    printf(specifier == 'e' ? "%*e" : "%*E", effective_width,
+                           value);
                 }
                 if (arg_index < argc) {
                     arg_index++;
@@ -1253,7 +1286,7 @@ int bin_source(int argc, char **argv) {
     // Set script execution context for debugging
     executor_set_script_context(executor, argv[1], 1);
 
-    extern char *get_input_complete(FILE *in);
+    extern char *get_input_complete(FILE * in);
     char *complete_input;
     int result = 0;
     int construct_number = 1;
@@ -1262,7 +1295,8 @@ int bin_source(int argc, char **argv) {
     while ((complete_input = get_input_complete(file)) != NULL) {
         // Skip empty constructs
         char *trimmed = complete_input;
-        while (*trimmed == ' ' || *trimmed == '\t' || *trimmed == '\n') trimmed++;
+        while (*trimmed == ' ' || *trimmed == '\t' || *trimmed == '\n')
+            trimmed++;
         if (*trimmed == '\0') {
             free(complete_input);
             construct_number++;
@@ -1371,11 +1405,13 @@ static int evaluate_single_test(char **argv, int start, int end) {
         } else if (strcmp(argv[start], "-f") == 0) {
             // test -f FILE - true if file exists and is regular
             struct stat st;
-            return (stat(argv[start + 1], &st) == 0 && S_ISREG(st.st_mode)) ? 0 : 1;
+            return (stat(argv[start + 1], &st) == 0 && S_ISREG(st.st_mode)) ? 0
+                                                                            : 1;
         } else if (strcmp(argv[start], "-d") == 0) {
             // test -d DIR - true if directory exists
             struct stat st;
-            return (stat(argv[start + 1], &st) == 0 && S_ISDIR(st.st_mode)) ? 0 : 1;
+            return (stat(argv[start + 1], &st) == 0 && S_ISDIR(st.st_mode)) ? 0
+                                                                            : 1;
         } else if (strcmp(argv[start], "-e") == 0) {
             // test -e PATH - true if path exists
             struct stat st;
@@ -1383,23 +1419,32 @@ static int evaluate_single_test(char **argv, int start, int end) {
         } else if (strcmp(argv[start], "-c") == 0) {
             // test -c FILE - true if file is character device
             struct stat st;
-            return (stat(argv[start + 1], &st) == 0 && S_ISCHR(st.st_mode)) ? 0 : 1;
+            return (stat(argv[start + 1], &st) == 0 && S_ISCHR(st.st_mode)) ? 0
+                                                                            : 1;
         } else if (strcmp(argv[start], "-b") == 0) {
             // test -b FILE - true if file is block device
             struct stat st;
-            return (stat(argv[start + 1], &st) == 0 && S_ISBLK(st.st_mode)) ? 0 : 1;
-        } else if (strcmp(argv[start], "-L") == 0 || strcmp(argv[start], "-h") == 0) {
+            return (stat(argv[start + 1], &st) == 0 && S_ISBLK(st.st_mode)) ? 0
+                                                                            : 1;
+        } else if (strcmp(argv[start], "-L") == 0 ||
+                   strcmp(argv[start], "-h") == 0) {
             // test -L FILE or -h FILE - true if file is symbolic link
             struct stat st;
-            return (lstat(argv[start + 1], &st) == 0 && S_ISLNK(st.st_mode)) ? 0 : 1;
+            return (lstat(argv[start + 1], &st) == 0 && S_ISLNK(st.st_mode))
+                       ? 0
+                       : 1;
         } else if (strcmp(argv[start], "-p") == 0) {
             // test -p FILE - true if file is named pipe (FIFO)
             struct stat st;
-            return (stat(argv[start + 1], &st) == 0 && S_ISFIFO(st.st_mode)) ? 0 : 1;
+            return (stat(argv[start + 1], &st) == 0 && S_ISFIFO(st.st_mode))
+                       ? 0
+                       : 1;
         } else if (strcmp(argv[start], "-S") == 0) {
             // test -S FILE - true if file is socket
             struct stat st;
-            return (stat(argv[start + 1], &st) == 0 && S_ISSOCK(st.st_mode)) ? 0 : 1;
+            return (stat(argv[start + 1], &st) == 0 && S_ISSOCK(st.st_mode))
+                       ? 0
+                       : 1;
         } else if (strcmp(argv[start], "-r") == 0) {
             // test -r FILE - true if file is readable
             return (access(argv[start + 1], R_OK) == 0) ? 0 : 1;
@@ -1463,8 +1508,8 @@ static int evaluate_single_test(char **argv, int start, int end) {
 /**
  * bin_read:
  *      Enhanced POSIX-compliant read user input into variables.
- *      Supports -p (prompt), -r (raw), -t (timeout), -n (nchars), -s (silent) options.
- *      Leverages existing input.c infrastructure.
+ *      Supports -p (prompt), -r (raw), -t (timeout), -n (nchars), -s (silent)
+ * options. Leverages existing input.c infrastructure.
  */
 int bin_read(int argc, char **argv) {
     // Option flags
@@ -1473,13 +1518,13 @@ int bin_read(int argc, char **argv) {
     int timeout = -1;
     int nchars = -1;
     bool silent_mode = false;
-    
+
     int opt_index = 1;
-    
+
     // Parse options
     while (opt_index < argc && argv[opt_index][0] == '-') {
         char *arg = argv[opt_index];
-        
+
         if (strcmp(arg, "-p") == 0) {
             // -p prompt: Display prompt before reading
             if (opt_index + 1 >= argc) {
@@ -1503,7 +1548,8 @@ int bin_read(int argc, char **argv) {
             }
             // TODO: Implement timeout functionality
         } else if (strcmp(arg, "-n") == 0) {
-            // -n nchars: Read only specified number of characters (not implemented yet)
+            // -n nchars: Read only specified number of characters (not
+            // implemented yet)
             if (opt_index + 1 >= argc) {
                 error_message("read: -n requires a character count");
                 return 1;
@@ -1528,7 +1574,7 @@ int bin_read(int argc, char **argv) {
         }
         opt_index++;
     }
-    
+
     // Must have at least one variable name
     if (opt_index >= argc) {
         error_message("read: usage: read [-p prompt] [-r] variable_name");
@@ -1547,15 +1593,15 @@ int bin_read(int argc, char **argv) {
         printf("%s", prompt);
         fflush(stdout);
     }
-    
+
     // Use existing input infrastructure
     char *line = get_input(stdin);
-    
+
     if (!line) {
         // EOF or input error
         return 1;
     }
-    
+
     // Process backslashes unless in raw mode
     if (!raw_mode && line) {
         char *processed = malloc(strlen(line) + 1);
@@ -1566,14 +1612,22 @@ int bin_read(int argc, char **argv) {
                     // Process escape sequences
                     i++; // Skip the backslash
                     switch (line[i]) {
-                        case 'n': processed[j++] = '\n'; break;
-                        case 't': processed[j++] = '\t'; break;
-                        case 'r': processed[j++] = '\r'; break;
-                        case '\\': processed[j++] = '\\'; break;
-                        default: 
-                            processed[j++] = '\\';
-                            processed[j++] = line[i];
-                            break;
+                    case 'n':
+                        processed[j++] = '\n';
+                        break;
+                    case 't':
+                        processed[j++] = '\t';
+                        break;
+                    case 'r':
+                        processed[j++] = '\r';
+                        break;
+                    case '\\':
+                        processed[j++] = '\\';
+                        break;
+                    default:
+                        processed[j++] = '\\';
+                        processed[j++] = line[i];
+                        break;
                     }
                 } else {
                     processed[j++] = line[i];
@@ -1588,7 +1642,8 @@ int bin_read(int argc, char **argv) {
     // Set the variable using modern API
     symtable_set_global(varname, line ? line : "");
 
-    if (line) free(line);
+    if (line)
+        free(line);
     return 0;
 
     // Suppress unused variable warnings for features not yet implemented
@@ -1670,7 +1725,10 @@ int bin_false(int argc, char **argv) {
  * bin_set:
  *      Manage shell options and behavior flags
  */
-int bin_set(int argc, char **argv) { (void)argc; return builtin_set(argv); }
+int bin_set(int argc, char **argv) {
+    (void)argc;
+    return builtin_set(argv);
+}
 
 // Global executor pointer for job control builtins
 extern executor_t *current_executor;
@@ -1878,24 +1936,25 @@ int bin_return_value(int argc, char **argv) {
         fprintf(stderr, "return_value: not available in POSIX mode\n");
         return 1;
     }
-    
+
     if (argc < 2) {
         fprintf(stderr, "return_value: missing value argument\n");
         return 1;
     }
-    
-    // Output the return value with a special marker that command substitution can recognize
+
+    // Output the return value with a special marker that command substitution
+    // can recognize
     printf("__LUSUSH_RETURN__:%s:__END__\n", argv[1]);
     fflush(stdout);
-    
+
     // Return success
     return 0;
 }
 
 /**
-   * bin_return:
-   *      Return from function with optional exit code
-   */
+ * bin_return:
+ *      Return from function with optional exit code
+ */
 int bin_return(int argc, char **argv) {
     int return_code = 0; // Default return code
 
@@ -3159,13 +3218,15 @@ int bin_theme(int argc, char **argv) {
     // No arguments - show current theme and available themes
     if (argc == 1) {
         extern config_values_t config;
-        
+
         // Show theme system status first
-        printf("Theme system: %s\n", config.use_theme_prompt ? "enabled" : "disabled");
+        printf("Theme system: %s\n",
+               config.use_theme_prompt ? "enabled" : "disabled");
         if (!config.use_theme_prompt) {
-            printf("  (User PS1/PS2 is respected. Use 'theme on' to enable themes.)\n\n");
+            printf("  (User PS1/PS2 is respected. Use 'theme on' to enable "
+                   "themes.)\n\n");
         }
-        
+
         theme_definition_t *active = theme_get_active();
         if (active) {
             printf("Current theme: %s\n", active->name);
@@ -3383,7 +3444,7 @@ int bin_theme(int argc, char **argv) {
             lle_terminal_detection_result_t *det = NULL;
             lle_detect_terminal_capabilities_optimized(&det);
             bool use_colors = det && det->supports_colors;
-            
+
             if (use_colors) {
                 printf("\033[34mPrimary:\033[0m    Example text\n");
                 printf("\033[36mSecondary:\033[0m  Example text\n");
@@ -3477,29 +3538,29 @@ int bin_theme(int argc, char **argv) {
                 // Show current symbol mode
                 symbol_compatibility_t mode = symbol_get_compatibility_mode();
                 printf("Symbol compatibility mode: %s\n",
-                       mode == SYMBOL_MODE_UNICODE ? "unicode" :
-                       mode == SYMBOL_MODE_ASCII ? "ascii" : "auto");
-                
+                       mode == SYMBOL_MODE_UNICODE ? "unicode"
+                       : mode == SYMBOL_MODE_ASCII ? "ascii"
+                                                   : "auto");
+
                 // Show terminal detection
-                symbol_compatibility_t detected = symbol_detect_terminal_capability();
+                symbol_compatibility_t detected =
+                    symbol_detect_terminal_capability();
                 printf("Terminal detected capability: %s\n",
                        detected == SYMBOL_MODE_UNICODE ? "unicode" : "ascii");
-                
+
                 // Show symbol mappings
                 printf("\nSymbol mappings:\n");
-                const symbol_mapping_t* mappings = symbol_get_mapping_table();
+                const symbol_mapping_t *mappings = symbol_get_mapping_table();
                 for (int i = 0; mappings[i].unicode_symbol != NULL; i++) {
-                    printf("  %s -> %s  (%s)\n", 
-                           mappings[i].unicode_symbol, 
-                           mappings[i].ascii_fallback,
-                           mappings[i].description);
+                    printf("  %s -> %s  (%s)\n", mappings[i].unicode_symbol,
+                           mappings[i].ascii_fallback, mappings[i].description);
                 }
                 return 0;
             } else if (argc == 3) {
                 // Set symbol mode
-                const char* mode_str = argv[2];
+                const char *mode_str = argv[2];
                 symbol_compatibility_t new_mode;
-                
+
                 if (strcmp(mode_str, "unicode") == 0) {
                     new_mode = SYMBOL_MODE_UNICODE;
                 } else if (strcmp(mode_str, "ascii") == 0) {
@@ -3507,10 +3568,12 @@ int bin_theme(int argc, char **argv) {
                 } else if (strcmp(mode_str, "auto") == 0) {
                     new_mode = SYMBOL_MODE_AUTO;
                 } else {
-                    error_message("theme symbols: invalid mode '%s' (use unicode|ascii|auto)", mode_str);
+                    error_message("theme symbols: invalid mode '%s' (use "
+                                  "unicode|ascii|auto)",
+                                  mode_str);
                     return 1;
                 }
-                
+
                 if (symbol_set_compatibility_mode(new_mode)) {
                     printf("Symbol compatibility mode set to: %s\n", mode_str);
                     // Rebuild prompt to apply new symbol settings
@@ -3521,7 +3584,8 @@ int bin_theme(int argc, char **argv) {
                     return 1;
                 }
             } else {
-                error_message("theme symbols: usage: theme symbols [unicode|ascii|auto]");
+                error_message(
+                    "theme symbols: usage: theme symbols [unicode|ascii|auto]");
                 return 1;
             }
         }
@@ -3530,7 +3594,8 @@ int bin_theme(int argc, char **argv) {
             printf("Theme command usage:\n");
             printf("  theme              - Show current theme and list "
                    "available themes\n");
-            printf("  theme off          - Disable themes, respect user PS1/PS2\n");
+            printf("  theme off          - Disable themes, respect user "
+                   "PS1/PS2\n");
             printf("  theme on           - Enable theme system\n");
             printf("  theme list         - List all themes by category\n");
             printf("  theme set <name>   - Set active theme\n");
@@ -3539,7 +3604,8 @@ int bin_theme(int argc, char **argv) {
                 "  theme colors       - Show color palette of active theme\n");
             printf("  theme preview [name] - Preview theme prompts\n");
             printf("  theme stats        - Show theme system statistics\n");
-            printf("  theme symbols [mode] - Show/set symbol compatibility (unicode|ascii|auto)\n");
+            printf("  theme symbols [mode] - Show/set symbol compatibility "
+                   "(unicode|ascii|auto)\n");
             printf("  theme help         - Show this help message\n");
             printf("\nAvailable built-in themes:\n");
             printf("  corporate  - Professional theme for business "
@@ -4059,15 +4125,15 @@ int bin_display(int argc, char **argv) {
         printf("  lle         - LLE (Lusush Line Editor) control commands\n");
         printf("  help        - Show this help message\n");
         printf("\nEnvironment Variables:\n");
-        printf("  LUSUSH_DISPLAY_DEBUG=1|0        - Enable/disable debug output\n");
+        printf("  LUSUSH_DISPLAY_DEBUG=1|0        - Enable/disable debug "
+               "output\n");
         printf("  LUSUSH_DISPLAY_OPTIMIZATION=0-4 - Set optimization level\n");
         return 0;
     }
-    
-    // NOTE: testsuggestion command was removed in v1.3.0 cleanup.
-    // Legacy autosuggestions system was abandoned. LLE has its own autosuggestions.
-    
 
+    // NOTE: testsuggestion command was removed in v1.3.0 cleanup.
+    // Legacy autosuggestions system was abandoned. LLE has its own
+    // autosuggestions.
 
     const char *subcmd = argv[1];
 
@@ -4075,16 +4141,21 @@ int bin_display(int argc, char **argv) {
         // Show display integration status
         printf("Display Integration: ACTIVE (Layered display exclusive)\n");
         display_integration_health_t health = display_integration_get_health();
-        printf("Health Status: %s\n", display_integration_health_string(health));
-        
+        printf("Health Status: %s\n",
+               display_integration_health_string(health));
+
         display_integration_config_t config;
         if (display_integration_get_config(&config)) {
             printf("Configuration:\n");
             printf("  Layered display: enabled (exclusive system)\n");
-            printf("  Caching: %s\n", config.enable_caching ? "enabled" : "disabled");
-            printf("  Performance monitoring: %s\n", config.enable_performance_monitoring ? "enabled" : "disabled");
+            printf("  Caching: %s\n",
+                   config.enable_caching ? "enabled" : "disabled");
+            printf("  Performance monitoring: %s\n",
+                   config.enable_performance_monitoring ? "enabled"
+                                                        : "disabled");
             printf("  Optimization level: %d\n", config.optimization_level);
-            printf("  Debug mode: %s\n", config.debug_mode ? "enabled" : "disabled");
+            printf("  Debug mode: %s\n",
+                   config.debug_mode ? "enabled" : "disabled");
         }
         return 0;
 
@@ -4095,27 +4166,45 @@ int bin_display(int argc, char **argv) {
             fprintf(stderr, "display: Failed to get configuration\n");
             return 1;
         }
-        
+
         printf("=== Display Integration Configuration ===\n");
         printf("Core Features:\n");
         printf("  Layered display: enabled (exclusive system)\n");
-        printf("  Caching: %s\n", config.enable_caching ? "enabled" : "disabled");
-        printf("  Performance monitoring: %s\n", config.enable_performance_monitoring ? "enabled" : "disabled");
+        printf("  Caching: %s\n",
+               config.enable_caching ? "enabled" : "disabled");
+        printf("  Performance monitoring: %s\n",
+               config.enable_performance_monitoring ? "enabled" : "disabled");
         printf("\nOptimization:\n");
         printf("  Optimization level: %d ", config.optimization_level);
         switch (config.optimization_level) {
-            case 0: printf("(Disabled)\n"); break;
-            case 1: printf("(Basic)\n"); break;
-            case 2: printf("(Standard)\n"); break;
-            case 3: printf("(Aggressive)\n"); break;
-            case 4: printf("(Maximum)\n"); break;
-            default: printf("(Unknown)\n"); break;
+        case 0:
+            printf("(Disabled)\n");
+            break;
+        case 1:
+            printf("(Basic)\n");
+            break;
+        case 2:
+            printf("(Standard)\n");
+            break;
+        case 3:
+            printf("(Aggressive)\n");
+            break;
+        case 4:
+            printf("(Maximum)\n");
+            break;
+        default:
+            printf("(Unknown)\n");
+            break;
         }
-        printf("  Performance threshold: %u ms\n", config.performance_threshold_ms);
-        printf("  Cache hit rate threshold: %.1f%%\n", config.cache_hit_rate_threshold * 100.0);
+        printf("  Performance threshold: %u ms\n",
+               config.performance_threshold_ms);
+        printf("  Cache hit rate threshold: %.1f%%\n",
+               config.cache_hit_rate_threshold * 100.0);
         printf("\nBehavior:\n");
-        printf("  Fallback on error: %s\n", config.fallback_on_error ? "enabled" : "disabled");
-        printf("  Debug mode: %s\n", config.debug_mode ? "enabled" : "disabled");
+        printf("  Fallback on error: %s\n",
+               config.fallback_on_error ? "enabled" : "disabled");
+        printf("  Debug mode: %s\n",
+               config.debug_mode ? "enabled" : "disabled");
         printf("  Max output size: %zu bytes\n", config.max_output_size);
         printf("========================================\n");
         return 0;
@@ -4127,30 +4216,39 @@ int bin_display(int argc, char **argv) {
             fprintf(stderr, "display: Failed to get statistics\n");
             return 1;
         }
-        
+
         printf("=== Display Integration Statistics ===\n");
         printf("Usage:\n");
-        printf("  Total display calls: %llu\n", (unsigned long long)stats.total_display_calls);
-        printf("  Layered display calls: %llu\n", (unsigned long long)stats.layered_display_calls);
-        printf("  Fallback calls: %llu\n", (unsigned long long)stats.fallback_calls);
-        
+        printf("  Total display calls: %llu\n",
+               (unsigned long long)stats.total_display_calls);
+        printf("  Layered display calls: %llu\n",
+               (unsigned long long)stats.layered_display_calls);
+        printf("  Fallback calls: %llu\n",
+               (unsigned long long)stats.fallback_calls);
+
         if (stats.total_display_calls > 0) {
-            double layered_rate = (double)stats.layered_display_calls / stats.total_display_calls * 100.0;
-            double fallback_rate = (double)stats.fallback_calls / stats.total_display_calls * 100.0;
+            double layered_rate = (double)stats.layered_display_calls /
+                                  stats.total_display_calls * 100.0;
+            double fallback_rate = (double)stats.fallback_calls /
+                                   stats.total_display_calls * 100.0;
             printf("  Layered display rate: %.1f%%\n", layered_rate);
             printf("  Fallback rate: %.1f%%\n", fallback_rate);
         }
-        
+
         if (display_integration_is_layered_active()) {
             printf("\nPerformance:\n");
-            printf("  Average display time: %.2f ms\n", stats.avg_layered_display_time_ns / 1000000.0);
+            printf("  Average display time: %.2f ms\n",
+                   stats.avg_layered_display_time_ns / 1000000.0);
             printf("  Cache hit rate: %.1f%%\n", stats.cache_hit_rate * 100.0);
             printf("  Memory usage: %zu bytes\n", stats.memory_usage_bytes);
-            
+
             printf("\nHealth:\n");
-            printf("  Performance within threshold: %s\n", stats.performance_within_threshold ? "yes" : "no");
-            printf("  Cache efficiency good: %s\n", stats.cache_efficiency_good ? "yes" : "no");
-            printf("  Memory usage acceptable: %s\n", stats.memory_usage_acceptable ? "yes" : "no");
+            printf("  Performance within threshold: %s\n",
+                   stats.performance_within_threshold ? "yes" : "no");
+            printf("  Cache efficiency good: %s\n",
+                   stats.cache_efficiency_good ? "yes" : "no");
+            printf("  Memory usage acceptable: %s\n",
+                   stats.memory_usage_acceptable ? "yes" : "no");
         }
         printf("=====================================\n");
         return 0;
@@ -4163,110 +4261,136 @@ int bin_display(int argc, char **argv) {
     } else if (strcmp(subcmd, "test") == 0) {
         // Test layered display with actual content
         printf("Testing layered display system with actual content...\n");
-        
+
         if (!display_integration_is_layered_active()) {
-            printf("Error: Layered display system is not active. Run 'display enable' first.\n");
+            printf("Error: Layered display system is not active. Run 'display "
+                   "enable' first.\n");
             return 1;
         }
-        
+
         // Force a redisplay with current content
         printf("Triggering display_integration_redisplay()...\n");
         display_integration_redisplay();
         printf("Display test completed.\n");
-        
+
         return 0;
-        
+
     } else if (strcmp(subcmd, "performance") == 0) {
         // Performance monitoring commands
         if (argc < 3) {
             printf("Performance Monitoring Commands:\n");
-            printf("  display performance init          - Initialize performance monitoring\n");
-            printf("  display performance report        - Show performance report\n");
-            printf("  display performance report detail - Show detailed performance report\n");
-            printf("  display performance layers        - Show layer-specific cache performance\n");
-            printf("  display performance memory        - Show memory pool fallback analysis\n");
-            printf("  display performance baseline      - Establish performance baseline\n");
-            printf("  display performance reset         - Reset performance metrics\n");
-            printf("  display performance targets       - Check if targets are being met\n");
-            printf("  display performance monitoring on - Enable real-time monitoring\n");
-            printf("  display performance monitoring off - Disable real-time monitoring\n");
-            printf("  display performance debug         - Show debug information\n");
+            printf("  display performance init          - Initialize "
+                   "performance monitoring\n");
+            printf("  display performance report        - Show performance "
+                   "report\n");
+            printf("  display performance report detail - Show detailed "
+                   "performance report\n");
+            printf("  display performance layers        - Show layer-specific "
+                   "cache performance\n");
+            printf("  display performance memory        - Show memory pool "
+                   "fallback analysis\n");
+            printf("  display performance baseline      - Establish "
+                   "performance baseline\n");
+            printf("  display performance reset         - Reset performance "
+                   "metrics\n");
+            printf("  display performance targets       - Check if targets are "
+                   "being met\n");
+            printf("  display performance monitoring on - Enable real-time "
+                   "monitoring\n");
+            printf("  display performance monitoring off - Disable real-time "
+                   "monitoring\n");
+            printf("  display performance debug         - Show debug "
+                   "information\n");
             return 0;
         }
-        
+
         const char *perf_cmd = argv[2];
-        
+
         if (strcmp(perf_cmd, "init") == 0) {
             if (display_integration_init_phase_2b_monitoring()) {
                 printf("Performance monitoring initialized\n");
                 printf("Targets: Cache hit rate >75%%, Display timing <50ms\n");
                 return 0;
             } else {
-                fprintf(stderr, "display: Failed to initialize performance monitoring\n");
+                fprintf(
+                    stderr,
+                    "display: Failed to initialize performance monitoring\n");
                 return 1;
             }
-            
+
         } else if (strcmp(perf_cmd, "report") == 0) {
             bool detailed = (argc > 3 && strcmp(argv[3], "detail") == 0);
             if (display_integration_generate_phase_2b_report(detailed)) {
                 return 0;
             } else {
-                fprintf(stderr, "display: Failed to generate performance report\n");
+                fprintf(stderr,
+                        "display: Failed to generate performance report\n");
                 return 1;
             }
-            
+
         } else if (strcmp(perf_cmd, "layers") == 0) {
             display_integration_print_layer_cache_report();
             return 0;
-            
+
         } else if (strcmp(perf_cmd, "memory") == 0) {
             lusush_pool_analyze_fallback_patterns();
             return 0;
-            
+
         } else if (strcmp(perf_cmd, "baseline") == 0) {
             if (display_integration_establish_baseline()) {
                 printf("Performance baseline established\n");
                 return 0;
             } else {
-                fprintf(stderr, "display: Failed to establish baseline (need more measurements)\n");
+                fprintf(stderr, "display: Failed to establish baseline (need "
+                                "more measurements)\n");
                 return 1;
             }
-            
+
         } else if (strcmp(perf_cmd, "reset") == 0) {
             if (display_integration_reset_phase_2b_metrics()) {
                 printf("Performance metrics reset\n");
                 return 0;
             } else {
-                fprintf(stderr, "display: Failed to reset performance metrics\n");
+                fprintf(stderr,
+                        "display: Failed to reset performance metrics\n");
                 return 1;
             }
-            
+
         } else if (strcmp(perf_cmd, "targets") == 0) {
             bool cache_met, timing_met;
-            if (display_integration_check_phase_2b_targets(&cache_met, &timing_met)) {
+            if (display_integration_check_phase_2b_targets(&cache_met,
+                                                           &timing_met)) {
                 printf("Performance Target Status:\n");
-                printf("  Cache Hit Rate: %s\n", cache_met ? "OK MET" : "X NOT MET");
-                printf("  Display Timing: %s\n", timing_met ? "OK MET" : "X NOT MET");
-                printf("  Overall: %s\n", (cache_met && timing_met) ? "OK ALL TARGETS MET" : "! NEEDS OPTIMIZATION");
+                printf("  Cache Hit Rate: %s\n",
+                       cache_met ? "OK MET" : "X NOT MET");
+                printf("  Display Timing: %s\n",
+                       timing_met ? "OK MET" : "X NOT MET");
+                printf("  Overall: %s\n", (cache_met && timing_met)
+                                              ? "OK ALL TARGETS MET"
+                                              : "! NEEDS OPTIMIZATION");
                 return 0;
             } else {
-                fprintf(stderr, "display: Failed to check performance targets\n");
+                fprintf(stderr,
+                        "display: Failed to check performance targets\n");
                 return 1;
             }
-            
+
         } else if (strcmp(perf_cmd, "monitoring") == 0) {
             if (argc < 4) {
-                fprintf(stderr, "display: 'monitoring' requires 'on' or 'off'\n");
+                fprintf(stderr,
+                        "display: 'monitoring' requires 'on' or 'off'\n");
                 return 1;
             }
-            
+
             const char *state = argv[3];
             if (strcmp(state, "on") == 0) {
                 if (display_integration_set_phase_2b_monitoring(true, 10)) {
                     printf("Real-time performance monitoring enabled (10Hz)\n");
                     return 0;
                 } else {
-                    fprintf(stderr, "display: Failed to enable performance monitoring\n");
+                    fprintf(
+                        stderr,
+                        "display: Failed to enable performance monitoring\n");
                     return 1;
                 }
             } else if (strcmp(state, "off") == 0) {
@@ -4274,54 +4398,70 @@ int bin_display(int argc, char **argv) {
                     printf("Real-time performance monitoring disabled\n");
                     return 0;
                 } else {
-                    fprintf(stderr, "display: Failed to disable performance monitoring\n");
+                    fprintf(
+                        stderr,
+                        "display: Failed to disable performance monitoring\n");
                     return 1;
                 }
             } else {
-                fprintf(stderr, "display: Invalid monitoring state '%s' (use 'on' or 'off')\n", state);
+                fprintf(stderr,
+                        "display: Invalid monitoring state '%s' (use 'on' or "
+                        "'off')\n",
+                        state);
                 return 1;
             }
-            
+
         } else if (strcmp(perf_cmd, "debug") == 0) {
             // Debug command to troubleshoot data collection
             printf("Performance Monitoring Debug Information:\n");
-            
+
             // Check initialization status
             phase_2b_performance_metrics_t metrics;
             if (display_integration_get_phase_2b_metrics(&metrics)) {
                 printf("  Monitoring initialized: YES\n");
-                printf("  Cache operations recorded: %" PRIu64 "\n", metrics.cache_operations_total);
-                printf("  Display operations recorded: %" PRIu64 "\n", metrics.display_operations_measured);
-                printf("  Monitoring active: %s\n", metrics.monitoring_active ? "YES" : "NO");
-                printf("  Last measurement time: %ld\n", metrics.last_measurement_time);
+                printf("  Cache operations recorded: %" PRIu64 "\n",
+                       metrics.cache_operations_total);
+                printf("  Display operations recorded: %" PRIu64 "\n",
+                       metrics.display_operations_measured);
+                printf("  Monitoring active: %s\n",
+                       metrics.monitoring_active ? "YES" : "NO");
+                printf("  Last measurement time: %ld\n",
+                       metrics.last_measurement_time);
             } else {
                 printf("  Monitoring initialized: NO\n");
             }
-            
+
             // Check integration stats
             display_integration_stats_t stats;
             if (display_integration_get_stats(&stats)) {
-                printf("  Total display calls: %" PRIu64 "\n", stats.total_display_calls);
-                printf("  Layered display calls: %" PRIu64 "\n", stats.layered_display_calls);
+                printf("  Total display calls: %" PRIu64 "\n",
+                       stats.total_display_calls);
+                printf("  Layered display calls: %" PRIu64 "\n",
+                       stats.layered_display_calls);
                 printf("  Fallback calls: %" PRIu64 "\n", stats.fallback_calls);
-                printf("  Integration active: %s\n", display_integration_is_layered_active() ? "YES" : "NO");
+                printf("  Integration active: %s\n",
+                       display_integration_is_layered_active() ? "YES" : "NO");
             }
-            
+
             // Force a measurement test
             printf("Triggering test measurements...\n");
             display_integration_record_display_timing(5000000); // 5ms test
-            display_integration_record_cache_operation(true);   // Test cache hit
-            display_integration_record_cache_operation(false);  // Test cache miss
+            display_integration_record_cache_operation(true); // Test cache hit
+            display_integration_record_cache_operation(
+                false); // Test cache miss
             printf("Test measurements recorded.\n");
-            
+
             return 0;
-            
+
         } else {
-            fprintf(stderr, "display: Unknown performance command '%s'\n", perf_cmd);
-            fprintf(stderr, "display: Use 'display performance' for available commands\n");
+            fprintf(stderr, "display: Unknown performance command '%s'\n",
+                    perf_cmd);
+            fprintf(
+                stderr,
+                "display: Use 'display performance' for available commands\n");
             return 1;
         }
-        
+
     } else if (strcmp(subcmd, "lle") == 0) {
         // LLE (Lusush Line Editor) control commands
         if (argc < 3) {
@@ -4332,92 +4472,115 @@ int bin_display(int argc, char **argv) {
             printf("  disable          - Disable LLE for this session\n");
             printf("  status           - Show LLE status and configuration\n");
             printf("\nFeature Control:\n");
-            printf("  autosuggestions on|off  - Control Fish-style autosuggestions\n");
+            printf("  autosuggestions on|off  - Control Fish-style "
+                   "autosuggestions\n");
             printf("  syntax on|off           - Control syntax highlighting\n");
             printf("  multiline on|off        - Control multiline editing\n");
             printf("\nInformation:\n");
             printf("  keybindings      - Show active keybindings\n");
             printf("  diagnostics      - Show LLE diagnostics and health\n");
-            printf("  history-import   - Import GNU Readline history into LLE\n");
-            printf("\nNote: Changes apply immediately. Use 'config save' to persist.\n");
+            printf(
+                "  history-import   - Import GNU Readline history into LLE\n");
+            printf("\nNote: Changes apply immediately. Use 'config save' to "
+                   "persist.\n");
             return 0;
         }
-        
+
         const char *lle_cmd = argv[2];
-        
+
         if (strcmp(lle_cmd, "enable") == 0) {
             extern config_values_t config;
             config.use_lle = true;
-            printf("✓ LLE enabled for this session (takes effect immediately)\n");
+            printf(
+                "✓ LLE enabled for this session (takes effect immediately)\n");
             printf("  Next prompt will use LLE line editor\n");
-            printf("  To persist: config set editor.use_lle true && config save\n");
+            printf("  To persist: config set editor.use_lle true && config "
+                   "save\n");
             return 0;
-            
+
         } else if (strcmp(lle_cmd, "disable") == 0) {
             extern config_values_t config;
             config.use_lle = false;
-            printf("✓ LLE disabled for this session (takes effect immediately)\n");
+            printf(
+                "✓ LLE disabled for this session (takes effect immediately)\n");
             printf("  Next prompt will use GNU Readline\n");
-            printf("  To persist: config set editor.use_lle false && config save\n");
+            printf("  To persist: config set editor.use_lle false && config "
+                   "save\n");
             return 0;
-            
+
         } else if (strcmp(lle_cmd, "status") == 0) {
             extern config_values_t config;
             printf("LLE Status:\n");
-            printf("  Mode: %s\n", config.use_lle ? "LLE (enabled)" : "GNU Readline (default)");
-            printf("  History file: %s\n", config.use_lle ? "~/.lusush_history_lle" : "~/.lusush_history");
-            
+            printf("  Mode: %s\n",
+                   config.use_lle ? "LLE (enabled)" : "GNU Readline (default)");
+            printf("  History file: %s\n", config.use_lle
+                                               ? "~/.lusush_history_lle"
+                                               : "~/.lusush_history");
+
             if (config.use_lle) {
                 printf("\nLLE Features:\n");
-                printf("  Multi-line editing: %s\n", config.lle_enable_multiline_editing ? "enabled" : "disabled");
-                printf("  History deduplication: %s\n", config.lle_enable_deduplication ? "enabled" : "disabled");
-                printf("  Forensic tracking: %s\n", config.lle_enable_forensic_tracking ? "enabled" : "disabled");
+                printf("  Multi-line editing: %s\n",
+                       config.lle_enable_multiline_editing ? "enabled"
+                                                           : "disabled");
+                printf("  History deduplication: %s\n",
+                       config.lle_enable_deduplication ? "enabled"
+                                                       : "disabled");
+                printf("  Forensic tracking: %s\n",
+                       config.lle_enable_forensic_tracking ? "enabled"
+                                                           : "disabled");
             }
             return 0;
-            
+
         } else if (strcmp(lle_cmd, "history-import") == 0) {
             extern config_values_t config;
-            
+
             if (!config.use_lle) {
-                fprintf(stderr, "Error: LLE must be enabled to import history\n");
+                fprintf(stderr,
+                        "Error: LLE must be enabled to import history\n");
                 fprintf(stderr, "Run: display lle enable\n");
                 return 1;
             }
-            
+
             /* Get the global LLE editor */
             extern lle_editor_t *lle_get_global_editor(void);
             lle_editor_t *editor = lle_get_global_editor();
-            
+
             if (!editor || !editor->history_system) {
                 fprintf(stderr, "Error: LLE history system not initialized\n");
-                fprintf(stderr, "This shouldn't happen - please report this bug\n");
+                fprintf(stderr,
+                        "This shouldn't happen - please report this bug\n");
                 return 1;
             }
-            
+
             /* Import from GNU Readline history using bridge */
             printf("Importing GNU Readline history into LLE...\n");
             lle_result_t result = lle_history_bridge_import_from_readline();
-            
+
             if (result == LLE_SUCCESS) {
                 /* Get entry count */
                 size_t count = 0;
                 lle_history_get_entry_count(editor->history_system, &count);
-                
-                printf("✓ Successfully imported history from ~/.lusush_history\n");
+
+                printf(
+                    "✓ Successfully imported history from ~/.lusush_history\n");
                 printf("  Total entries in LLE history: %zu\n", count);
-                
+
                 /* Save to LLE history file */
                 const char *home = getenv("HOME");
                 if (home) {
                     char history_path[1024];
-                    snprintf(history_path, sizeof(history_path), "%s/.lusush_history_lle", home);
-                    lle_history_save_to_file(editor->history_system, history_path);
+                    snprintf(history_path, sizeof(history_path),
+                             "%s/.lusush_history_lle", home);
+                    lle_history_save_to_file(editor->history_system,
+                                             history_path);
                     printf("  Saved to: %s\n", history_path);
                 }
-                
+
                 return 0;
             } else {
-                fprintf(stderr, "Error: Failed to import history (error code: %d)\n", result);
+                fprintf(stderr,
+                        "Error: Failed to import history (error code: %d)\n",
+                        result);
                 return 1;
             }
 
@@ -4425,55 +4588,69 @@ int bin_display(int argc, char **argv) {
             /* Show active keybindings */
             extern lle_editor_t *lle_get_global_editor(void);
             lle_editor_t *editor = lle_get_global_editor();
-            
+
             printf("LLE Active Keybindings (Emacs mode)\n");
             printf("====================================\n");
-            
+
             if (editor && editor->keybinding_manager) {
                 lle_keybinding_info_t *bindings = NULL;
                 size_t count = 0;
-                
-                if (lle_keybinding_manager_list_bindings(editor->keybinding_manager, 
-                                                         &bindings, &count) == LLE_SUCCESS) {
+
+                if (lle_keybinding_manager_list_bindings(
+                        editor->keybinding_manager, &bindings, &count) ==
+                    LLE_SUCCESS) {
                     printf("\nNavigation:\n");
                     for (size_t i = 0; i < count; i++) {
-                        const char *name = bindings[i].function_name ? bindings[i].function_name : "unknown";
-                        if (strstr(name, "beginning") || strstr(name, "end") || 
-                            strstr(name, "forward") || strstr(name, "backward") ||
-                            strstr(name, "left") || strstr(name, "right") ||
-                            strstr(name, "up") || strstr(name, "down")) {
-                            printf("  %-12s  %s\n", bindings[i].key_sequence, name);
+                        const char *name = bindings[i].function_name
+                                               ? bindings[i].function_name
+                                               : "unknown";
+                        if (strstr(name, "beginning") || strstr(name, "end") ||
+                            strstr(name, "forward") ||
+                            strstr(name, "backward") || strstr(name, "left") ||
+                            strstr(name, "right") || strstr(name, "up") ||
+                            strstr(name, "down")) {
+                            printf("  %-12s  %s\n", bindings[i].key_sequence,
+                                   name);
                         }
                     }
-                    
+
                     printf("\nEditing:\n");
                     for (size_t i = 0; i < count; i++) {
-                        const char *name = bindings[i].function_name ? bindings[i].function_name : "unknown";
-                        if (strstr(name, "delete") || strstr(name, "kill") || 
+                        const char *name = bindings[i].function_name
+                                               ? bindings[i].function_name
+                                               : "unknown";
+                        if (strstr(name, "delete") || strstr(name, "kill") ||
                             strstr(name, "yank") || strstr(name, "undo") ||
                             strstr(name, "redo") || strstr(name, "transpose")) {
-                            printf("  %-12s  %s\n", bindings[i].key_sequence, name);
+                            printf("  %-12s  %s\n", bindings[i].key_sequence,
+                                   name);
                         }
                     }
-                    
+
                     printf("\nHistory:\n");
                     for (size_t i = 0; i < count; i++) {
-                        const char *name = bindings[i].function_name ? bindings[i].function_name : "unknown";
+                        const char *name = bindings[i].function_name
+                                               ? bindings[i].function_name
+                                               : "unknown";
                         if (strstr(name, "history") || strstr(name, "search") ||
                             strstr(name, "previous") || strstr(name, "next")) {
-                            printf("  %-12s  %s\n", bindings[i].key_sequence, name);
+                            printf("  %-12s  %s\n", bindings[i].key_sequence,
+                                   name);
                         }
                     }
-                    
+
                     printf("\nOther:\n");
                     for (size_t i = 0; i < count; i++) {
-                        const char *name = bindings[i].function_name ? bindings[i].function_name : "unknown";
+                        const char *name = bindings[i].function_name
+                                               ? bindings[i].function_name
+                                               : "unknown";
                         if (strstr(name, "accept") || strstr(name, "abort") ||
                             strstr(name, "clear") || strstr(name, "complete")) {
-                            printf("  %-12s  %s\n", bindings[i].key_sequence, name);
+                            printf("  %-12s  %s\n", bindings[i].key_sequence,
+                                   name);
                         }
                     }
-                    
+
                     printf("\nTotal: %zu keybindings\n", count);
                 } else {
                     printf("  (Unable to retrieve keybindings)\n");
@@ -4507,17 +4684,18 @@ int bin_display(int argc, char **argv) {
                 printf("  TAB          complete\n");
             }
             return 0;
-            
+
         } else if (strcmp(lle_cmd, "autosuggestions") == 0) {
             /* Control autosuggestions */
             extern config_values_t config;
-            
+
             if (argc < 4) {
-                printf("Autosuggestions: %s\n", config.display_autosuggestions ? "enabled" : "disabled");
+                printf("Autosuggestions: %s\n",
+                       config.display_autosuggestions ? "enabled" : "disabled");
                 printf("Usage: display lle autosuggestions on|off\n");
                 return 0;
             }
-            
+
             const char *state = argv[3];
             if (strcmp(state, "on") == 0) {
                 config.display_autosuggestions = true;
@@ -4528,20 +4706,25 @@ int bin_display(int argc, char **argv) {
                 printf("✓ Autosuggestions disabled\n");
                 return 0;
             } else {
-                fprintf(stderr, "display lle autosuggestions: Invalid option '%s' (use 'on' or 'off')\n", state);
+                fprintf(stderr,
+                        "display lle autosuggestions: Invalid option '%s' (use "
+                        "'on' or 'off')\n",
+                        state);
                 return 1;
             }
-            
+
         } else if (strcmp(lle_cmd, "syntax") == 0) {
             /* Control syntax highlighting */
             extern config_values_t config;
-            
+
             if (argc < 4) {
-                printf("Syntax highlighting: %s\n", config.display_syntax_highlighting ? "enabled" : "disabled");
+                printf("Syntax highlighting: %s\n",
+                       config.display_syntax_highlighting ? "enabled"
+                                                          : "disabled");
                 printf("Usage: display lle syntax on|off\n");
                 return 0;
             }
-            
+
             const char *state = argv[3];
             if (strcmp(state, "on") == 0) {
                 config.display_syntax_highlighting = true;
@@ -4552,20 +4735,25 @@ int bin_display(int argc, char **argv) {
                 printf("✓ Syntax highlighting disabled\n");
                 return 0;
             } else {
-                fprintf(stderr, "display lle syntax: Invalid option '%s' (use 'on' or 'off')\n", state);
+                fprintf(stderr,
+                        "display lle syntax: Invalid option '%s' (use 'on' or "
+                        "'off')\n",
+                        state);
                 return 1;
             }
-            
+
         } else if (strcmp(lle_cmd, "multiline") == 0) {
             /* Control multiline editing */
             extern config_values_t config;
-            
+
             if (argc < 4) {
-                printf("Multiline editing: %s\n", config.lle_enable_multiline_editing ? "enabled" : "disabled");
+                printf("Multiline editing: %s\n",
+                       config.lle_enable_multiline_editing ? "enabled"
+                                                           : "disabled");
                 printf("Usage: display lle multiline on|off\n");
                 return 0;
             }
-            
+
             const char *state = argv[3];
             if (strcmp(state, "on") == 0) {
                 config.lle_enable_multiline_editing = true;
@@ -4576,87 +4764,115 @@ int bin_display(int argc, char **argv) {
                 printf("✓ Multiline editing disabled\n");
                 return 0;
             } else {
-                fprintf(stderr, "display lle multiline: Invalid option '%s' (use 'on' or 'off')\n", state);
+                fprintf(stderr,
+                        "display lle multiline: Invalid option '%s' (use 'on' "
+                        "or 'off')\n",
+                        state);
                 return 1;
             }
-            
+
         } else if (strcmp(lle_cmd, "diagnostics") == 0) {
             /* Show LLE diagnostics */
             extern config_values_t config;
             extern lle_editor_t *lle_get_global_editor(void);
             lle_editor_t *editor = lle_get_global_editor();
-            
+
             printf("LLE Diagnostics\n");
             printf("===============\n");
-            
+
             printf("\nSystem Status:\n");
-            printf("  LLE mode: %s\n", config.use_lle ? "active" : "inactive (using GNU Readline)");
-            printf("  Global editor: %s\n", editor ? "initialized" : "not initialized");
-            
+            printf("  LLE mode: %s\n",
+                   config.use_lle ? "active" : "inactive (using GNU Readline)");
+            printf("  Global editor: %s\n",
+                   editor ? "initialized" : "not initialized");
+
             if (editor) {
                 printf("\nSubsystems:\n");
                 printf("  Buffer: %s\n", editor->buffer ? "OK" : "MISSING");
-                printf("  History: %s\n", editor->history_system ? "OK" : "MISSING");
-                printf("  Keybindings: %s\n", editor->keybinding_manager ? "OK" : "MISSING");
-                printf("  Kill ring: %s\n", editor->kill_ring ? "OK" : "MISSING");
-                printf("  Change tracker: %s\n", editor->change_tracker ? "OK" : "MISSING");
-                printf("  Cursor manager: %s\n", editor->cursor_manager ? "OK" : "MISSING");
-                
+                printf("  History: %s\n",
+                       editor->history_system ? "OK" : "MISSING");
+                printf("  Keybindings: %s\n",
+                       editor->keybinding_manager ? "OK" : "MISSING");
+                printf("  Kill ring: %s\n",
+                       editor->kill_ring ? "OK" : "MISSING");
+                printf("  Change tracker: %s\n",
+                       editor->change_tracker ? "OK" : "MISSING");
+                printf("  Cursor manager: %s\n",
+                       editor->cursor_manager ? "OK" : "MISSING");
+
                 if (editor->history_system) {
                     size_t count = 0;
                     lle_history_get_entry_count(editor->history_system, &count);
                     printf("\nHistory:\n");
                     printf("  Entries loaded: %zu\n", count);
                 }
-                
+
                 if (editor->keybinding_manager) {
                     size_t kb_count = 0;
-                    lle_keybinding_manager_get_count(editor->keybinding_manager, &kb_count);
+                    lle_keybinding_manager_get_count(editor->keybinding_manager,
+                                                     &kb_count);
                     printf("\nKeybindings:\n");
                     printf("  Bindings registered: %zu\n", kb_count);
-                    
+
                     uint64_t avg_us = 0, max_us = 0;
-                    if (lle_keybinding_manager_get_stats(editor->keybinding_manager, &avg_us, &max_us) == LLE_SUCCESS) {
-                        printf("  Avg lookup time: %lu µs\n", (unsigned long)avg_us);
-                        printf("  Max lookup time: %lu µs\n", (unsigned long)max_us);
-                        printf("  Performance: %s\n", max_us < 50 ? "OK (<50µs)" : "SLOW (>50µs)");
+                    if (lle_keybinding_manager_get_stats(
+                            editor->keybinding_manager, &avg_us, &max_us) ==
+                        LLE_SUCCESS) {
+                        printf("  Avg lookup time: %lu µs\n",
+                               (unsigned long)avg_us);
+                        printf("  Max lookup time: %lu µs\n",
+                               (unsigned long)max_us);
+                        printf("  Performance: %s\n",
+                               max_us < 50 ? "OK (<50µs)" : "SLOW (>50µs)");
                     }
                 }
             }
-            
+
             printf("\nFeature Configuration:\n");
-            printf("  Autosuggestions: %s\n", config.display_autosuggestions ? "enabled" : "disabled");
-            printf("  Syntax highlighting: %s\n", config.display_syntax_highlighting ? "enabled" : "disabled");
-            printf("  Multiline editing: %s\n", config.lle_enable_multiline_editing ? "enabled" : "disabled");
-            printf("  History deduplication: %s\n", config.lle_enable_deduplication ? "enabled" : "disabled");
-            printf("  Interactive search: %s\n", config.lle_enable_interactive_search ? "enabled" : "disabled");
-            
+            printf("  Autosuggestions: %s\n",
+                   config.display_autosuggestions ? "enabled" : "disabled");
+            printf("  Syntax highlighting: %s\n",
+                   config.display_syntax_highlighting ? "enabled" : "disabled");
+            printf("  Multiline editing: %s\n",
+                   config.lle_enable_multiline_editing ? "enabled"
+                                                       : "disabled");
+            printf("  History deduplication: %s\n",
+                   config.lle_enable_deduplication ? "enabled" : "disabled");
+            printf("  Interactive search: %s\n",
+                   config.lle_enable_interactive_search ? "enabled"
+                                                        : "disabled");
+
             printf("\nHealth: ");
             if (!config.use_lle) {
                 printf("N/A (LLE not active)\n");
             } else if (!editor) {
                 printf("ERROR (editor not initialized)\n");
-            } else if (!editor->buffer || !editor->history_system || !editor->keybinding_manager) {
+            } else if (!editor->buffer || !editor->history_system ||
+                       !editor->keybinding_manager) {
                 printf("DEGRADED (missing subsystems)\n");
             } else {
                 printf("OK\n");
             }
-            
+
             return 0;
-            
+
         } else {
             fprintf(stderr, "display lle: Unknown command '%s'\n", lle_cmd);
-            fprintf(stderr, "display lle: Use 'display lle' for usage information\n");
+            fprintf(stderr,
+                    "display lle: Use 'display lle' for usage information\n");
             return 1;
         }
-        
+
     } else if (strcmp(subcmd, "help") == 0) {
         // Show help
         printf("Display Integration System\n");
-        printf("\nThe display integration system provides coordinated display\n");
-        printf("management using the revolutionary layered display architecture.\n");
+        printf(
+            "\nThe display integration system provides coordinated display\n");
+        printf("management using the revolutionary layered display "
+               "architecture.\n");
         printf("It enables universal prompt compatibility, real-time syntax\n");
-        printf("highlighting, and intelligent layer combination with enterprise-\n");
+        printf("highlighting, and intelligent layer combination with "
+               "enterprise-\n");
         printf("grade performance optimization.\n");
         printf("\nCommands:\n");
         printf("  display status           - Show system status and health\n");
@@ -4664,12 +4880,15 @@ int bin_display(int argc, char **argv) {
         printf("  display config           - Show detailed configuration\n");
         printf("  display stats            - Show usage statistics\n");
         printf("  display diagnostics      - Show system diagnostics\n");
-        printf("  display performance      - Performance monitoring commands\n");
-        printf("  display test             - Test layered display with actual content\n");
+        printf(
+            "  display performance      - Performance monitoring commands\n");
+        printf("  display test             - Test layered display with actual "
+               "content\n");
         printf("  display help             - Show this help message\n");
         printf("\nConfiguration:\n");
         printf("  Environment variables can be used to control behavior:\n");
-        printf("  - LUSUSH_LAYERED_DISPLAY=1|0     Enable/disable at startup\n");
+        printf(
+            "  - LUSUSH_LAYERED_DISPLAY=1|0     Enable/disable at startup\n");
         printf("  - LUSUSH_DISPLAY_DEBUG=1|0       Enable debug output\n");
         printf("  - LUSUSH_DISPLAY_OPTIMIZATION=0-4 Set optimization level\n");
         printf("\nOptimization Levels:\n");
@@ -4678,7 +4897,8 @@ int bin_display(int argc, char **argv) {
         printf("  2 - Standard (default optimization)\n");
         printf("  3 - Aggressive (aggressive optimization)\n");
         printf("  4 - Maximum (maximum performance mode)\n");
-        printf("\nFor more information, see the Week 8 implementation documentation.\n");
+        printf("\nFor more information, see the Week 8 implementation "
+               "documentation.\n");
         return 0;
 
     } else {

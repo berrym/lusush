@@ -14,6 +14,7 @@
 #include "builtins.h"
 #include "config.h"
 #include "debug.h"
+#include "ht.h"
 #include "init.h"
 #include "lusush.h"
 #include "node.h"
@@ -22,8 +23,6 @@
 #include "signals.h"
 #include "strings.h"
 #include "symtable.h"
-#include "builtins.h"
-#include "ht.h"
 
 #include <ctype.h>
 #include <errno.h>
@@ -55,8 +54,10 @@ static bool is_function_defined(executor_t *executor,
 static function_def_t *find_function(executor_t *executor,
                                      const char *function_name);
 static int store_function(executor_t *executor, const char *function_name,
-                          node_t *body, function_param_t *params, int param_count);
-static int validate_function_parameters(function_def_t *func, char **argv, int argc);
+                          node_t *body, function_param_t *params,
+                          int param_count);
+static int validate_function_parameters(function_def_t *func, char **argv,
+                                        int argc);
 static node_t *copy_ast_node(node_t *node);
 static node_t *copy_ast_chain(node_t *node);
 static int execute_if(executor_t *executor, node_t *if_node);
@@ -118,7 +119,7 @@ static bool match_pattern(const char *str, const char *pattern);
  */
 static bool is_privileged_command_allowed(const char *command) {
     if (!shell_opts.privileged_mode || !command) {
-        return true;  // Allow if not in privileged mode
+        return true; // Allow if not in privileged mode
     }
 
     // Block commands containing '/' (absolute/relative paths)
@@ -127,8 +128,7 @@ static bool is_privileged_command_allowed(const char *command) {
     }
 
     // Block dangerous built-in commands in privileged mode
-    if (strcmp(command, "exec") == 0 || 
-        strcmp(command, "cd") == 0 ||
+    if (strcmp(command, "exec") == 0 || strcmp(command, "cd") == 0 ||
         strcmp(command, "set") == 0) {
         return false;
     }
@@ -142,7 +142,7 @@ static bool is_privileged_command_allowed(const char *command) {
  */
 bool is_privileged_redirection_allowed(const char *target) {
     if (!shell_opts.privileged_mode || !target) {
-        return true;  // Allow if not in privileged mode
+        return true; // Allow if not in privileged mode
     }
 
     // Block absolute path redirections
@@ -164,14 +164,12 @@ bool is_privileged_redirection_allowed(const char *target) {
  */
 static bool is_privileged_path_modification_allowed(const char *var_name) {
     if (!shell_opts.privileged_mode || !var_name) {
-        return true;  // Allow if not in privileged mode
+        return true; // Allow if not in privileged mode
     }
 
     // Block PATH modifications
-    if (strcmp(var_name, "PATH") == 0 ||
-        strcmp(var_name, "IFS") == 0 ||
-        strcmp(var_name, "ENV") == 0 ||
-        strcmp(var_name, "SHELL") == 0) {
+    if (strcmp(var_name, "PATH") == 0 || strcmp(var_name, "IFS") == 0 ||
+        strcmp(var_name, "ENV") == 0 || strcmp(var_name, "SHELL") == 0) {
         return false;
     }
 
@@ -286,7 +284,8 @@ void executor_set_symtable(executor_t *executor, symtable_manager_t *symtable) {
 }
 
 // Script context management for debugging
-void executor_set_script_context(executor_t *executor, const char *script_file, int line_number) {
+void executor_set_script_context(executor_t *executor, const char *script_file,
+                                 int line_number) {
     if (!executor) {
         return;
     }
@@ -404,8 +403,6 @@ int executor_execute_command_line(executor_t *executor, const char *input) {
     return result;
 }
 
-
-
 // Core node execution dispatcher
 int execute_node(executor_t *executor, node_t *node) {
     if (!node) {
@@ -432,15 +429,20 @@ int execute_node(executor_t *executor, node_t *node) {
     if (executor->in_script_execution && executor->current_script_file) {
         // Handle loop-aware line tracking
         if (g_debug_context && g_debug_context->execution_context.in_loop) {
-            // If this is the first statement in a loop body, save the line number
-            if (g_debug_context->execution_context.loop_body_start_line == 0 && node->type == NODE_COMMAND) {
-                g_debug_context->execution_context.loop_body_start_line = executor->current_script_line;
+            // If this is the first statement in a loop body, save the line
+            // number
+            if (g_debug_context->execution_context.loop_body_start_line == 0 &&
+                node->type == NODE_COMMAND) {
+                g_debug_context->execution_context.loop_body_start_line =
+                    executor->current_script_line;
             }
         }
-        
-        DEBUG_BREAKPOINT_CHECK(executor->current_script_file, executor->current_script_line);
-        
-        // Only increment line number for simple sequential commands, not control structures
+
+        DEBUG_BREAKPOINT_CHECK(executor->current_script_file,
+                               executor->current_script_line);
+
+        // Only increment line number for simple sequential commands, not
+        // control structures
         if (node->type == NODE_COMMAND) {
             executor->current_script_line++;
         }
@@ -592,7 +594,8 @@ static int execute_command(executor_t *executor, node_t *command) {
 
     // Privileged mode security check
     if (argc > 0 && !is_privileged_command_allowed(argv[0])) {
-        fprintf(stderr, "lusush: %s: restricted command in privileged mode\n", argv[0]);
+        fprintf(stderr, "lusush: %s: restricted command in privileged mode\n",
+                argv[0]);
         for (int i = 0; i < argc; i++) {
             free(argv[i]);
         }
@@ -806,21 +809,21 @@ static int execute_command(executor_t *executor, node_t *command) {
     }
 
     int result;
-    
+
     // Get debug context for profiling and frame management
     extern debug_context_t *g_debug_context;
     const char *command_name = filtered_argv[0];
-    
+
     // Push debug frame and start profiling for this command
     if (g_debug_context && g_debug_context->enabled) {
         debug_push_frame(g_debug_context, command_name, NULL, 0);
-        
+
         if (g_debug_context->profile_enabled) {
             g_debug_context->total_commands++;
             debug_profile_function_enter(g_debug_context, command_name);
         }
     }
-    
+
     if (is_function_defined(executor, filtered_argv[0])) {
         result = execute_function_call(executor, filtered_argv[0],
                                        filtered_argv, filtered_argc);
@@ -882,61 +885,61 @@ static int execute_command(executor_t *executor, node_t *command) {
                 goto normal_execution;
             }
         } else {
-            // Auto-cd disabled, proceed with normal command execution
-            normal_execution:
+        // Auto-cd disabled, proceed with normal command execution
+        normal_execution:
             // Check if command exists first, offer auto-correction if not
             if (config.spell_correction && autocorrect_is_enabled()) {
-            // First, check if the command actually exists
-            if (!autocorrect_command_exists(executor, filtered_argv[0])) {
-                // Command doesn't exist, try auto-correction
-                correction_results_t correction_results;
-                int suggestions = autocorrect_find_suggestions(
-                    executor, filtered_argv[0], &correction_results);
+                // First, check if the command actually exists
+                if (!autocorrect_command_exists(executor, filtered_argv[0])) {
+                    // Command doesn't exist, try auto-correction
+                    correction_results_t correction_results;
+                    int suggestions = autocorrect_find_suggestions(
+                        executor, filtered_argv[0], &correction_results);
 
-                if (suggestions > 0 && config.autocorrect_interactive) {
-                    char selected_command[MAX_COMMAND_LENGTH];
-                    if (autocorrect_prompt_user(&correction_results,
-                                                selected_command)) {
-                        // User selected a correction, replace the command
-                        free(filtered_argv[0]);
-                        filtered_argv[0] = strdup(selected_command);
+                    if (suggestions > 0 && config.autocorrect_interactive) {
+                        char selected_command[MAX_COMMAND_LENGTH];
+                        if (autocorrect_prompt_user(&correction_results,
+                                                    selected_command)) {
+                            // User selected a correction, replace the command
+                            free(filtered_argv[0]);
+                            filtered_argv[0] = strdup(selected_command);
 
-                        // Learn the corrected command
-                        autocorrect_learn_command(selected_command);
+                            // Learn the corrected command
+                            autocorrect_learn_command(selected_command);
 
-                        // Re-check if it's a builtin or function after
-                        // correction
-                        if (is_builtin_command(filtered_argv[0])) {
-                            result = execute_builtin_command(executor,
-                                                             filtered_argv);
-                        } else if (is_function_defined(executor,
-                                                       filtered_argv[0])) {
-                            result = execute_function_call(
-                                executor, filtered_argv[0], filtered_argv,
-                                filtered_argc);
+                            // Re-check if it's a builtin or function after
+                            // correction
+                            if (is_builtin_command(filtered_argv[0])) {
+                                result = execute_builtin_command(executor,
+                                                                 filtered_argv);
+                            } else if (is_function_defined(executor,
+                                                           filtered_argv[0])) {
+                                result = execute_function_call(
+                                    executor, filtered_argv[0], filtered_argv,
+                                    filtered_argc);
+                            } else {
+                                // Execute the corrected external command
+                                result = execute_external_command_with_setup(
+                                    executor, filtered_argv, redirect_stderr,
+                                    command);
+                            }
                         } else {
-                            // Execute the corrected external command
-                            result = execute_external_command_with_setup(
-                                executor, filtered_argv, redirect_stderr,
-                                command);
+                            // User declined correction, show original error
+                            result = 127; // Command not found
                         }
                     } else {
-                        // User declined correction, show original error
-                        result = 127; // Command not found
+                        // No suggestions or interactive prompts disabled
+                        result = execute_external_command_with_setup(
+                            executor, filtered_argv, redirect_stderr, command);
                     }
+
+                    // Clean up correction results
+                    autocorrect_free_results(&correction_results);
                 } else {
-                    // No suggestions or interactive prompts disabled
+                    // Command exists, execute normally
                     result = execute_external_command_with_setup(
                         executor, filtered_argv, redirect_stderr, command);
                 }
-
-                // Clean up correction results
-                autocorrect_free_results(&correction_results);
-            } else {
-                // Command exists, execute normally
-                result = execute_external_command_with_setup(
-                    executor, filtered_argv, redirect_stderr, command);
-            }
             } else {
                 // Auto-correction disabled, execute normally
                 result = execute_external_command_with_setup(
@@ -1022,7 +1025,8 @@ static int execute_pipeline(executor_t *executor, node_t *pipeline) {
         set_executor_error(executor, "Failed to fork for pipeline");
         close(pipe_fd[0]);
         close(pipe_fd[1]);
-        while (waitpid(left_pid, NULL, 0) == -1 && errno == EINTR);
+        while (waitpid(left_pid, NULL, 0) == -1 && errno == EINTR)
+            ;
         return 1;
     }
 
@@ -1042,14 +1046,20 @@ static int execute_pipeline(executor_t *executor, node_t *pipeline) {
 
     int left_status, right_status;
     // Wait for children, retrying on EINTR (signal interruption)
-    while (waitpid(left_pid, &left_status, 0) == -1 && errno == EINTR);
-    while (waitpid(right_pid, &right_status, 0) == -1 && errno == EINTR);
+    while (waitpid(left_pid, &left_status, 0) == -1 && errno == EINTR)
+        ;
+    while (waitpid(right_pid, &right_status, 0) == -1 && errno == EINTR)
+        ;
 
     // Extract exit codes - handle signal termination
-    int left_exit = WIFEXITED(left_status) ? WEXITSTATUS(left_status) :
-                    (WIFSIGNALED(left_status) ? 128 + WTERMSIG(left_status) : 1);
-    int right_exit = WIFEXITED(right_status) ? WEXITSTATUS(right_status) :
-                     (WIFSIGNALED(right_status) ? 128 + WTERMSIG(right_status) : 1);
+    int left_exit =
+        WIFEXITED(left_status)
+            ? WEXITSTATUS(left_status)
+            : (WIFSIGNALED(left_status) ? 128 + WTERMSIG(left_status) : 1);
+    int right_exit =
+        WIFEXITED(right_status)
+            ? WEXITSTATUS(right_status)
+            : (WIFSIGNALED(right_status) ? 128 + WTERMSIG(right_status) : 1);
 
     // Pipefail behavior: return failure if ANY command in pipeline fails
     if (is_pipefail_enabled()) {
@@ -1213,8 +1223,6 @@ static int execute_while(executor_t *executor, node_t *while_node) {
         return 1;
     }
 
-
-
     return last_result;
 }
 
@@ -1278,8 +1286,6 @@ static int execute_until(executor_t *executor, node_t *until_node) {
         return 1;
     }
 
-
-
     return last_result;
 }
 
@@ -1308,8 +1314,6 @@ static int execute_for(executor_t *executor, node_t *for_node) {
         set_executor_error(executor, "Failed to create loop scope");
         return 1;
     }
-
-
 
     // Notify debug system we're entering a loop
     if (g_debug_context && g_debug_context->enabled) {
@@ -1426,11 +1430,16 @@ static int execute_for(executor_t *executor, node_t *for_node) {
 
             // Notify debug system of loop variable update
             if (g_debug_context && g_debug_context->enabled) {
-                debug_update_loop_variable(g_debug_context, var_name, expanded_words[i]);
-                
-                // Reset line number to loop body start for iterations after the first
-                if (i > 0 && g_debug_context->execution_context.loop_body_start_line > 0) {
-                    executor->current_script_line = g_debug_context->execution_context.loop_body_start_line;
+                debug_update_loop_variable(g_debug_context, var_name,
+                                           expanded_words[i]);
+
+                // Reset line number to loop body start for iterations after the
+                // first
+                if (i > 0 &&
+                    g_debug_context->execution_context.loop_body_start_line >
+                        0) {
+                    executor->current_script_line =
+                        g_debug_context->execution_context.loop_body_start_line;
                 }
             }
 
@@ -1559,15 +1568,16 @@ static char **ifs_field_split(const char *text, const char *ifs, int *count) {
         while (*start && strchr(ifs, *start)) {
             start++;
         }
-        
-        if (!*start) break;
-        
+
+        if (!*start)
+            break;
+
         // Find end of current field
         end = start;
         while (*end && !strchr(ifs, *end)) {
             end++;
         }
-        
+
         // Extract field
         size_t field_len = end - start;
         if (field_len > 0) {
@@ -1586,7 +1596,7 @@ static char **ifs_field_split(const char *text, const char *ifs, int *count) {
                 }
                 result = new_result;
             }
-            
+
             result[*count] = malloc(field_len + 1);
             if (!result[*count]) {
                 // Cleanup on failure
@@ -1597,12 +1607,12 @@ static char **ifs_field_split(const char *text, const char *ifs, int *count) {
                 *count = 0;
                 return NULL;
             }
-            
+
             strncpy(result[*count], start, field_len);
             result[*count][field_len] = '\0';
             (*count)++;
         }
-        
+
         start = end;
     }
 
@@ -1850,17 +1860,19 @@ static char **build_argv_from_ast(executor_t *executor, node_t *command,
                         free(
                             expanded_arg); // We copied the strings or used them
                     } else {
-                        // Check if this needs field splitting (only for variable expansions)
-                        if (child->val.str && child->val.str[0] == '$' && 
-                            child->type != NODE_STRING_LITERAL && 
+                        // Check if this needs field splitting (only for
+                        // variable expansions)
+                        if (child->val.str && child->val.str[0] == '$' &&
+                            child->type != NODE_STRING_LITERAL &&
                             child->type != NODE_STRING_EXPANDABLE) {
-                            
+
                             // Get IFS for field splitting
-                            const char *ifs = symtable_get(executor->symtable, "IFS");
+                            const char *ifs =
+                                symtable_get(executor->symtable, "IFS");
                             if (!ifs) {
                                 ifs = " \t\n"; // Default IFS
                             }
-                            
+
                             // Check if expanded_arg contains any IFS characters
                             bool needs_splitting = false;
                             for (const char *p = ifs; *p; p++) {
@@ -1869,32 +1881,38 @@ static char **build_argv_from_ast(executor_t *executor, node_t *command,
                                     break;
                                 }
                             }
-                            
+
                             if (needs_splitting) {
                                 int field_count = 0;
-                                char **fields = ifs_field_split(expanded_arg, ifs, &field_count);
-                                
+                                char **fields = ifs_field_split(
+                                    expanded_arg, ifs, &field_count);
+
                                 if (fields && field_count > 0) {
                                     // Add each field as separate argument
                                     for (int i = 0; i < field_count; i++) {
-                                        if (!add_to_argv_list(&argv_list, &argv_count,
-                                                              &argv_capacity, fields[i])) {
-                                            // Cleanup remaining fields on failure
-                                            for (int j = i; j < field_count; j++) {
+                                        if (!add_to_argv_list(
+                                                &argv_list, &argv_count,
+                                                &argv_capacity, fields[i])) {
+                                            // Cleanup remaining fields on
+                                            // failure
+                                            for (int j = i; j < field_count;
+                                                 j++) {
                                                 free(fields[j]);
                                             }
                                             free(fields);
                                             free(expanded_arg);
                                             goto cleanup_and_fail;
                                         }
-                                        // Ownership transferred, don't free fields[i]
+                                        // Ownership transferred, don't free
+                                        // fields[i]
                                     }
                                     free(fields);
                                     free(expanded_arg);
                                 } else {
                                     // Field splitting failed, use original
-                                    if (!add_to_argv_list(&argv_list, &argv_count,
-                                                          &argv_capacity, expanded_arg)) {
+                                    if (!add_to_argv_list(
+                                            &argv_list, &argv_count,
+                                            &argv_capacity, expanded_arg)) {
                                         free(expanded_arg);
                                         goto cleanup_and_fail;
                                     }
@@ -1902,7 +1920,8 @@ static char **build_argv_from_ast(executor_t *executor, node_t *command,
                             } else {
                                 // No field splitting needed
                                 if (!add_to_argv_list(&argv_list, &argv_count,
-                                                      &argv_capacity, expanded_arg)) {
+                                                      &argv_capacity,
+                                                      expanded_arg)) {
                                     free(expanded_arg);
                                     goto cleanup_and_fail;
                                 }
@@ -1910,7 +1929,8 @@ static char **build_argv_from_ast(executor_t *executor, node_t *command,
                         } else {
                             // No field splitting for non-variables
                             if (!add_to_argv_list(&argv_list, &argv_count,
-                                                  &argv_capacity, expanded_arg)) {
+                                                  &argv_capacity,
+                                                  expanded_arg)) {
                                 free(expanded_arg);
                                 goto cleanup_and_fail;
                             }
@@ -2046,7 +2066,7 @@ static int execute_external_command_with_redirection(executor_t *executor,
         extern char *find_command_in_path(const char *command);
         extern ht_strstr_t *command_hash;
         extern void init_command_hash(void);
-        
+
         char *full_path = find_command_in_path(argv[0]);
         if (full_path) {
             init_command_hash();
@@ -2081,8 +2101,6 @@ static int execute_external_command_with_redirection(executor_t *executor,
             }
         }
 
-
-
         execvp(argv[0], argv);
         // Check errno to determine appropriate exit code
         int exit_code = 127; // Default: command not found
@@ -2106,7 +2124,7 @@ static int execute_external_command_with_redirection(executor_t *executor,
             for (int j = 0; argv[j]; j++) {
                 cmd_len += strlen(argv[j]) + (j > 0 ? 1 : 0); // +1 for space
             }
-            
+
             char *cmd_str = malloc(cmd_len);
             if (cmd_str) {
                 strcpy(cmd_str, argv[0]);
@@ -2141,7 +2159,8 @@ static int execute_external_command_with_redirection(executor_t *executor,
         if (WIFEXITED(status)) {
             return WEXITSTATUS(status);
         } else if (WIFSIGNALED(status)) {
-            // Child was killed by signal - return 128 + signal number (bash convention)
+            // Child was killed by signal - return 128 + signal number (bash
+            // convention)
             return 128 + WTERMSIG(status);
         }
         return 1;
@@ -2199,13 +2218,15 @@ static int execute_subshell(executor_t *executor, node_t *subshell) {
         // Parent process - wait for subshell to complete
         int status;
         // Wait for child, retrying on EINTR (signal interruption)
-        while (waitpid(pid, &status, 0) == -1 && errno == EINTR);
+        while (waitpid(pid, &status, 0) == -1 && errno == EINTR)
+            ;
 
         int result;
         if (WIFEXITED(status)) {
             result = WEXITSTATUS(status);
         } else if (WIFSIGNALED(status)) {
-            // Child was killed by signal - return 128 + signal number (bash convention)
+            // Child was killed by signal - return 128 + signal number (bash
+            // convention)
             result = 128 + WTERMSIG(status);
         } else {
             result = 1; // Abnormal termination
@@ -2474,7 +2495,7 @@ static int execute_external_command_with_setup(executor_t *executor,
         extern char *find_command_in_path(const char *command);
         extern ht_strstr_t *command_hash;
         extern void init_command_hash(void);
-        
+
         char *full_path = find_command_in_path(argv[0]);
         if (full_path) {
             init_command_hash();
@@ -2514,8 +2535,6 @@ static int execute_external_command_with_setup(executor_t *executor,
             }
         }
 
-
-
         execvp(argv[0], argv);
         // Check errno to determine appropriate exit code
         int exit_code = 127; // Default: command not found
@@ -2539,7 +2558,7 @@ static int execute_external_command_with_setup(executor_t *executor,
             for (int j = 0; argv[j]; j++) {
                 cmd_len += strlen(argv[j]) + (j > 0 ? 1 : 0); // +1 for space
             }
-            
+
             char *cmd_str = malloc(cmd_len);
             if (cmd_str) {
                 strcpy(cmd_str, argv[0]);
@@ -2574,7 +2593,8 @@ static int execute_external_command_with_setup(executor_t *executor,
         if (WIFEXITED(status)) {
             return WEXITSTATUS(status);
         } else if (WIFSIGNALED(status)) {
-            // Child was killed by signal - return 128 + signal number (bash convention)
+            // Child was killed by signal - return 128 + signal number (bash
+            // convention)
             return 128 + WTERMSIG(status);
         }
         return 1;
@@ -2600,9 +2620,10 @@ static int execute_builtin_command(executor_t *executor, char **argv) {
                 // Build command string from argv for tracing
                 size_t cmd_len = 1; // for null terminator
                 for (int j = 0; argv[j]; j++) {
-                    cmd_len += strlen(argv[j]) + (j > 0 ? 1 : 0); // +1 for space
+                    cmd_len +=
+                        strlen(argv[j]) + (j > 0 ? 1 : 0); // +1 for space
                 }
-                
+
                 char *cmd_str = malloc(cmd_len);
                 if (cmd_str) {
                     strcpy(cmd_str, argv[0]);
@@ -2614,7 +2635,7 @@ static int execute_builtin_command(executor_t *executor, char **argv) {
                     free(cmd_str);
                 }
             }
-            
+
             // Count arguments
             int argc = 0;
             while (argv[argc]) {
@@ -2789,7 +2810,10 @@ static int execute_assignment(executor_t *executor, const char *assignment) {
 
     // Privileged mode security check for environment variable modifications
     if (!is_privileged_path_modification_allowed(var_name)) {
-        fprintf(stderr, "lusush: %s: cannot modify restricted variable in privileged mode\n", var_name);
+        fprintf(stderr,
+                "lusush: %s: cannot modify restricted variable in privileged "
+                "mode\n",
+                var_name);
         free(var_name);
         return 1;
     }
@@ -2820,7 +2844,7 @@ static int execute_assignment(executor_t *executor, const char *assignment) {
         // Global scope - use global variable
         result = symtable_set_global_var(executor->symtable, var_name,
                                          value ? value : "");
-        
+
         // POSIX -a (allexport): automatically export assigned variables
         if (result == 0 && should_auto_export()) {
             symtable_export_global(var_name);
@@ -2920,7 +2944,7 @@ static int execute_function_definition(executor_t *executor, node_t *node) {
     function_param_t *params = NULL;
     int param_count = 0;
     char *actual_function_name = function_name;
-    
+
     // Check if function name contains parameter encoding
     // POSIX compliance: disable advanced parameter syntax in strict POSIX mode
     char *param_separator = strchr(function_name, '|');
@@ -2930,7 +2954,7 @@ static int execute_function_definition(executor_t *executor, node_t *node) {
         actual_function_name = malloc(name_len + 1);
         strncpy(actual_function_name, function_name, name_len);
         actual_function_name[name_len] = '\0';
-        
+
         // Parse parameter information
         char *param_info = param_separator + 1;
         if (strncmp(param_info, "PARAMS{", 7) == 0) {
@@ -2938,23 +2962,24 @@ static int execute_function_definition(executor_t *executor, node_t *node) {
             char *end_brace = strchr(param_list, '}');
             if (end_brace) {
                 *end_brace = '\0'; // Temporarily null-terminate
-                
+
                 // Parse parameter list
                 char *param_copy = strdup(param_list);
                 char *token = strtok(param_copy, ",");
                 function_param_t *last_param = NULL;
-                
+
                 while (token) {
                     char *equals = strchr(token, '=');
                     char *param_name = token;
                     char *default_value = NULL;
-                    
+
                     if (equals) {
                         *equals = '\0';
                         default_value = equals + 1;
                     }
-                    
-                    function_param_t *param = create_function_param(param_name, default_value);
+
+                    function_param_t *param =
+                        create_function_param(param_name, default_value);
                     if (param) {
                         if (!params) {
                             params = param;
@@ -2964,10 +2989,10 @@ static int execute_function_definition(executor_t *executor, node_t *node) {
                         last_param = param;
                         param_count++;
                     }
-                    
+
                     token = strtok(NULL, ",");
                 }
-                
+
                 free(param_copy);
                 *end_brace = '}'; // Restore original string
             }
@@ -2975,7 +3000,8 @@ static int execute_function_definition(executor_t *executor, node_t *node) {
     }
 
     // Store function in function table
-    if (store_function(executor, actual_function_name, body, params, param_count) != 0) {
+    if (store_function(executor, actual_function_name, body, params,
+                       param_count) != 0) {
         set_executor_error(executor, "Failed to define function");
         if (actual_function_name != function_name) {
             free(actual_function_name);
@@ -2984,7 +3010,8 @@ static int execute_function_definition(executor_t *executor, node_t *node) {
     }
 
     if (executor->debug) {
-        printf("DEBUG: Defined function '%s' with %d parameters\n", actual_function_name, param_count);
+        printf("DEBUG: Defined function '%s' with %d parameters\n",
+               actual_function_name, param_count);
     }
 
     // Clean up allocated function name if we created one
@@ -3038,27 +3065,30 @@ static int execute_function_call(executor_t *executor,
         // Set named parameters with defaults
         int arg_index = 1; // Skip function name at argv[0]
         function_param_t *param = func->params;
-        
+
         while (param) {
             const char *value;
             if (arg_index < argc) {
                 // Use provided argument
                 value = argv[arg_index++];
             } else {
-                // Use default value (already validated that required params are present)
+                // Use default value (already validated that required params are
+                // present)
                 value = param->default_value ? param->default_value : "";
             }
-            
+
             // Set named parameter
-            if (symtable_set_local_var(executor->symtable, param->name, value) != 0) {
+            if (symtable_set_local_var(executor->symtable, param->name,
+                                       value) != 0) {
                 symtable_pop_scope(executor->symtable);
-                set_executor_error(executor, "Failed to set function parameter");
+                set_executor_error(executor,
+                                   "Failed to set function parameter");
                 return 1;
             }
             param = param->next;
         }
     }
-    
+
     // Set positional parameters ($1, $2, etc.) for backward compatibility
     for (int i = 1; i < argc; i++) {
         char param_name[16];
@@ -3077,7 +3107,7 @@ static int execute_function_call(executor_t *executor,
     symtable_set_local_var(executor->symtable, "#", argc_str);
 
     // No need to clear environment variables with new approach
-    
+
     // Execute function body (handle multiple commands)
     int result = 0;
     node_t *command = func->body;
@@ -3108,26 +3138,27 @@ static int execute_function_call(executor_t *executor,
 }
 
 // Create a new function parameter
-function_param_t *create_function_param(const char *name, const char *default_value) {
+function_param_t *create_function_param(const char *name,
+                                        const char *default_value) {
     if (!name) {
         return NULL;
     }
-    
+
     function_param_t *param = malloc(sizeof(function_param_t));
     if (!param) {
         return NULL;
     }
-    
+
     param->name = strdup(name);
     if (!param->name) {
         free(param);
         return NULL;
     }
-    
+
     param->default_value = default_value ? strdup(default_value) : NULL;
     param->is_required = (default_value == NULL);
     param->next = NULL;
-    
+
     return param;
 }
 
@@ -3143,47 +3174,50 @@ void free_function_params(function_param_t *params) {
 }
 
 // Validate function parameters against call arguments
-static int validate_function_parameters(function_def_t *func, char **argv, int argc) {
+static int validate_function_parameters(function_def_t *func, char **argv,
+                                        int argc) {
     (void)argv; /* Reserved for argument type validation */
     (void)argc; /* Reserved for arity checking */
     if (!func) {
         return 1;
     }
-    
+
     // POSIX compliance: disable parameter validation in strict POSIX mode
     if (is_posix_mode_enabled()) {
         return 0;
     }
-    
+
     // If no parameters defined, allow any arguments (backward compatibility)
     if (!func->params) {
         return 0;
     }
-    
+
     int arg_index = 1; // Skip function name at argv[0]
     function_param_t *param = func->params;
-    
+
     while (param) {
         if (arg_index < argc) {
             // Argument provided for this parameter
             arg_index++;
         } else if (param->is_required) {
             // Required parameter missing
-            fprintf(stderr, "Error: Function '%s' requires parameter '%s'\n", 
+            fprintf(stderr, "Error: Function '%s' requires parameter '%s'\n",
                     func->name, param->name);
             return 1;
         }
         // Optional parameter without argument - will use default
         param = param->next;
     }
-    
+
     // Check for too many arguments
     if (arg_index < argc) {
-        fprintf(stderr, "Error: Function '%s' called with %d arguments but only accepts %d\n",
+        fprintf(stderr,
+                "Error: Function '%s' called with %d arguments but only "
+                "accepts %d\n",
                 func->name, argc - 1, func->param_count);
         return 1;
     }
-    
+
     return 0;
 }
 
@@ -3206,7 +3240,8 @@ static function_def_t *find_function(executor_t *executor,
 
 // Store function in function table
 static int store_function(executor_t *executor, const char *function_name,
-                          node_t *body, function_param_t *params, int param_count) {
+                          node_t *body, function_param_t *params,
+                          int param_count) {
     if (!executor || !function_name) {
         return 1;
     }
@@ -4196,20 +4231,21 @@ static char *parse_parameter_expansion(executor_t *executor,
 
     // Fall back to symbol table lookup for regular variables
     char *value = symtable_get_var(executor->symtable, expansion);
-    
+
     // Check for unset variable error (set -u) for ${var} syntax
     if (!value && shell_opts.unset_error) {
         // Don't error on special variables that have default behavior
         if (strlen(expansion) != 1 ||
-            (expansion[0] != '?' && expansion[0] != '$' && expansion[0] != '#' &&
-             expansion[0] != '0' && expansion[0] != '@' && expansion[0] != '*')) {
+            (expansion[0] != '?' && expansion[0] != '$' &&
+             expansion[0] != '#' && expansion[0] != '0' &&
+             expansion[0] != '@' && expansion[0] != '*')) {
             // Set expansion error instead of exiting to allow || constructs
             executor->expansion_error = true;
             executor->expansion_exit_status = 1;
             return strdup(""); // Return empty string for unbound variable
         }
     }
-    
+
     return value ? strdup(value) : strdup("");
 }
 
@@ -4297,10 +4333,12 @@ static char *expand_variable(executor_t *executor, const char *var_text) {
                         (name[0] != '?' && name[0] != '$' && name[0] != '#' &&
                          name[0] != '0' && name[0] != '@' && name[0] != '*')) {
                         free(name);
-                        // Set expansion error instead of exiting to allow || constructs
+                        // Set expansion error instead of exiting to allow ||
+                        // constructs
                         executor->expansion_error = true;
                         executor->expansion_exit_status = 1;
-                        return strdup(""); // Return empty string for unbound variable
+                        return strdup(
+                            ""); // Return empty string for unbound variable
                     }
                 }
 
@@ -4345,151 +4383,173 @@ static char *expand_variable(executor_t *executor, const char *var_text) {
                         }
 
                     case '*': // All positional parameters as single word
-                        {
-                            // Check if we're in function scope - try to get $# from local scope
-                            char *func_argc_str = symtable_get_var(executor->symtable, "#");
-                            if (func_argc_str && executor->symtable) {
-                                // We're in a function scope - use function parameters
-                                int func_argc = atoi(func_argc_str);
-                                if (func_argc > 0) {
-                                    size_t total_len = 0;
-                                    // Calculate total length needed
-                                    for (int i = 1; i <= func_argc; i++) {
-                                        char param_name[16];
-                                        snprintf(param_name, sizeof(param_name), "%d", i);
-                                        char *param_value = symtable_get_var(executor->symtable, param_name);
-                                        if (param_value) {
-                                            total_len += strlen(param_value) + 1; // +1 for space
-                                        }
-                                    }
-                                    if (total_len > 0) {
-                                        char *result = malloc(total_len);
-                                        if (result) {
-                                            result[0] = '\0';
-                                            for (int i = 1; i <= func_argc; i++) {
-                                                char param_name[16];
-                                                snprintf(param_name, sizeof(param_name), "%d", i);
-                                                char *param_value = symtable_get_var(executor->symtable, param_name);
-                                                if (param_value) {
-                                                    if (i > 1) {
-                                                        strcat(result, " ");
-                                                    }
-                                                    strcat(result, param_value);
-                                                }
-                                            }
-                                            free(name);
-                                            return result;
-                                        }
+                    {
+                        // Check if we're in function scope - try to get $# from
+                        // local scope
+                        char *func_argc_str =
+                            symtable_get_var(executor->symtable, "#");
+                        if (func_argc_str && executor->symtable) {
+                            // We're in a function scope - use function
+                            // parameters
+                            int func_argc = atoi(func_argc_str);
+                            if (func_argc > 0) {
+                                size_t total_len = 0;
+                                // Calculate total length needed
+                                for (int i = 1; i <= func_argc; i++) {
+                                    char param_name[16];
+                                    snprintf(param_name, sizeof(param_name),
+                                             "%d", i);
+                                    char *param_value = symtable_get_var(
+                                        executor->symtable, param_name);
+                                    if (param_value) {
+                                        total_len += strlen(param_value) +
+                                                     1; // +1 for space
                                     }
                                 }
-                                free(name);
-                                return strdup("");
-                            } else {
-                                // Use global shell parameters
-                                if (shell_argc > 1) {
-                                    size_t total_len = 0;
-                                    for (int i = 1; i < shell_argc; i++) {
-                                        if (shell_argv[i]) {
-                                            total_len += strlen(shell_argv[i]) +
-                                                         1; // +1 for space
-                                        }
-                                    }
-                                    if (total_len > 0) {
-                                        char *result = malloc(total_len);
-                                        if (result) {
-                                            result[0] = '\0';
-                                            for (int i = 1; i < shell_argc; i++) {
-                                                if (shell_argv[i]) {
-                                                    if (i > 1) {
-                                                        strcat(result, " ");
-                                                    }
-                                                    strcat(result, shell_argv[i]);
+                                if (total_len > 0) {
+                                    char *result = malloc(total_len);
+                                    if (result) {
+                                        result[0] = '\0';
+                                        for (int i = 1; i <= func_argc; i++) {
+                                            char param_name[16];
+                                            snprintf(param_name,
+                                                     sizeof(param_name), "%d",
+                                                     i);
+                                            char *param_value =
+                                                symtable_get_var(
+                                                    executor->symtable,
+                                                    param_name);
+                                            if (param_value) {
+                                                if (i > 1) {
+                                                    strcat(result, " ");
                                                 }
+                                                strcat(result, param_value);
                                             }
-                                            free(name);
-                                            return result;
                                         }
+                                        free(name);
+                                        return result;
                                     }
                                 }
-                                free(name);
-                                return strdup("");
                             }
+                            free(name);
+                            return strdup("");
+                        } else {
+                            // Use global shell parameters
+                            if (shell_argc > 1) {
+                                size_t total_len = 0;
+                                for (int i = 1; i < shell_argc; i++) {
+                                    if (shell_argv[i]) {
+                                        total_len += strlen(shell_argv[i]) +
+                                                     1; // +1 for space
+                                    }
+                                }
+                                if (total_len > 0) {
+                                    char *result = malloc(total_len);
+                                    if (result) {
+                                        result[0] = '\0';
+                                        for (int i = 1; i < shell_argc; i++) {
+                                            if (shell_argv[i]) {
+                                                if (i > 1) {
+                                                    strcat(result, " ");
+                                                }
+                                                strcat(result, shell_argv[i]);
+                                            }
+                                        }
+                                        free(name);
+                                        return result;
+                                    }
+                                }
+                            }
+                            free(name);
+                            return strdup("");
                         }
+                    }
 
                     case '@': // All positional parameters as separate words
-                        {
-                            // Check if we're in function scope - try to get $# from local scope
-                            char *func_argc_str = symtable_get_var(executor->symtable, "#");
-                            if (func_argc_str && executor->symtable) {
-                                // We're in a function scope - use function parameters
-                                int func_argc = atoi(func_argc_str);
-                                if (func_argc > 0) {
-                                    size_t total_len = 0;
-                                    // Calculate total length needed
-                                    for (int i = 1; i <= func_argc; i++) {
-                                        char param_name[16];
-                                        snprintf(param_name, sizeof(param_name), "%d", i);
-                                        char *param_value = symtable_get_var(executor->symtable, param_name);
-                                        if (param_value) {
-                                            total_len += strlen(param_value) + 1; // +1 for space
-                                        }
-                                    }
-                                    if (total_len > 0) {
-                                        char *result = malloc(total_len);
-                                        if (result) {
-                                            result[0] = '\0';
-                                            for (int i = 1; i <= func_argc; i++) {
-                                                char param_name[16];
-                                                snprintf(param_name, sizeof(param_name), "%d", i);
-                                                char *param_value = symtable_get_var(executor->symtable, param_name);
-                                                if (param_value) {
-                                                    if (i > 1) {
-                                                        strcat(result, " ");
-                                                    }
-                                                    strcat(result, param_value);
-                                                }
-                                            }
-                                            free(name);
-                                            return result;
-                                        }
+                    {
+                        // Check if we're in function scope - try to get $# from
+                        // local scope
+                        char *func_argc_str =
+                            symtable_get_var(executor->symtable, "#");
+                        if (func_argc_str && executor->symtable) {
+                            // We're in a function scope - use function
+                            // parameters
+                            int func_argc = atoi(func_argc_str);
+                            if (func_argc > 0) {
+                                size_t total_len = 0;
+                                // Calculate total length needed
+                                for (int i = 1; i <= func_argc; i++) {
+                                    char param_name[16];
+                                    snprintf(param_name, sizeof(param_name),
+                                             "%d", i);
+                                    char *param_value = symtable_get_var(
+                                        executor->symtable, param_name);
+                                    if (param_value) {
+                                        total_len += strlen(param_value) +
+                                                     1; // +1 for space
                                     }
                                 }
-                                free(name);
-                                return strdup("");
-                            } else {
-                                // Use global shell parameters  
-                                // Note: This should ideally preserve word boundaries,
-                                // but for now we'll implement it similarly to $* for
-                                // compatibility
-                                if (shell_argc > 1) {
-                                    size_t total_len = 0;
-                                    for (int i = 1; i < shell_argc; i++) {
-                                        if (shell_argv[i]) {
-                                            total_len += strlen(shell_argv[i]) +
-                                                         1; // +1 for space
-                                        }
-                                    }
-                                    if (total_len > 0) {
-                                        char *result = malloc(total_len);
-                                        if (result) {
-                                            result[0] = '\0';
-                                            for (int i = 1; i < shell_argc; i++) {
-                                                if (shell_argv[i]) {
-                                                    if (i > 1) {
-                                                        strcat(result, " ");
-                                                    }
-                                                    strcat(result, shell_argv[i]);
+                                if (total_len > 0) {
+                                    char *result = malloc(total_len);
+                                    if (result) {
+                                        result[0] = '\0';
+                                        for (int i = 1; i <= func_argc; i++) {
+                                            char param_name[16];
+                                            snprintf(param_name,
+                                                     sizeof(param_name), "%d",
+                                                     i);
+                                            char *param_value =
+                                                symtable_get_var(
+                                                    executor->symtable,
+                                                    param_name);
+                                            if (param_value) {
+                                                if (i > 1) {
+                                                    strcat(result, " ");
                                                 }
+                                                strcat(result, param_value);
                                             }
-                                            free(name);
-                                            return result;
                                         }
+                                        free(name);
+                                        return result;
                                     }
                                 }
-                                free(name);
-                                return strdup("");
                             }
+                            free(name);
+                            return strdup("");
+                        } else {
+                            // Use global shell parameters
+                            // Note: This should ideally preserve word
+                            // boundaries, but for now we'll implement it
+                            // similarly to $* for compatibility
+                            if (shell_argc > 1) {
+                                size_t total_len = 0;
+                                for (int i = 1; i < shell_argc; i++) {
+                                    if (shell_argv[i]) {
+                                        total_len += strlen(shell_argv[i]) +
+                                                     1; // +1 for space
+                                    }
+                                }
+                                if (total_len > 0) {
+                                    char *result = malloc(total_len);
+                                    if (result) {
+                                        result[0] = '\0';
+                                        for (int i = 1; i < shell_argc; i++) {
+                                            if (shell_argv[i]) {
+                                                if (i > 1) {
+                                                    strcat(result, " ");
+                                                }
+                                                strcat(result, shell_argv[i]);
+                                            }
+                                        }
+                                        free(name);
+                                        return result;
+                                    }
+                                }
+                            }
+                            free(name);
+                            return strdup("");
                         }
+                    }
 
                     default:
                         if (name[0] >= '0' && name[0] <= '9') {
@@ -4716,7 +4776,8 @@ static char *expand_command_substitution(executor_t *executor,
 
         if (!output) {
             close(pipefd[0]);
-            while (waitpid(pid, NULL, 0) == -1 && errno == EINTR);
+            while (waitpid(pid, NULL, 0) == -1 && errno == EINTR)
+                ;
             return strdup("");
         }
 
@@ -4725,7 +4786,8 @@ static char *expand_command_substitution(executor_t *executor,
 
         // Wait for child process to complete first, retrying on EINTR
         int status;
-        while (waitpid(pid, &status, 0) == -1 && errno == EINTR);
+        while (waitpid(pid, &status, 0) == -1 && errno == EINTR)
+            ;
 
         // Then read all available output
         while ((bytes_read = read(pipefd[0], buffer, sizeof(buffer))) > 0) {
@@ -4749,12 +4811,12 @@ static char *expand_command_substitution(executor_t *executor,
         const char *return_marker = "__LUSUSH_RETURN__:";
         const char *end_marker = ":__END__";
         char *marker_pos = strstr(output, return_marker);
-        
+
         if (marker_pos) {
             // Found return value marker, extract the return value
             char *value_start = marker_pos + strlen(return_marker);
             char *value_end = strstr(value_start, end_marker);
-            
+
             if (value_end) {
                 // Extract the return value
                 size_t value_len = value_end - value_start;
@@ -4762,7 +4824,7 @@ static char *expand_command_substitution(executor_t *executor,
                 if (return_value) {
                     strncpy(return_value, value_start, value_len);
                     return_value[value_len] = '\0';
-                    
+
                     // Clean up the original output
                     free(output);
                     return return_value;
@@ -5185,7 +5247,7 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
                 break;
             }
 
-            if (next_char == '\\' || next_char == '"' || next_char == '$' || 
+            if (next_char == '\\' || next_char == '"' || next_char == '$' ||
                 next_char == '`') {
                 // Valid escape sequence, skip both backslash and next char
                 if (result_pos >= buffer_size - 1) {
@@ -5382,13 +5444,14 @@ int executor_execute_background(executor_t *executor, node_t *command) {
 
     // Check if job control is enabled (set -m)
     if (!shell_opts.job_control) {
-        // When job control is disabled, execute in background without job tracking
+        // When job control is disabled, execute in background without job
+        // tracking
         pid_t pid = fork();
         if (pid == -1) {
             fprintf(stderr, "Failed to fork for background process\n");
             return 1;
         }
-        
+
         if (pid == 0) {
             // Child process - execute the command
             int result = execute_node(executor, command->first_child);

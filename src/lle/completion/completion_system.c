@@ -25,7 +25,7 @@
 
 lle_result_t
 lle_completion_system_create(lle_memory_pool_t *pool,
-                                lle_completion_system_t **out_system) {
+                             lle_completion_system_t **out_system) {
     if (!pool || !out_system) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -166,8 +166,8 @@ static lle_result_t sort_results(lle_completion_result_t *result) {
 
 lle_result_t
 lle_completion_system_generate(lle_completion_system_t *system,
-                                  const char *buffer, size_t cursor_pos,
-                                  lle_completion_result_t **out_result) {
+                               const char *buffer, size_t cursor_pos,
+                               lle_completion_result_t **out_result) {
     if (!system || !buffer || !out_result) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -265,8 +265,7 @@ lle_completion_system_generate(lle_completion_system_t *system,
 // STATE QUERIES
 // ============================================================================
 
-bool lle_completion_system_is_active(
-    const lle_completion_system_t *system) {
+bool lle_completion_system_is_active(const lle_completion_system_t *system) {
     return system && system->current_state && system->current_state->active;
 }
 

@@ -46,8 +46,9 @@
 extern int strncasecmp(const char *s1, const char *s2, size_t n);
 
 #define DEFAULT_MAX_SEARCH_RESULTS 100
-#define FUZZY_MAX_DISTANCE 3 /* Maximum Levenshtein distance for fuzzy match   \
-                              */
+#define FUZZY_MAX_DISTANCE                                                     \
+    3 /* Maximum Levenshtein distance for fuzzy match                          \
+       */
 
 /* Scoring weights */
 #define SCORE_EXACT_MATCH 1000

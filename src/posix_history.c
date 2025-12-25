@@ -1,15 +1,15 @@
 #include "posix_history.h"
 #include "lusush.h"
 
+#include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
-#include <fcntl.h>
-#include <ctype.h>
+#include <unistd.h>
 
 /**
  * @file posix_history.c
@@ -44,11 +44,12 @@ static bool posix_history_debug_enabled = false;
 /**
  * @brief Debug logging macro
  */
-#define POSIX_HISTORY_DEBUG(fmt, ...) do { \
-    if (posix_history_debug_enabled) { \
-        fprintf(stderr, "[POSIX_HISTORY] " fmt "\n", ##__VA_ARGS__); \
-    } \
-} while(0)
+#define POSIX_HISTORY_DEBUG(fmt, ...)                                          \
+    do {                                                                       \
+        if (posix_history_debug_enabled) {                                     \
+            fprintf(stderr, "[POSIX_HISTORY] " fmt "\n", ##__VA_ARGS__);       \
+        }                                                                      \
+    } while (0)
 
 /**
  * @brief Set error message for debugging
@@ -57,9 +58,10 @@ static bool posix_history_debug_enabled = false;
  */
 static void posix_history_set_error(const char *error) {
     if (error && strlen(error) < sizeof(posix_history_error_message)) {
-        strncpy(posix_history_error_message, error, 
+        strncpy(posix_history_error_message, error,
                 sizeof(posix_history_error_message) - 1);
-        posix_history_error_message[sizeof(posix_history_error_message) - 1] = '\0';
+        posix_history_error_message[sizeof(posix_history_error_message) - 1] =
+            '\0';
     }
 }
 
@@ -81,7 +83,8 @@ static void posix_history_clear_error(void) {
  * @param number History number
  * @return Pointer to new entry, or NULL on failure
  */
-static posix_history_entry_t *posix_history_entry_create(const char *command, int number) {
+static posix_history_entry_t *posix_history_entry_create(const char *command,
+                                                         int number) {
     if (!command) {
         return NULL;
     }
@@ -121,7 +124,8 @@ static void posix_history_entry_destroy(posix_history_entry_t *entry) {
 }
 
 /**
- * Clean up a history entry that is part of an array (don't free the entry itself)
+ * Clean up a history entry that is part of an array (don't free the entry
+ * itself)
  *
  * @param entry Entry to clean up (part of array, don't free the struct)
  */
@@ -139,29 +143,31 @@ static void posix_history_entry_cleanup(posix_history_entry_t *entry) {
 
 posix_history_manager_t *posix_history_create(size_t capacity) {
     posix_history_clear_error();
-    
+
     if (capacity == 0) {
         capacity = POSIX_HISTORY_MAX_ENTRIES;
     }
-    
+
     if (capacity > POSIX_HISTORY_MAX_ENTRIES) {
         capacity = POSIX_HISTORY_MAX_ENTRIES;
     }
-    
+
     if (capacity < POSIX_HISTORY_MIN_ENTRIES) {
         capacity = POSIX_HISTORY_MIN_ENTRIES;
     }
 
     posix_history_manager_t *manager = malloc(sizeof(posix_history_manager_t));
     if (!manager) {
-        posix_history_set_error("Failed to allocate memory for history manager");
+        posix_history_set_error(
+            "Failed to allocate memory for history manager");
         return NULL;
     }
 
     manager->entries = malloc(capacity * sizeof(posix_history_entry_t));
     if (!manager->entries) {
         free(manager);
-        posix_history_set_error("Failed to allocate memory for history entries");
+        posix_history_set_error(
+            "Failed to allocate memory for history entries");
         return NULL;
     }
 
@@ -183,7 +189,8 @@ void posix_history_destroy(posix_history_manager_t *manager) {
         return;
     }
 
-    POSIX_HISTORY_DEBUG("Destroying history manager with %zu entries", manager->count);
+    POSIX_HISTORY_DEBUG("Destroying history manager with %zu entries",
+                        manager->count);
 
     // Save history if filename is set
     if (manager->filename) {
@@ -221,7 +228,8 @@ int posix_history_add(posix_history_manager_t *manager, const char *command) {
         if (strcmp(last->command, command) == 0) {
             // Update timestamp of existing entry instead of adding duplicate
             last->timestamp = time(NULL);
-            POSIX_HISTORY_DEBUG("Updated timestamp of duplicate entry: %s", command);
+            POSIX_HISTORY_DEBUG("Updated timestamp of duplicate entry: %s",
+                                command);
             return last->number;
         }
     }
@@ -230,7 +238,7 @@ int posix_history_add(posix_history_manager_t *manager, const char *command) {
     if (manager->count >= manager->capacity) {
         // Remove oldest entry
         posix_history_entry_cleanup(&manager->entries[0]);
-        
+
         // Shift all entries down
         memmove(&manager->entries[0], &manager->entries[1],
                 (manager->count - 1) * sizeof(posix_history_entry_t));
@@ -240,7 +248,7 @@ int posix_history_add(posix_history_manager_t *manager, const char *command) {
     // Assign next number with wraparound handling
     int number = manager->next_number;
     manager->next_number++;
-    
+
     if (manager->next_number > POSIX_HISTORY_WRAPAROUND_LIMIT) {
         manager->next_number = 1;
         manager->wraparound_occurred = true;
@@ -261,7 +269,8 @@ int posix_history_add(posix_history_manager_t *manager, const char *command) {
     return number;
 }
 
-posix_history_entry_t *posix_history_get(posix_history_manager_t *manager, int number) {
+posix_history_entry_t *posix_history_get(posix_history_manager_t *manager,
+                                         int number) {
     if (!manager || number <= 0) {
         return NULL;
     }
@@ -276,7 +285,8 @@ posix_history_entry_t *posix_history_get(posix_history_manager_t *manager, int n
     return NULL;
 }
 
-posix_history_entry_t *posix_history_get_by_index(posix_history_manager_t *manager, size_t index) {
+posix_history_entry_t *
+posix_history_get_by_index(posix_history_manager_t *manager, size_t index) {
     if (!manager || index >= manager->count) {
         return NULL;
     }
@@ -295,13 +305,14 @@ bool posix_history_delete(posix_history_manager_t *manager, int number) {
         if (manager->entries[i].number == number) {
             // Clean up the entry
             posix_history_entry_cleanup(&manager->entries[i]);
-            
+
             // Shift remaining entries down
             if (i < manager->count - 1) {
                 memmove(&manager->entries[i], &manager->entries[i + 1],
-                        (manager->count - i - 1) * sizeof(posix_history_entry_t));
+                        (manager->count - i - 1) *
+                            sizeof(posix_history_entry_t));
             }
-            
+
             manager->count--;
             POSIX_HISTORY_DEBUG("Deleted history entry %d", number);
             return true;
@@ -336,9 +347,9 @@ bool posix_history_clear(posix_history_manager_t *manager) {
 // Range and Number Management
 // ============================================================================
 
-bool posix_history_parse_range(posix_history_manager_t *manager, 
-                              const char *first_str, const char *last_str,
-                              posix_history_range_t *range) {
+bool posix_history_parse_range(posix_history_manager_t *manager,
+                               const char *first_str, const char *last_str,
+                               posix_history_range_t *range) {
     if (!manager || !range) {
         posix_history_set_error("Invalid parameters for range parsing");
         return false;
@@ -402,7 +413,8 @@ bool posix_history_parse_range(posix_history_manager_t *manager,
     return true;
 }
 
-int posix_history_resolve_number(posix_history_manager_t *manager, const char *spec) {
+int posix_history_resolve_number(posix_history_manager_t *manager,
+                                 const char *spec) {
     if (!manager || !spec) {
         return -1;
     }
@@ -436,8 +448,8 @@ int posix_history_resolve_number(posix_history_manager_t *manager, const char *s
     return -1;
 }
 
-bool posix_history_get_valid_range(posix_history_manager_t *manager, 
-                                  int *min_number, int *max_number) {
+bool posix_history_get_valid_range(posix_history_manager_t *manager,
+                                   int *min_number, int *max_number) {
     if (!manager || !min_number || !max_number) {
         return false;
     }
@@ -456,7 +468,8 @@ bool posix_history_get_valid_range(posix_history_manager_t *manager,
 // File Operations
 // ============================================================================
 
-int posix_history_load(posix_history_manager_t *manager, const char *filename, bool append) {
+int posix_history_load(posix_history_manager_t *manager, const char *filename,
+                       bool append) {
     if (!manager) {
         posix_history_set_error("Invalid manager for history load");
         return -1;
@@ -504,11 +517,13 @@ int posix_history_load(posix_history_manager_t *manager, const char *filename, b
     }
 
     fclose(fp);
-    POSIX_HISTORY_DEBUG("Loaded %d history entries from %s", loaded, file_to_use);
+    POSIX_HISTORY_DEBUG("Loaded %d history entries from %s", loaded,
+                        file_to_use);
     return loaded;
 }
 
-int posix_history_save(posix_history_manager_t *manager, const char *filename, bool include_timestamps) {
+int posix_history_save(posix_history_manager_t *manager, const char *filename,
+                       bool include_timestamps) {
     if (!manager) {
         posix_history_set_error("Invalid manager for history save");
         return -1;
@@ -526,7 +541,8 @@ int posix_history_save(posix_history_manager_t *manager, const char *filename, b
         char backup_name[1024];
         snprintf(backup_name, sizeof(backup_name), "%s.backup", file_to_use);
         if (rename(file_to_use, backup_name) != 0) {
-            POSIX_HISTORY_DEBUG("Warning: Could not create backup of %s", file_to_use);
+            POSIX_HISTORY_DEBUG("Warning: Could not create backup of %s",
+                                file_to_use);
         }
     }
 
@@ -547,12 +563,13 @@ int posix_history_save(posix_history_manager_t *manager, const char *filename, b
 
     fclose(fp);
     manager->last_save = time(NULL);
-    
+
     POSIX_HISTORY_DEBUG("Saved %d history entries to %s", saved, file_to_use);
     return saved;
 }
 
-int posix_history_append_new(posix_history_manager_t *manager, const char *filename) {
+int posix_history_append_new(posix_history_manager_t *manager,
+                             const char *filename) {
     if (!manager) {
         posix_history_set_error("Invalid manager for history append");
         return -1;
@@ -583,12 +600,13 @@ int posix_history_append_new(posix_history_manager_t *manager, const char *filen
 
     fclose(fp);
     manager->last_save = current_time;
-    
+
     POSIX_HISTORY_DEBUG("Appended %d new entries to %s", appended, file_to_use);
     return appended;
 }
 
-int posix_history_read_new(posix_history_manager_t *manager, const char *filename) {
+int posix_history_read_new(posix_history_manager_t *manager,
+                           const char *filename) {
     // For now, just reload all entries
     // A more sophisticated implementation would track file position
     return posix_history_load(manager, filename, true);
@@ -598,27 +616,30 @@ int posix_history_read_new(posix_history_manager_t *manager, const char *filenam
 // Utility and Configuration Functions
 // ============================================================================
 
-bool posix_history_set_filename(posix_history_manager_t *manager, const char *filename) {
+bool posix_history_set_filename(posix_history_manager_t *manager,
+                                const char *filename) {
     if (!manager) {
         return false;
     }
 
     free(manager->filename);
     manager->filename = filename ? strdup(filename) : NULL;
-    
+
     return true;
 }
 
-void posix_history_set_no_duplicates(posix_history_manager_t *manager, bool no_duplicates) {
+void posix_history_set_no_duplicates(posix_history_manager_t *manager,
+                                     bool no_duplicates) {
     if (manager) {
         manager->no_duplicates = no_duplicates;
-        POSIX_HISTORY_DEBUG("Set no_duplicates to %s", no_duplicates ? "true" : "false");
+        POSIX_HISTORY_DEBUG("Set no_duplicates to %s",
+                            no_duplicates ? "true" : "false");
     }
 }
 
-bool posix_history_get_stats(posix_history_manager_t *manager, 
-                            size_t *total_entries, int *current_number,
-                            int *wraparound_count) {
+bool posix_history_get_stats(posix_history_manager_t *manager,
+                             size_t *total_entries, int *current_number,
+                             int *wraparound_count) {
     if (!manager || !total_entries || !current_number || !wraparound_count) {
         return false;
     }

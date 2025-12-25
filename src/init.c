@@ -6,22 +6,23 @@
 #include "config.h"
 #include "errors.h"
 #include "history.h"
-#include "posix_history.h"
 #include "input.h"
+#include "posix_history.h"
 
-#include "readline_integration.h"
 #include "lusush.h"
 #include "network.h"
 #include "prompt.h"
+#include "readline_integration.h"
 #include "signals.h"
 #include "symtable.h"
 
+#include "display_integration.h"
+#include "lle/adaptive_terminal_integration.h"
+#include "lusush_memory_pool.h"
 #include "themes.h"
 #include "version.h"
-#include "display_integration.h"
-#include "lusush_memory_pool.h"
-#include "lle/adaptive_terminal_integration.h"
 
+#include <errno.h>
 #include <getopt.h>
 #include <locale.h>
 #include <stdbool.h>
@@ -31,7 +32,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <errno.h>
 #ifdef __linux__
 #include <sys/sysmacros.h>
 #else
@@ -181,7 +181,8 @@ int init(int argc, char **argv, FILE **in) {
     lle_terminal_detection_result_t *detection = NULL;
     if (lle_detect_terminal_capabilities_optimized(&detection) != LLE_SUCCESS) {
         if (IS_INTERACTIVE_SHELL) {
-            fprintf(stderr, "Warning: Failed to detect terminal capabilities\n");
+            fprintf(stderr,
+                    "Warning: Failed to detect terminal capabilities\n");
         }
     } else {
         // Terminal capabilities successfully detected
@@ -274,13 +275,14 @@ int init(int argc, char **argv, FILE **in) {
     bool has_script_file = (optind && argv[optind] && *argv[optind]);
     bool forced_interactive = shell_opts.interactive;
     bool stdin_is_terminal = isatty(STDIN_FILENO);
-    
+
     // Debug: Show TTY detection details
     const char *debug_env = getenv("LUSUSH_DEBUG");
-    if (debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0)) {
+    if (debug_env &&
+        (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0)) {
         fprintf(stderr, "[INIT] TTY Detection: STDIN_FILENO=%d, isatty()=%s\n",
                 STDIN_FILENO, stdin_is_terminal ? "true" : "false");
-        
+
         // Show what stdin is connected to
         struct stat st;
         if (fstat(STDIN_FILENO, &st) == 0) {
@@ -290,8 +292,10 @@ int init(int argc, char **argv, FILE **in) {
                 fprintf(stderr, "[INIT] stdin is a directory\n");
             } else if (S_ISCHR(st.st_mode)) {
 #ifdef __linux__
-                fprintf(stderr, "[INIT] stdin is a character device (dev %lu:%lu)\n",
-                        (unsigned long)major(st.st_rdev), (unsigned long)minor(st.st_rdev));
+                fprintf(stderr,
+                        "[INIT] stdin is a character device (dev %lu:%lu)\n",
+                        (unsigned long)major(st.st_rdev),
+                        (unsigned long)minor(st.st_rdev));
 #else
                 fprintf(stderr, "[INIT] stdin is a character device\n");
 #endif
@@ -304,7 +308,8 @@ int init(int argc, char **argv, FILE **in) {
             } else if (S_ISSOCK(st.st_mode)) {
                 fprintf(stderr, "[INIT] stdin is a socket\n");
             } else {
-                fprintf(stderr, "[INIT] stdin is unknown type (mode 0x%x)\n", st.st_mode);
+                fprintf(stderr, "[INIT] stdin is unknown type (mode 0x%x)\n",
+                        st.st_mode);
             }
         } else {
             fprintf(stderr, "[INIT] fstat() failed: %s\n", strerror(errno));
@@ -338,9 +343,9 @@ int init(int argc, char **argv, FILE **in) {
                 process_shebang(*in);
             }
         }
-    } else if (lle_adaptive_should_shell_be_interactive(forced_interactive,
-                                                         has_script_file,
-                                                         shell_opts.stdin_mode)) {
+    } else if (lle_adaptive_should_shell_be_interactive(
+                   forced_interactive, has_script_file,
+                   shell_opts.stdin_mode)) {
         /*
          * Interactive shell detection using LLE adaptive terminal system.
          * This handles:
@@ -352,12 +357,16 @@ int init(int argc, char **argv, FILE **in) {
         IS_INTERACTIVE_SHELL = true;
         SHELL_TYPE = SHELL_INTERACTIVE;
         *in = stdin;
-        
+
         // Debug: Show interactive detection
         const char *debug_env = getenv("LUSUSH_DEBUG");
-        if (debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0)) {
-            fprintf(stderr, "[INIT] Interactive shell detected via adaptive detection\n");
-            fprintf(stderr, "[INIT]   forced=%s, stdin_is_terminal=%s, stdin_mode=%s\n",
+        if (debug_env &&
+            (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0)) {
+            fprintf(
+                stderr,
+                "[INIT] Interactive shell detected via adaptive detection\n");
+            fprintf(stderr,
+                    "[INIT]   forced=%s, stdin_is_terminal=%s, stdin_mode=%s\n",
                     forced_interactive ? "true" : "false",
                     stdin_is_terminal ? "true" : "false",
                     shell_opts.stdin_mode ? "true" : "false");
@@ -367,12 +376,15 @@ int init(int argc, char **argv, FILE **in) {
         IS_INTERACTIVE_SHELL = false;
         SHELL_TYPE = SHELL_NON_INTERACTIVE;
         *in = stdin;
-        
+
         // Debug: Show non-interactive detection
         const char *debug_env = getenv("LUSUSH_DEBUG");
-        if (debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0)) {
-            fprintf(stderr, "[INIT] Non-interactive shell (adaptive detection)\n");
-            fprintf(stderr, "[INIT]   forced=%s, stdin_is_terminal=%s, stdin_mode=%s\n",
+        if (debug_env &&
+            (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0)) {
+            fprintf(stderr,
+                    "[INIT] Non-interactive shell (adaptive detection)\n");
+            fprintf(stderr,
+                    "[INIT]   forced=%s, stdin_is_terminal=%s, stdin_mode=%s\n",
                     forced_interactive ? "true" : "false",
                     stdin_is_terminal ? "true" : "false",
                     shell_opts.stdin_mode ? "true" : "false");
@@ -387,43 +399,50 @@ int init(int argc, char **argv, FILE **in) {
             fprintf(stderr, "Warning: Failed to initialize readline\n");
         }
         lusush_multiline_set_enabled(config.multiline_mode);
-        
+
         // Initialize display integration system
         display_integration_config_t display_config;
         display_integration_create_default_config(&display_config);
-        
+
         // Configure based on environment and user preferences
         const char *layered_display_env = getenv("LUSUSH_LAYERED_DISPLAY");
         if (layered_display_env) {
-            // v1.3.0: Layered display is now exclusive - environment variable ignored
-            // Layered display is always enabled
+            // v1.3.0: Layered display is now exclusive - environment variable
+            // ignored Layered display is always enabled
         }
-        
+
         // Enable debug mode if requested
         const char *display_debug_env = getenv("LUSUSH_DISPLAY_DEBUG");
-        if (display_debug_env && (strcmp(display_debug_env, "1") == 0 || strcmp(display_debug_env, "true") == 0)) {
+        if (display_debug_env && (strcmp(display_debug_env, "1") == 0 ||
+                                  strcmp(display_debug_env, "true") == 0)) {
             display_config.debug_mode = true;
         }
-        
+
         // Set optimization level based on environment
         const char *optimization_env = getenv("LUSUSH_DISPLAY_OPTIMIZATION");
         if (optimization_env) {
             int opt_level = atoi(optimization_env);
-            if (opt_level >= DISPLAY_OPTIMIZATION_DISABLED && opt_level <= DISPLAY_OPTIMIZATION_MAXIMUM) {
-                display_config.optimization_level = (display_optimization_level_t)opt_level;
+            if (opt_level >= DISPLAY_OPTIMIZATION_DISABLED &&
+                opt_level <= DISPLAY_OPTIMIZATION_MAXIMUM) {
+                display_config.optimization_level =
+                    (display_optimization_level_t)opt_level;
             }
         }
-        
+
         // Initialize memory pool system for display operations
-        lusush_pool_config_t pool_config = lusush_pool_get_display_optimized_config();
+        lusush_pool_config_t pool_config =
+            lusush_pool_get_display_optimized_config();
         pool_config.enable_debugging = (getenv("LUSUSH_MEMORY_DEBUG") != NULL);
-        
+
         lusush_pool_error_t pool_result = lusush_pool_init(&pool_config);
         if (pool_result != LUSUSH_POOL_SUCCESS) {
             if (display_config.debug_mode || getenv("LUSUSH_MEMORY_DEBUG")) {
-                fprintf(stderr, "Warning: Failed to initialize memory pool system: %s\n", 
-                        lusush_pool_error_string(pool_result));
-                fprintf(stderr, "Continuing with standard malloc/free operations\n");
+                fprintf(
+                    stderr,
+                    "Warning: Failed to initialize memory pool system: %s\n",
+                    lusush_pool_error_string(pool_result));
+                fprintf(stderr,
+                        "Continuing with standard malloc/free operations\n");
             }
         } else if (display_config.debug_mode || getenv("LUSUSH_MEMORY_DEBUG")) {
             fprintf(stderr, "Memory pool system initialized successfully\n");
@@ -434,26 +453,32 @@ int init(int argc, char **argv, FILE **in) {
             // Configure display options based on environment and command line
             // v1.3.0: Layered display is now exclusive - always enabled
             // No configuration needed
-            
-            // Always initialize display integration to support runtime display enable
+
+            // Always initialize display integration to support runtime display
+            // enable
             if (!display_integration_init(&display_config)) {
-                if (display_config.debug_mode || getenv("LUSUSH_DISPLAY_DEBUG")) {
-                    fprintf(stderr, "Warning: Failed to initialize display integration, using standard display\n");
+                if (display_config.debug_mode ||
+                    getenv("LUSUSH_DISPLAY_DEBUG")) {
+                    fprintf(stderr, "Warning: Failed to initialize display "
+                                    "integration, using standard display\n");
                 }
                 // Continue with standard display - no fatal error
             } else {
-                // Announce activation with visual impact (only when debug mode enabled)
+                // Announce activation with visual impact (only when debug mode
+                // enabled)
                 if (display_config.debug_mode) {
-                    printf("Display integration initialized (layered_display=exclusive)\n");
+                    printf("Display integration initialized "
+                           "(layered_display=exclusive)\n");
                 }
             }
         } else {
             // Non-interactive mode: no display integration needed
             if (getenv("LUSUSH_DISPLAY_DEBUG")) {
-                fprintf(stderr, "Display integration skipped (non-interactive mode)\n");
+                fprintf(stderr,
+                        "Display integration skipped (non-interactive mode)\n");
             }
         }
-        
+
         build_prompt();
     }
 
@@ -498,7 +523,7 @@ int init(int argc, char **argv, FILE **in) {
     // Initialize history for interactive shells
     if (IS_INTERACTIVE_SHELL) {
         init_history();
-        
+
         // Initialize enhanced POSIX history system
         if (!global_posix_history) {
             global_posix_history = posix_history_create(0);
@@ -507,11 +532,12 @@ int init(int argc, char **argv, FILE **in) {
                 char *home = symtable_get_global_default("HOME", "");
                 if (home && *home) {
                     char histfile[1024];
-                    snprintf(histfile, sizeof(histfile), "%s/.lusush_history", home);
+                    snprintf(histfile, sizeof(histfile), "%s/.lusush_history",
+                             home);
                     posix_history_set_filename(global_posix_history, histfile);
                     posix_history_load(global_posix_history, histfile, false);
                 }
-                
+
                 // Enable duplicate detection by default
                 posix_history_set_no_duplicates(global_posix_history, true);
             }
@@ -537,7 +563,7 @@ int init(int argc, char **argv, FILE **in) {
     atexit(autocorrect_cleanup);
     atexit(theme_cleanup);
     atexit(network_cleanup);
-    
+
     // Enhanced history cleanup - only in non-interactive mode
     // In interactive mode, readline handles history
     if (global_posix_history && !IS_INTERACTIVE_SHELL) {
@@ -555,7 +581,7 @@ int init(int argc, char **argv, FILE **in) {
 
     // Register memory pool cleanup first (for all shell modes) - runs LAST
     atexit(lusush_pool_shutdown);
-    
+
     // Register cleanup for readline integration
     if (IS_INTERACTIVE_SHELL) {
         atexit(lusush_readline_cleanup);
@@ -595,7 +621,8 @@ static int parse_opts(int argc, char **argv) {
             } else if (strcmp(arg, "--version") == 0) {
                 printf("%s %s\n", LUSUSH_NAME, LUSUSH_VERSION_STRING);
                 printf("%s\n", LUSUSH_DESCRIPTION);
-                printf("Copyright (C) 2021-2025 Michael Berry. Licensed under GPL-3.0+.\n");
+                printf("Copyright (C) 2021-2025 Michael Berry. Licensed under "
+                       "GPL-3.0+.\n");
                 exit(EXIT_SUCCESS);
             } else {
                 fprintf(stderr, "%s: invalid option -- '%s'\n", argv[0], arg);
@@ -616,7 +643,8 @@ static int parse_opts(int argc, char **argv) {
             case 'V':
                 printf("%s %s\n", LUSUSH_NAME, LUSUSH_VERSION_STRING);
                 printf("%s\n", LUSUSH_DESCRIPTION);
-                printf("Copyright (C) 2021-2025 Michael Berry. Licensed under GPL-3.0+.\n");
+                printf("Copyright (C) 2021-2025 Michael Berry. Licensed under "
+                       "GPL-3.0+.\n");
                 exit(EXIT_SUCCESS);
                 break;
             case 'c':
@@ -715,8 +743,10 @@ static void usage(int err) {
     printf("  -f               Disable pathname expansion (set -f)\n");
     printf("  -h               Enable command path hashing (set -o hashall)\n");
     printf("  -m               Enable job control (set -m)\n");
-    printf("  -b               Notify asynchronously of background job completion (set -o notify)\n");
-    printf("  -t               Exit after executing one command (set -o onecmd)\n");
+    printf("  -b               Notify asynchronously of background job "
+           "completion (set -o notify)\n");
+    printf("  -t               Exit after executing one command (set -o "
+           "onecmd)\n");
     printf("\nArguments:\n");
     printf("  SCRIPT           Execute commands from script file\n");
     printf("\nShell Options:\n");

@@ -860,13 +860,14 @@ void complete_network_command_args(const char *command, const char *text,
  * Complete network command arguments with full command context
  * This preserves the original command when adding completions
  */
-void complete_network_command_args_with_context(const char *command, const char *text,
-                                                lusush_completions_t *lc, const char *buf,
+void complete_network_command_args_with_context(const char *command,
+                                                const char *text,
+                                                lusush_completions_t *lc,
+                                                const char *buf,
                                                 int start_pos) {
     if (!command || !text || !lc || !buf) {
         return;
     }
-
 
     // Get the host completions using the existing functions
     if (strcmp(command, "ssh") == 0) {
@@ -876,30 +877,30 @@ void complete_network_command_args_with_context(const char *command, const char 
     } else if (strcmp(command, "rsync") == 0) {
         complete_rsync_command(text, lc);
     }
-    
+
     // Transform the completions to include the full command context
     // We need to modify the completions in place to preserve command
     for (size_t i = 0; i < lc->len; i++) {
         char *original_completion = lc->cvec[i];
-        
+
         // Build complete command line: prefix + completion + suffix
         size_t prefix_len = start_pos;
         size_t completion_len = strlen(original_completion);
         size_t suffix_len = strlen(buf + start_pos + strlen(text));
         size_t total_len = prefix_len + completion_len + suffix_len + 1;
-        
+
         char *complete_command = malloc(total_len);
         if (complete_command) {
             // Copy prefix (everything before current word)
             strncpy(complete_command, buf, prefix_len);
             complete_command[prefix_len] = '\0';
-            
+
             // Append the completion
             strcat(complete_command, original_completion);
-            
+
             // Append suffix (everything after current word)
             strcat(complete_command, buf + start_pos + strlen(text));
-            
+
             // Replace the original completion
             free(lc->cvec[i]);
             lc->cvec[i] = complete_command;
@@ -1087,8 +1088,8 @@ void format_ssh_host_completion(const ssh_host_t *host, char *completion,
         // Give each part half the space, but use actual length if shorter
         size_t user_max = user_len < available / 2 ? user_len : available / 2;
         size_t name_max = available - user_max;
-        snprintf(completion, max_len, "%.*s@%.*s",
-                 (int)user_max, host->user, (int)name_max, name);
+        snprintf(completion, max_len, "%.*s@%.*s", (int)user_max, host->user,
+                 (int)name_max, name);
     } else {
         size_t name_len = strlen(name);
         size_t name_max = name_len < max_len - 1 ? name_len : max_len - 1;

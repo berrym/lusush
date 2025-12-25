@@ -354,9 +354,10 @@ static void update_autosuggestion(readline_context_t *ctx) {
             continue;
         }
 
-        /* Check for prefix match using Unicode-aware comparison (TR#29 compliant)
-         * This handles NFC normalization to ensure equivalent Unicode sequences
-         * match regardless of encoding (e.g., precomposed vs decomposed) */
+        /* Check for prefix match using Unicode-aware comparison (TR#29
+         * compliant) This handles NFC normalization to ensure equivalent
+         * Unicode sequences match regardless of encoding (e.g., precomposed vs
+         * decomposed) */
         if (lle_unicode_is_prefix(input, input_len, entry->command,
                                   strlen(entry->command), NULL)) {
             /* Found a match - get the remaining text */
@@ -1374,8 +1375,7 @@ lle_result_t lle_abort_line_context(readline_context_t *ctx) {
         if (menu_visible) {
             /* Dismiss completion menu - don't abort line yet */
             if (ctx->editor->completion_system) {
-                lle_completion_system_clear(
-                    ctx->editor->completion_system);
+                lle_completion_system_clear(ctx->editor->completion_system);
             }
 
             /* Clear menu from display controller */
@@ -1502,8 +1502,7 @@ lle_result_t lle_escape_context(readline_context_t *ctx) {
              * just dismisses the menu without reverting the text. */
 
             if (ctx->editor->completion_system) {
-                lle_completion_system_clear(
-                    ctx->editor->completion_system);
+                lle_completion_system_clear(ctx->editor->completion_system);
             }
 
             /* Clear menu from display controller */
@@ -2706,8 +2705,7 @@ char *lle_readline(const char *prompt) {
 
             /* Clear any completion menu or autosuggestion */
             if (ctx.editor && ctx.editor->completion_system) {
-                lle_completion_system_clear(
-                    ctx.editor->completion_system);
+                lle_completion_system_clear(ctx.editor->completion_system);
             }
             display_controller_t *dc = display_integration_get_controller();
             if (dc) {

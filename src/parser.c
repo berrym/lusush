@@ -7,14 +7,14 @@
 
 #include "parser.h"
 
+#include "executor.h"
 #include "node.h"
 #include "tokenizer.h"
-#include "executor.h"
 
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
 
 // Forward declarations
 static node_t *parse_command_list(parser_t *parser);
@@ -39,8 +39,6 @@ static char *collect_heredoc_content(parser_t *parser, const char *delimiter,
                                      bool strip_tabs, bool expand_variables);
 static void set_parser_error(parser_t *parser, const char *message);
 static bool expect_token(parser_t *parser, token_type_t expected);
-
-
 
 // Create new parser
 parser_t *parser_new(const char *input) {
@@ -838,9 +836,11 @@ static node_t *parse_redirection(parser_t *parser) {
         char *delimiter = strdup(target_token->text);
         bool strip_tabs = (node_type == NODE_REDIR_HEREDOC_STRIP);
 
-        // Check if delimiter is quoted (any quoted delimiter disables expansion)
+        // Check if delimiter is quoted (any quoted delimiter disables
+        // expansion)
         bool expand_variables = true;
-        if (target_token->type == TOK_STRING || target_token->type == TOK_EXPANDABLE_STRING) {
+        if (target_token->type == TOK_STRING ||
+            target_token->type == TOK_EXPANDABLE_STRING) {
             // Any quoted string - disable expansion per POSIX
             expand_variables = false;
         }
@@ -851,7 +851,8 @@ static node_t *parse_redirection(parser_t *parser) {
 
         // Collect the here document content (this will advance the tokenizer
         // further)
-        char *content = collect_heredoc_content(parser, delimiter, strip_tabs, expand_variables);
+        char *content = collect_heredoc_content(parser, delimiter, strip_tabs,
+                                                expand_variables);
         if (!content) {
             free(delimiter);
             free_node_tree(redir_node);
@@ -971,8 +972,6 @@ static char *collect_heredoc_content(parser_t *parser, const char *delimiter,
         }
     }
 
-
-
     (void)strlen(match_delimiter); /* Delimiter matching uses strcmp */
 
     for (size_t i = 0; i < tokenizer->input_length - 1; i++) {
@@ -996,25 +995,27 @@ static char *collect_heredoc_content(parser_t *parser, const char *delimiter,
             // Try to match delimiter - first check if it's quoted in the input
             bool found_delimiter = false;
             size_t delim_end_pos = delimiter_pos;
-            
+
             // Check for quoted delimiter in input (like 'EOF' or "EOF")
             if (delimiter_pos < tokenizer->input_length &&
-                (tokenizer->input[delimiter_pos] == '\'' || tokenizer->input[delimiter_pos] == '"')) {
+                (tokenizer->input[delimiter_pos] == '\'' ||
+                 tokenizer->input[delimiter_pos] == '"')) {
                 char quote = tokenizer->input[delimiter_pos];
                 delim_end_pos = delimiter_pos + 1;
-                
+
                 // Find matching quote
                 while (delim_end_pos < tokenizer->input_length &&
                        tokenizer->input[delim_end_pos] != quote) {
                     delim_end_pos++;
                 }
-                
+
                 if (delim_end_pos < tokenizer->input_length &&
                     tokenizer->input[delim_end_pos] == quote) {
                     // Extract the quoted delimiter content
                     size_t quoted_len = delim_end_pos - delimiter_pos - 1;
                     if (quoted_len == strlen(match_delimiter) &&
-                        strncmp(&tokenizer->input[delimiter_pos + 1], match_delimiter, quoted_len) == 0) {
+                        strncmp(&tokenizer->input[delimiter_pos + 1],
+                                match_delimiter, quoted_len) == 0) {
                         found_delimiter = true;
                         delim_end_pos++; // Include the closing quote
                     }
@@ -1023,7 +1024,8 @@ static char *collect_heredoc_content(parser_t *parser, const char *delimiter,
                 // Check for unquoted delimiter
                 size_t match_len = strlen(match_delimiter);
                 if (delimiter_pos + match_len <= tokenizer->input_length &&
-                    strncmp(&tokenizer->input[delimiter_pos], match_delimiter, match_len) == 0) {
+                    strncmp(&tokenizer->input[delimiter_pos], match_delimiter,
+                            match_len) == 0) {
                     found_delimiter = true;
                     delim_end_pos = delimiter_pos + match_len;
                 }
@@ -1043,7 +1045,6 @@ static char *collect_heredoc_content(parser_t *parser, const char *delimiter,
             }
         }
     }
-
 
     // Collect lines until we find the delimiter
     size_t content_size = 0;
@@ -1653,7 +1654,8 @@ static node_t *parse_case_statement(parser_t *parser) {
                 break;
             }
 
-            // Skip only newlines and whitespace, NOT semicolons (preserve ;; for detection)
+            // Skip only newlines and whitespace, NOT semicolons (preserve ;;
+            // for detection)
             while (tokenizer_match(parser->tokenizer, TOK_NEWLINE) ||
                    tokenizer_match(parser->tokenizer, TOK_WHITESPACE)) {
                 tokenizer_advance(parser->tokenizer);
@@ -1744,19 +1746,19 @@ static bool is_valid_posix_function_name(const char *name) {
     if (!name || !*name) {
         return false;
     }
-    
+
     // First character must be letter or underscore
     if (!isalpha(*name) && *name != '_') {
         return false;
     }
-    
+
     // Remaining characters must be alphanumeric or underscore
     for (const char *p = name + 1; *p; p++) {
         if (!isalnum(*p) && *p != '_') {
             return false;
         }
     }
-    
+
     return true;
 }
 
@@ -1788,10 +1790,14 @@ static node_t *parse_function_definition(parser_t *parser) {
         free_node_tree(function_node);
         return NULL;
     }
-    
+
     // POSIX compliance: validate function name in posix mode
-    if (is_posix_mode_enabled() && !is_valid_posix_function_name(current->text)) {
-        set_parser_error(parser, "Invalid function name in POSIX mode: function names must contain only letters, digits, and underscores, and cannot start with a digit");
+    if (is_posix_mode_enabled() &&
+        !is_valid_posix_function_name(current->text)) {
+        set_parser_error(parser,
+                         "Invalid function name in POSIX mode: function names "
+                         "must contain only letters, digits, and underscores, "
+                         "and cannot start with a digit");
         free_node_tree(function_node);
         return NULL;
     }
@@ -1836,7 +1842,9 @@ static node_t *parse_function_definition(parser_t *parser) {
             tokenizer_advance(parser->tokenizer); // Skip '='
             current = tokenizer_current(parser->tokenizer);
 
-            if (!current || (!token_is_word_like(current->type) && current->type != TOK_STRING && current->type != TOK_EXPANDABLE_STRING)) {
+            if (!current || (!token_is_word_like(current->type) &&
+                             current->type != TOK_STRING &&
+                             current->type != TOK_EXPANDABLE_STRING)) {
                 set_parser_error(parser, "Expected default value after '='");
                 free(param_name);
                 free_function_params(params);
@@ -1857,7 +1865,8 @@ static node_t *parse_function_definition(parser_t *parser) {
         }
 
         // Create parameter structure
-        function_param_t *param = create_function_param(param_name, default_value);
+        function_param_t *param =
+            create_function_param(param_name, default_value);
         if (!param) {
             free(param_name);
             free(default_value);
@@ -1882,7 +1891,8 @@ static node_t *parse_function_definition(parser_t *parser) {
         if (current && current->type == TOK_RPAREN) {
             // End of parameters
             break;
-        } else if (current && current->text && strcmp(current->text, ",") == 0) {
+        } else if (current && current->text &&
+                   strcmp(current->text, ",") == 0) {
             tokenizer_advance(parser->tokenizer); // Skip comma
             current = tokenizer_current(parser->tokenizer);
             // Continue to next parameter
@@ -1912,7 +1922,8 @@ static node_t *parse_function_definition(parser_t *parser) {
             function_param_t *p = params;
             bool first = true;
             while (p) {
-                if (!first) strcat(param_info, ",");
+                if (!first)
+                    strcat(param_info, ",");
                 strcat(param_info, p->name);
                 if (p->default_value) {
                     strcat(param_info, "=");
@@ -1922,11 +1933,12 @@ static node_t *parse_function_definition(parser_t *parser) {
                 first = false;
             }
             strcat(param_info, "}");
-            
+
             // Store in function node's string value temporarily
             if (function_node->val.str) {
                 char *old_name = function_node->val.str;
-                function_node->val.str = malloc(strlen(old_name) + strlen(param_info) + 2);
+                function_node->val.str =
+                    malloc(strlen(old_name) + strlen(param_info) + 2);
                 strcpy(function_node->val.str, old_name);
                 strcat(function_node->val.str, "|");
                 strcat(function_node->val.str, param_info);
@@ -1934,7 +1946,7 @@ static node_t *parse_function_definition(parser_t *parser) {
             }
             free(param_info);
         }
-        
+
         // Clean up params since we've encoded them
         free_function_params(params);
     }
@@ -1989,5 +2001,3 @@ static node_t *parse_function_definition(parser_t *parser) {
 
     return function_node;
 }
-
-

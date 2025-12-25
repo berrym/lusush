@@ -35,31 +35,31 @@ typedef enum {
 
 // Symbol compatibility modes for universal terminal support
 typedef enum {
-    SYMBOL_MODE_UNICODE,    // Use Unicode symbols (best appearance)
-    SYMBOL_MODE_ASCII,      // Use ASCII fallbacks (universal compatibility)
-    SYMBOL_MODE_AUTO        // Auto-detect terminal capability (progressive default)
+    SYMBOL_MODE_UNICODE, // Use Unicode symbols (best appearance)
+    SYMBOL_MODE_ASCII,   // Use ASCII fallbacks (universal compatibility)
+    SYMBOL_MODE_AUTO // Auto-detect terminal capability (progressive default)
 } symbol_compatibility_t;
 
 // Prompt layout modes for user flexibility
 typedef enum {
-    LAYOUT_MODE_SINGLE_LINE,  // Traditional single-line prompt
-    LAYOUT_MODE_MULTILINE,    // Multi-line prompt with enhanced information
-    LAYOUT_MODE_COMPACT,      // Minimal space usage
-    LAYOUT_MODE_CUSTOM        // User-defined layout template
+    LAYOUT_MODE_SINGLE_LINE, // Traditional single-line prompt
+    LAYOUT_MODE_MULTILINE,   // Multi-line prompt with enhanced information
+    LAYOUT_MODE_COMPACT,     // Minimal space usage
+    LAYOUT_MODE_CUSTOM       // User-defined layout template
 } prompt_layout_mode_t;
 
 // Cache strategy options for theme-specific optimization
 typedef enum {
-    CACHE_STRATEGY_THEME_SPECIFIC,  // Separate cache per theme
-    CACHE_STRATEGY_GLOBAL,          // Single global cache
-    CACHE_STRATEGY_DISABLED         // No caching
+    CACHE_STRATEGY_THEME_SPECIFIC, // Separate cache per theme
+    CACHE_STRATEGY_GLOBAL,         // Single global cache
+    CACHE_STRATEGY_DISABLED        // No caching
 } cache_strategy_t;
 
 // Symbol mapping for universal compatibility
 typedef struct {
-    const char* unicode_symbol;
-    const char* ascii_fallback;
-    const char* description;
+    const char *unicode_symbol;
+    const char *ascii_fallback;
+    const char *description;
 } symbol_mapping_t;
 
 // Enhanced theme user configuration
@@ -70,14 +70,14 @@ typedef struct {
     bool enable_right_prompt;
     bool enable_timestamps;
     bool enable_symbols;
-    
+
     // Symbol compatibility
     symbol_compatibility_t symbol_mode;
-    
+
     // Performance optimization
     cache_strategy_t cache_strategy;
     int cache_timeout_seconds;
-    
+
     // User customization
     char custom_template[TEMPLATE_MAX];
 } theme_user_config_t;
@@ -107,24 +107,24 @@ typedef struct {
 // Syntax highlighting color scheme for command line input
 // Colors are ANSI escape codes (e.g., "\033[1;32m" for bright green)
 typedef struct {
-    char command_valid[COLOR_CODE_MAX];      // Valid external commands
-    char command_invalid[COLOR_CODE_MAX];    // Invalid/non-existent commands
-    char command_builtin[COLOR_CODE_MAX];    // Shell builtin commands
-    char command_alias[COLOR_CODE_MAX];      // Aliases
-    char keyword[COLOR_CODE_MAX];            // Shell keywords (if, for, while, etc.)
-    char string[COLOR_CODE_MAX];             // Quoted strings
-    char variable[COLOR_CODE_MAX];           // Variable references ($var)
-    char variable_special[COLOR_CODE_MAX];   // Special variables ($?, $#, etc.)
-    char operator_sym[COLOR_CODE_MAX];       // Operators (|, &, ;, etc.)
-    char redirect[COLOR_CODE_MAX];           // Redirection (>, <, >>)
-    char pipe[COLOR_CODE_MAX];               // Pipe operator
-    char comment[COLOR_CODE_MAX];            // Comments
-    char number[COLOR_CODE_MAX];             // Numeric literals
-    char path_valid[COLOR_CODE_MAX];         // Valid file paths
-    char path_invalid[COLOR_CODE_MAX];       // Invalid file paths
-    char option[COLOR_CODE_MAX];             // Command options (-v, --help)
-    char glob[COLOR_CODE_MAX];               // Glob patterns (*, ?)
-    char error_syntax[COLOR_CODE_MAX];       // Syntax errors
+    char command_valid[COLOR_CODE_MAX];   // Valid external commands
+    char command_invalid[COLOR_CODE_MAX]; // Invalid/non-existent commands
+    char command_builtin[COLOR_CODE_MAX]; // Shell builtin commands
+    char command_alias[COLOR_CODE_MAX];   // Aliases
+    char keyword[COLOR_CODE_MAX];  // Shell keywords (if, for, while, etc.)
+    char string[COLOR_CODE_MAX];   // Quoted strings
+    char variable[COLOR_CODE_MAX]; // Variable references ($var)
+    char variable_special[COLOR_CODE_MAX]; // Special variables ($?, $#, etc.)
+    char operator_sym[COLOR_CODE_MAX];     // Operators (|, &, ;, etc.)
+    char redirect[COLOR_CODE_MAX];         // Redirection (>, <, >>)
+    char pipe[COLOR_CODE_MAX];             // Pipe operator
+    char comment[COLOR_CODE_MAX];          // Comments
+    char number[COLOR_CODE_MAX];           // Numeric literals
+    char path_valid[COLOR_CODE_MAX];       // Valid file paths
+    char path_invalid[COLOR_CODE_MAX];     // Invalid file paths
+    char option[COLOR_CODE_MAX];           // Command options (-v, --help)
+    char glob[COLOR_CODE_MAX];             // Glob patterns (*, ?)
+    char error_syntax[COLOR_CODE_MAX];     // Syntax errors
 } syntax_color_scheme_t;
 
 // Corporate branding configuration
@@ -339,9 +339,10 @@ bool template_process(const char *template_str, template_context_t *ctx,
  * @param use_colors Whether to use color codes
  * @return true on success, false on failure
  */
-bool template_process_responsive(const char *template_str, template_context_t *ctx,
-                               char *output, size_t output_size,
-                               int terminal_width, bool use_colors);
+bool template_process_responsive(const char *template_str,
+                                 template_context_t *ctx, char *output,
+                                 size_t output_size, int terminal_width,
+                                 bool use_colors);
 
 /**
  * Generate primary prompt using active theme
@@ -601,7 +602,8 @@ symbol_compatibility_t symbol_get_compatibility_mode(void);
  * @param output_size Size of output buffer
  * @return true on success, false on failure
  */
-bool symbol_convert_to_ascii(const char *input, char *output, size_t output_size);
+bool symbol_convert_to_ascii(const char *input, char *output,
+                             size_t output_size);
 
 /**
  * Process template with symbol compatibility
@@ -611,13 +613,14 @@ bool symbol_convert_to_ascii(const char *input, char *output, size_t output_size
  * @param force_ascii Force ASCII mode regardless of settings
  * @return true on success, false on failure
  */
-bool symbol_process_template(const char *template_str, char *output, size_t output_size, bool force_ascii);
+bool symbol_process_template(const char *template_str, char *output,
+                             size_t output_size, bool force_ascii);
 
 /**
  * Get symbol mapping table
  * @return array of symbol mappings, NULL-terminated
  */
-const symbol_mapping_t* symbol_get_mapping_table(void);
+const symbol_mapping_t *symbol_get_mapping_table(void);
 
 // =============================================================================
 // ENHANCED THEME CONFIGURATION

@@ -1,6 +1,6 @@
 /**
  * Spec 03 Atomic Buffer Operations - Simple Verification Test
- * 
+ *
  * This test verifies basic functionality without requiring full memory system.
  * It tests compilation and basic structure correctness.
  */
@@ -14,22 +14,21 @@ int main(void) {
     printf("=================================================\n");
     printf("Spec 03: Atomic Operations Structure Verification\n");
     printf("=================================================\n\n");
-    
+
     int tests_passed = 0;
     int tests_total = 0;
-    
+
     /* Test 1: Verify change tracking structures exist */
     printf("  Testing change tracking structures exist ... ");
     tests_total++;
     if (sizeof(lle_change_operation_t) > 0 &&
-        sizeof(lle_change_sequence_t) > 0 &&
-        sizeof(lle_change_tracker_t) > 0) {
+        sizeof(lle_change_sequence_t) > 0 && sizeof(lle_change_tracker_t) > 0) {
         printf("PASS\n");
         tests_passed++;
     } else {
         printf("FAIL\n");
     }
-    
+
     /* Test 2: Verify buffer structure has required fields */
     printf("  Testing buffer structure has change tracking fields ... ");
     tests_total++;
@@ -44,7 +43,7 @@ int main(void) {
     } else {
         printf("FAIL\n");
     }
-    
+
     /* Test 3: Verify change operation structure fields */
     printf("  Testing change operation structure fields ... ");
     tests_total++;
@@ -54,15 +53,14 @@ int main(void) {
     test_op.start_position = 0;
     test_op.inserted_text = NULL;
     test_op.deleted_text = NULL;
-    if (sizeof(test_op.type) > 0 &&
-        sizeof(test_op.cursor_before) > 0 &&
+    if (sizeof(test_op.type) > 0 && sizeof(test_op.cursor_before) > 0 &&
         sizeof(test_op.cursor_after) > 0) {
         printf("PASS\n");
         tests_passed++;
     } else {
         printf("FAIL\n");
     }
-    
+
     /* Test 4: Verify change sequence structure */
     printf("  Testing change sequence structure ... ");
     tests_total++;
@@ -71,15 +69,14 @@ int main(void) {
     test_seq.can_undo = true;
     test_seq.can_redo = false;
     test_seq.sequence_complete = true;
-    if (sizeof(test_seq.can_undo) > 0 &&
-        sizeof(test_seq.first_op) > 0 &&
+    if (sizeof(test_seq.can_undo) > 0 && sizeof(test_seq.first_op) > 0 &&
         sizeof(test_seq.last_op) > 0) {
         printf("PASS\n");
         tests_passed++;
     } else {
         printf("FAIL\n");
     }
-    
+
     /* Test 5: Verify cursor position structure */
     printf("  Testing cursor position structure ... ");
     tests_total++;
@@ -96,7 +93,7 @@ int main(void) {
     } else {
         printf("FAIL\n");
     }
-    
+
     /* Summary */
     printf("\n");
     printf("=================================================\n");
@@ -105,10 +102,10 @@ int main(void) {
     printf("  Passed: %d\n", tests_passed);
     printf("  Failed: %d\n", tests_total - tests_passed);
     printf("=================================================\n\n");
-    
+
     printf("NOTE: Full functional tests require integration with\n");
     printf("      the complete memory management system.\n");
     printf("      These tests verify structure definitions are correct.\n\n");
-    
+
     return (tests_passed == tests_total) ? 0 : 1;
 }

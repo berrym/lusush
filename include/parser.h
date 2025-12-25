@@ -12,8 +12,6 @@
 #include "node.h"
 #include "tokenizer.h"
 
-
-
 // Parser state
 typedef struct parser {
     tokenizer_t *tokenizer;
@@ -32,7 +30,5 @@ node_t *parser_parse_command_line(parser_t *parser);
 // Error handling
 bool parser_has_error(parser_t *parser);
 const char *parser_error(parser_t *parser);
-
-
 
 #endif // PARSER_H

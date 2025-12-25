@@ -19,8 +19,9 @@
 #ifndef LUSUSH_H
 #define LUSUSH_H
 
-/* Portable macro for marking intentionally unused functions/variables/parameters.
- * Use for code that is implemented but not yet wired up. */
+/* Portable macro for marking intentionally unused
+ * functions/variables/parameters. Use for code that is implemented but not yet
+ * wired up. */
 #ifndef MAYBE_UNUSED
 #ifdef __GNUC__
 #define MAYBE_UNUSED __attribute__((unused))
@@ -135,20 +136,26 @@ typedef struct shell_options {
     bool hash_commands;   // -h flag: command hashing
     bool job_control;     // -m flag: enable job control
     bool allexport;       // -a flag: automatically export all variables
-    bool noclobber;       // -C flag: prevent output redirection from overwriting files
-    bool onecmd;          // -t flag: exit after one command
-    bool notify;          // -b flag: asynchronous background job notification
-    bool ignoreeof;       // ignoreeof: prevent exit on EOF (Ctrl+D)
-    bool nolog;           // nolog: prevent function definitions from entering command history
-    bool emacs_mode;      // emacs: enable emacs-style command line editing (default true)
-    bool vi_mode;         // vi: enable vi-style command line editing
-    bool posix_mode;      // posix: enable strict POSIX compliance mode
-    bool pipefail_mode;   // pipefail: make pipelines fail if any command fails
-    bool histexpand_mode; // histexpand: enable history expansion (!! !n !string)
-    bool history_mode;    // history: enable command history recording
-    bool interactive_comments_mode; // interactive-comments: enable # comments in interactive mode
-    bool physical_mode;    // physical: use physical directory paths (resolve symlinks)
-    bool privileged_mode;  // privileged: restricted shell security mode
+    bool
+        noclobber; // -C flag: prevent output redirection from overwriting files
+    bool onecmd;   // -t flag: exit after one command
+    bool notify;   // -b flag: asynchronous background job notification
+    bool ignoreeof; // ignoreeof: prevent exit on EOF (Ctrl+D)
+    bool nolog;     // nolog: prevent function definitions from entering command
+                    // history
+    bool emacs_mode; // emacs: enable emacs-style command line editing (default
+                     // true)
+    bool vi_mode;    // vi: enable vi-style command line editing
+    bool posix_mode; // posix: enable strict POSIX compliance mode
+    bool pipefail_mode; // pipefail: make pipelines fail if any command fails
+    bool
+        histexpand_mode; // histexpand: enable history expansion (!! !n !string)
+    bool history_mode;   // history: enable command history recording
+    bool interactive_comments_mode; // interactive-comments: enable # comments
+                                    // in interactive mode
+    bool physical_mode;   // physical: use physical directory paths (resolve
+                          // symlinks)
+    bool privileged_mode; // privileged: restricted shell security mode
 } shell_options_t;
 
 // Global shell options

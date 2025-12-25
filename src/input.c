@@ -1,10 +1,10 @@
 /*
  * input.c - Lusush Input System using GNU Readline
- * 
- * This module provides unified input handling for both interactive and 
+ *
+ * This module provides unified input handling for both interactive and
  * non-interactive modes, with complete GNU readline integration for
  * interactive sessions.
- * 
+ *
  * UTF-8 Support:
  * This module uses LLE's UTF-8 support to properly handle multi-byte
  * characters. While shell syntax characters (quotes, brackets, etc.) are
@@ -13,12 +13,12 @@
  */
 
 #include "input.h"
-#include "readline_integration.h"
-#include "lusush.h"
 #include "errors.h"
-#include "symtable.h"
 #include "init.h"
 #include "lle/utf8_support.h"
+#include "lusush.h"
+#include "readline_integration.h"
+#include "symtable.h"
 
 #include <ctype.h>
 #include <errno.h>
@@ -37,21 +37,23 @@
  * Returns 1 for invalid sequences (safe fallback).
  */
 static int utf8_char_len(const char *p) {
-    if (!p || !*p) return 0;
-    
+    if (!p || !*p)
+        return 0;
+
     unsigned char c = (unsigned char)*p;
-    
+
     // ASCII (0x00-0x7F) - single byte
-    if (c < 0x80) return 1;
-    
+    if (c < 0x80)
+        return 1;
+
     // Use LLE's UTF-8 sequence length detection
     int len = lle_utf8_sequence_length(c);
-    
+
     // Validate the sequence
     if (len > 1 && lle_utf8_is_valid_sequence(p, len)) {
         return len;
     }
-    
+
     // Invalid sequence - skip one byte
     return 1;
 }
@@ -121,12 +123,11 @@ static void cleanup_input_state(input_state_t *state) {
 // ============================================================================
 
 static bool is_control_keyword(const char *word) {
-    const char *keywords[] = {
-        "if", "then", "else", "elif", "fi",
-        "case", "esac", "while", "until", "do", "done",
-        "for", "in", "function", "select", "{", "}"
-    };
-    
+    const char *keywords[] = {"if",   "then", "else",  "elif",     "fi",
+                              "case", "esac", "while", "until",    "do",
+                              "done", "for",  "in",    "function", "select",
+                              "{",    "}"};
+
     for (size_t i = 0; i < sizeof(keywords) / sizeof(keywords[0]); i++) {
         if (strcmp(word, keywords[i]) == 0) {
             return true;
@@ -138,29 +139,29 @@ static bool is_control_keyword(const char *word) {
 MAYBE_UNUSED
 static bool is_terminator(const char *line) {
     // Skip whitespace
-    while (*line && isspace(*line)) line++;
-    
+    while (*line && isspace(*line))
+        line++;
+
     // Check for terminators
-    return (strncmp(line, "fi", 2) == 0 ||
-            strncmp(line, "done", 4) == 0 ||
-            strncmp(line, "esac", 4) == 0 ||
-            strcmp(line, "}") == 0);
+    return (strncmp(line, "fi", 2) == 0 || strncmp(line, "done", 4) == 0 ||
+            strncmp(line, "esac", 4) == 0 || strcmp(line, "}") == 0);
 }
 
 static void analyze_line(const char *line, input_state_t *state) {
-    if (!line || !state) return;
-    
+    if (!line || !state)
+        return;
+
     const char *p = line;
     char word[256] = {0};
     int word_pos = 0;
     (void)word_pos; /* Reserved for word boundary tracking */
     bool at_word_start = true;
     (void)at_word_start; /* Reserved for word start detection */
-    
+
     while (*p) {
         unsigned char uc = (unsigned char)*p;
         char c = *p;
-        
+
         // UTF-8 multi-byte sequence handling:
         // If this is a non-ASCII byte (high bit set), it's part of a UTF-8
         // multi-byte character. Skip the entire sequence since shell syntax
@@ -168,35 +169,35 @@ static void analyze_line(const char *line, input_state_t *state) {
         // continuation bytes as shell metacharacters.
         if (uc >= 0x80) {
             int char_len = utf8_char_len(p);
-            
-            // If we're collecting a word, flush it first (UTF-8 chars break words
-            // for keyword detection purposes - keywords are ASCII only)
+
+            // If we're collecting a word, flush it first (UTF-8 chars break
+            // words for keyword detection purposes - keywords are ASCII only)
             if (word_pos > 0) {
                 word[word_pos] = '\0';
                 // Keywords are ASCII-only, so no need to check here
                 word_pos = 0;
                 memset(word, 0, sizeof(word));
             }
-            
+
             // Skip the entire UTF-8 sequence
             p += (char_len > 0) ? char_len : 1;
             at_word_start = true;
             continue;
         }
-        
+
         // Handle escape sequences
         if (state->escaped) {
             state->escaped = false;
             p++;
             continue;
         }
-        
+
         if (c == '\\') {
             state->escaped = true;
             p++;
             continue;
         }
-        
+
         // Handle quotes
         if (c == '\'' && !state->in_double_quote && !state->in_backtick) {
             state->in_single_quote = !state->in_single_quote;
@@ -214,13 +215,14 @@ static void analyze_line(const char *line, input_state_t *state) {
                 state->backtick_count++;
             }
         }
-        
+
         // Skip if we're in quotes
-        if (state->in_single_quote || state->in_double_quote || state->in_backtick) {
+        if (state->in_single_quote || state->in_double_quote ||
+            state->in_backtick) {
             p++;
             continue;
         }
-        
+
         // Handle parentheses, braces, brackets
         if (c == '(') {
             state->paren_count++;
@@ -235,42 +237,43 @@ static void analyze_line(const char *line, input_state_t *state) {
         } else if (c == ']') {
             state->bracket_count--;
         }
-        
+
         // Handle here document detection
-        if (c == '<' && *(p+1) == '<' && !state->in_here_doc) {
+        if (c == '<' && *(p + 1) == '<' && !state->in_here_doc) {
             // Found <<, look for delimiter
             const char *delim_start = p + 2;
-            
+
             // Skip optional '-' for <<-
             if (*delim_start == '-') {
                 delim_start++;
             }
-            
+
             // Skip whitespace
             while (*delim_start == ' ' || *delim_start == '\t') {
                 delim_start++;
             }
-            
+
             // Extract delimiter (up to end of line or whitespace)
             const char *delim_end = delim_start;
-            while (*delim_end && *delim_end != '\n' && *delim_end != ' ' && *delim_end != '\t') {
+            while (*delim_end && *delim_end != '\n' && *delim_end != ' ' &&
+                   *delim_end != '\t') {
                 delim_end++;
             }
-            
+
             if (delim_end > delim_start) {
                 // Handle quoted delimiters - strip surrounding quotes
                 const char *actual_delim_start = delim_start;
                 const char *actual_delim_end = delim_end;
-                
+
                 // Check for single or double quotes
-                if ((*delim_start == '\'' || *delim_start == '"') && 
-                    delim_end > delim_start + 1 && 
+                if ((*delim_start == '\'' || *delim_start == '"') &&
+                    delim_end > delim_start + 1 &&
                     *(delim_end - 1) == *delim_start) {
                     // Strip quotes
                     actual_delim_start++;
                     actual_delim_end--;
                 }
-                
+
                 // Found a delimiter, enter here document mode
                 state->in_here_doc = true;
                 if (state->here_doc_delimiter) {
@@ -279,12 +282,13 @@ static void analyze_line(const char *line, input_state_t *state) {
                 size_t delim_len = actual_delim_end - actual_delim_start;
                 state->here_doc_delimiter = malloc(delim_len + 1);
                 if (state->here_doc_delimiter) {
-                    strncpy(state->here_doc_delimiter, actual_delim_start, delim_len);
+                    strncpy(state->here_doc_delimiter, actual_delim_start,
+                            delim_len);
                     state->here_doc_delimiter[delim_len] = '\0';
                 }
             }
         }
-        
+
         // Check if current line is a here document delimiter (ends here doc)
         if (state->in_here_doc && state->here_doc_delimiter) {
             // Check if this entire line matches the delimiter
@@ -292,11 +296,14 @@ static void analyze_line(const char *line, input_state_t *state) {
             while (*line_start == ' ' || *line_start == '\t') {
                 line_start++; // Skip leading whitespace
             }
-            
-            if (strncmp(line_start, state->here_doc_delimiter, strlen(state->here_doc_delimiter)) == 0) {
+
+            if (strncmp(line_start, state->here_doc_delimiter,
+                        strlen(state->here_doc_delimiter)) == 0) {
                 // Check if delimiter is followed by end of line or whitespace
-                const char *after_delim = line_start + strlen(state->here_doc_delimiter);
-                if (*after_delim == '\0' || *after_delim == '\n' || *after_delim == ' ' || *after_delim == '\t') {
+                const char *after_delim =
+                    line_start + strlen(state->here_doc_delimiter);
+                if (*after_delim == '\0' || *after_delim == '\n' ||
+                    *after_delim == ' ' || *after_delim == '\t') {
                     // This line is the delimiter, end here document
                     state->in_here_doc = false;
                     free(state->here_doc_delimiter);
@@ -304,7 +311,7 @@ static void analyze_line(const char *line, input_state_t *state) {
                 }
             }
         }
-        
+
         // Collect words for keyword analysis
         if (isalnum(c) || c == '_') {
             if (word_pos < (int)sizeof(word) - 1) {
@@ -316,10 +323,10 @@ static void analyze_line(const char *line, input_state_t *state) {
             if (word_pos > 0) {
                 // Process any accumulated word first
                 word[word_pos] = '\0';
-                
+
                 // Check for control keywords
                 if (is_control_keyword(word)) {
-                    
+
                     if (strcmp(word, "if") == 0) {
                         state->in_if_statement = true;
                         state->compound_command_depth++;
@@ -360,11 +367,11 @@ static void analyze_line(const char *line, input_state_t *state) {
                         }
                     }
                 }
-                
+
                 word_pos = 0;
                 memset(word, 0, sizeof(word));
             }
-            
+
             // Now handle the { or } character as a single-character keyword
             if (c == '{') {
                 // Only increment depth if not already in a function definition
@@ -383,10 +390,10 @@ static void analyze_line(const char *line, input_state_t *state) {
         } else {
             if (word_pos > 0) {
                 word[word_pos] = '\0';
-                
+
                 // Check for control keywords
                 if (is_control_keyword(word)) {
-                    
+
                     if (strcmp(word, "if") == 0) {
                         state->in_if_statement = true;
                         state->compound_command_depth++;
@@ -409,7 +416,8 @@ static void analyze_line(const char *line, input_state_t *state) {
                         state->compound_command_depth++;
                     } else if (strcmp(word, "fi") == 0) {
                         state->in_if_statement = false;
-                        state->has_continuation = false;  // Clear continuation flag when closing if
+                        state->has_continuation =
+                            false; // Clear continuation flag when closing if
                         if (state->compound_command_depth > 0) {
                             state->compound_command_depth--;
                         }
@@ -417,13 +425,15 @@ static void analyze_line(const char *line, input_state_t *state) {
                         state->in_while_loop = false;
                         state->in_for_loop = false;
                         state->in_until_loop = false;
-                        state->has_continuation = false;  // Clear continuation flag when closing loop
+                        state->has_continuation =
+                            false; // Clear continuation flag when closing loop
                         if (state->compound_command_depth > 0) {
                             state->compound_command_depth--;
                         }
                     } else if (strcmp(word, "esac") == 0) {
                         state->in_case_statement = false;
-                        state->has_continuation = false;  // Clear continuation flag when closing case
+                        state->has_continuation =
+                            false; // Clear continuation flag when closing case
                         if (state->compound_command_depth > 0) {
                             state->compound_command_depth--;
                         }
@@ -436,25 +446,25 @@ static void analyze_line(const char *line, input_state_t *state) {
                         }
                     }
                 }
-                
+
                 word_pos = 0;
                 memset(word, 0, sizeof(word));
             }
         }
-        
+
         // Check for line continuation
         if (c == '\\' && *(p + 1) == '\0') {
             state->has_continuation = true;
         }
-        
+
         p++;
     }
-    
+
     // Handle remaining word
     // Check final word at end of line if any
     if (word_pos > 0) {
         word[word_pos] = '\0';
-        
+
         if (is_control_keyword(word)) {
             // Handle keywords found at end of line
             if (strcmp(word, "then") == 0 || strcmp(word, "do") == 0) {
@@ -463,13 +473,15 @@ static void analyze_line(const char *line, input_state_t *state) {
                 state->in_while_loop = false;
                 state->in_for_loop = false;
                 state->in_until_loop = false;
-                state->has_continuation = false;  // Clear continuation flag when closing loop
+                state->has_continuation =
+                    false; // Clear continuation flag when closing loop
                 if (state->compound_command_depth > 0) {
                     state->compound_command_depth--;
                 }
             } else if (strcmp(word, "esac") == 0) {
                 state->in_case_statement = false;
-                state->has_continuation = false;  // Clear continuation flag when closing case
+                state->has_continuation =
+                    false; // Clear continuation flag when closing case
                 if (state->compound_command_depth > 0) {
                     state->compound_command_depth--;
                 }
@@ -482,7 +494,8 @@ static void analyze_line(const char *line, input_state_t *state) {
                 }
             } else if (strcmp(word, "fi") == 0) {
                 state->in_if_statement = false;
-                state->has_continuation = false;  // Clear continuation flag when closing if
+                state->has_continuation =
+                    false; // Clear continuation flag when closing if
                 if (state->compound_command_depth > 0) {
                     state->compound_command_depth--;
                 }
@@ -492,48 +505,53 @@ static void analyze_line(const char *line, input_state_t *state) {
 }
 
 static bool is_input_complete(input_state_t *state) {
-    if (!state) return true;
-    
+    if (!state)
+        return true;
+
     // Check for unmatched quotes
-    if (state->in_single_quote || state->in_double_quote || state->in_backtick) {
+    if (state->in_single_quote || state->in_double_quote ||
+        state->in_backtick) {
         return false;
     }
-    
+
     // Check for unmatched parentheses, braces, brackets
-    if (state->paren_count > 0 || state->brace_count > 0 || state->bracket_count > 0) {
+    if (state->paren_count > 0 || state->brace_count > 0 ||
+        state->bracket_count > 0) {
         return false;
     }
-    
+
     // Check for incomplete compound commands
     if (state->compound_command_depth > 0) {
         return false;
     }
-    
+
     // Check for line continuation
     if (state->has_continuation) {
         return false;
     }
-    
+
     // Check for incomplete control structures
     if (state->in_if_statement || state->in_while_loop || state->in_for_loop ||
-        state->in_until_loop || state->in_case_statement || state->in_function_definition) {
+        state->in_until_loop || state->in_case_statement ||
+        state->in_function_definition) {
         return false;
     }
-    
+
     // Check for here documents
     if (state->in_here_doc) {
         return false;
     }
-    
+
     return true;
 }
 
 static const char *get_continuation_prompt(input_state_t *state) {
-    if (!state) return "> ";
-    
+    if (!state)
+        return "> ";
+
     // Use PS2 from symbol table, with fallback
     const char *ps2 = symtable_get_global_default("PS2", "> ");
-    
+
     // Could customize based on state if desired
     if (state->in_single_quote || state->in_double_quote) {
         return "quote> ";
@@ -541,55 +559,54 @@ static const char *get_continuation_prompt(input_state_t *state) {
         return "function> ";
     } else if (state->in_if_statement) {
         return "if> ";
-    } else if (state->in_while_loop || state->in_for_loop || state->in_until_loop) {
+    } else if (state->in_while_loop || state->in_for_loop ||
+               state->in_until_loop) {
         return "loop> ";
     } else if (state->in_case_statement) {
         return "case> ";
     }
-    
+
     return ps2;
 }
 
 // Public function to get current continuation prompt
 const char *lusush_get_current_continuation_prompt(void) {
     if (!state_initialized) {
-        return "$ ";  // Return primary prompt if not in multiline mode
+        return "$ "; // Return primary prompt if not in multiline mode
     }
-    
+
     // Check for any active multiline state indicators
-    bool in_multiline = (global_state.in_single_quote || 
-                        global_state.in_double_quote ||
-                        global_state.in_backtick ||
-                        global_state.paren_count > 0 ||
-                        global_state.brace_count > 0 ||
-                        global_state.bracket_count > 0 ||
-                        global_state.in_if_statement ||
-                        global_state.in_while_loop ||
-                        global_state.in_for_loop ||
-                        global_state.in_until_loop ||
-                        global_state.in_case_statement ||
-                        global_state.in_function_definition ||
-                        global_state.compound_command_depth > 0);
-    
+    bool in_multiline =
+        (global_state.in_single_quote || global_state.in_double_quote ||
+         global_state.in_backtick || global_state.paren_count > 0 ||
+         global_state.brace_count > 0 || global_state.bracket_count > 0 ||
+         global_state.in_if_statement || global_state.in_while_loop ||
+         global_state.in_for_loop || global_state.in_until_loop ||
+         global_state.in_case_statement ||
+         global_state.in_function_definition ||
+         global_state.compound_command_depth > 0);
+
     if (!in_multiline) {
-        return "$ ";  // Return primary prompt
+        return "$ "; // Return primary prompt
     }
-    
+
     // Return appropriate continuation prompt
     return get_continuation_prompt(&global_state);
 }
 
 MAYBE_UNUSED
 static char *convert_multiline_for_history(const char *input) {
-    if (!input) return NULL;
-    
+    if (!input)
+        return NULL;
+
     size_t len = strlen(input);
     char *converted = malloc(len + 1);
-    if (!converted) return NULL;
-    
+    if (!converted)
+        return NULL;
+
     char *dst = converted;
     const char *src = input;
-    
+
     while (*src) {
         if (*src == '\n') {
             *dst++ = ' ';
@@ -598,7 +615,7 @@ static char *convert_multiline_for_history(const char *input) {
         }
         src++;
     }
-    
+
     *dst = '\0';
     return converted;
 }
@@ -614,64 +631,60 @@ void free_input_buffers(void) {
 
 char *get_input(FILE *in) {
     // For non-interactive input, read a line directly (single line only)
-    if (!in) in = stdin;
-    
+    if (!in)
+        in = stdin;
+
     char *line = NULL;
     size_t len = 0;
     ssize_t read = getline(&line, &len, in);
-    
+
     if (read == -1) {
         free(line);
         return NULL;
     }
-    
+
     // Remove trailing newline
     if (read > 0 && line[read - 1] == '\n') {
         line[read - 1] = '\0';
     }
-    
+
     return line;
 }
 
 // Helper function to check if state needs continuation
 static bool needs_continuation(input_state_t *state) {
-    if (!state) return false;
-    
+    if (!state)
+        return false;
+
     // Need continuation if we're in any compound structure
     if (state->compound_command_depth > 0) {
         return true;
     }
-    
+
     // Need continuation if we're in any specific construct
-    if (state->in_function_definition ||
-        state->in_case_statement ||
-        state->in_if_statement ||
-        state->in_while_loop ||
-        state->in_for_loop ||
+    if (state->in_function_definition || state->in_case_statement ||
+        state->in_if_statement || state->in_while_loop || state->in_for_loop ||
         state->in_until_loop) {
         return true;
     }
-    
+
     // Need continuation if we have pending quotes or escapes
-    if (state->in_single_quote ||
-        state->in_double_quote ||
-        state->escaped ||
+    if (state->in_single_quote || state->in_double_quote || state->escaped ||
         state->has_continuation) {
         return true;
     }
-    
+
     // Need continuation if we're in a here document
     if (state->in_here_doc) {
         return true;
     }
-    
+
     // Need continuation if we have unmatched brackets
-    if (state->paren_count > 0 ||
-        state->bracket_count > 0 ||
+    if (state->paren_count > 0 || state->bracket_count > 0 ||
         state->brace_count > 0) {
         return true;
     }
-    
+
     return false;
 }
 
@@ -679,23 +692,23 @@ char *ln_gets(void) {
     if (!is_interactive_shell()) {
         return get_input(stdin);
     }
-    
+
     // Initialize state if needed
     if (!state_initialized) {
         init_input_state(&global_state);
         state_initialized = true;
     }
-    
+
     static char *accumulated_input = NULL;
     static size_t accumulated_size = 0;
     static size_t accumulated_capacity = 0;
-    
+
     char *line = NULL;
     bool first_line = (accumulated_size == 0);
-    
+
     while (true) {
         errno = 0;
-        
+
         // Get appropriate prompt
         const char *prompt;
         if (first_line) {
@@ -703,16 +716,16 @@ char *ln_gets(void) {
         } else {
             prompt = get_continuation_prompt(&global_state);
         }
-        
+
         // Get line using readline
         line = lusush_readline_with_prompt(prompt);
-        
+
         // Print verbose output if -v is enabled and we got a line
         if (line && shell_opts.verbose) {
             fprintf(stderr, "%s\n", line);
             fflush(stderr);
         }
-        
+
         if (!line) {
             // EOF or error
             if (accumulated_input && *accumulated_input) {
@@ -727,20 +740,22 @@ char *ln_gets(void) {
             }
             return NULL;
         }
-        
+
         // Analyze this line to update state
         analyze_line(line, &global_state);
-        
+
         // Handle accumulation
         size_t line_len = strlen(line);
-        size_t needed_size = accumulated_size + line_len + 2; // +1 for newline, +1 for null
-        
+        size_t needed_size =
+            accumulated_size + line_len + 2; // +1 for newline, +1 for null
+
         if (needed_size > accumulated_capacity) {
-            size_t new_capacity = accumulated_capacity ? accumulated_capacity * 2 : 1024;
+            size_t new_capacity =
+                accumulated_capacity ? accumulated_capacity * 2 : 1024;
             while (new_capacity < needed_size) {
                 new_capacity *= 2;
             }
-            
+
             char *tmp = realloc(accumulated_input, new_capacity);
             if (!tmp) {
                 error_syscall("error: realloc in ln_gets");
@@ -754,7 +769,7 @@ char *ln_gets(void) {
             accumulated_input = tmp;
             accumulated_capacity = new_capacity;
         }
-        
+
         if (accumulated_size == 0) {
             // First line
             strcpy(accumulated_input, line);
@@ -765,61 +780,63 @@ char *ln_gets(void) {
             strcat(accumulated_input, line);
             accumulated_size += line_len + 1;
         }
-        
+
         // Free individual line (readline allocates it)
         free(line);
         line = NULL;
-        
+
         // Check if input is complete
         if (is_input_complete(&global_state)) {
             char *result = accumulated_input;
             accumulated_input = NULL;
             accumulated_size = 0;
             accumulated_capacity = 0;
-            
+
             // Reset state for next input
             cleanup_input_state(&global_state);
             init_input_state(&global_state);
-            
+
             // Note: History is handled by readline system automatically
             return result;
         }
-        
+
         first_line = false;
     }
 }
 
 char *get_input_complete(FILE *in) {
     // For non-interactive mode, accumulate lines for complete constructs
-    if (!in) in = stdin;
-    
+    if (!in)
+        in = stdin;
+
     char *accumulated = NULL;
     size_t accumulated_len = 0;
     input_state_t state = {0};
-    
+
     char *line = NULL;
     size_t len = 0;
     ssize_t read;
-    
+
     while ((read = getline(&line, &len, in)) != -1) {
         // Remove trailing newline for analysis
         if (read > 0 && line[read - 1] == '\n') {
             line[read - 1] = '\0';
             read--;
         }
-        
+
         // Print verbose output if -v is enabled
         if (shell_opts.verbose) {
             fprintf(stderr, "%s\n", line);
             fflush(stderr);
         }
-        
+
         // Analyze this line to update state
         analyze_line(line, &state);
-        
+
         // Accumulate the line
         if (accumulated == NULL) {
-            accumulated = malloc(read + 2); // +2 for newline and null terminator
+            accumulated =
+                malloc(read + 2); // +2 for newline and null terminator
             if (!accumulated) {
                 free(line);
                 return NULL;
@@ -827,7 +844,8 @@ char *get_input_complete(FILE *in) {
             strcpy(accumulated, line);
             accumulated_len = read;
         } else {
-            size_t new_len = accumulated_len + read + 2; // +2 for newline and null terminator
+            size_t new_len = accumulated_len + read +
+                             2; // +2 for newline and null terminator
             char *new_accumulated = realloc(accumulated, new_len);
             if (!new_accumulated) {
                 free(accumulated);
@@ -839,7 +857,7 @@ char *get_input_complete(FILE *in) {
             strcat(accumulated, line);
             accumulated_len = new_len - 1;
         }
-        
+
         // Check if we have a complete construct
         if (!needs_continuation(&state)) {
             break;
@@ -847,21 +865,25 @@ char *get_input_complete(FILE *in) {
     }
 
     // If we reach EOF while waiting for continuation, handle gracefully
-    // This prevents hanging on malformed input while preserving legitimate multiline support
+    // This prevents hanging on malformed input while preserving legitimate
+    // multiline support
     if (accumulated != NULL && needs_continuation(&state)) {
         // We have partial input that needs continuation but hit EOF
         // Check what type of continuation we're waiting for
         if (state.in_single_quote || state.in_double_quote) {
-            // Unterminated quotes in non-interactive mode should be syntax errors
-            // Don't wait indefinitely - return to parser for error handling
+            // Unterminated quotes in non-interactive mode should be syntax
+            // errors Don't wait indefinitely - return to parser for error
+            // handling
             free(line);
             return accumulated;
         } else if (!state.in_here_doc) {
-            // Other non-here-document continuations should also be handled as syntax errors on EOF
+            // Other non-here-document continuations should also be handled as
+            // syntax errors on EOF
             free(line);
             return accumulated;
         }
-        // For here documents, continue normal processing (this is expected behavior)
+        // For here documents, continue normal processing (this is expected
+        // behavior)
     }
 
     free(line);
@@ -873,12 +895,11 @@ char *get_unified_input(FILE *in) {
         // Interactive mode - use readline-based input with multiline support
         return ln_gets();
     } else {
-        // Non-interactive mode - use file input with multiline support for here documents
+        // Non-interactive mode - use file input with multiline support for here
+        // documents
         return get_input_complete(in);
     }
 }
 
 // Legacy compatibility
-char *ln_gets_complete(void) {
-    return ln_gets();
-}
+char *ln_gets_complete(void) { return ln_gets(); }

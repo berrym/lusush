@@ -1,8 +1,8 @@
 #include "history.h"
 
 #include "errors.h"
-#include "readline_integration.h"
 #include "lusush.h"
+#include "readline_integration.h"
 #include "strings.h"
 #include "symtable.h"
 
@@ -88,7 +88,7 @@ void history_save(void) {
  * history_print:
  *      Print an indexed list of all history entries.
  */
-void history_print(void) { 
+void history_print(void) {
     int len = lusush_history_length();
     for (int i = 0; i < len; i++) {
         const char *entry = lusush_history_get(i);

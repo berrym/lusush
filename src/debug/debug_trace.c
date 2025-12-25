@@ -297,7 +297,7 @@ void debug_inspect_variable(debug_context_t *ctx, const char *name) {
         debug_printf(ctx, "  Type: string\n");
         debug_printf(ctx, "  Length: %zu characters\n", strlen(value));
         debug_printf(ctx, "  Scope: %s\n", scope);
-        
+
         // Show first few characters if value is very long
         if (strlen(value) > 100) {
             char preview[104];
@@ -309,7 +309,8 @@ void debug_inspect_variable(debug_context_t *ctx, const char *name) {
         // Check for special variables
         if (strcmp(clean_name, "?") == 0) {
             const char *exit_status = symtable_get_global("?") ?: "0";
-            debug_printf(ctx, "  Value: '%s' (last exit status)\n", exit_status);
+            debug_printf(ctx, "  Value: '%s' (last exit status)\n",
+                         exit_status);
             debug_printf(ctx, "  Type: numeric\n");
             debug_printf(ctx, "  Scope: special\n");
         } else if (strcmp(clean_name, "$") == 0) {
@@ -358,24 +359,26 @@ typedef struct {
 } debug_var_callback_data_t;
 
 // Static callback function for variable enumeration
-static void debug_var_enum_callback(const char *key, const char *value, void *userdata) {
+static void debug_var_enum_callback(const char *key, const char *value,
+                                    void *userdata) {
     debug_var_callback_data_t *data = (debug_var_callback_data_t *)userdata;
-    
+
     if (!key || !value) {
         return;
     }
-    
+
     data->found_any = true;
-    
+
     // Parse the serialized value to extract just the actual value
     // Format: value|type|flags|scope_level
     char *clean_value = strdup(value);
     if (clean_value) {
         char *separator = strstr(clean_value, "|");
         if (separator) {
-            *separator = '\0'; // Terminate at first separator to get clean value
+            *separator =
+                '\0'; // Terminate at first separator to get clean value
         }
-        
+
         debug_printf(data->ctx, "  %-12s = '%s'\n", key, clean_value);
         free(clean_value);
     } else {
@@ -407,27 +410,29 @@ void debug_inspect_all_variables(debug_context_t *ctx) {
     if (ctx->current_frame && ctx->current_frame->local_vars) {
         debug_printf(ctx, "Local Variables:\n");
         // TODO: Implement symtable iteration to show local variables
-        debug_printf(ctx, "  (local variables inspection needs symtable iteration)\n");
+        debug_printf(
+            ctx, "  (local variables inspection needs symtable iteration)\n");
         debug_printf(ctx, "\n");
     }
 
     // Enumerate shell variables using callback-based approach
     debug_printf(ctx, "Shell Variables (from symbol table):\n");
-    
+
     debug_var_callback_data_t callback_data = {ctx, false};
-    
+
     // Enumerate global variables
-    symtable_debug_enumerate_global_vars(debug_var_enum_callback, &callback_data);
-    
+    symtable_debug_enumerate_global_vars(debug_var_enum_callback,
+                                         &callback_data);
+
     if (!callback_data.found_any) {
         debug_printf(ctx, "  (no user-defined shell variables found)\n");
     }
     debug_printf(ctx, "\n");
-    
+
     // Also show commonly accessed system variables for completeness
     debug_printf(ctx, "System Variables:\n");
-    const char *common_vars[] = {"PWD", "HOME", "PATH", "USER", "SHELL", 
-                                 "?", "$", "OLDPWD", "PS1", "PS2", NULL};
+    const char *common_vars[] = {"PWD", "HOME",   "PATH", "USER", "SHELL", "?",
+                                 "$",   "OLDPWD", "PS1",  "PS2",  NULL};
     bool found_any = false;
 
     for (int i = 0; common_vars[i]; i++) {
@@ -457,7 +462,9 @@ void debug_inspect_all_variables(debug_context_t *ctx) {
     }
 
     if (environ && *environ) {
-        debug_printf(ctx, "\nUse 'debug print <varname>' to inspect specific variables\n");
+        debug_printf(
+            ctx,
+            "\nUse 'debug print <varname>' to inspect specific variables\n");
         debug_printf(ctx, "Use 'debug stack' to see call stack and context\n");
     }
 }

@@ -69,9 +69,8 @@ typedef struct lle_completion_system {
  * @param out_system Output system
  * @return LLE_SUCCESS or error code
  */
-lle_result_t
-lle_completion_system_create(lle_memory_pool_t *pool,
-                                lle_completion_system_t **out_system);
+lle_result_t lle_completion_system_create(lle_memory_pool_t *pool,
+                                          lle_completion_system_t **out_system);
 
 /**
  * Destroy enhanced completion system
@@ -108,8 +107,8 @@ void lle_completion_system_clear(lle_completion_system_t *system);
  */
 lle_result_t
 lle_completion_system_generate(lle_completion_system_t *system,
-                                  const char *buffer, size_t cursor_pos,
-                                  lle_completion_result_t **out_result);
+                               const char *buffer, size_t cursor_pos,
+                               lle_completion_result_t **out_result);
 
 // ============================================================================
 // STATE QUERIES
@@ -121,8 +120,7 @@ lle_completion_system_generate(lle_completion_system_t *system,
  * @param system Completion system
  * @return true if active
  */
-bool lle_completion_system_is_active(
-    const lle_completion_system_t *system);
+bool lle_completion_system_is_active(const lle_completion_system_t *system);
 
 /**
  * Check if menu is visible

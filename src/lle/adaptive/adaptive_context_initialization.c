@@ -130,7 +130,7 @@ lle_adaptive_interface_update_display(lle_adaptive_context_t *ctx) {
 static lle_result_t
 lle_adaptive_interface_handle_resize(lle_adaptive_context_t *ctx, int new_width,
                                      int new_height) {
-    (void)new_width;  /* Reserved for dimension-aware resize handling */
+    (void)new_width; /* Reserved for dimension-aware resize handling */
     (void)new_height;
 
     if (!ctx) {
@@ -541,7 +541,8 @@ lle_result_t lle_adaptive_try_fallback_mode(lle_adaptive_context_t *context) {
     }
 
     /* Determine fallback mode based on current mode */
-    lle_adaptive_mode_t fallback_mode = LLE_ADAPTIVE_MODE_MINIMAL;  /* Default fallback */
+    lle_adaptive_mode_t fallback_mode =
+        LLE_ADAPTIVE_MODE_MINIMAL; /* Default fallback */
     lle_adaptive_mode_t original_mode = context->mode;
 
     switch (context->mode) {

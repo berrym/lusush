@@ -125,8 +125,8 @@ typedef struct {
     bool supports_unicode;
 
     /* Terminal dimensions */
-    int terminal_cols;   /**< Terminal width in columns */
-    int terminal_rows;   /**< Terminal height in rows */
+    int terminal_cols; /**< Terminal width in columns */
+    int terminal_rows; /**< Terminal height in rows */
 
     /* Multiplexer detection */
     lle_multiplexer_type_t multiplexer_type;
@@ -517,7 +517,8 @@ bool lle_is_multiplexed(const lle_terminal_detection_result_t *detection);
  * @param detection Detection result
  * @return Terminal type string or NULL if unknown
  */
-const char *lle_get_terminal_type(const lle_terminal_detection_result_t *detection);
+const char *
+lle_get_terminal_type(const lle_terminal_detection_result_t *detection);
 
 /**
  * Get current terminal dimensions.

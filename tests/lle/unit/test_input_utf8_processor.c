@@ -1,29 +1,31 @@
 /*
  * test_input_utf8_processor.c - Unit Tests for Input UTF-8 Processor
- * 
+ *
  * Tests streaming UTF-8 decoding, grapheme boundary detection,
  * partial sequence handling, and error recovery.
- * 
+ *
  * Spec 06: Input Parsing - Phase 2 Tests
  */
 
-#include "../../../include/lle/input_parsing.h"
 #include "../../../include/lle/error_handling.h"
+#include "../../../include/lle/input_parsing.h"
+#include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
 
 /* Test framework macros */
-#define TEST(name) printf("  Testing: %s...", name); fflush(stdout)
+#define TEST(name)                                                             \
+    printf("  Testing: %s...", name);                                          \
+    fflush(stdout)
 #define TEST_END printf(" PASS\n")
-#define ASSERT(condition, message) \
-    do { \
-        if (!(condition)) { \
-            printf("\n    FAILED: %s\n", message); \
-            printf("    at %s:%d\n", __FILE__, __LINE__); \
-            return; \
-        } \
-    } while(0)
+#define ASSERT(condition, message)                                             \
+    do {                                                                       \
+        if (!(condition)) {                                                    \
+            printf("\n    FAILED: %s\n", message);                             \
+            printf("    at %s:%d\n", __FILE__, __LINE__);                      \
+            return;                                                            \
+        }                                                                      \
+    } while (0)
 
 /* Mock memory pool (same as test_input_stream.c) */
 static int mock_pool_dummy = 43;
@@ -38,16 +40,16 @@ static int tests_passed = 0;
  */
 void test_init_destroy(void) {
     TEST("init and destroy");
-    
+
     lle_utf8_processor_t *processor = NULL;
     lle_result_t result;
-    
+
     result = lle_input_utf8_processor_init(&processor, mock_pool);
     ASSERT(result == LLE_SUCCESS, "Init should succeed");
     ASSERT(processor != NULL, "Processor should not be NULL");
-    
+
     lle_input_utf8_processor_destroy(processor);
-    
+
     TEST_END;
     tests_passed++;
 }
@@ -57,16 +59,18 @@ void test_init_destroy(void) {
  */
 void test_init_invalid_params(void) {
     TEST("init with invalid parameters");
-    
+
     lle_utf8_processor_t *processor = NULL;
     lle_result_t result;
-    
+
     result = lle_input_utf8_processor_init(NULL, mock_pool);
-    ASSERT(result == LLE_ERROR_INVALID_PARAMETER, "Init with NULL processor should fail");
-    
+    ASSERT(result == LLE_ERROR_INVALID_PARAMETER,
+           "Init with NULL processor should fail");
+
     result = lle_input_utf8_processor_init(&processor, NULL);
-    ASSERT(result == LLE_ERROR_INVALID_PARAMETER, "Init with NULL pool should fail");
-    
+    ASSERT(result == LLE_ERROR_INVALID_PARAMETER,
+           "Init with NULL pool should fail");
+
     TEST_END;
     tests_passed++;
 }
@@ -76,22 +80,23 @@ void test_init_invalid_params(void) {
  */
 void test_process_ascii_byte(void) {
     TEST("process single ASCII byte");
-    
+
     lle_utf8_processor_t *processor = NULL;
     lle_result_t result;
     uint32_t codepoint = 0;
     bool is_boundary = false;
-    
+
     result = lle_input_utf8_processor_init(&processor, mock_pool);
     ASSERT(result == LLE_SUCCESS, "Init should succeed");
-    
-    result = lle_input_utf8_processor_process_byte(processor, 'A', &codepoint, &is_boundary);
+
+    result = lle_input_utf8_processor_process_byte(processor, 'A', &codepoint,
+                                                   &is_boundary);
     ASSERT(result == LLE_SUCCESS, "Process should succeed");
     ASSERT(codepoint == 'A', "Codepoint should be 'A'");
     ASSERT(is_boundary == true, "ASCII should be boundary");
-    
+
     lle_input_utf8_processor_destroy(processor);
-    
+
     TEST_END;
     tests_passed++;
 }
@@ -101,27 +106,29 @@ void test_process_ascii_byte(void) {
  */
 void test_process_two_byte_utf8(void) {
     TEST("process two-byte UTF-8 sequence");
-    
+
     lle_utf8_processor_t *processor = NULL;
     lle_result_t result;
     uint32_t codepoint = 0;
     bool is_boundary = false;
-    
+
     result = lle_input_utf8_processor_init(&processor, mock_pool);
     ASSERT(result == LLE_SUCCESS, "Init should succeed");
-    
+
     // U+00E9 (é) = C3 A9
-    result = lle_input_utf8_processor_process_byte(processor, 0xC3, &codepoint, &is_boundary);
+    result = lle_input_utf8_processor_process_byte(processor, 0xC3, &codepoint,
+                                                   &is_boundary);
     ASSERT(result == LLE_SUCCESS, "First byte should succeed");
     ASSERT(codepoint == 0, "No codepoint yet");
-    
-    result = lle_input_utf8_processor_process_byte(processor, 0xA9, &codepoint, &is_boundary);
+
+    result = lle_input_utf8_processor_process_byte(processor, 0xA9, &codepoint,
+                                                   &is_boundary);
     ASSERT(result == LLE_SUCCESS, "Second byte should succeed");
     ASSERT(codepoint == 0x00E9, "Codepoint should be U+00E9");
     ASSERT(is_boundary == true, "Should be boundary");
-    
+
     lle_input_utf8_processor_destroy(processor);
-    
+
     TEST_END;
     tests_passed++;
 }
@@ -131,31 +138,34 @@ void test_process_two_byte_utf8(void) {
  */
 void test_process_three_byte_utf8(void) {
     TEST("process three-byte UTF-8 sequence");
-    
+
     lle_utf8_processor_t *processor = NULL;
     lle_result_t result;
     uint32_t codepoint = 0;
     bool is_boundary = false;
-    
+
     result = lle_input_utf8_processor_init(&processor, mock_pool);
     ASSERT(result == LLE_SUCCESS, "Init should succeed");
-    
+
     // U+2603 (☃) = E2 98 83
-    result = lle_input_utf8_processor_process_byte(processor, 0xE2, &codepoint, &is_boundary);
+    result = lle_input_utf8_processor_process_byte(processor, 0xE2, &codepoint,
+                                                   &is_boundary);
     ASSERT(result == LLE_SUCCESS, "First byte should succeed");
     ASSERT(codepoint == 0, "No codepoint yet");
-    
-    result = lle_input_utf8_processor_process_byte(processor, 0x98, &codepoint, &is_boundary);
+
+    result = lle_input_utf8_processor_process_byte(processor, 0x98, &codepoint,
+                                                   &is_boundary);
     ASSERT(result == LLE_SUCCESS, "Second byte should succeed");
     ASSERT(codepoint == 0, "No codepoint yet");
-    
-    result = lle_input_utf8_processor_process_byte(processor, 0x83, &codepoint, &is_boundary);
+
+    result = lle_input_utf8_processor_process_byte(processor, 0x83, &codepoint,
+                                                   &is_boundary);
     ASSERT(result == LLE_SUCCESS, "Third byte should succeed");
     ASSERT(codepoint == 0x2603, "Codepoint should be U+2603");
     ASSERT(is_boundary == true, "Should be boundary");
-    
+
     lle_input_utf8_processor_destroy(processor);
-    
+
     TEST_END;
     tests_passed++;
 }
@@ -165,32 +175,36 @@ void test_process_three_byte_utf8(void) {
  */
 void test_process_four_byte_utf8(void) {
     TEST("process four-byte UTF-8 sequence (emoji)");
-    
+
     lle_utf8_processor_t *processor = NULL;
     lle_result_t result;
     uint32_t codepoint = 0;
     bool is_boundary = false;
-    
+
     result = lle_input_utf8_processor_init(&processor, mock_pool);
     ASSERT(result == LLE_SUCCESS, "Init should succeed");
-    
+
     // U+1F600 (😀) = F0 9F 98 80
-    result = lle_input_utf8_processor_process_byte(processor, 0xF0, &codepoint, &is_boundary);
+    result = lle_input_utf8_processor_process_byte(processor, 0xF0, &codepoint,
+                                                   &is_boundary);
     ASSERT(result == LLE_SUCCESS, "First byte should succeed");
-    
-    result = lle_input_utf8_processor_process_byte(processor, 0x9F, &codepoint, &is_boundary);
+
+    result = lle_input_utf8_processor_process_byte(processor, 0x9F, &codepoint,
+                                                   &is_boundary);
     ASSERT(result == LLE_SUCCESS, "Second byte should succeed");
-    
-    result = lle_input_utf8_processor_process_byte(processor, 0x98, &codepoint, &is_boundary);
+
+    result = lle_input_utf8_processor_process_byte(processor, 0x98, &codepoint,
+                                                   &is_boundary);
     ASSERT(result == LLE_SUCCESS, "Third byte should succeed");
-    
-    result = lle_input_utf8_processor_process_byte(processor, 0x80, &codepoint, &is_boundary);
+
+    result = lle_input_utf8_processor_process_byte(processor, 0x80, &codepoint,
+                                                   &is_boundary);
     ASSERT(result == LLE_SUCCESS, "Fourth byte should succeed");
     ASSERT(codepoint == 0x1F600, "Codepoint should be U+1F600");
     ASSERT(is_boundary == true, "Should be boundary");
-    
+
     lle_input_utf8_processor_destroy(processor);
-    
+
     TEST_END;
     tests_passed++;
 }
@@ -200,21 +214,22 @@ void test_process_four_byte_utf8(void) {
  */
 void test_invalid_start_byte(void) {
     TEST("invalid UTF-8 start byte");
-    
+
     lle_utf8_processor_t *processor = NULL;
     lle_result_t result;
     uint32_t codepoint = 0;
     bool is_boundary = false;
-    
+
     result = lle_input_utf8_processor_init(&processor, mock_pool);
     ASSERT(result == LLE_SUCCESS, "Init should succeed");
-    
+
     // 0xFF is invalid UTF-8 start byte
-    result = lle_input_utf8_processor_process_byte(processor, 0xFF, &codepoint, &is_boundary);
+    result = lle_input_utf8_processor_process_byte(processor, 0xFF, &codepoint,
+                                                   &is_boundary);
     ASSERT(result == LLE_ERROR_INVALID_ENCODING, "Invalid byte should fail");
-    
+
     lle_input_utf8_processor_destroy(processor);
-    
+
     TEST_END;
     tests_passed++;
 }
@@ -224,25 +239,28 @@ void test_invalid_start_byte(void) {
  */
 void test_invalid_continuation_byte(void) {
     TEST("invalid continuation byte");
-    
+
     lle_utf8_processor_t *processor = NULL;
     lle_result_t result;
     uint32_t codepoint = 0;
     bool is_boundary = false;
-    
+
     result = lle_input_utf8_processor_init(&processor, mock_pool);
     ASSERT(result == LLE_SUCCESS, "Init should succeed");
-    
+
     // Start two-byte sequence
-    result = lle_input_utf8_processor_process_byte(processor, 0xC3, &codepoint, &is_boundary);
+    result = lle_input_utf8_processor_process_byte(processor, 0xC3, &codepoint,
+                                                   &is_boundary);
     ASSERT(result == LLE_SUCCESS, "First byte should succeed");
-    
+
     // Send invalid continuation (should be 10xxxxxx, sending 11xxxxxx)
-    result = lle_input_utf8_processor_process_byte(processor, 0xC0, &codepoint, &is_boundary);
-    ASSERT(result == LLE_ERROR_INVALID_ENCODING, "Invalid continuation should fail");
-    
+    result = lle_input_utf8_processor_process_byte(processor, 0xC0, &codepoint,
+                                                   &is_boundary);
+    ASSERT(result == LLE_ERROR_INVALID_ENCODING,
+           "Invalid continuation should fail");
+
     lle_input_utf8_processor_destroy(processor);
-    
+
     TEST_END;
     tests_passed++;
 }
@@ -252,40 +270,39 @@ void test_invalid_continuation_byte(void) {
  */
 void test_process_buffer(void) {
     TEST("process buffer with multiple codepoints");
-    
+
     lle_utf8_processor_t *processor = NULL;
     lle_result_t result;
-    
+
     result = lle_input_utf8_processor_init(&processor, mock_pool);
     ASSERT(result == LLE_SUCCESS, "Init should succeed");
-    
+
     // "Hé☃😀" = 48 C3A9 E29883 F09F9880
     const char *text = "H\xC3\xA9\xE2\x98\x83\xF0\x9F\x98\x80";
     size_t text_len = strlen(text);
-    
+
     lle_codepoint_info_t codepoints[10];
     size_t decoded_count = 0;
     size_t bytes_consumed = 0;
-    
-    result = lle_input_utf8_processor_process_buffer(processor,
-                                                     text,
-                                                     text_len,
-                                                     codepoints,
-                                                     10,
-                                                     &decoded_count,
-                                                     &bytes_consumed);
-    
+
+    result = lle_input_utf8_processor_process_buffer(
+        processor, text, text_len, codepoints, 10, &decoded_count,
+        &bytes_consumed);
+
     ASSERT(result == LLE_SUCCESS, "Process buffer should succeed");
     ASSERT(decoded_count == 4, "Should decode 4 codepoints");
     ASSERT(bytes_consumed == text_len, "Should consume all bytes");
-    
+
     ASSERT(codepoints[0].codepoint == 'H', "First codepoint should be 'H'");
-    ASSERT(codepoints[1].codepoint == 0x00E9, "Second codepoint should be U+00E9");
-    ASSERT(codepoints[2].codepoint == 0x2603, "Third codepoint should be U+2603");
-    ASSERT(codepoints[3].codepoint == 0x1F600, "Fourth codepoint should be U+1F600");
-    
+    ASSERT(codepoints[1].codepoint == 0x00E9,
+           "Second codepoint should be U+00E9");
+    ASSERT(codepoints[2].codepoint == 0x2603,
+           "Third codepoint should be U+2603");
+    ASSERT(codepoints[3].codepoint == 0x1F600,
+           "Fourth codepoint should be U+1F600");
+
     lle_input_utf8_processor_destroy(processor);
-    
+
     TEST_END;
     tests_passed++;
 }
@@ -295,41 +312,44 @@ void test_process_buffer(void) {
  */
 void test_partial_sequence(void) {
     TEST("partial sequence detection");
-    
+
     lle_utf8_processor_t *processor = NULL;
     lle_result_t result;
     uint32_t codepoint = 0;
     bool is_boundary = false;
-    
+
     result = lle_input_utf8_processor_init(&processor, mock_pool);
     ASSERT(result == LLE_SUCCESS, "Init should succeed");
-    
+
     // Start three-byte sequence
-    result = lle_input_utf8_processor_process_byte(processor, 0xE2, &codepoint, &is_boundary);
+    result = lle_input_utf8_processor_process_byte(processor, 0xE2, &codepoint,
+                                                   &is_boundary);
     ASSERT(result == LLE_SUCCESS, "First byte should succeed");
-    
+
     bool has_partial = lle_input_utf8_processor_has_partial(processor);
     ASSERT(has_partial == true, "Should have partial sequence");
-    
+
     size_t needed = lle_input_utf8_processor_bytes_needed(processor);
     ASSERT(needed == 2, "Should need 2 more bytes");
-    
+
     // Add second byte
-    result = lle_input_utf8_processor_process_byte(processor, 0x98, &codepoint, &is_boundary);
+    result = lle_input_utf8_processor_process_byte(processor, 0x98, &codepoint,
+                                                   &is_boundary);
     ASSERT(result == LLE_SUCCESS, "Second byte should succeed");
-    
+
     needed = lle_input_utf8_processor_bytes_needed(processor);
     ASSERT(needed == 1, "Should need 1 more byte");
-    
+
     // Complete sequence
-    result = lle_input_utf8_processor_process_byte(processor, 0x83, &codepoint, &is_boundary);
+    result = lle_input_utf8_processor_process_byte(processor, 0x83, &codepoint,
+                                                   &is_boundary);
     ASSERT(result == LLE_SUCCESS, "Third byte should succeed");
-    
+
     has_partial = lle_input_utf8_processor_has_partial(processor);
     ASSERT(has_partial == false, "Should not have partial sequence");
-    
+
     lle_input_utf8_processor_destroy(processor);
-    
+
     TEST_END;
     tests_passed++;
 }
@@ -339,31 +359,33 @@ void test_partial_sequence(void) {
  */
 void test_reset(void) {
     TEST("reset processor");
-    
+
     lle_utf8_processor_t *processor = NULL;
     lle_result_t result;
     uint32_t codepoint = 0;
     bool is_boundary = false;
-    
+
     result = lle_input_utf8_processor_init(&processor, mock_pool);
     ASSERT(result == LLE_SUCCESS, "Init should succeed");
-    
+
     // Start partial sequence
-    result = lle_input_utf8_processor_process_byte(processor, 0xE2, &codepoint, &is_boundary);
+    result = lle_input_utf8_processor_process_byte(processor, 0xE2, &codepoint,
+                                                   &is_boundary);
     ASSERT(result == LLE_SUCCESS, "First byte should succeed");
-    
+
     bool has_partial = lle_input_utf8_processor_has_partial(processor);
     ASSERT(has_partial == true, "Should have partial sequence");
-    
+
     // Reset
     result = lle_input_utf8_processor_reset(processor);
     ASSERT(result == LLE_SUCCESS, "Reset should succeed");
-    
+
     has_partial = lle_input_utf8_processor_has_partial(processor);
-    ASSERT(has_partial == false, "Should not have partial sequence after reset");
-    
+    ASSERT(has_partial == false,
+           "Should not have partial sequence after reset");
+
     lle_input_utf8_processor_destroy(processor);
-    
+
     TEST_END;
     tests_passed++;
 }
@@ -373,38 +395,37 @@ void test_reset(void) {
  */
 void test_get_statistics(void) {
     TEST("get statistics");
-    
+
     lle_utf8_processor_t *processor = NULL;
     lle_result_t result;
-    
+
     result = lle_input_utf8_processor_init(&processor, mock_pool);
     ASSERT(result == LLE_SUCCESS, "Init should succeed");
-    
+
     // Process some text
     const char *text = "Hé☃😀";
     lle_codepoint_info_t codepoints[10];
     size_t decoded_count = 0;
     size_t bytes_consumed = 0;
-    
-    result = lle_input_utf8_processor_process_buffer(processor,
-                                                     text,
-                                                     strlen(text),
-                                                     codepoints,
-                                                     10,
-                                                     &decoded_count,
-                                                     &bytes_consumed);
+
+    result = lle_input_utf8_processor_process_buffer(
+        processor, text, strlen(text), codepoints, 10, &decoded_count,
+        &bytes_consumed);
     ASSERT(result == LLE_SUCCESS, "Process should succeed");
-    
+
     // Get statistics
     lle_utf8_processor_stats_t stats;
     result = lle_input_utf8_processor_get_stats(processor, &stats);
     ASSERT(result == LLE_SUCCESS, "Get stats should succeed");
-    ASSERT(stats.codepoints_processed == 4, "Should have processed 4 codepoints");
-    ASSERT(stats.grapheme_clusters_detected == 4, "Should have detected 4 graphemes");
-    ASSERT(stats.invalid_sequences_handled == 0, "Should have no invalid sequences");
-    
+    ASSERT(stats.codepoints_processed == 4,
+           "Should have processed 4 codepoints");
+    ASSERT(stats.grapheme_clusters_detected == 4,
+           "Should have detected 4 graphemes");
+    ASSERT(stats.invalid_sequences_handled == 0,
+           "Should have no invalid sequences");
+
     lle_input_utf8_processor_destroy(processor);
-    
+
     TEST_END;
     tests_passed++;
 }
@@ -414,18 +435,18 @@ void test_get_statistics(void) {
  */
 void test_validate_string(void) {
     TEST("validate string wrapper");
-    
+
     bool valid = lle_input_utf8_validate_string("Hello", 5);
     ASSERT(valid == true, "ASCII should be valid");
-    
+
     valid = lle_input_utf8_validate_string("Hé☃😀", 11);
     ASSERT(valid == true, "UTF-8 should be valid");
-    
+
     // Invalid UTF-8
     const char invalid[] = {0xFF, 0x00};
     valid = lle_input_utf8_validate_string(invalid, 1);
     ASSERT(valid == false, "Invalid UTF-8 should fail");
-    
+
     TEST_END;
     tests_passed++;
 }
@@ -435,15 +456,15 @@ void test_validate_string(void) {
  */
 void test_count_codepoints(void) {
     TEST("count codepoints wrapper");
-    
+
     size_t count = lle_input_utf8_count_codepoints("Hello", 5);
     ASSERT(count == 5, "ASCII should have 5 codepoints");
-    
+
     // "Hé☃😀" = H(1) + é(2) + ☃(3) + 😀(4) = 10 bytes
     const char *text = "H\xC3\xA9\xE2\x98\x83\xF0\x9F\x98\x80";
     count = lle_input_utf8_count_codepoints(text, 10);
     ASSERT(count == 4, "UTF-8 should have 4 codepoints");
-    
+
     TEST_END;
     tests_passed++;
 }
@@ -453,15 +474,15 @@ void test_count_codepoints(void) {
  */
 void test_count_graphemes(void) {
     TEST("count graphemes wrapper");
-    
+
     size_t count = lle_input_utf8_count_graphemes("Hello", 5);
     ASSERT(count == 5, "ASCII should have 5 graphemes");
-    
+
     // "Hé☃😀" = H(1) + é(2) + ☃(3) + 😀(4) = 10 bytes
     const char *text = "H\xC3\xA9\xE2\x98\x83\xF0\x9F\x98\x80";
     count = lle_input_utf8_count_graphemes(text, 10);
     ASSERT(count == 4, "Simple UTF-8 should have 4 graphemes");
-    
+
     TEST_END;
     tests_passed++;
 }
@@ -471,17 +492,17 @@ void test_count_graphemes(void) {
  */
 void test_get_display_width(void) {
     TEST("get display width wrapper");
-    
+
     size_t width = lle_input_utf8_get_display_width("Hello", 5);
     ASSERT(width == 5, "ASCII should have width 5");
-    
+
     width = lle_input_utf8_get_display_width("Hé", 3);
     ASSERT(width == 2, "Hé should have width 2");
-    
+
     // Emoji has width 2
     width = lle_input_utf8_get_display_width("😀", 4);
     ASSERT(width == 2, "Emoji should have width 2");
-    
+
     TEST_END;
     tests_passed++;
 }
@@ -491,12 +512,16 @@ void test_get_display_width(void) {
  */
 int main(void) {
     printf("\n=== LLE Input UTF-8 Processor Unit Tests ===\n\n");
-    
+
     tests_run = 0;
     tests_passed = 0;
-    
-    #define RUN_TEST(test) do { tests_run++; test(); } while(0)
-    
+
+#define RUN_TEST(test)                                                         \
+    do {                                                                       \
+        tests_run++;                                                           \
+        test();                                                                \
+    } while (0)
+
     RUN_TEST(test_init_destroy);
     RUN_TEST(test_init_invalid_params);
     RUN_TEST(test_process_ascii_byte);
@@ -513,12 +538,12 @@ int main(void) {
     RUN_TEST(test_count_codepoints);
     RUN_TEST(test_count_graphemes);
     RUN_TEST(test_get_display_width);
-    
+
     printf("\n=== Test Summary ===\n");
     printf("Tests run:    %d\n", tests_run);
     printf("Tests passed: %d\n", tests_passed);
     printf("Tests failed: %d\n", tests_run - tests_passed);
-    
+
     if (tests_passed == tests_run) {
         printf("\n✓ All tests passed!\n\n");
         return 0;

@@ -35,8 +35,9 @@
 /* ========================================================================== */
 
 #define LLE_CACHE_DEFAULT_MAX_ENTRIES 1000 /* Default maximum cache entries */
-#define LLE_CACHE_EVICTION_BATCH_SIZE 100  /* Evict in batches for efficiency  \
-                                            */
+#define LLE_CACHE_EVICTION_BATCH_SIZE                                          \
+    100 /* Evict in batches for efficiency                                     \
+         */
 
 /* ========================================================================== */
 /*                      CACHE ENTRY SERIALIZATION                             */

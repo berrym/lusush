@@ -11,21 +11,14 @@ static const struct {
     const char *text;
     token_type_t type;
 } keywords[] = {
-    {      "if",       TOK_IF},
-    {    "then",     TOK_THEN},
-    {    "else",     TOK_ELSE},
-    {    "elif",     TOK_ELIF},
-    {      "fi",       TOK_FI},
-    {   "while",    TOK_WHILE},
-    {      "do",       TOK_DO},
-    {    "done",     TOK_DONE},
-    {     "for",      TOK_FOR},
-    {      "in",       TOK_IN},
-    {    "case",     TOK_CASE},
-    {    "esac",     TOK_ESAC},
-    {   "until",    TOK_UNTIL},
-    {"function", TOK_FUNCTION},
-    {      NULL,     TOK_WORD}  // Sentinel
+    {"if", TOK_IF},       {"then", TOK_THEN},
+    {"else", TOK_ELSE},   {"elif", TOK_ELIF},
+    {"fi", TOK_FI},       {"while", TOK_WHILE},
+    {"do", TOK_DO},       {"done", TOK_DONE},
+    {"for", TOK_FOR},     {"in", TOK_IN},
+    {"case", TOK_CASE},   {"esac", TOK_ESAC},
+    {"until", TOK_UNTIL}, {"function", TOK_FUNCTION},
+    {NULL, TOK_WORD} // Sentinel
 };
 
 // Helper functions
@@ -382,7 +375,7 @@ static bool is_word_codepoint(uint32_t codepoint) {
         char c = (char)codepoint;
         return isalnum(c) || strchr("_.-/~:@*?[]+%", c) != NULL;
     }
-    
+
     // Non-ASCII UTF-8: All non-ASCII codepoints are valid word characters
     // This includes:
     // - Latin Extended (accented characters like é, ñ, ü)
@@ -830,8 +823,8 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                        tokenizer->input[tokenizer->position + 1] == '|') {
                 tokenizer->position += 2;
                 tokenizer->column += 2;
-                return token_new(TOK_REDIRECT_CLOBBER, ">|", 2, start_line, start_column,
-                                 start_pos);
+                return token_new(TOK_REDIRECT_CLOBBER, ">|", 2, start_line,
+                                 start_column, start_pos);
             } else if (tokenizer->position + 1 < tokenizer->input_length &&
                        tokenizer->input[tokenizer->position + 1] == '&' &&
                        tokenizer->position + 2 < tokenizer->input_length &&
@@ -865,7 +858,8 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
             // Standalone ! character (for test negation)
             tokenizer->position++;
             tokenizer->column++;
-            return token_new(TOK_WORD, "!", 1, start_line, start_column, start_pos);
+            return token_new(TOK_WORD, "!", 1, start_line, start_column,
+                             start_pos);
 
         case '+':
             // Let + be handled as part of words (e.g., date +%Y)
@@ -991,10 +985,8 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
     uint32_t codepoint;
     int char_len = lle_utf8_decode_codepoint(
         &tokenizer->input[tokenizer->position],
-        tokenizer->input_length - tokenizer->position,
-        &codepoint
-    );
-    
+        tokenizer->input_length - tokenizer->position, &codepoint);
+
     // Check if this could be the start of a word
     // (either ASCII word char or non-ASCII UTF-8)
     bool could_be_word = false;
@@ -1004,7 +996,7 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
         // Fallback for byte-level check (ASCII)
         could_be_word = true;
     }
-    
+
     if (could_be_word) {
         size_t start = tokenizer->position;
         bool is_numeric = (char_len == 1 && isdigit(c));
@@ -1015,18 +1007,18 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
             uint32_t curr_codepoint;
             int curr_char_len = lle_utf8_decode_codepoint(
                 &tokenizer->input[tokenizer->position],
-                tokenizer->input_length - tokenizer->position,
-                &curr_codepoint
-            );
-            
+                tokenizer->input_length - tokenizer->position, &curr_codepoint);
+
             if (curr_char_len > 0) {
                 // Valid UTF-8 character - check if it's a word character
                 if (is_word_codepoint(curr_codepoint)) {
-                    // Check if still numeric (only single-byte ASCII digits count)
-                    if (curr_char_len > 1 || !isdigit(tokenizer->input[tokenizer->position])) {
+                    // Check if still numeric (only single-byte ASCII digits
+                    // count)
+                    if (curr_char_len > 1 ||
+                        !isdigit(tokenizer->input[tokenizer->position])) {
                         is_numeric = false;
                     }
-                    
+
                     // Advance by the UTF-8 character length
                     tokenizer->position += curr_char_len;
                     tokenizer->column++; // One visual column per character

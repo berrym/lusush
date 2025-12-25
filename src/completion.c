@@ -4,10 +4,10 @@
 #include "config.h"
 #include "fuzzy_match.h"
 #include "ht.h"
-#include "readline_integration.h"
-#include "network.h"
 #include "lle/adaptive_terminal_integration.h"
 #include "lle/unicode_compare.h"
+#include "network.h"
+#include "readline_integration.h"
 
 #include <ctype.h>
 #include <dirent.h>
@@ -20,27 +20,27 @@
 
 /**
  * Unicode-aware prefix matching for completion.
- * 
+ *
  * Uses NFC normalization to handle equivalent Unicode sequences
  * (e.g., "café" with precomposed é vs decomposed e + combining acute).
- * 
+ *
  * This is important for file completion where filenames may be stored
  * with different Unicode normalization forms depending on the filesystem.
  */
 static bool unicode_prefix_match(const char *prefix, const char *str) {
-    if (!prefix || !str) return false;
-    if (!*prefix) return true;  // Empty prefix matches everything
-    
+    if (!prefix || !str)
+        return false;
+    if (!*prefix)
+        return true; // Empty prefix matches everything
+
     return lle_unicode_is_prefix_z(prefix, str, NULL);
 }
 
 // Cached fuzzy match options based on config
-static fuzzy_match_options_t g_fuzzy_options = {
-    .case_sensitive = false,
-    .unicode_normalize = true,
-    .use_damerau = true,
-    .max_distance = 0
-};
+static fuzzy_match_options_t g_fuzzy_options = {.case_sensitive = false,
+                                                .unicode_normalize = true,
+                                                .use_damerau = true,
+                                                .max_distance = 0};
 
 /**
  * Update fuzzy match options from config
@@ -51,14 +51,14 @@ static void update_fuzzy_options_from_config(void) {
     // Use fast mode (no unicode normalization) for better performance
     // unless explicitly needed
     g_fuzzy_options.unicode_normalize = false;
-    g_fuzzy_options.use_damerau = true;  // Better typo detection
-    g_fuzzy_options.max_distance = 0;    // No limit
+    g_fuzzy_options.use_damerau = true; // Better typo detection
+    g_fuzzy_options.max_distance = 0;   // No limit
 }
 
 /**
  * Fuzzy matching for completion using libfuzzy
  * Returns a score (0-100) indicating how well the candidate matches the pattern
- * 
+ *
  * Uses the Unicode-aware libfuzzy implementation which combines:
  * - Levenshtein/Damerau-Levenshtein distance (40%)
  * - Jaro-Winkler similarity (30%)
@@ -90,7 +90,8 @@ static int completion_fuzzy_score(const char *pattern, const char *candidate) {
     // Use manual comparison since strncasecmp may not be available
     bool case_match = true;
     for (int i = 0; i < pattern_len; i++) {
-        if (tolower((unsigned char)pattern[i]) != tolower((unsigned char)candidate[i])) {
+        if (tolower((unsigned char)pattern[i]) !=
+            tolower((unsigned char)candidate[i])) {
             case_match = false;
             break;
         }
@@ -151,7 +152,8 @@ void lusush_completion_callback(const char *buf, lusush_completions_t *lc) {
     if (command && is_network_command(command) &&
         !is_command_position(buf, start_pos)) {
         // Complete network command arguments (SSH hosts, etc.)
-        complete_network_command_args_with_context(command, word, lc, buf, start_pos);
+        complete_network_command_args_with_context(command, word, lc, buf,
+                                                   start_pos);
         free(command);
 
         // If we got network completions, we're done
@@ -518,7 +520,7 @@ void complete_variables(const char *text, lusush_completions_t *lc) {
 
 /**
  * Complete from history (fallback)
- * 
+ *
  * Uses Unicode-aware prefix matching to handle history entries
  * that may contain characters with different normalization forms.
  */
@@ -531,7 +533,7 @@ void complete_history(const char *text, lusush_completions_t *lc) {
     size_t i = 0;
     char *line = NULL;
 
-    while ((line = (char*)lusush_history_get(i)) != NULL) {
+    while ((line = (char *)lusush_history_get(i)) != NULL) {
         // Use Unicode prefix matching for history entries
         if (unicode_prefix_match(text, line) && strlen(line) > text_len) {
             lusush_add_completion(lc, line);

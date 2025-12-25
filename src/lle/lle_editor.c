@@ -122,8 +122,7 @@ lle_result_t lle_editor_create(lle_editor_t **editor,
     ed->buffer->change_tracking_enabled = true;
 
     /* Create completion system (Spec 12) using unified pool */
-    result = lle_completion_system_create(ed->lle_pool,
-                                             &ed->completion_system);
+    result = lle_completion_system_create(ed->lle_pool, &ed->completion_system);
     if (result != LLE_SUCCESS) {
         lle_change_tracker_destroy(ed->change_tracker);
         lle_kill_ring_destroy(ed->kill_ring);

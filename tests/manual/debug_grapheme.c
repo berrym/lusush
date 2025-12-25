@@ -2,63 +2,61 @@
  * Debug grapheme cluster detection for failing test cases
  */
 
-#include <stdio.h>
-#include <string.h>
-#include <stdint.h>
 #include "../../include/lle/unicode_grapheme.h"
 #include "../../include/lle/utf8_support.h"
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
 
 void debug_string(const char *label, const char *text) {
     printf("\n=== %s ===\n", label);
     printf("Text: %s\n", text);
-    
+
     size_t byte_len = strlen(text);
     printf("Byte length: %zu\n", byte_len);
-    
+
     // Show byte sequence
     printf("Bytes: ");
     for (size_t i = 0; i < byte_len; i++) {
         printf("%02X ", (unsigned char)text[i]);
     }
     printf("\n");
-    
+
     // Count graphemes
     size_t grapheme_count = lle_utf8_count_graphemes(text, byte_len);
     printf("Grapheme count: %zu\n", grapheme_count);
-    
+
     // Show each codepoint and whether it's a grapheme boundary
     printf("\nCodepoint analysis:\n");
     const char *ptr = text;
     const char *end = text + byte_len;
     int idx = 0;
-    
+
     while (ptr < end) {
         uint32_t codepoint = 0;
         int len = lle_utf8_decode_codepoint(ptr, end - ptr, &codepoint);
-        
+
         if (len <= 0) {
             printf("  [%d] Invalid UTF-8\n", idx);
             break;
         }
-        
+
         bool is_boundary = lle_is_grapheme_boundary(ptr, text, end);
-        
-        printf("  [%d] U+%04X (%s) - len=%d bytes", 
-               idx, codepoint, 
-               is_boundary ? "BOUNDARY" : "extend",
-               len);
-        
+
+        printf("  [%d] U+%04X (%s) - len=%d bytes", idx, codepoint,
+               is_boundary ? "BOUNDARY" : "extend", len);
+
         // Show the character
         printf(" '");
         for (int i = 0; i < len; i++) {
             printf("%c", ptr[i]);
         }
         printf("'\n");
-        
+
         ptr += len;
         idx++;
     }
-    
+
     printf("Expected: 1 grapheme cluster\n");
     printf("Result: %s\n", grapheme_count == 1 ? "PASS ✓" : "FAIL ✗");
 }
@@ -66,18 +64,19 @@ void debug_string(const char *label, const char *text) {
 int main() {
     printf("Grapheme Cluster Detection Debug\n");
     printf("=================================\n");
-    
+
     // Test 4: Family emoji (ZWJ sequence)
-    debug_string("Test 4: Family emoji ZWJ sequence", "👨‍👩‍👧‍👦");
-    
+    debug_string("Test 4: Family emoji ZWJ sequence",
+                 "👨‍👩‍👧‍👦");
+
     // Test 5: Flag emoji (Regional Indicators)
     debug_string("Test 5: Flag emoji", "🇺🇸");
-    
+
     // Test 7: Skin tone modifier
     debug_string("Test 7: Skin tone modifier", "👋🏽");
-    
+
     // Working test for comparison
     debug_string("Working: Simple emoji", "🎉");
-    
+
     return 0;
 }

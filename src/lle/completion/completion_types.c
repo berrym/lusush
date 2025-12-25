@@ -81,7 +81,8 @@ static const lle_completion_type_info_t TYPE_INFO_DATABASE[] = {
      .default_priority = 100}};
 
 /* Note: TYPE_INFO_COUNT not currently used but kept for future validation */
-#define TYPE_INFO_COUNT (sizeof(TYPE_INFO_DATABASE) / sizeof(TYPE_INFO_DATABASE[0]))
+#define TYPE_INFO_COUNT                                                        \
+    (sizeof(TYPE_INFO_DATABASE) / sizeof(TYPE_INFO_DATABASE[0]))
 
 // ============================================================================
 // TYPE INFORMATION QUERIES

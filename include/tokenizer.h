@@ -24,34 +24,34 @@ typedef enum {
     TOK_VARIABLE,          // Variable reference ($var, ${var}, etc.)
 
     // Operators and separators
-    TOK_SEMICOLON,     // ;
-    TOK_PIPE,          // |
-    TOK_AND,           // &
-    TOK_LOGICAL_AND,   // &&
-    TOK_LOGICAL_OR,    // ||
-    TOK_REDIRECT_IN,   // <
-    TOK_REDIRECT_OUT,  // >
-    TOK_APPEND,        // >>
-    TOK_HEREDOC,       // <<
-    TOK_HEREDOC_STRIP, // <<-
-    TOK_HERESTRING,    // <<<
-    TOK_REDIRECT_ERR,  // 2>
-    TOK_REDIRECT_BOTH, // &>
-    TOK_APPEND_ERR,    // 2>>
-    TOK_REDIRECT_FD,   // &1, &2, etc.
+    TOK_SEMICOLON,        // ;
+    TOK_PIPE,             // |
+    TOK_AND,              // &
+    TOK_LOGICAL_AND,      // &&
+    TOK_LOGICAL_OR,       // ||
+    TOK_REDIRECT_IN,      // <
+    TOK_REDIRECT_OUT,     // >
+    TOK_APPEND,           // >>
+    TOK_HEREDOC,          // <<
+    TOK_HEREDOC_STRIP,    // <<-
+    TOK_HERESTRING,       // <<<
+    TOK_REDIRECT_ERR,     // 2>
+    TOK_REDIRECT_BOTH,    // &>
+    TOK_APPEND_ERR,       // 2>>
+    TOK_REDIRECT_FD,      // &1, &2, etc.
     TOK_REDIRECT_CLOBBER, // >|
-    TOK_ASSIGN,        // =
-    TOK_NOT_EQUAL,     // !=
-    TOK_PLUS,          // +
-    TOK_MINUS,         // -
-    TOK_MULTIPLY,      // *
-    TOK_DIVIDE,        // /
-    TOK_MODULO,        // %
-    TOK_GLOB,          // * (when used for globbing)
-    TOK_QUESTION,      // ?
-    TOK_COMMAND_SUB,   // $(...)
-    TOK_ARITH_EXP,     // $((...))
-    TOK_BACKQUOTE,     // `
+    TOK_ASSIGN,           // =
+    TOK_NOT_EQUAL,        // !=
+    TOK_PLUS,             // +
+    TOK_MINUS,            // -
+    TOK_MULTIPLY,         // *
+    TOK_DIVIDE,           // /
+    TOK_MODULO,           // %
+    TOK_GLOB,             // * (when used for globbing)
+    TOK_QUESTION,         // ?
+    TOK_COMMAND_SUB,      // $(...)
+    TOK_ARITH_EXP,        // $((...))
+    TOK_BACKQUOTE,        // `
 
     // Delimiters
     TOK_LPAREN,   // (

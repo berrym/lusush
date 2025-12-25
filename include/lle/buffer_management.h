@@ -68,10 +68,11 @@
 #define LLE_BUFFER_CACHE_LINE_TTL 1000 /* Cache entry TTL (ms) */
 
 /* Performance Targets (nanoseconds) */
-#define LLE_BUFFER_PERF_INSERT_MAX_NS 500000ULL    /* 0.5ms insert target */
-#define LLE_BUFFER_PERF_DELETE_MAX_NS 500000ULL    /* 0.5ms delete target */
-#define LLE_BUFFER_PERF_UTF8_CALC_MAX_NS 100000ULL /* 0.1ms UTF-8 calc target  \
-                                                    */
+#define LLE_BUFFER_PERF_INSERT_MAX_NS 500000ULL /* 0.5ms insert target */
+#define LLE_BUFFER_PERF_DELETE_MAX_NS 500000ULL /* 0.5ms delete target */
+#define LLE_BUFFER_PERF_UTF8_CALC_MAX_NS                                       \
+    100000ULL /* 0.1ms UTF-8 calc target                                       \
+               */
 
 /* Buffer Flags */
 #define LLE_BUFFER_FLAG_READONLY 0x0001    /* Buffer is read-only */

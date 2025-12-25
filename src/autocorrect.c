@@ -308,7 +308,7 @@ int autocorrect_similarity_score(const char *command1, const char *command2,
     fuzzy_match_options_t opts = FUZZY_MATCH_DEFAULT;
     opts.case_sensitive = case_sensitive;
     /* Unicode normalization enabled by default for proper matching */
-    
+
     return fuzzy_match_score(command1, command2, &opts);
 }
 

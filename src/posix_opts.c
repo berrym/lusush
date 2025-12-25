@@ -33,13 +33,16 @@ void init_posix_options(void) {
     shell_opts.notify = false;
     shell_opts.ignoreeof = false;
     shell_opts.nolog = false;
-    shell_opts.emacs_mode = true;  // Default to emacs mode
-    shell_opts.vi_mode = false;    // Default to emacs mode, not vi
-    shell_opts.posix_mode = false; // Default to non-strict mode for compatibility
-    shell_opts.pipefail_mode = false; // Default to standard pipeline behavior
+    shell_opts.emacs_mode = true; // Default to emacs mode
+    shell_opts.vi_mode = false;   // Default to emacs mode, not vi
+    shell_opts.posix_mode =
+        false; // Default to non-strict mode for compatibility
+    shell_opts.pipefail_mode = false;  // Default to standard pipeline behavior
     shell_opts.histexpand_mode = true; // Default to history expansion enabled
-    shell_opts.history_mode = true; // Default to command history recording enabled
-    shell_opts.interactive_comments_mode = true; // Default to interactive comments enabled
+    shell_opts.history_mode =
+        true; // Default to command history recording enabled
+    shell_opts.interactive_comments_mode =
+        true;                         // Default to interactive comments enabled
     shell_opts.physical_mode = false; // Default to logical directory paths
     shell_opts.privileged_mode = false; // Default to unrestricted mode
 }
@@ -117,7 +120,9 @@ bool is_histexpand_enabled(void) { return shell_opts.histexpand_mode; }
 
 bool is_history_enabled(void) { return shell_opts.history_mode; }
 
-bool is_interactive_comments_enabled(void) { return shell_opts.interactive_comments_mode; }
+bool is_interactive_comments_enabled(void) {
+    return shell_opts.interactive_comments_mode;
+}
 
 // Print command trace for -x option
 void print_command_trace(const char *command) {
@@ -136,31 +141,30 @@ typedef struct option_mapping {
 
 // Map option names to flags
 static option_mapping_t option_map[] = {
-    {"errexit",   &shell_opts.exit_on_error, 'e'},
-    { "xtrace", &shell_opts.trace_execution, 'x'},
-    { "noexec",    &shell_opts.syntax_check, 'n'},
-    {"nounset",     &shell_opts.unset_error, 'u'},
-    {"verbose",         &shell_opts.verbose, 'v'},
-    { "noglob",     &shell_opts.no_globbing, 'f'},
-    {"hashall",   &shell_opts.hash_commands, 'h'},
-    {"monitor",     &shell_opts.job_control, 'm'},
-    {"allexport",     &shell_opts.allexport, 'a'},
-    {"noclobber",     &shell_opts.noclobber, 'C'},
-    { "onecmd",         &shell_opts.onecmd, 't'},
-    { "notify",         &shell_opts.notify, 'b'},
-    {"ignoreeof",     &shell_opts.ignoreeof,   0},
-    {  "nolog",         &shell_opts.nolog,   0},
-    { "emacs",       &shell_opts.emacs_mode,   0},
-    {    "vi",         &shell_opts.vi_mode,   0},
-    { "posix",       &shell_opts.posix_mode,   0},
-    {"pipefail",   &shell_opts.pipefail_mode,   0},
-    {"histexpand", &shell_opts.histexpand_mode,   0},
-    { "history",    &shell_opts.history_mode,   0},
+    {"errexit", &shell_opts.exit_on_error, 'e'},
+    {"xtrace", &shell_opts.trace_execution, 'x'},
+    {"noexec", &shell_opts.syntax_check, 'n'},
+    {"nounset", &shell_opts.unset_error, 'u'},
+    {"verbose", &shell_opts.verbose, 'v'},
+    {"noglob", &shell_opts.no_globbing, 'f'},
+    {"hashall", &shell_opts.hash_commands, 'h'},
+    {"monitor", &shell_opts.job_control, 'm'},
+    {"allexport", &shell_opts.allexport, 'a'},
+    {"noclobber", &shell_opts.noclobber, 'C'},
+    {"onecmd", &shell_opts.onecmd, 't'},
+    {"notify", &shell_opts.notify, 'b'},
+    {"ignoreeof", &shell_opts.ignoreeof, 0},
+    {"nolog", &shell_opts.nolog, 0},
+    {"emacs", &shell_opts.emacs_mode, 0},
+    {"vi", &shell_opts.vi_mode, 0},
+    {"posix", &shell_opts.posix_mode, 0},
+    {"pipefail", &shell_opts.pipefail_mode, 0},
+    {"histexpand", &shell_opts.histexpand_mode, 0},
+    {"history", &shell_opts.history_mode, 0},
     {"interactive-comments", &shell_opts.interactive_comments_mode, 0},
-    {"physical",    &shell_opts.physical_mode,    0},
-    {"privileged",  &shell_opts.privileged_mode,  0},
-    {     NULL,                        NULL,   0}
-};
+    {"physical", &shell_opts.physical_mode, 0},
+    {"privileged", &shell_opts.privileged_mode, 0},
+    {NULL, NULL, 0}};
 
 // Find option mapping by name
 static option_mapping_t *find_option_by_name(const char *name) {
@@ -184,9 +188,10 @@ static option_mapping_t *find_option_by_short(char opt) {
 
 // Implementation of the `set` builtin command
 int builtin_set(char **args) {
-    // Privileged mode security check - block all set operations  
+    // Privileged mode security check - block all set operations
     if (shell_opts.privileged_mode && args[1]) {
-        fprintf(stderr, "set: cannot modify shell options in privileged mode\n");
+        fprintf(stderr,
+                "set: cannot modify shell options in privileged mode\n");
         return 1;
     }
 
@@ -220,7 +225,8 @@ int builtin_set(char **args) {
                shell_opts.notify ? "on" : "off");
         printf("  ignoreeof (prevent exit on EOF): %s\n",
                shell_opts.ignoreeof ? "on" : "off");
-        printf("  nolog (prevent function definitions from entering history): %s\n",
+        printf("  nolog (prevent function definitions from entering history): "
+               "%s\n",
                shell_opts.nolog ? "on" : "off");
         printf("  emacs (emacs-style command line editing): %s\n",
                shell_opts.emacs_mode ? "on" : "off");
@@ -230,15 +236,16 @@ int builtin_set(char **args) {
                shell_opts.posix_mode ? "on" : "off");
         printf("  pipefail (make pipelines fail if any command fails): %s\n",
                shell_opts.pipefail_mode ? "on" : "off");
-       printf("  histexpand (enable history expansion !! !n !string): %s\n",
-              shell_opts.histexpand_mode ? "on" : "off");
-       printf("  history (enable command history recording): %s\n",
-              shell_opts.history_mode ? "on" : "off");
-       printf("  interactive-comments (enable # comments in interactive mode): %s\n",
-              shell_opts.interactive_comments_mode ? "on" : "off");
-       printf("  physical (use physical directory paths): %s\n",
-              shell_opts.physical_mode ? "on" : "off");
-       return 0;
+        printf("  histexpand (enable history expansion !! !n !string): %s\n",
+               shell_opts.histexpand_mode ? "on" : "off");
+        printf("  history (enable command history recording): %s\n",
+               shell_opts.history_mode ? "on" : "off");
+        printf("  interactive-comments (enable # comments in interactive "
+               "mode): %s\n",
+               shell_opts.interactive_comments_mode ? "on" : "off");
+        printf("  physical (use physical directory paths): %s\n",
+               shell_opts.physical_mode ? "on" : "off");
+        return 0;
     }
 
     for (int i = 1; args[i]; i++) {
@@ -254,10 +261,12 @@ int builtin_set(char **args) {
                     *(opt->flag) = true;
                     // Handle mutually exclusive editing modes
                     if (strcmp(args[i], "emacs") == 0) {
-                        shell_opts.vi_mode = false;  // Disable vi when enabling emacs
+                        shell_opts.vi_mode =
+                            false; // Disable vi when enabling emacs
                         lusush_update_editing_mode();
                     } else if (strcmp(args[i], "vi") == 0) {
-                        shell_opts.emacs_mode = false;  // Disable emacs when enabling vi
+                        shell_opts.emacs_mode =
+                            false; // Disable emacs when enabling vi
                         lusush_update_editing_mode();
                     }
                 } else {
@@ -282,10 +291,12 @@ int builtin_set(char **args) {
                     *(opt->flag) = false;
                     // Handle mutually exclusive editing modes
                     if (strcmp(args[i], "emacs") == 0) {
-                        shell_opts.vi_mode = true;   // Enable vi when disabling emacs
+                        shell_opts.vi_mode =
+                            true; // Enable vi when disabling emacs
                         lusush_update_editing_mode();
                     } else if (strcmp(args[i], "vi") == 0) {
-                        shell_opts.emacs_mode = true;  // Enable emacs when disabling vi
+                        shell_opts.emacs_mode =
+                            true; // Enable emacs when disabling vi
                         lusush_update_editing_mode();
                     }
                 } else {
@@ -293,7 +304,8 @@ int builtin_set(char **args) {
                     return 1;
                 }
             } else {
-                // No argument - show all options in +o format (read-only operation, always allowed)
+                // No argument - show all options in +o format (read-only
+                // operation, always allowed)
                 printf("Current shell options:\n");
                 for (int j = 0; option_map[j].name; j++) {
                     printf("set %co %s\n", *(option_map[j].flag) ? '-' : '+',

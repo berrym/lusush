@@ -19,12 +19,12 @@
 #include "lusush.h"
 
 #include "config.h"
+#include "display_integration.h"
 #include "executor.h"
 #include "init.h"
 #include "input.h"
 #include "posix_history.h"
 #include "signals.h"
-#include "display_integration.h"
 
 #include <ctype.h>
 #include <stdbool.h>
@@ -89,7 +89,8 @@ int main(int argc, char **argv) {
                 // The signal handler already printed newline
                 continue;
             }
-            // Real EOF encountered - print newline to prevent shell prompt artifacts
+            // Real EOF encountered - print newline to prevent shell prompt
+            // artifacts
             if (is_interactive_shell()) {
                 printf("\n");
                 fflush(stdout);
@@ -154,7 +155,8 @@ int main(int argc, char **argv) {
 }
 
 int parse_and_execute(const char *command) {
-    // Use global persistent executor for all commands to maintain function definitions
+    // Use global persistent executor for all commands to maintain function
+    // definitions
     if (!global_executor) {
         global_executor = executor_new();
         if (!global_executor) {
@@ -173,6 +175,4 @@ int parse_and_execute(const char *command) {
 }
 
 // Get global executor for use by builtins (e.g., source command for debugging)
-executor_t *get_global_executor(void) {
-    return global_executor;
-}
+executor_t *get_global_executor(void) { return global_executor; }

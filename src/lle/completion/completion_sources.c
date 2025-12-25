@@ -220,11 +220,9 @@ lle_result_t lle_completion_source_commands(lle_memory_pool_t *memory_pool,
  *
  * @param directories_only If true, only return directories (for cd, rmdir)
  */
-static lle_result_t
-lle_completion_source_files_internal(lle_memory_pool_t *memory_pool,
-                                     const char *prefix,
-                                     lle_completion_result_t *result,
-                                     bool directories_only) {
+static lle_result_t lle_completion_source_files_internal(
+    lle_memory_pool_t *memory_pool, const char *prefix,
+    lle_completion_result_t *result, bool directories_only) {
     if (!memory_pool || !prefix || !result) {
         return LLE_ERROR_INVALID_PARAMETER;
     }

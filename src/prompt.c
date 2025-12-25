@@ -23,8 +23,8 @@ static char cached_theme_name[32] = {0};
 static int cached_symbol_mode = -1;
 static time_t cache_time = 0;
 static bool cache_valid = false;
-static const int CACHE_VALIDITY_SECONDS = 5;  // Cache valid for 5 seconds
-static const int GIT_CACHE_SECONDS = 10;      // Git status cached for 10 seconds
+static const int CACHE_VALIDITY_SECONDS = 5; // Cache valid for 5 seconds
+static const int GIT_CACHE_SECONDS = 10;     // Git status cached for 10 seconds
 
 // Git status information
 typedef struct {
@@ -67,7 +67,7 @@ static int run_command(const char *cmd, char *output, size_t output_size) {
             }
         }
     }
-    
+
     // Drain any remaining output to prevent SIGPIPE to child process
     while (fgets(drain_buffer, sizeof(drain_buffer), fp) != NULL) {
         // Discard
@@ -82,7 +82,8 @@ static int run_command(const char *cmd, char *output, size_t output_size) {
  *      Get the current git branch name.
  */
 static int get_git_branch(char *branch, size_t branch_size) {
-    return run_command("git branch --show-current 2>/dev/null", branch, branch_size);
+    return run_command("git branch --show-current 2>/dev/null", branch,
+                       branch_size);
 }
 
 /**
@@ -95,7 +96,8 @@ static void get_git_status(git_info_t *info) {
     // Reset info
     memset(info, 0, sizeof(git_info_t));
 
-    // Check if we're in a git repository (suppress stderr to avoid "fatal:" messages)
+    // Check if we're in a git repository (suppress stderr to avoid "fatal:"
+    // messages)
     if (run_command("git rev-parse --git-dir 2>/dev/null", NULL, 0) != 0) {
         return; // Not in a git repository
     }
@@ -124,7 +126,9 @@ static void get_git_status(git_info_t *info) {
 
     // Check ahead/behind status - only if upstream exists
     // Suppress stderr to prevent "fatal: no upstream configured" warnings
-    if (run_command("git rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2>/dev/null", NULL, 0) == 0) {
+    if (run_command("git rev-parse --abbrev-ref --symbolic-full-name "
+                    "@{upstream} 2>/dev/null",
+                    NULL, 0) == 0) {
         if (run_command("git rev-list --count --left-right @{upstream}...HEAD",
                         output, sizeof(output)) == 0) {
             sscanf(output, "%d\t%d", &info->behind, &info->ahead);
@@ -174,7 +178,8 @@ void format_git_prompt(char *git_prompt, size_t size) {
     // Add ahead/behind indicators (↑/↓ are 3 bytes each in UTF-8)
     char ahead_behind[32] = "";
     if (git_info.ahead > 0 && git_info.behind > 0) {
-        snprintf(ahead_behind, sizeof(ahead_behind), " ↑%d↓%d", git_info.ahead, git_info.behind);
+        snprintf(ahead_behind, sizeof(ahead_behind), " ↑%d↓%d", git_info.ahead,
+                 git_info.behind);
     } else if (git_info.ahead > 0) {
         snprintf(ahead_behind, sizeof(ahead_behind), " ↑%d", git_info.ahead);
     } else if (git_info.behind > 0) {
@@ -232,35 +237,41 @@ void build_prompt(void) {
     time_t now = time(NULL);
     char current_dir[256];
     bool cache_hit = false;
-    
+
     if (cache_valid && (now - cache_time <= CACHE_VALIDITY_SECONDS)) {
         if (getcwd(current_dir, sizeof(current_dir)) != NULL &&
             strcmp(current_dir, cached_working_dir) == 0) {
-            
+
             // Check theme hasn't changed
             if ((!config.theme_name && cached_theme_name[0] == '\0') ||
-                (config.theme_name && strcmp(config.theme_name, cached_theme_name) == 0)) {
-                
+                (config.theme_name &&
+                 strcmp(config.theme_name, cached_theme_name) == 0)) {
+
                 // Check symbol mode hasn't changed
                 int current_symbol_mode = (int)symbol_get_compatibility_mode();
                 if (cached_symbol_mode == current_symbol_mode) {
-                
-                // Cache hit! Use cached prompt
-                symtable_set_global("PS1", cached_prompt);
-                display_integration_record_cache_operation(true);
-                cache_hit = true;
-                
-                // Enhanced Performance Monitoring: Record timing for cache hit
-                gettimeofday(&end_time, NULL);
-                uint64_t operation_time_ns = ((uint64_t)(end_time.tv_sec - start_time.tv_sec)) * 1000000000ULL +
-                                             ((uint64_t)(end_time.tv_usec - start_time.tv_usec)) * 1000ULL;
-                display_integration_record_display_timing(operation_time_ns);
-                return;
+
+                    // Cache hit! Use cached prompt
+                    symtable_set_global("PS1", cached_prompt);
+                    display_integration_record_cache_operation(true);
+                    cache_hit = true;
+
+                    // Enhanced Performance Monitoring: Record timing for cache
+                    // hit
+                    gettimeofday(&end_time, NULL);
+                    uint64_t operation_time_ns =
+                        ((uint64_t)(end_time.tv_sec - start_time.tv_sec)) *
+                            1000000000ULL +
+                        ((uint64_t)(end_time.tv_usec - start_time.tv_usec)) *
+                            1000ULL;
+                    display_integration_record_display_timing(
+                        operation_time_ns);
+                    return;
                 }
             }
         }
     }
-    
+
     // Cache miss - record and continue with generation
     if (!cache_hit) {
         display_integration_record_cache_operation(false);
@@ -285,10 +296,11 @@ void build_prompt(void) {
     // Cache the generated prompt for future use
     strncpy(cached_prompt, prompt, sizeof(cached_prompt) - 1);
     cached_prompt[sizeof(cached_prompt) - 1] = '\0';
-    
+
     if (getcwd(cached_working_dir, sizeof(cached_working_dir)) != NULL) {
         if (config.theme_name) {
-            strncpy(cached_theme_name, config.theme_name, sizeof(cached_theme_name) - 1);
+            strncpy(cached_theme_name, config.theme_name,
+                    sizeof(cached_theme_name) - 1);
             cached_theme_name[sizeof(cached_theme_name) - 1] = '\0';
         } else {
             cached_theme_name[0] = '\0';
@@ -297,11 +309,12 @@ void build_prompt(void) {
         cache_time = now;
         cache_valid = true;
     }
-    
+
     // Enhanced Performance Monitoring: Record prompt generation timing
     gettimeofday(&end_time, NULL);
-    uint64_t operation_time_ns = ((uint64_t)(end_time.tv_sec - start_time.tv_sec)) * 1000000000ULL +
-                                 ((uint64_t)(end_time.tv_usec - start_time.tv_usec)) * 1000ULL;
+    uint64_t operation_time_ns =
+        ((uint64_t)(end_time.tv_sec - start_time.tv_sec)) * 1000000000ULL +
+        ((uint64_t)(end_time.tv_usec - start_time.tv_usec)) * 1000ULL;
     display_integration_record_display_timing(operation_time_ns);
 }
 
@@ -343,9 +356,7 @@ void prompt_cache_cleanup(void) {
 /**
  * Check if current cache is valid for current context.
  */
-bool prompt_cache_is_valid_for_context(void) {
-    return cache_valid;
-}
+bool prompt_cache_is_valid_for_context(void) { return cache_valid; }
 
 /**
  * Get cached prompt if valid.
@@ -365,6 +376,4 @@ void prompt_cache_set(const lusush_prompt_cache_t *entry) {
 /**
  * Invalidate the prompt cache.
  */
-void prompt_cache_invalidate(void) {
-    cache_valid = false;
-}
+void prompt_cache_invalidate(void) { cache_valid = false; }

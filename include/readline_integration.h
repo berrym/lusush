@@ -22,16 +22,18 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-/* HAVE_READLINE is defined by meson build system based on readline_support option */
+/* HAVE_READLINE is defined by meson build system based on readline_support
+ * option */
 #ifndef HAVE_READLINE
-#define HAVE_READLINE 1  /* Default to enabled for backwards compatibility */
+#define HAVE_READLINE 1 /* Default to enabled for backwards compatibility */
 #endif
 
 #if HAVE_READLINE
-#include <readline/readline.h>
 #include <readline/history.h>
+#include <readline/readline.h>
 #else
-/* Stub type definitions when readline is disabled - matches readline's signature */
+/* Stub type definitions when readline is disabled - matches readline's
+ * signature */
 typedef int rl_command_func_t(int, int);
 #endif
 
@@ -216,8 +218,8 @@ int lusush_keybinding_remove(int key);
  * @param colored_completion_prefix highlight matching prefix in completions
  */
 void lusush_readline_configure(bool show_completions_immediately,
-                              bool case_insensitive_completion,
-                              bool colored_completion_prefix);
+                               bool case_insensitive_completion,
+                               bool colored_completion_prefix);
 
 /**
  * Set maximum history length

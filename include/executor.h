@@ -18,19 +18,19 @@
 
 // Function parameter definition
 typedef struct function_param {
-    char *name;                    // Parameter name
-    char *default_value;          // Default value (NULL if required)
-    bool is_required;             // True if parameter is required
-    struct function_param *next;  // Next parameter in list
+    char *name;                  // Parameter name
+    char *default_value;         // Default value (NULL if required)
+    bool is_required;            // True if parameter is required
+    struct function_param *next; // Next parameter in list
 } function_param_t;
 
 // Function definition storage
 typedef struct function_def {
-    char *name;                   // Function name
-    node_t *body;                 // Function body AST
-    function_param_t *params;     // Parameter list (NULL for no params)
-    int param_count;              // Number of parameters
-    struct function_def *next;    // Next function in list
+    char *name;                // Function name
+    node_t *body;              // Function body AST
+    function_param_t *params;  // Parameter list (NULL for no params)
+    int param_count;           // Number of parameters
+    struct function_def *next; // Next function in list
 } function_def_t;
 
 // Job states
@@ -76,15 +76,15 @@ typedef struct executor {
     pid_t shell_pgid;             // Shell process group ID
     loop_control_t loop_control;  // Loop control state
     int loop_depth;               // Current loop nesting depth
-    
+
     // Script execution context for debugging
-    char *current_script_file;    // Current script file being executed
-    int current_script_line;      // Current line number in script
-    bool in_script_execution;     // True if executing from script file
+    char *current_script_file; // Current script file being executed
+    int current_script_line;   // Current line number in script
+    bool in_script_execution;  // True if executing from script file
 
     // Expansion error tracking
-    bool expansion_error;         // True if error occurred during expansion
-    int expansion_exit_status;    // Exit status from expansion errors
+    bool expansion_error;      // True if error occurred during expansion
+    int expansion_exit_status; // Exit status from expansion errors
 
 } executor_t;
 
@@ -121,11 +121,13 @@ int executor_builtin_fg(executor_t *executor, char **argv);
 int executor_builtin_bg(executor_t *executor, char **argv);
 
 // Function parameter management utilities
-function_param_t *create_function_param(const char *name, const char *default_value);
+function_param_t *create_function_param(const char *name,
+                                        const char *default_value);
 void free_function_params(function_param_t *params);
 
 // Script context management for debugging
-void executor_set_script_context(executor_t *executor, const char *script_file, int line_number);
+void executor_set_script_context(executor_t *executor, const char *script_file,
+                                 int line_number);
 void executor_clear_script_context(executor_t *executor);
 const char *executor_get_current_script_file(executor_t *executor);
 int executor_get_current_script_line(executor_t *executor);
