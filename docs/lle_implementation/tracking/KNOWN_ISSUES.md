@@ -10,7 +10,7 @@
 
 **Current State**: Active development - Spec 12 completion system integrated, menu fully functional
 
-- ⚠️ **10 Active Issues** - Theme/prompt system (3 HIGH - Issues #20, #21, #22), Display controller (1 LOW), Cursor desync (1 MEDIUM), Git prompt (1 MEDIUM), Tab handling (1 LOW), Syntax highlighting (2 MEDIUM), category disambiguation (1 MEDIUM)
+- ⚠️ **11 Active Issues** - Theme/prompt system (3 HIGH - Issues #20, #21, #22), Cursor desync (1 HIGH - Issue #16), Display controller (1 LOW), Git prompt (1 MEDIUM), Tab handling (1 LOW), Syntax highlighting (2 MEDIUM), category disambiguation (1 MEDIUM), Extra space after prompt (1 LOW - Issue #23)
 - 🚫 **MERGE BLOCKED** - Issues #20 and #21 must be resolved before merge (user choice principle violations)
 - ✅ **Issue #17 Fixed** - Command-aware directory completion for cd/rmdir (Session 53, 2025-12-21)
 - ℹ️ **Issue #18 Clarified** - pushd/popd are bash extensions, not POSIX; not implemented in lusush (future work)
@@ -37,6 +37,69 @@
 ---
 
 ## Active Issues
+
+### Issue #23: Extra Space Between Prompt and Cursor
+**Severity**: LOW  
+**Discovered**: 2025-12-25 (Session 66 - manual testing)  
+**Status**: Fix identified but reverted - blocked by Issue #16  
+**Component**: src/display/composition_engine.c, src/display/screen_buffer.c  
+
+**Description**:
+There are two spaces between the `$` at the end of the prompt theme and where the cursor is located / command input starts. There should only be one space.
+
+**Example**:
+```bash
+[mberry@fedora-xps13.local] ~/Lab/c/lusush (feature/lle *) $  |
+                                                            ^^ two spaces instead of one
+```
+
+**Root Cause**:
+The composition engine in `compose_simple_strategy()` and `compose_multiline_strategy()` checks if the prompt ends with a space before adding one between prompt and command. However, themed prompts end with ANSI escape sequences like `$ \001\033[0m\002`, so a naive check of `prompt_content[prompt_len - 1] != ' '` fails - it sees the escape sequence terminator, not the space.
+
+**Fix Approach (Documented for Future Implementation)**:
+A fix was implemented in Session 66 but reverted because it was intertwined with other changes that caused Issue #16 to worsen. The fix approach that worked:
+
+1. **Add utility function to screen_buffer.c**:
+   ```c
+   bool screen_buffer_ends_with_visible_space(const char *text, size_t length);
+   ```
+   This function scans forward through the text, skipping:
+   - Readline escape markers (`\001` and `\002`)
+   - ANSI escape sequences (ESC followed by CSI sequence ending in letter)
+   
+   It tracks the last visible grapheme cluster using LLE's TR#29 support:
+   - `lle_utf8_sequence_length()` for UTF-8 byte length
+   - `lle_is_grapheme_boundary()` for proper grapheme cluster detection
+   - `lle_utf8_decode_codepoint()` to get the base codepoint
+   
+   Returns true if the last visible codepoint is U+0020 (space).
+
+2. **Update composition_engine.c**:
+   Replace the naive check in both `compose_simple_strategy()` and `compose_multiline_strategy()`:
+   ```c
+   // OLD (broken):
+   if (prompt_content[prompt_len - 1] != ' ') {
+       output[written++] = ' ';
+   }
+   
+   // NEW (correct):
+   if (!screen_buffer_ends_with_visible_space(prompt_content, prompt_len)) {
+       output[written++] = ' ';
+   }
+   ```
+
+**Why Fix Was Reverted**:
+The fix was committed alongside other changes attempting to fix Issue #16. When Issue #16 proved to have a deeper root cause (stale git prompt data), all Session 66 commits were reverted to restore a known working state. The extra space fix itself worked correctly but should be re-implemented AFTER Issue #16 is properly fixed.
+
+**Priority**: LOW (cosmetic, does not affect functionality)
+
+**Dependencies**:
+- Should be re-implemented AFTER Issue #16 is fixed
+- Must use LLE's TR#29 grapheme cluster support, not byte-level string operations
+
+**Status**: DOCUMENTED - Fix approach known, blocked by Issue #16
+
+---
 
 ### Issue #20: Theme System Overwrites User PS1/PS2 Customization
 **Severity**: HIGH  
@@ -272,83 +335,95 @@ The `pushd` and `popd` commands are not implemented in lusush. They are highligh
 
 ---
 
-### Issue #16: Intermittent Prompt/Cursor Desync Display Corruption
-**Severity**: MEDIUM  
+### Issue #16: Prompt/Cursor Desync Display Corruption (CRITICAL ROOT CAUSE IDENTIFIED)
+**Severity**: HIGH (upgraded from MEDIUM - root cause now understood)  
 **Discovered**: 2025-12-17 (Session 52 - manual testing)  
-**Status**: Not yet fixed - intermittent, hard to reproduce  
-**Component**: Display system / cursor synchronization  
+**Updated**: 2025-12-25 (Session 66 - root cause analysis)  
+**Status**: Root cause identified - requires architectural fix  
+**Component**: Display system / prompt layer / git prompt caching  
 
 **Description**:
-Intermittent display corruption where the prompt and cursor position become desynchronized. The prompt may be partially overwritten or truncated, and typed input may appear in unexpected positions. This bug is sporadic and difficult to reproduce consistently.
+Display corruption where the prompt and cursor position become desynchronized. The prompt may be partially overwritten or truncated, and typed input appears in unexpected positions. **This is now understood to be a symptom of stale prompt content not being refreshed when the prompt should change.**
 
-**Reproduction** (intermittent):
-The bug was observed after a sequence of commands including `cd /tmp`, `pwd`, then `cd -`. The exact trigger is unknown. Example corrupted output:
+**Root Cause Identified (2025-12-25)**:
+The core issue is that **git prompt information is not being refreshed between readline sessions**. When the user changes directories (e.g., `cd /tmp` from a git repo), the prompt layer continues to display stale git branch/status info from the previous directory. This causes:
+
+1. **Prompt width mismatch**: LLE calculates cursor positions based on what it thinks the prompt width is, but the displayed prompt has different content/width than what LLE expects
+2. **Cursor desync**: When LLE clears "from cursor to end of line", it uses the wrong position because the prompt boundary is incorrect
+3. **Command overlay**: Typed commands appear to overlay the prompt because LLE thinks the command starts at position X, but the actual prompt ends at position Y
+
+**Evidence (Session 66 Testing)**:
 ```bash
-[mberry@fedora-xps13.local] /tmp (fcd -
-/home/mberry/Lab/c/lusush
+# Start in git repo
+[mberry@fedora-xps13.local] ~/Lab/c/lusush (feature/lle ↑1) $ cd /tmp/unicode_test
+
+# BUG: Git info still shown even though /tmp is NOT a git repo!
+[mberry@fedora-xps13.local] /tmp (feature/lle ↑1) $ 
+
+# Type "cd" and the desync becomes visible:
+[mberry@fedora-xps13.local] /tmp (fcd /tmp
+                                  ^^^^^^^^ command overlays where git info was
+
+# The "/tmp" shown is autosuggestion ghost text, proving LLE is confused
+# about where the prompt ends and command begins
 ```
 
-Instead of expected:
+**Why Previous Fix Attempts Failed**:
+Session 66 attempted several fixes that all failed or introduced new bugs:
+1. **prompt_layer.c change** (bb20f7b): Stopped regenerating prompt to fix width desync during editing, but this made the stale prompt problem worse
+2. **command_layer_clear** (2c084b9): Cleared command text on reset, but didn't address the root prompt caching issue
+3. **prompt_layer_force_render**: Attempted to force fresh prompt, but the prompt content itself was already stale before reaching the layer
+
+**The Real Problem**:
+The prompt string passed to `lle_readline()` is generated ONCE at the start of each readline session. However:
+- The git prompt info is computed when `build_prompt()` / `theme_generate_primary_prompt()` is called
+- This prompt string is then cached/reused throughout the session
+- When the directory changes, the NEXT readline session should get a fresh prompt
+- But somewhere in the flow, stale prompt data persists
+
+**Reproduction Steps** (now reliable):
 ```bash
-[mberry@fedora-xps13.local] /tmp (feature/lle +*) $ cd -
-/home/mberry/Lab/c/lusush
-[mberry@fedora-xps13.local] ~/Lab/c/lusush (feature/lle +*) $
+LLE_ENABLED=1 ./builddir/lusush
+cd /tmp           # Change to non-git directory
+# Observe: git info still appears in prompt
+# Type any command - cursor position will be wrong
 ```
 
-The prompt `(feature/lle +*) $` was truncated to `(f` and the command `cd -` merged into the prompt line.
-
-**Additional Reproduction Notes** (2025-12-22):
-- Bug appears more consistently reproducible when cd'ing into `/tmp` directory on Fedora Linux
-- Fedora uses swap on zram which may affect timing/memory behavior
-- Example reproduction on Fedora:
-  ```bash
-  $ cd /tmp/unicode_test
-  [mberry@fedora-xps13.local] /tmp (fcd /tmp
-  ```
-  The display shows `fcd /tmp` overlaid on the prompt area after the `cd` command completes.
-- May be related to directory changes that significantly alter prompt length (path component changes)
-
-**Additional Symptom Observed**:
-When first typing "ec" to test autosuggestions, the 'c' character was not displayed although the cursor moved. Backspacing and retyping displayed correctly. Could not reproduce.
-
-**Suspected Root Cause**:
-LLE's display architecture draws the prompt once, then clears from cursor position to end-of-screen for redraws. If the cursor position tracked internally by LLE becomes desynchronized from the actual terminal cursor position, subsequent redraws will clear/write from the wrong position, causing corruption.
-
-Possible triggers:
-- Directory changes that affect prompt length (git branch, path changes)
-- Commands with output that may affect terminal state
-- Rapid typing sequences
-- Terminal resize events (not confirmed)
-
-**Related Issues**:
-- This may be related to previously "fixed" cursor sync issues (#9, #10, #12)
-- Similar symptoms to issues that were addressed in Sessions 25-26
+**Related Symptoms**:
+- Extra space after prompt (may be separate issue or related)
+- Autosuggestion ghost text not clearing properly
+- Previous command text appearing in new prompt (symptom of same root cause)
 
 **Impact**:
-- Display corruption requires user to press Ctrl+L or Enter to recover
-- Affects usability when it occurs
-- Unpredictable occurrence makes debugging difficult
+- HIGH: Affects basic shell usability
+- Display corruption on common operations (cd)
+- Requires Ctrl+L or Enter to recover
 
 **Workaround**:
-- Press Ctrl+L to clear screen and redraw
+- Press Ctrl+L to clear screen and force full redraw
 - Press Enter to get a fresh prompt
 
-**Priority**: MEDIUM (intermittent, has workaround, but affects UX)
+**Priority**: HIGH (blocks normal usage, root cause now understood)
 
 **Investigation Needed**:
-1. Add debug logging to track cursor position assumptions vs actual terminal state
-2. Instrument prompt rendering to log when prompt length changes
-3. Check if git prompt length changes correlate with corruption
-4. Review cursor_manager synchronization with display_controller
-5. Test with various terminal emulators to see if issue is terminal-specific
+1. Trace the prompt generation flow from `lusush_readline_with_prompt()` through to `prompt_layer_set_content()`
+2. Identify where stale prompt data is persisting between readline sessions
+3. Ensure `build_prompt()` is called fresh for each new readline session
+4. Verify git status commands are executed for each new prompt
+5. Check if prompt_layer, composition_engine, or display_controller caches are not being invalidated
 
 **Files Likely Involved**:
-- `src/display/display_controller.c` - Cursor positioning logic
-- `src/lle/lle_readline.c` - Main loop cursor management
-- `src/display/screen_buffer.c` - Screen state tracking
-- `src/lle/cursor_manager.c` - Cursor position tracking
+- `src/readline_integration.c` - `lusush_generate_prompt()` flow
+- `src/readline_stubs.c` - `lusush_readline_with_prompt()` 
+- `src/prompt.c` - `build_prompt()`, git status integration
+- `src/display/prompt_layer.c` - Prompt caching
+- `src/display/composition_engine.c` - Composition caching
+- `src/display/display_controller.c` - Display state reset
 
-**Status**: DOCUMENTED - Needs investigation, hard to reproduce
+**Architectural Note**:
+The fix requires ensuring that prompt content is ALWAYS freshly generated for each new readline session, and that all display layers are properly reset/invalidated when a new prompt is set. Quick fixes to individual layers have proven to cause cascading issues.
+
+**Status**: ROOT CAUSE IDENTIFIED - Requires careful architectural fix
 
 ---
 
@@ -1280,28 +1355,34 @@ To prevent future issues:
 
 ## Current Status
 
-**Active Issues**: 10  
+**Active Issues**: 11  
 **Merge Blockers**: 2 (Issues #20, #21 - theme system violates user choice principles)  
-**High Priority**: 3 (Issues #20, #21, #22 - theme/prompt system architectural problems)  
-**Medium Priority**: 5 (Issues #5, #6 - syntax highlighting; #7 - category disambiguation; #14 - git prompt; #16 - cursor desync)  
-**Low Priority**: 2 (Issue #8 - menu display format; #19 - editor terminal display controller)  
-**Fixed This Session (2025-12-21)**: Legacy PROMPT_STYLE dead code removed, adaptive terminal detection integrated
+**High Priority**: 4 (Issues #16 - cursor desync/stale prompt; #20, #21, #22 - theme/prompt system)  
+**Medium Priority**: 4 (Issues #5, #6 - syntax highlighting; #7 - category disambiguation; #14 - git prompt)  
+**Low Priority**: 3 (Issue #8 - menu display format; #19 - editor terminal display controller; #23 - extra space after prompt)  
+**Session 66 (2025-12-25)**: Root cause identified for Issue #16, reverted failed fix attempts, documented Issue #23 fix approach
 **Implementation Status**: Spec 12 v2 completion integrated, menu fully functional  
 
 **Pre-Merge Requirements (BLOCKING)**:
 1. **Issue #20**: Theme system must respect user PS1/PS2 customization
 2. **Issue #21**: Theme system must be user-extensible (config file themes, not hardcoded C)
 
+**Critical Path**:
+1. **Issue #16 FIRST**: Fix stale git prompt / cursor desync (root cause now understood)
+2. **Issue #23**: Re-implement extra space fix AFTER Issue #16 is resolved
+3. **Issues #20, #21**: Theme system architectural work
+
 **Next Action**: 
+- (HIGH) Fix Issue #16 - trace prompt generation flow, ensure fresh prompt each readline session
 - (BLOCKING) Design and implement user choice for prompt system
 - (BLOCKING) Implement theme file loading from user directories
-- (Future) Investigate cursor desync issue #16 (intermittent, hard to reproduce)
+- (Future) Re-implement Issue #23 fix (extra space) after #16 is fixed
 - (Future) Fix git-aware prompt (Issue #14)
 - (Future) Category disambiguation for completion conflicts
 - (Future) Multi-column menu display investigation
 
 ---
 
-**Last Updated**: 2025-12-21  
+**Last Updated**: 2025-12-25  
 **Next Review**: Before each commit, after each bug discovery  
 **Maintainer**: Update this file whenever bugs are discovered - NO EXCEPTIONS

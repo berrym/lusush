@@ -1,7 +1,7 @@
-# AI Assistant Handoff Document - Session 65
+# AI Assistant Handoff Document - Session 66
 
 **Date**: 2025-12-25  
-**Session Type**: Codebase clang-format & Syntax Highlighting Bug Fix  
+**Session Type**: Bug Investigation & Root Cause Analysis  
 **Status**: MERGE BLOCKED - Theme/prompt system violates user choice principles (Issues #20, #21)  
 **Branch**: `feature/lle`
 
@@ -28,6 +28,64 @@
 | 9 | Include Path Standardization | LOW | **COMPLETE** |
 | 10 | Unused Include Cleanup | LOW | **COMPLETE** |
 | 11 | Codebase clang-format | LOW | **COMPLETE** |
+
+### Session 66 Accomplishments
+
+1. **Bug Investigation - Issue #16 Root Cause Identified**:
+   During testing of previous session's changes, discovered that multiple display bugs 
+   (cursor desync, stale prompt content, previous command appearing in new prompt) all 
+   stem from a single root cause: **git prompt information not being refreshed between 
+   readline sessions**.
+
+   **Key Observation**: After `cd /tmp` (a non-git directory), the prompt still showed
+   `(feature/lle *)` git branch/status from the previous directory. This stale git info
+   causes prompt width calculations to be wrong, leading to all the cursor and display
+   issues we've been seeing.
+
+2. **Fix Attempts (Reverted)**:
+   Made several fix attempts that were ultimately reverted:
+   - Added `command_layer_clear()` to `dc_reset_prompt_display_state()` - seemed to work
+     initially but revealed deeper stale git info problem
+   - Added `prompt_layer_force_render()` - made things worse, shell had to be force killed
+   - Added `screen_buffer_ends_with_visible_space()` for Issue #23 extra space fix
+   
+   **Lesson Learned**: Quick fixes to individual display layers cause cascading issues.
+   The problem is in the prompt GENERATION flow (git info not refreshed), not just the
+   display layer clearing.
+
+3. **Reverted All Session Commits**:
+   Rolled back to commit 89f1f22 (Session 65's syntax highlighting fix) using:
+   ```
+   git reset --hard 89f1f22
+   ```
+   
+   **Reverted commits**:
+   - bb20f7b - prompt width desync fix attempt
+   - 7702bf4 - extra space fix (Issue #23)
+   - 2c084b9 - Issue #24 command layer clear fix
+
+4. **Documentation Updates**:
+   - **Issue #16**: Elevated to HIGH priority, added detailed root cause analysis identifying
+     stale git prompt info as the core problem. All other bugs (cursor desync, stale prompt,
+     command overlay) are symptoms of this one root cause.
+   - **Issue #23**: Added new issue documenting the extra space after prompt bug, with the
+     fix approach preserved for future reimplementation:
+     ```c
+     // Add to screen_buffer.c:
+     bool screen_buffer_ends_with_visible_space(const char *text, size_t length);
+     
+     // Update composition_engine.c:
+     if (!screen_buffer_ends_with_visible_space(prompt_content, prompt_len)) {
+         output[written++] = ' ';
+     }
+     ```
+   - Issue #24 and #25 removed (they were symptoms of Issue #16)
+
+5. **Current State**:
+   - Branch is stable at commit 89f1f22
+   - All cleanup phases complete
+   - Issue #16 now properly documented with root cause for future fix
+   - Issue #23 documented with fix approach for reimplementation after #16 is resolved
 
 ### Session 65 Accomplishments
 
