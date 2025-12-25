@@ -25,7 +25,6 @@
 #include "lle/error_handling.h"
 #include "lle/history.h"
 #include "lle/memory_management.h"
-#include "lusush.h"
 #include <ctype.h>
 #include <errno.h>
 #include <inttypes.h>

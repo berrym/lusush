@@ -16,7 +16,6 @@
  */
 
 #include "lle/terminal_abstraction.h"
-#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 

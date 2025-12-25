@@ -35,7 +35,6 @@
 #endif
 
 #include "node.h"
-#include "version.h"
 
 #include <fcntl.h>
 #include <glob.h>

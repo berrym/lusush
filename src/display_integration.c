@@ -47,7 +47,6 @@
 #include "readline_integration.h"
 #include "prompt.h"
 #include "themes.h"
-#include "lusush.h"
 #include "config.h"
 #include "lusush_memory_pool.h"
 #include "init.h"
@@ -57,7 +56,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include <errno.h>
 #include <unistd.h>
 #include <libgen.h>
 #include <sys/time.h>

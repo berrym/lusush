@@ -32,7 +32,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdbool.h>
-#include <errno.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <time.h>
@@ -46,16 +45,11 @@
 #include "ht.h"
 #include "lusush.h"
 #include "prompt.h"
-#include "themes.h"
 #include "completion.h"
 #include "config.h"
 #include "symtable.h"
 #include "lle/lle_readline.h"
-#include "posix_history.h"
-
-#include "lusush.h"
 #include "init.h"
-#include "input.h"
 
 // Forward declarations
 bool is_emacs_mode_enabled(void);

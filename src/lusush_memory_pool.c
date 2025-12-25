@@ -24,7 +24,6 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <inttypes.h>
-#include <errno.h>
 #include <pthread.h>
 #include <assert.h>
 

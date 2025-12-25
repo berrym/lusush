@@ -25,7 +25,6 @@
 
 #include "lle/error_handling.h"
 #include "lle/history.h"
-#include "lle/performance.h"
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdio.h>

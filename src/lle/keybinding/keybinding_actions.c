@@ -11,8 +11,6 @@
 
 #include "lle/keybinding_actions.h"
 #include "config.h" /* For lle_dedup_navigation config option */
-#include "display/command_layer.h"
-#include "display/composition_engine.h"
 #include "display_controller.h"
 #include "display_integration.h"
 #include "lle/buffer_management.h"

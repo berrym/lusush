@@ -65,7 +65,6 @@ static symbol_compatibility_t current_symbol_mode = SYMBOL_MODE_AUTO;
 static bool symbol_system_initialized = false;
 static bool terminal_supports_unicode = false;
 
-#include <ctype.h>
 #include <dirent.h>
 #include <limits.h>
 #include <pwd.h>

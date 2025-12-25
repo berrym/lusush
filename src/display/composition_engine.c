@@ -42,14 +42,12 @@
 #include "display/continuation_prompt_layer.h"
 #include "display/screen_buffer.h"
 #include "display/base_terminal.h"
-#include "display/terminal_control.h"
 #include "display_integration.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <errno.h>
 #include <sys/time.h>
 #include <ctype.h>
 

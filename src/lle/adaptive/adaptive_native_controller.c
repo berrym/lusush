@@ -19,7 +19,6 @@
 #include "lle/adaptive_terminal_integration.h"
 #include "lle/error_handling.h"
 #include "lle/memory_management.h"
-#include "lle/terminal_abstraction.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

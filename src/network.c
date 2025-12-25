@@ -12,11 +12,9 @@
 #include "network.h"
 
 #include "config.h"
-#include "lusush.h"
 
 #include <ctype.h>
 #include <dirent.h>
-#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

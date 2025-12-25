@@ -31,8 +31,8 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #else
-/* Stub type definitions when readline is disabled */
-typedef int (*rl_command_func_t)(int, int);
+/* Stub type definitions when readline is disabled - matches readline's signature */
+typedef int rl_command_func_t(int, int);
 #endif
 
 #ifdef __cplusplus

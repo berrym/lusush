@@ -55,7 +55,6 @@
  */
 
 #include "config.h" /* For config_values_t and history config options */
-#include "display/autosuggestions_layer.h" /* For AUTOSUGGESTIONS_LAYER_MAX_SUGGESTION_LENGTH */
 #include "display/display_controller.h"
 #include "display/prompt_layer.h"
 #include "display_integration.h" /* Lusush display integration */
@@ -72,7 +71,6 @@
 #include "lle/memory_management.h"
 #include "lle/terminal_abstraction.h"
 #include "lle/unicode_compare.h" /* TR#29 compliant Unicode prefix matching */
-#include "lle/utf8_support.h"    /* UTF-8 support for proper character deletion */
 #include "lle/widget_hooks.h"    /* Widget hooks for lifecycle events */
 #include "signals.h"             /* For SIGINT flag coordination with LLE */
 
