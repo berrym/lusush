@@ -111,10 +111,24 @@ static const char *shell_keywords[] = {
     "done",   "while", "until", "case", "esac", "select", "function", "time",
     "coproc", "!",     "{",     "}",    "[[",   "]]",     NULL};
 
+/* Keywords that END blocks - these don't expect a command after them */
+static const char *block_ending_keywords[] = {"fi", "done", "esac", "}", "]]",
+                                              NULL};
+
 static bool is_shell_keyword(const char *word, size_t len) {
     for (int i = 0; shell_keywords[i]; i++) {
         if (strlen(shell_keywords[i]) == len &&
             strncmp(word, shell_keywords[i], len) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool is_block_ending_keyword(const char *word, size_t len) {
+    for (int i = 0; block_ending_keywords[i]; i++) {
+        if (strlen(block_ending_keywords[i]) == len &&
+            strncmp(word, block_ending_keywords[i], len) == 0) {
             return true;
         }
     }
@@ -304,6 +318,14 @@ int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
         pos = skip_whitespace(input, pos, input_len);
         if (pos > ws_start) {
             add_token(highlighter, LLE_TOKEN_WHITESPACE, ws_start, pos);
+            /* Check if whitespace contained a newline - new line = new command
+             */
+            for (size_t i = ws_start; i < pos; i++) {
+                if (input[i] == '\n') {
+                    expect_command = true;
+                    break;
+                }
+            }
         }
         if (pos >= input_len)
             break;
@@ -521,8 +543,13 @@ int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
 
                 if (is_shell_keyword(input + token_start, word_len)) {
                     type = LLE_TOKEN_KEYWORD;
-                    /* Keywords like 'if', 'for' expect command after them */
-                    expect_command = true;
+                    /* Block-ending keywords (done, fi, esac, etc.) don't expect
+                       a command after them. Block-starting keywords do. */
+                    if (is_block_ending_keyword(input + token_start, word_len)) {
+                        expect_command = false;
+                    } else {
+                        expect_command = true;
+                    }
                 } else if (highlighter->validate_commands) {
                     type = lle_syntax_check_command(highlighter, word);
                     expect_command = false;

@@ -1,7 +1,7 @@
 # AI Assistant Handoff Document - Session 65
 
-**Date**: 2025-12-24  
-**Session Type**: Codebase-wide clang-format  
+**Date**: 2025-12-25  
+**Session Type**: Codebase clang-format & Syntax Highlighting Bug Fix  
 **Status**: MERGE BLOCKED - Theme/prompt system violates user choice principles (Issues #20, #21)  
 **Branch**: `feature/lle`
 
@@ -45,10 +45,48 @@
    - Wrapped critical includes with `// clang-format off` / `// clang-format on`
    - This prevents future clang-format runs from breaking the build
 
-3. **Build Verification**:
+3. **Fixed block-ending keyword syntax highlighting in multiline input**:
+   Keywords like `done`, `fi`, `esac` were not being highlighted correctly when
+   typed on continuation lines in while/for/if blocks.
+   
+   **Root cause**: Two issues in `src/lle/display/syntax_highlighting.c`:
+   - All keywords set `expect_command = true`, but block-ending keywords don't
+     expect a command after them
+   - Newlines in whitespace didn't reset `expect_command`, so words on continuation
+     lines weren't recognized as being in command position
+   
+   **Fix applied**:
+   - Added `is_block_ending_keyword()` helper to identify `done`, `fi`, `esac`, `}`, `]]`
+   - Block-ending keywords now set `expect_command = false`
+   - Newlines in whitespace now reset `expect_command = true`
+
+4. **Build Verification**:
    - 0 errors, 0 warnings
    - All 51 tests pass
    - Re-ran clang-format to verify guards work correctly
+
+### New Bug Discovered: Prompt Width Desync (Related to Issue #16)
+
+During testing, discovered that backspace can stop working correctly when the git
+status changes during editing. The prompt boundary calculation appears to use the
+*new* prompt width (with git dirty marker `*`) while still displaying the *old*
+prompt (without dirty marker). This causes backspace to think it has reached the
+prompt boundary earlier than it should.
+
+**Example reproduction**:
+```
+[mberry@fedora-xps13.local] ~/Lab/c/lusush (feature/lle) $ do
+                                                            ^^ tried to backspace 'done' to nothing
+[mberry@fedora-xps13.local] ~/Lab/c/lusush (feature/lle *) $ if true; then
+```
+
+The first prompt has no `*`, but after file changes, the git status shows dirty.
+When backspacing, the shell uses the new (longer) prompt width, stopping backspace
+prematurely.
+
+**Related**: Issue #16 in `docs/lle_implementation/tracking/KNOWN_ISSUES.md`
+describes similar prompt/cursor desync issues. The git prompt info changing may be
+a common root cause.
 
 ### Session 64 Accomplishments
 
