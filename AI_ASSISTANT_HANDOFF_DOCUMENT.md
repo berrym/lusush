@@ -1,8 +1,8 @@
-# AI Assistant Handoff Document - Session 68
+# AI Assistant Handoff Document - Session 69
 
 **Date**: 2025-12-26  
 **Session Type**: LLE Implementation - Spec 25 Prompt/Theme System  
-**Status**: IMPLEMENTING - Template engine and async worker integration  
+**Status**: IMPLEMENTING - Segment system and template engine complete  
 **Branch**: `feature/lle`
 
 ---
@@ -14,82 +14,78 @@ generation with segment-based composition, template engine, and async data provi
 
 **Reference Document**: `docs/lle_specification/LLE_IMPLEMENTATION_STATUS_AND_ROADMAP.md`
 
-### Session 68 Accomplishments
+### Session 69 Accomplishments
 
-1. **Integrated Async Worker with Prompt System**:
-   Connected the async worker infrastructure to the prompt system for non-blocking
-   git status fetching.
-
-   **Changes to `src/prompt.c`**:
-   - Added async worker state variables and mutex
-   - Implemented `git_async_completion()` callback
-   - Added `prompt_async_init()`, `prompt_async_cleanup()`, `prompt_async_refresh_git()`
-
-   **Changes to `include/prompt.h`**:
-   - Added async git status function declarations
-
-   **Changes to `src/init.c`**:
-   - Call `prompt_async_init()` during shell initialization
-   - Register `prompt_async_cleanup()` in atexit handlers
-
-   **Changes to `src/builtins/builtins.c`**:
-   - Added `prompt_async_refresh_git()` call in `bin_cd()` after cache invalidation
-
-2. **Implemented Spec 25 Template Engine**:
-   Created the template parsing and rendering infrastructure per Spec 25 Section 6.
+1. **Implemented Spec 25 Segment System**:
+   Created the segment registry and built-in segments per Spec 25 Section 5.
 
    **New Files**:
-   - `include/lle/prompt/template.h` - Template engine API and types
-   - `src/lle/prompt/template_engine.c` - Parser and renderer implementation
-   - `tests/lle/unit/test_template_engine.c` - 28 unit tests
+   - `include/lle/prompt/segment.h` - Segment system API and types
+   - `src/lle/prompt/segment.c` - Registry and 8 built-in segments
+   - `tests/lle/unit/test_segment_system.c` - 25 unit tests
 
-   **Template Syntax Supported**:
-   ```
-   ${segment}              - Render segment (e.g., ${directory}, ${git})
-   ${segment.property}     - Access segment property (e.g., ${git.branch})
-   ${?segment:true:false}  - Conditional based on segment visibility
-   ${?segment.prop:t:f}    - Conditional on property existence
-   ${color:text}           - Apply theme color to text
-   \n                      - Literal newline
-   \\                      - Escaped backslash
-   \$                      - Escaped dollar sign
-   ```
+   **Built-in Segments**:
+   - `directory` - Current working directory with home abbreviation
+   - `user` - Current username
+   - `host` - Hostname
+   - `time` - Current time (HH:MM:SS format)
+   - `status` - Last command exit status
+   - `jobs` - Background job count
+   - `symbol` - Prompt symbol (# for root, $ for user)
+   - `git` - Git repository status (branch, staged, unstaged, ahead/behind)
 
-   **Token Types**:
-   - `LLE_TOKEN_LITERAL` - Plain text
-   - `LLE_TOKEN_SEGMENT` - Segment reference
-   - `LLE_TOKEN_PROPERTY` - Segment property access
-   - `LLE_TOKEN_CONDITIONAL` - Conditional rendering
-   - `LLE_TOKEN_COLOR` - Color application
-   - `LLE_TOKEN_NEWLINE` - Newline character
-   - `LLE_TOKEN_END` - End of template
-
-   **API**:
+   **Segment API**:
    ```c
-   // Parse template string into token list
-   lle_result_t lle_template_parse(const char *template_str,
-                                    lle_parsed_template_t **parsed);
+   // Segment registry
+   lle_result_t lle_segment_registry_init(lle_segment_registry_t *registry);
+   void lle_segment_registry_cleanup(lle_segment_registry_t *registry);
+   lle_result_t lle_segment_registry_register(lle_segment_registry_t *registry,
+                                               lle_prompt_segment_t *segment);
+   lle_prompt_segment_t *lle_segment_registry_find(
+       const lle_segment_registry_t *registry, const char *name);
 
-   // Render parsed template using callbacks
-   lle_result_t lle_template_render(const lle_parsed_template_t *tmpl,
-                                     const lle_template_render_ctx_t *ctx,
-                                     char *output, size_t output_size);
+   // Prompt context
+   lle_result_t lle_prompt_context_init(lle_prompt_context_t *ctx);
+   lle_result_t lle_prompt_context_update(lle_prompt_context_t *ctx);
 
-   // Convenience: parse, render, and free in one call
-   lle_result_t lle_template_evaluate(const char *template_str,
-                                       const lle_template_render_ctx_t *ctx,
-                                       char *output, size_t output_size);
+   // Segment creation
+   lle_prompt_segment_t *lle_segment_create(const char *name,
+                                             lle_segment_type_t type);
+   void lle_segment_free(lle_prompt_segment_t *segment);
    ```
 
-3. **Template Engine Unit Tests**:
-   28 tests covering all template functionality:
-   - Token creation (7 tests)
-   - Template parsing (12 tests)
-   - Template rendering (9 tests)
+   **Segment Output Structure**:
+   ```c
+   typedef struct lle_segment_output {
+       char content[LLE_SEGMENT_CONTENT_MAX];
+       size_t content_len;
+       size_t visual_width;        // Proper UTF-8 width calculation
+       bool is_empty;
+       bool needs_separator;
+       lle_segment_style_t style;
+   } lle_segment_output_t;
+   ```
 
-4. **Build and Test Verification**:
+2. **Added Segment System Unit Tests**:
+   25 tests covering all segment functionality:
+   - Registry operations (5 tests)
+   - Prompt context (4 tests)
+   - Directory segment (4 tests)
+   - User/Host/Time segments (4 tests)
+   - Status/Jobs/Symbol segments (4 tests)
+   - Git segment (4 tests)
+
+3. **Updated Async Worker Documentation**:
+   Added proper doxygen-style comments to `src/lle/core/async_worker.c`
+   to match LLE coding standards (`@file`, `@brief`, `@param`, `@return`).
+
+4. **Fixed Code Quality Issues**:
+   - Replaced "Simplified" comments with proper UTF-8 width calculation
+   - Used `lle_utf8_string_width()` for accurate visual width
+
+5. **Build and Test Verification**:
    - Build: 0 errors, 0 warnings
-   - All 53 tests pass
+   - All 54 tests pass
 
 ### Current Todo List
 
@@ -102,39 +98,45 @@ generation with segment-based composition, template engine, and async data provi
 | Integrate async worker with prompt system | **COMPLETE** |
 | Implement Spec 25 template engine | **COMPLETE** |
 | Add template engine unit tests | **COMPLETE** |
-| Create Spec 25 segment system | **PENDING** |
+| Create Spec 25 segment system | **COMPLETE** |
+| Add segment system unit tests | **COMPLETE** |
+| Create compliance tests for segment system | **PENDING** |
+| Implement Theme Registry | **PENDING** |
 
 ### Next Steps
 
-1. **Implement Segment System**: Create segment registry and built-in segments
-   (directory, git, user, host, time, etc.) per Spec 25 Section 5.
+1. **Create Segment Compliance Tests**: Add compliance tests for segment system
+   to verify Spec 25 Section 5 adherence.
 
 2. **Implement Theme Registry**: Create theme registration, lookup, and inheritance
    per Spec 25 Section 4.
 
-3. **Integrate Template Engine with Theme System**: Connect the new template engine
-   to the existing theme system for prompt generation.
+3. **Integrate Template Engine with Segment System**: Connect template rendering
+   to use segments for prompt generation.
+
+4. **Address Merge Blockers**: Fix Issue #20 (PS1/PS2 overwrites) and Issue #21
+   (non-extensible themes).
 
 ---
 
 ## PREVIOUS SESSION CONTEXT
 
+### Session 68 Summary
+
+1. **Integrated Async Worker with Prompt System**:
+   Connected async worker for non-blocking git status fetching.
+
+2. **Implemented Spec 25 Template Engine**:
+   Created template parsing and rendering per Spec 25 Section 6.
+   - Parser for `${segment}`, `${segment.property}`, conditionals, colors
+   - 28 unit tests
+
 ### Session 67 Summary
 
-1. **Created Implementation Roadmap Document**:
-   Comprehensive analysis at `docs/lle_specification/LLE_IMPLEMENTATION_STATUS_AND_ROADMAP.md`
-
-2. **Added Shell Lifecycle Events**:
-   - `LLE_EVENT_DIRECTORY_CHANGED`, `LLE_EVENT_PRE_COMMAND`, etc.
-   - Convenience functions: `lle_event_fire_directory_changed()`, etc.
-
-3. **Fixed Issue #16 - Stale Git Prompt**:
-   - Added `prompt_cache_invalidate()` call in `bin_cd()`
-   - Git info now refreshes when changing directories
-
-4. **Created Async Worker Infrastructure**:
-   - pthread-based worker thread with request queue
-   - Git status provider for branch, staged, unstaged, ahead/behind
+1. **Created Implementation Roadmap Document**
+2. **Added Shell Lifecycle Events**
+3. **Fixed Issue #16 - Stale Git Prompt**
+4. **Created Async Worker Infrastructure**
 
 ---
 
@@ -143,6 +145,16 @@ generation with segment-based composition, template engine, and async data provi
 - **Implementation Roadmap**: `docs/lle_specification/LLE_IMPLEMENTATION_STATUS_AND_ROADMAP.md`
 - **Spec 25 Complete**: `docs/lle_specification/25_prompt_theme_system_complete.md`
 - **Known Issues**: `docs/lle_implementation/tracking/KNOWN_ISSUES.md`
+
+---
+
+## New Files This Session
+
+```
+include/lle/prompt/segment.h          - Segment system API
+src/lle/prompt/segment.c              - Segment implementation (8 built-in)
+tests/lle/unit/test_segment_system.c  - 25 unit tests
+```
 
 ---
 
@@ -179,6 +191,7 @@ generation with segment-based composition, template engine, and async data provi
 | Shell Lifecycle Events | Working | Directory change, pre/post command |
 | Async Worker | Working | Non-blocking git status |
 | Template Engine | Working | Spec 25 Section 6 |
+| Segment System | Working | Spec 25 Section 5, 8 built-in segments |
 | macOS Compatibility | Working | Verified |
 | Linux Compatibility | Working | Verified |
 
@@ -195,5 +208,5 @@ ninja -C builddir test
 
 # Expected results
 - 0 errors, 0 warnings
-- 53/53 tests pass
+- 54/54 tests pass
 ```

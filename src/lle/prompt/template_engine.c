@@ -1,7 +1,10 @@
 /**
- * LLE Prompt Template Engine Implementation
+ * @file template_engine.c
+ * @brief LLE Prompt Template Engine Implementation
  *
- * Spec 25 Section 6: Template Engine
+ * Specification: Spec 25 Section 6 - Template Engine
+ * Version: 1.0.0
+ *
  * Parses and renders prompt templates with segment references,
  * conditionals, color application, and property access.
  */

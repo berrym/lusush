@@ -1,16 +1,21 @@
 /**
- * LLE Prompt Template Engine
+ * @file template.h
+ * @brief LLE Prompt Template Engine - Type Definitions and Function
+ * Declarations
  *
- * Spec 25 Section 6: Template Engine
- * Provides expressive format strings with segment references,
- * conditionals, color application, and property access.
+ * Specification: Spec 25 Section 6 - Template Engine
+ * Version: 1.0.0
+ *
+ * The template engine provides expressive format strings for prompt generation
+ * with segment references, conditionals, color application, and property
+ * access.
  *
  * Template Syntax:
  *   ${segment}              - Render segment (e.g., ${directory}, ${git})
  *   ${segment.property}     - Access segment property (e.g., ${git.branch})
- *   ${?segment:true:false}  - Conditional: if segment visible, show true, else false
+ *   ${?segment:true:false}  - Conditional: if segment visible, show true
  *   ${?segment.prop:t:f}    - Conditional on property existence
- *   ${color:text}           - Apply theme color to text (e.g., ${primary:hello})
+ *   ${color:text}           - Apply theme color to text
  *   \n                      - Literal newline
  *   \\                      - Escaped backslash
  *   \$                      - Escaped dollar sign
@@ -29,47 +34,68 @@
 extern "C" {
 #endif
 
-/* Maximum sizes */
+/* ============================================================================
+ * CONSTANTS AND MACROS
+ * ============================================================================
+ */
+
+/** @brief Maximum template string length */
 #define LLE_TEMPLATE_MAX           1024
+
+/** @brief Maximum token text length */
 #define LLE_TEMPLATE_TOKEN_MAX     256
+
+/** @brief Maximum segment name length */
 #define LLE_TEMPLATE_SEGMENT_MAX   32
+
+/** @brief Maximum property name length */
 #define LLE_TEMPLATE_PROPERTY_MAX  32
+
+/** @brief Maximum literal text length */
 #define LLE_TEMPLATE_LITERAL_MAX   256
 
+/* ============================================================================
+ * TYPE DEFINITIONS
+ * ============================================================================
+ */
+
 /**
- * Template token types
+ * @brief Template token types
  */
 typedef enum lle_template_token_type {
-    LLE_TOKEN_LITERAL,           /* Plain text */
-    LLE_TOKEN_SEGMENT,           /* ${segment} */
-    LLE_TOKEN_PROPERTY,          /* ${segment.property} */
-    LLE_TOKEN_CONDITIONAL,       /* ${?condition:true:false} */
-    LLE_TOKEN_COLOR,             /* ${color:text} */
-    LLE_TOKEN_NEWLINE,           /* \n */
-    LLE_TOKEN_END                /* End of template */
+    LLE_TOKEN_LITERAL,           /**< Plain text */
+    LLE_TOKEN_SEGMENT,           /**< ${segment} */
+    LLE_TOKEN_PROPERTY,          /**< ${segment.property} */
+    LLE_TOKEN_CONDITIONAL,       /**< ${?condition:true:false} */
+    LLE_TOKEN_COLOR,             /**< ${color:text} */
+    LLE_TOKEN_NEWLINE,           /**< \n */
+    LLE_TOKEN_END                /**< End of template */
 } lle_template_token_type_t;
 
 /**
- * Parsed template token
+ * @brief Parsed template token
+ *
+ * Tokens form a linked list representing the parsed template structure.
  */
 typedef struct lle_template_token {
-    lle_template_token_type_t type;
+    lle_template_token_type_t type;  /**< Token type */
 
+    /** @brief Token data union based on type */
     union {
-        /* Literal text */
+        /** @brief Literal text data */
         struct {
             char text[LLE_TEMPLATE_LITERAL_MAX];
             size_t length;
         } literal;
 
-        /* Segment reference */
+        /** @brief Segment reference data */
         struct {
             char segment_name[LLE_TEMPLATE_SEGMENT_MAX];
             char property_name[LLE_TEMPLATE_PROPERTY_MAX];
             bool has_property;
         } segment;
 
-        /* Conditional */
+        /** @brief Conditional data */
         struct {
             char condition_segment[LLE_TEMPLATE_SEGMENT_MAX];
             char condition_property[LLE_TEMPLATE_PROPERTY_MAX];
@@ -78,72 +104,38 @@ typedef struct lle_template_token {
             bool check_property;
         } conditional;
 
-        /* Color application */
+        /** @brief Color application data */
         struct {
             char color_name[LLE_TEMPLATE_SEGMENT_MAX];
             char text[LLE_TEMPLATE_LITERAL_MAX];
         } color;
     } data;
 
-    struct lle_template_token *next;
+    struct lle_template_token *next;  /**< Next token in list */
 } lle_template_token_t;
 
 /**
- * Parsed template (linked list of tokens)
+ * @brief Parsed template structure
+ *
+ * Contains a linked list of tokens representing the parsed template.
  */
 typedef struct lle_parsed_template {
-    lle_template_token_t *head;
-    lle_template_token_t *tail;
-    size_t token_count;
-    char original[LLE_TEMPLATE_MAX];
-    bool valid;
+    lle_template_token_t *head;           /**< First token */
+    lle_template_token_t *tail;           /**< Last token */
+    size_t token_count;                   /**< Number of tokens */
+    char original[LLE_TEMPLATE_MAX];      /**< Original template string */
+    bool valid;                           /**< Parse succeeded */
 } lle_parsed_template_t;
 
-/**
- * Forward declarations for render context
- */
+/* Forward declarations for render context */
 struct lle_segment_registry;
 struct lle_prompt_context;
 struct lle_theme;
 
-/* ========================================================================== */
-/* Template Parsing API                                                       */
-/* ========================================================================== */
-
 /**
- * Parse a template string into tokens
- *
- * @param template_str  Template string to parse
- * @param parsed        Output: parsed template structure
- * @return LLE_SUCCESS or error code
- */
-lle_result_t lle_template_parse(const char *template_str,
-                                 lle_parsed_template_t **parsed);
-
-/**
- * Free a parsed template and all its tokens
- *
- * @param parsed  Parsed template to free
- */
-void lle_template_free(lle_parsed_template_t *parsed);
-
-/**
- * Validate a template string without full parsing
- *
- * @param template_str  Template string to validate
- * @return true if template appears valid, false otherwise
- */
-bool lle_template_validate(const char *template_str);
-
-/* ========================================================================== */
-/* Template Rendering API                                                     */
-/* ========================================================================== */
-
-/**
- * Segment value provider callback
+ * @brief Segment value provider callback
  *
  * Called by the template renderer to get segment output.
- * Returns the rendered content for a segment, or NULL if segment not found.
  *
  * @param segment_name  Name of the segment to render
  * @param property      Property name (NULL for full segment)
@@ -155,7 +147,7 @@ typedef char *(*lle_template_segment_provider_t)(const char *segment_name,
                                                   void *user_data);
 
 /**
- * Segment visibility check callback
+ * @brief Segment visibility check callback
  *
  * Called by the template renderer to check if a segment is visible.
  *
@@ -169,7 +161,7 @@ typedef bool (*lle_template_segment_visible_t)(const char *segment_name,
                                                 void *user_data);
 
 /**
- * Color provider callback
+ * @brief Color provider callback
  *
  * Called by the template renderer to get ANSI color codes.
  *
@@ -181,20 +173,55 @@ typedef const char *(*lle_template_color_provider_t)(const char *color_name,
                                                       void *user_data);
 
 /**
- * Template render context
+ * @brief Template render context
  *
  * Provides callbacks for segment rendering, visibility checking,
  * and color lookup during template evaluation.
  */
 typedef struct lle_template_render_ctx {
-    lle_template_segment_provider_t get_segment;
-    lle_template_segment_visible_t is_visible;
-    lle_template_color_provider_t get_color;
-    void *user_data;
+    lle_template_segment_provider_t get_segment;  /**< Segment provider */
+    lle_template_segment_visible_t is_visible;    /**< Visibility checker */
+    lle_template_color_provider_t get_color;      /**< Color provider */
+    void *user_data;                              /**< User context */
 } lle_template_render_ctx_t;
 
+/* ============================================================================
+ * TEMPLATE PARSING API
+ * ============================================================================
+ */
+
 /**
- * Render a parsed template to output string
+ * @brief Parse a template string into tokens
+ *
+ * @param template_str  Template string to parse
+ * @param parsed        Output: parsed template structure
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_template_parse(const char *template_str,
+                                 lle_parsed_template_t **parsed);
+
+/**
+ * @brief Free a parsed template and all its tokens
+ *
+ * @param parsed  Parsed template to free
+ */
+void lle_template_free(lle_parsed_template_t *parsed);
+
+/**
+ * @brief Validate a template string without full parsing
+ *
+ * @param template_str  Template string to validate
+ * @return true if template appears valid, false otherwise
+ */
+bool lle_template_validate(const char *template_str);
+
+/* ============================================================================
+ * TEMPLATE RENDERING API
+ * ============================================================================
+ */
+
+/**
+ * @brief Render a parsed template to output string
  *
  * @param tmpl         Parsed template
  * @param render_ctx   Render context with callbacks
@@ -208,7 +235,7 @@ lle_result_t lle_template_render(const lle_parsed_template_t *tmpl,
                                   size_t output_size);
 
 /**
- * Parse and render a template in one call
+ * @brief Parse and render a template in one call
  *
  * Convenience function that parses, renders, and frees the template.
  *
@@ -223,28 +250,46 @@ lle_result_t lle_template_evaluate(const char *template_str,
                                     char *output,
                                     size_t output_size);
 
-/* ========================================================================== */
-/* Token Creation Helpers (Internal)                                          */
-/* ========================================================================== */
+/* ============================================================================
+ * TOKEN CREATION HELPERS (INTERNAL)
+ * ============================================================================
+ */
 
 /**
- * Create a literal token
+ * @brief Create a literal token
+ *
+ * @param text  Literal text
+ * @param len   Text length
+ * @return New token or NULL on error
  */
 lle_template_token_t *lle_template_token_literal(const char *text, size_t len);
 
 /**
- * Create a segment token
+ * @brief Create a segment token
+ *
+ * @param name  Segment name
+ * @return New token or NULL on error
  */
 lle_template_token_t *lle_template_token_segment(const char *name);
 
 /**
- * Create a property token
+ * @brief Create a property token
+ *
+ * @param segment   Segment name
+ * @param property  Property name
+ * @return New token or NULL on error
  */
 lle_template_token_t *lle_template_token_property(const char *segment,
                                                    const char *property);
 
 /**
- * Create a conditional token
+ * @brief Create a conditional token
+ *
+ * @param segment    Condition segment name
+ * @param property   Condition property (NULL for segment visibility)
+ * @param true_val   Value if condition is true
+ * @param false_val  Value if condition is false
+ * @return New token or NULL on error
  */
 lle_template_token_t *lle_template_token_conditional(const char *segment,
                                                       const char *property,
@@ -252,23 +297,33 @@ lle_template_token_t *lle_template_token_conditional(const char *segment,
                                                       const char *false_val);
 
 /**
- * Create a color token
+ * @brief Create a color token
+ *
+ * @param color  Color name
+ * @param text   Text to colorize
+ * @return New token or NULL on error
  */
 lle_template_token_t *lle_template_token_color(const char *color,
                                                 const char *text);
 
 /**
- * Create a newline token
+ * @brief Create a newline token
+ *
+ * @return New token or NULL on error
  */
 lle_template_token_t *lle_template_token_newline(void);
 
 /**
- * Create an end token
+ * @brief Create an end token
+ *
+ * @return New token or NULL on error
  */
 lle_template_token_t *lle_template_token_end(void);
 
 /**
- * Free a single token
+ * @brief Free a single token
+ *
+ * @param token  Token to free
  */
 void lle_template_token_free(lle_template_token_t *token);
 

@@ -20,7 +20,20 @@
  * ============================================================================
  */
 
+/**
+ * @brief Worker thread main function
+ * @param arg Worker context (lle_async_worker_t *)
+ * @return Always NULL
+ */
 static void *lle_async_worker_thread(void *arg);
+
+/**
+ * @brief Get git repository status
+ * @param cwd Working directory
+ * @param timeout_ms Timeout in milliseconds
+ * @param status Output status structure
+ * @return Result code
+ */
 static lle_result_t lle_async_get_git_status(const char *cwd,
                                               uint32_t timeout_ms,
                                               lle_git_status_data_t *status);
@@ -267,6 +280,15 @@ lle_result_t lle_async_worker_get_stats(const lle_async_worker_t *worker,
  * ============================================================================
  */
 
+/**
+ * @brief Worker thread main function
+ *
+ * Main loop for the async worker thread. Waits for requests on the queue,
+ * processes them, and invokes the completion callback with results.
+ *
+ * @param arg Worker context pointer (lle_async_worker_t *)
+ * @return Always returns NULL
+ */
 static void *lle_async_worker_thread(void *arg) {
     lle_async_worker_t *worker = arg;
 
@@ -341,7 +363,15 @@ static void *lle_async_worker_thread(void *arg) {
  */
 
 /**
- * Helper to run a git command and capture output
+ * @brief Run a git command and capture output
+ *
+ * Executes a shell command using popen and captures the first line of output.
+ * The command should include proper stderr redirection as needed.
+ *
+ * @param cmd Command string to execute
+ * @param output Buffer for captured output (may be NULL)
+ * @param output_size Size of output buffer
+ * @return true if command succeeded (exit status 0), false otherwise
  */
 static bool run_git_command(const char *cmd, char *output, size_t output_size) {
     FILE *fp = popen(cmd, "r");
@@ -372,7 +402,17 @@ static bool run_git_command(const char *cmd, char *output, size_t output_size) {
 }
 
 /**
- * Get git status (runs in worker thread)
+ * @brief Get git repository status
+ *
+ * Gathers comprehensive git status information for a repository.
+ * This function runs in the worker thread and may block on git commands.
+ *
+ * @param cwd Working directory of the repository
+ * @param timeout_ms Timeout in milliseconds (currently unused)
+ * @param status Output structure for git status data
+ * @return LLE_SUCCESS on success
+ * @return LLE_ERROR_INVALID_PARAMETER if cwd or status is NULL
+ * @return LLE_ERROR_SYSTEM_CALL if directory operations fail
  */
 static lle_result_t lle_async_get_git_status(const char *cwd,
                                               uint32_t timeout_ms,

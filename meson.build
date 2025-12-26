@@ -543,6 +543,17 @@ if lle_sources.length() > 0
        suite: 'lle-unit',
        timeout: 30)
 
+  # Segment System Unit Tests (Spec 25 Section 5)
+  # Tests segment registry, prompt context, and built-in segments
+  test_segment_system = executable('test_segment_system',
+                                   'tests/lle/unit/test_segment_system.c',
+                                   include_directories: inc,
+                                   dependencies: [lle_dep, readline_link_dep])
+
+  test('LLE Segment System', test_segment_system,
+       suite: 'lle-unit',
+       timeout: 30)
+
   # Render cache unit tests
   test_render_cache = executable('test_render_cache',
                                  'tests/lle/unit/test_render_cache.c',
@@ -768,6 +779,18 @@ endif
                                         include_directories: inc,
                                         dependencies: [lle_dep])
     test('Spec 25 Keybinding System Compliance', test_spec25_compliance,
+         suite: 'lle-compliance',
+         timeout: 60)
+  endif
+
+  # Spec 25 Section 5 Segment Compliance Test
+  # Validates compliance with Spec 25 Section 5 Segment Architecture
+  if fs.exists('tests/lle/compliance/spec_25_segment_compliance.c')
+    test_spec25_segment_compliance = executable('spec_25_segment_compliance',
+                                        'tests/lle/compliance/spec_25_segment_compliance.c',
+                                        include_directories: inc,
+                                        dependencies: [lle_dep])
+    test('Spec 25 Segment System Compliance', test_spec25_segment_compliance,
          suite: 'lle-compliance',
          timeout: 60)
   endif

@@ -227,6 +227,7 @@ lle_sources += files(
 
 lle_sources += files(
   'prompt/template_engine.c',
+  'prompt/segment.c',
 )
 
 # ============================================================================
