@@ -84,15 +84,23 @@ Spec 25 (Prompt/Theme System) requires these systems to be fully operational:
 
 ### 2.3 Critical Gaps Identified
 
-1. **No LLE_HOOK_CHPWD Event**
-   - The event system has LLE_HOOK_PRE_COMMAND but no directory change hook
-   - This is THE core fix for Issue #16
-   - Must be added to event system
+1. **~~No LLE_HOOK_CHPWD Event~~** ✅ FIXED (Session 67)
+   - ~~The event system has LLE_HOOK_PRE_COMMAND but no directory change hook~~
+   - ~~This is THE core fix for Issue #16~~
+   - Shell lifecycle events added: `LLE_EVENT_DIRECTORY_CHANGED`, `LLE_EVENT_PRE_COMMAND`, 
+     `LLE_EVENT_POST_COMMAND`, `LLE_EVENT_COMMAND_NOT_FOUND`, `LLE_EVENT_PROMPT_DISPLAY`
+   - Direct cache invalidation implemented in `bin_cd()` via `prompt_cache_invalidate()`
+   - **Issue #16 is FIXED**
 
-2. **Widget Hooks Not Integrated with Prompt**
-   - widget_hooks.h exists with LLE_HOOK_PRE_COMMAND, LLE_HOOK_POST_COMMAND
-   - But these aren't wired to the prompt system
-   - Spec 24 (Advanced Prompt Widget Hooks) is only 5% implemented
+2. **Widget Hooks Architecture Limitation** ⚠️ ARCHITECTURAL NOTE
+   - widget_hooks.h exists with LLE_HOOK_PRE_COMMAND, LLE_HOOK_POST_COMMAND, etc.
+   - **Key Finding**: Widget hooks manager is part of `lle_editor_t`, which is per-readline-session
+   - Widget hooks CANNOT be triggered from shell-level events (like `bin_cd()`) because:
+     - `lle_readline()` creates the editor and hooks manager
+     - `lle_readline()` returns before command execution
+     - `bin_cd()` runs after readline returns, editor is destroyed
+   - **Solution Applied**: Direct `prompt_cache_invalidate()` call instead of event-based
+   - **Future Architecture**: Persistent shell-level event system needed for full event-driven approach
 
 3. **No Async Worker Thread Infrastructure**
    - Spec 25 requires internal thread pool for async git status
@@ -114,19 +122,26 @@ Spec 25 (Prompt/Theme System) requires these systems to be fully operational:
 
 Based on dependency analysis, here is the recommended implementation order:
 
-### Phase 1: Foundation Fixes (Week 1-2)
+### Phase 1: Foundation Fixes
 
 **Goal**: Fill gaps in existing systems that Spec 25 depends on
 
-#### 1.1 Add LLE_HOOK_CHPWD Event
+#### 1.1 Add LLE_HOOK_CHPWD Event ✅ COMPLETE (Session 67)
 - **File**: `include/lle/event_system.h`, `src/lle/event/event_system.c`
-- **Task**: Add new event type LLE_EVENT_DIRECTORY_CHANGED (or LLE_HOOK_CHPWD)
-- **Integration**: Hook into shell's `cd` builtin to fire this event
-- **Priority**: CRITICAL (fixes Issue #16)
+- **Completed**:
+  - Added `LLE_EVENT_DIRECTORY_CHANGED`, `LLE_EVENT_PRE_COMMAND`, `LLE_EVENT_POST_COMMAND`,
+    `LLE_EVENT_COMMAND_NOT_FOUND`, `LLE_EVENT_PROMPT_DISPLAY`
+  - Added `lle_shell_event_data_t` structure
+  - Added convenience functions: `lle_event_fire_directory_changed()`, etc.
+  - Integrated with `bin_cd()` via `prompt_cache_invalidate()`
+- **Result**: Issue #16 FIXED
 
-#### 1.2 Complete Widget Hooks Integration (Spec 24)
+#### 1.2 Widget Hooks Integration (Spec 24) ⚠️ ARCHITECTURAL LIMITATION
 - **Files**: `src/lle/widget/widget_hooks.c`, `include/lle/widget_hooks.h`
-- **Task**: Wire LLE_HOOK_PRE_COMMAND and LLE_HOOK_POST_COMMAND to shell command execution
+- **Finding**: Widget hooks are per-readline-session, cannot receive shell-level events
+- **Current Status**: Widget hooks work for editor lifecycle (LINE_INIT, LINE_FINISH, BUFFER_MODIFIED)
+- **Not Possible**: LLE_HOOK_CHPWD via widget hooks (editor destroyed before command execution)
+- **Alternative**: Direct function calls at shell level (e.g., `prompt_cache_invalidate()` in `bin_cd()`)
 - **Priority**: HIGH
 
 #### 1.3 Create Async Worker Thread Infrastructure
