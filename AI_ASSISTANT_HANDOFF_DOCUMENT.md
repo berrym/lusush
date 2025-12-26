@@ -1,8 +1,8 @@
-# AI Assistant Handoff Document - Session 69
+# AI Assistant Handoff Document - Session 70
 
 **Date**: 2025-12-26  
 **Session Type**: LLE Implementation - Spec 25 Prompt/Theme System  
-**Status**: IMPLEMENTING - Segment system and template engine complete  
+**Status**: IMPLEMENTING - Theme registry complete, template-segment integration pending  
 **Branch**: `feature/lle`
 
 ---
@@ -14,107 +14,123 @@ generation with segment-based composition, template engine, and async data provi
 
 **Reference Document**: `docs/lle_specification/LLE_IMPLEMENTATION_STATUS_AND_ROADMAP.md`
 
+### Session 70 Accomplishments
+
+1. **Implemented Spec 25 Theme Registry (Section 4)**:
+   Created the complete theme registration system with 6 built-in themes.
+
+   **New Files**:
+   - `include/lle/prompt/theme.h` - Theme system API and types
+   - `src/lle/prompt/theme.c` - Registry and 6 built-in themes
+   - `tests/lle/unit/test_theme_registry.c` - 30 unit tests
+   - `tests/lle/compliance/spec_25_segment_compliance.c` - 27 compliance tests
+   - `tests/lle/compliance/spec_25_theme_compliance.c` - 34 compliance tests
+
+   **Theme Registry API**:
+   ```c
+   // Registry lifecycle
+   lle_result_t lle_theme_registry_init(lle_theme_registry_t *registry);
+   void lle_theme_registry_cleanup(lle_theme_registry_t *registry);
+
+   // Theme registration
+   lle_result_t lle_theme_registry_register(lle_theme_registry_t *registry,
+                                             lle_theme_t *theme);
+   lle_theme_t *lle_theme_registry_find(const lle_theme_registry_t *registry,
+                                         const char *name);
+
+   // Active theme management
+   lle_result_t lle_theme_registry_set_active(lle_theme_registry_t *registry,
+                                               const char *name);
+   lle_theme_t *lle_theme_registry_get_active(const lle_theme_registry_t *registry);
+
+   // Built-in theme registration
+   size_t lle_theme_register_builtins(lle_theme_registry_t *registry);
+   ```
+
+   **Built-in Themes**:
+   - `minimal` - Bare-bones prompt (default)
+   - `default` - Standard prompt with colors
+   - `classic` - Traditional Unix-style prompt
+   - `powerline` - Powerline-style with Unicode separators
+   - `informative` - Detailed multi-segment prompt
+   - `two-line` - Two-line prompt layout
+
+   **Color System**:
+   ```c
+   typedef enum lle_color_mode {
+       LLE_COLOR_MODE_NONE,    // No color
+       LLE_COLOR_MODE_BASIC,   // 8 basic ANSI colors
+       LLE_COLOR_MODE_256,     // 256-color palette
+       LLE_COLOR_MODE_RGB      // True color (24-bit)
+   } lle_color_mode_t;
+
+   typedef struct lle_color {
+       lle_color_mode_t mode;
+       union {
+           uint8_t basic;      // 0-7 for basic colors
+           uint8_t index;      // 0-255 for 256-color
+           struct { uint8_t r, g, b; } rgb;
+       } value;
+   } lle_color_t;
+   ```
+
+   **Theme Inheritance**:
+   - Child themes inherit colors, symbols, layout from parent
+   - Cycle detection prevents infinite loops
+   - Selective override of specific properties
+
+2. **Added Theme Registry Unit Tests**:
+   30 tests covering all theme functionality:
+   - Registry operations (8 tests)
+   - Theme creation (6 tests)
+   - Theme inheritance (4 tests)
+   - Color helpers (4 tests)
+   - Symbol sets (4 tests)
+   - Built-in themes (4 tests)
+
+3. **Created Compliance Tests**:
+   - Segment compliance: 27 tests for Spec 25 Section 5
+   - Theme compliance: 34 tests for Spec 25 Section 4
+
+4. **Build and Test Verification**:
+   - Build: 0 errors, 0 warnings
+   - All 91 tests pass (54 existing + 37 new theme tests)
+
 ### Session 69 Accomplishments
 
 1. **Implemented Spec 25 Segment System**:
-   Created the segment registry and built-in segments per Spec 25 Section 5.
+   Created the segment registry and 8 built-in segments.
 
-   **New Files**:
-   - `include/lle/prompt/segment.h` - Segment system API and types
-   - `src/lle/prompt/segment.c` - Registry and 8 built-in segments
-   - `tests/lle/unit/test_segment_system.c` - 25 unit tests
+2. **Updated Async Worker Documentation**:
+   Added proper doxygen-style comments to match LLE coding standards.
 
-   **Built-in Segments**:
-   - `directory` - Current working directory with home abbreviation
-   - `user` - Current username
-   - `host` - Hostname
-   - `time` - Current time (HH:MM:SS format)
-   - `status` - Last command exit status
-   - `jobs` - Background job count
-   - `symbol` - Prompt symbol (# for root, $ for user)
-   - `git` - Git repository status (branch, staged, unstaged, ahead/behind)
-
-   **Segment API**:
-   ```c
-   // Segment registry
-   lle_result_t lle_segment_registry_init(lle_segment_registry_t *registry);
-   void lle_segment_registry_cleanup(lle_segment_registry_t *registry);
-   lle_result_t lle_segment_registry_register(lle_segment_registry_t *registry,
-                                               lle_prompt_segment_t *segment);
-   lle_prompt_segment_t *lle_segment_registry_find(
-       const lle_segment_registry_t *registry, const char *name);
-
-   // Prompt context
-   lle_result_t lle_prompt_context_init(lle_prompt_context_t *ctx);
-   lle_result_t lle_prompt_context_update(lle_prompt_context_t *ctx);
-
-   // Segment creation
-   lle_prompt_segment_t *lle_segment_create(const char *name,
-                                             lle_segment_type_t type);
-   void lle_segment_free(lle_prompt_segment_t *segment);
-   ```
-
-   **Segment Output Structure**:
-   ```c
-   typedef struct lle_segment_output {
-       char content[LLE_SEGMENT_CONTENT_MAX];
-       size_t content_len;
-       size_t visual_width;        // Proper UTF-8 width calculation
-       bool is_empty;
-       bool needs_separator;
-       lle_segment_style_t style;
-   } lle_segment_output_t;
-   ```
-
-2. **Added Segment System Unit Tests**:
-   25 tests covering all segment functionality:
-   - Registry operations (5 tests)
-   - Prompt context (4 tests)
-   - Directory segment (4 tests)
-   - User/Host/Time segments (4 tests)
-   - Status/Jobs/Symbol segments (4 tests)
-   - Git segment (4 tests)
-
-3. **Updated Async Worker Documentation**:
-   Added proper doxygen-style comments to `src/lle/core/async_worker.c`
-   to match LLE coding standards (`@file`, `@brief`, `@param`, `@return`).
-
-4. **Fixed Code Quality Issues**:
-   - Replaced "Simplified" comments with proper UTF-8 width calculation
-   - Used `lle_utf8_string_width()` for accurate visual width
-
-5. **Build and Test Verification**:
-   - Build: 0 errors, 0 warnings
-   - All 54 tests pass
+3. **Fixed Code Quality Issues**:
+   Replaced "Simplified" comments with proper UTF-8 width calculation.
 
 ### Current Todo List
 
 | Task | Status |
 |------|--------|
-| Add LLE_EVENT_DIRECTORY_CHANGED to event system | **COMPLETE** |
-| Integrate directory change event with cd builtin | **COMPLETE** |
-| Create async worker thread pool infrastructure | **COMPLETE** |
-| Add unit tests for async worker | **COMPLETE** |
-| Integrate async worker with prompt system | **COMPLETE** |
 | Implement Spec 25 template engine | **COMPLETE** |
 | Add template engine unit tests | **COMPLETE** |
 | Create Spec 25 segment system | **COMPLETE** |
 | Add segment system unit tests | **COMPLETE** |
-| Create compliance tests for segment system | **PENDING** |
-| Implement Theme Registry | **PENDING** |
+| Create compliance tests for segment system | **COMPLETE** |
+| Implement Theme Registry | **COMPLETE** |
+| Add theme registry unit tests | **COMPLETE** |
+| Create theme compliance tests | **COMPLETE** |
+| Integrate template engine with segment system | **PENDING** |
+| Address merge blockers (Issue #20, #21) | **PENDING** |
 
 ### Next Steps
 
-1. **Create Segment Compliance Tests**: Add compliance tests for segment system
-   to verify Spec 25 Section 5 adherence.
+1. **Integrate Template Engine with Segment System**: Connect template `${segment}`
+   tokens to segment registry for dynamic prompt generation.
 
-2. **Implement Theme Registry**: Create theme registration, lookup, and inheritance
-   per Spec 25 Section 4.
+2. **Implement Theme Application**: Apply theme colors and symbols when rendering
+   segments.
 
-3. **Integrate Template Engine with Segment System**: Connect template rendering
-   to use segments for prompt generation.
-
-4. **Address Merge Blockers**: Fix Issue #20 (PS1/PS2 overwrites) and Issue #21
+3. **Address Merge Blockers**: Fix Issue #20 (PS1/PS2 overwrites) and Issue #21
    (non-extensible themes).
 
 ---
@@ -151,9 +167,11 @@ generation with segment-based composition, template engine, and async data provi
 ## New Files This Session
 
 ```
-include/lle/prompt/segment.h          - Segment system API
-src/lle/prompt/segment.c              - Segment implementation (8 built-in)
-tests/lle/unit/test_segment_system.c  - 25 unit tests
+include/lle/prompt/theme.h                       - Theme system API
+src/lle/prompt/theme.c                           - Theme implementation (6 built-in)
+tests/lle/unit/test_theme_registry.c             - 30 unit tests
+tests/lle/compliance/spec_25_segment_compliance.c - 27 compliance tests
+tests/lle/compliance/spec_25_theme_compliance.c  - 34 compliance tests
 ```
 
 ---
@@ -192,6 +210,7 @@ tests/lle/unit/test_segment_system.c  - 25 unit tests
 | Async Worker | Working | Non-blocking git status |
 | Template Engine | Working | Spec 25 Section 6 |
 | Segment System | Working | Spec 25 Section 5, 8 built-in segments |
+| Theme Registry | Working | Spec 25 Section 4, 6 built-in themes |
 | macOS Compatibility | Working | Verified |
 | Linux Compatibility | Working | Verified |
 
@@ -208,5 +227,5 @@ ninja -C builddir test
 
 # Expected results
 - 0 errors, 0 warnings
-- 54/54 tests pass
+- 91/91 tests pass
 ```

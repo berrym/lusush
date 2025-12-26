@@ -554,6 +554,17 @@ if lle_sources.length() > 0
        suite: 'lle-unit',
        timeout: 30)
 
+  # Theme Registry Unit Tests (Spec 25 Section 4)
+  # Tests theme registry, theme creation, inheritance, and built-in themes
+  test_theme_registry = executable('test_theme_registry',
+                                   'tests/lle/unit/test_theme_registry.c',
+                                   include_directories: inc,
+                                   dependencies: [lle_dep, readline_link_dep])
+
+  test('LLE Theme Registry', test_theme_registry,
+       suite: 'lle-unit',
+       timeout: 30)
+
   # Render cache unit tests
   test_render_cache = executable('test_render_cache',
                                  'tests/lle/unit/test_render_cache.c',
@@ -791,6 +802,18 @@ endif
                                         include_directories: inc,
                                         dependencies: [lle_dep])
     test('Spec 25 Segment System Compliance', test_spec25_segment_compliance,
+         suite: 'lle-compliance',
+         timeout: 60)
+  endif
+
+  # Spec 25 Section 4 Theme Compliance Test
+  # Validates compliance with Spec 25 Section 4 Theme Registry
+  if fs.exists('tests/lle/compliance/spec_25_theme_compliance.c')
+    test_spec25_theme_compliance = executable('spec_25_theme_compliance',
+                                        'tests/lle/compliance/spec_25_theme_compliance.c',
+                                        include_directories: inc,
+                                        dependencies: [lle_dep])
+    test('Spec 25 Theme Registry Compliance', test_spec25_theme_compliance,
          suite: 'lle-compliance',
          timeout: 60)
   endif
