@@ -130,6 +130,13 @@ typedef enum {
     LLE_EVENT_DISPLAY_REFRESH,         /* Display refresh request */
     LLE_EVENT_DISPLAY_INVALIDATE,      /* Display invalidation */
 
+    /* Shell Lifecycle Events (0xD000 - 0xDFFF) - Priority: HIGH */
+    LLE_EVENT_DIRECTORY_CHANGED = 0xD000, /* Working directory changed (cd) */
+    LLE_EVENT_PRE_COMMAND,                /* Before command execution */
+    LLE_EVENT_POST_COMMAND,               /* After command execution */
+    LLE_EVENT_COMMAND_NOT_FOUND,          /* Command not found */
+    LLE_EVENT_PROMPT_DISPLAY,             /* Prompt about to be displayed */
+
     /* Testing and Debug Events (0xF000 - 0xFFFF) - Priority: LOWEST */
     LLE_EVENT_DEBUG_MARKER = 0xF000, /* Debug marker event */
     LLE_EVENT_TEST_TRIGGER,          /* Test trigger event */
@@ -162,6 +169,7 @@ typedef enum {
     LLE_EVENT_SOURCE_BUFFER,     /* Buffer system event */
     LLE_EVENT_SOURCE_HISTORY,    /* History system event */
     LLE_EVENT_SOURCE_COMPLETION, /* Completion system event */
+    LLE_EVENT_SOURCE_SHELL,      /* Shell lifecycle event (cd, command exec) */
     LLE_EVENT_SOURCE_TEST,       /* Test system event */
 } lle_event_source_t;
 
@@ -258,6 +266,18 @@ typedef struct {
 } lle_custom_event_data_t;
 
 /*
+ * Shell Lifecycle Event Data
+ * Used for directory changes, command execution events, etc.
+ */
+typedef struct {
+    char old_directory[4096]; /* Previous working directory */
+    char new_directory[4096]; /* New working directory (for DIRECTORY_CHANGED) */
+    char command[4096];       /* Command being executed (for PRE/POST_COMMAND) */
+    int exit_code;            /* Command exit code (for POST_COMMAND) */
+    uint64_t duration_us;     /* Command duration in microseconds */
+} lle_shell_event_data_t;
+
+/*
  * Event Data Union (Phase 2)
  */
 typedef union {
@@ -269,6 +289,7 @@ typedef union {
     lle_error_event_data_t error;   /* Error event data */
     lle_timer_event_data_t timer;   /* Timer event data */
     lle_custom_event_data_t custom; /* Custom event data */
+    lle_shell_event_data_t shell;   /* Shell lifecycle event data */
 } lle_event_data_union_t;
 
 /*
@@ -997,5 +1018,66 @@ lle_result_t lle_event_timer_process(lle_event_system_t *system);
 lle_result_t lle_event_timer_get_stats(lle_event_system_t *system,
                                        uint64_t *created, uint64_t *fired,
                                        uint64_t *cancelled);
+
+/* ============================================================================
+ * Shell Lifecycle Events API
+ * ============================================================================
+ */
+
+/**
+ * Fire a directory changed event
+ *
+ * Called when the shell's working directory changes (e.g., via cd builtin).
+ * This triggers cache invalidation for directory-dependent data like git status.
+ *
+ * @param system      Event system
+ * @param old_dir     Previous working directory (may be NULL)
+ * @param new_dir     New working directory (must not be NULL)
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_event_fire_directory_changed(lle_event_system_t *system,
+                                               const char *old_dir,
+                                               const char *new_dir);
+
+/**
+ * Fire a pre-command event
+ *
+ * Called just before a command is executed. Allows prompt system to record
+ * state for transient prompt and command timing.
+ *
+ * @param system      Event system
+ * @param command     Command about to be executed
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_event_fire_pre_command(lle_event_system_t *system,
+                                         const char *command);
+
+/**
+ * Fire a post-command event
+ *
+ * Called after a command completes execution. Provides exit code and duration
+ * for prompt status display and history annotation.
+ *
+ * @param system      Event system
+ * @param command     Command that was executed
+ * @param exit_code   Command exit code
+ * @param duration_us Command execution duration in microseconds
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_event_fire_post_command(lle_event_system_t *system,
+                                          const char *command,
+                                          int exit_code,
+                                          uint64_t duration_us);
+
+/**
+ * Fire a prompt display event
+ *
+ * Called just before the prompt is displayed. Allows prompt system to
+ * regenerate prompt content if needed.
+ *
+ * @param system      Event system
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_event_fire_prompt_display(lle_event_system_t *system);
 
 #endif /* LLE_EVENT_SYSTEM_H */

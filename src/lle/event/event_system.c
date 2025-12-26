@@ -140,6 +140,18 @@ const char *lle_event_type_name(lle_event_kind_t type) {
     case LLE_EVENT_DISPLAY_INVALIDATE:
         return "DISPLAY_INVALIDATE";
 
+    /* Shell Lifecycle Events */
+    case LLE_EVENT_DIRECTORY_CHANGED:
+        return "DIRECTORY_CHANGED";
+    case LLE_EVENT_PRE_COMMAND:
+        return "PRE_COMMAND";
+    case LLE_EVENT_POST_COMMAND:
+        return "POST_COMMAND";
+    case LLE_EVENT_COMMAND_NOT_FOUND:
+        return "COMMAND_NOT_FOUND";
+    case LLE_EVENT_PROMPT_DISPLAY:
+        return "PROMPT_DISPLAY";
+
     /* Debug/Test Events */
     case LLE_EVENT_DEBUG_MARKER:
         return "DEBUG_MARKER";
@@ -515,6 +527,175 @@ lle_result_t lle_event_system_get_stats(lle_event_system_t *system,
     }
     if (dropped) {
         *dropped = __atomic_load_n(&system->events_dropped, __ATOMIC_SEQ_CST);
+    }
+
+    return LLE_SUCCESS;
+}
+
+/* ============================================================================
+ * Shell Lifecycle Events Implementation
+ * ============================================================================
+ */
+
+/*
+ * Fire a directory changed event
+ *
+ * This is the core event for fixing stale git prompts (Issue #16).
+ * When the working directory changes, this event allows handlers to
+ * invalidate cached data that depends on the current directory.
+ */
+lle_result_t lle_event_fire_directory_changed(lle_event_system_t *system,
+                                               const char *old_dir,
+                                               const char *new_dir) {
+    if (!system || !new_dir) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+
+    lle_event_t *event = NULL;
+    lle_result_t result = lle_event_create(system, LLE_EVENT_DIRECTORY_CHANGED,
+                                            NULL, 0, &event);
+    if (result != LLE_SUCCESS) {
+        return result;
+    }
+
+    /* Populate shell event data */
+    event->source = LLE_EVENT_SOURCE_SHELL;
+    event->priority = LLE_PRIORITY_HIGH;
+
+    if (old_dir) {
+        strncpy(event->event_data.shell.old_directory, old_dir,
+                sizeof(event->event_data.shell.old_directory) - 1);
+        event->event_data.shell.old_directory[
+            sizeof(event->event_data.shell.old_directory) - 1] = '\0';
+    } else {
+        event->event_data.shell.old_directory[0] = '\0';
+    }
+
+    strncpy(event->event_data.shell.new_directory, new_dir,
+            sizeof(event->event_data.shell.new_directory) - 1);
+    event->event_data.shell.new_directory[
+        sizeof(event->event_data.shell.new_directory) - 1] = '\0';
+
+    /* Enqueue and dispatch immediately for prompt responsiveness */
+    result = lle_event_enqueue(system, event);
+    if (result != LLE_SUCCESS) {
+        lle_event_destroy(system, event);
+        return result;
+    }
+
+    return LLE_SUCCESS;
+}
+
+/*
+ * Fire a pre-command event
+ *
+ * Called before command execution to allow the prompt system to record
+ * the current prompt position for transient prompt replacement.
+ */
+lle_result_t lle_event_fire_pre_command(lle_event_system_t *system,
+                                         const char *command) {
+    if (!system) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+
+    lle_event_t *event = NULL;
+    lle_result_t result = lle_event_create(system, LLE_EVENT_PRE_COMMAND,
+                                            NULL, 0, &event);
+    if (result != LLE_SUCCESS) {
+        return result;
+    }
+
+    event->source = LLE_EVENT_SOURCE_SHELL;
+    event->priority = LLE_PRIORITY_HIGH;
+
+    if (command) {
+        strncpy(event->event_data.shell.command, command,
+                sizeof(event->event_data.shell.command) - 1);
+        event->event_data.shell.command[
+            sizeof(event->event_data.shell.command) - 1] = '\0';
+    } else {
+        event->event_data.shell.command[0] = '\0';
+    }
+
+    result = lle_event_enqueue(system, event);
+    if (result != LLE_SUCCESS) {
+        lle_event_destroy(system, event);
+        return result;
+    }
+
+    return LLE_SUCCESS;
+}
+
+/*
+ * Fire a post-command event
+ *
+ * Called after command execution with exit code and duration.
+ * Used for prompt status display and history enrichment.
+ */
+lle_result_t lle_event_fire_post_command(lle_event_system_t *system,
+                                          const char *command,
+                                          int exit_code,
+                                          uint64_t duration_us) {
+    if (!system) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+
+    lle_event_t *event = NULL;
+    lle_result_t result = lle_event_create(system, LLE_EVENT_POST_COMMAND,
+                                            NULL, 0, &event);
+    if (result != LLE_SUCCESS) {
+        return result;
+    }
+
+    event->source = LLE_EVENT_SOURCE_SHELL;
+    event->priority = LLE_PRIORITY_HIGH;
+
+    if (command) {
+        strncpy(event->event_data.shell.command, command,
+                sizeof(event->event_data.shell.command) - 1);
+        event->event_data.shell.command[
+            sizeof(event->event_data.shell.command) - 1] = '\0';
+    } else {
+        event->event_data.shell.command[0] = '\0';
+    }
+
+    event->event_data.shell.exit_code = exit_code;
+    event->event_data.shell.duration_us = duration_us;
+
+    result = lle_event_enqueue(system, event);
+    if (result != LLE_SUCCESS) {
+        lle_event_destroy(system, event);
+        return result;
+    }
+
+    return LLE_SUCCESS;
+}
+
+/*
+ * Fire a prompt display event
+ *
+ * Called just before the prompt is rendered. Allows the prompt system
+ * to check if regeneration is needed and apply any pending updates.
+ */
+lle_result_t lle_event_fire_prompt_display(lle_event_system_t *system) {
+    if (!system) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+
+    lle_event_t *event = NULL;
+    lle_result_t result = lle_event_create(system, LLE_EVENT_PROMPT_DISPLAY,
+                                            NULL, 0, &event);
+    if (result != LLE_SUCCESS) {
+        return result;
+    }
+
+    event->source = LLE_EVENT_SOURCE_SHELL;
+    event->priority = LLE_PRIORITY_HIGH;
+
+    result = lle_event_enqueue(system, event);
+    if (result != LLE_SUCCESS) {
+        lle_event_destroy(system, event);
+        return result;
     }
 
     return LLE_SUCCESS;
