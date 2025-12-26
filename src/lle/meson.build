@@ -229,6 +229,7 @@ lle_sources += files(
   'prompt/template_engine.c',
   'prompt/segment.c',
   'prompt/theme.c',
+  'prompt/composer.c',
 )
 
 # ============================================================================

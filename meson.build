@@ -565,6 +565,17 @@ if lle_sources.length() > 0
        suite: 'lle-unit',
        timeout: 30)
 
+  # Prompt Composer Unit Tests (Spec 25 - Template/Segment/Theme Integration)
+  # Tests the integration layer that connects template engine, segments, and themes
+  test_prompt_composer = executable('test_prompt_composer',
+                                    'tests/lle/unit/test_prompt_composer.c',
+                                    include_directories: inc,
+                                    dependencies: [lle_dep, readline_link_dep])
+
+  test('LLE Prompt Composer', test_prompt_composer,
+       suite: 'lle-unit',
+       timeout: 30)
+
   # Render cache unit tests
   test_render_cache = executable('test_render_cache',
                                  'tests/lle/unit/test_render_cache.c',
