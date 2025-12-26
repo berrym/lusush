@@ -10,8 +10,9 @@
 
 **Current State**: Active development - Spec 12 completion system integrated, menu fully functional
 
-- ⚠️ **11 Active Issues** - Theme/prompt system (3 HIGH - Issues #20, #21, #22), Cursor desync (1 HIGH - Issue #16), Display controller (1 LOW), Git prompt (1 MEDIUM), Tab handling (1 LOW), Syntax highlighting (2 MEDIUM), category disambiguation (1 MEDIUM), Extra space after prompt (1 LOW - Issue #23)
+- ⚠️ **10 Active Issues** - Theme/prompt system (3 HIGH - Issues #20, #21, #22), Display controller (1 LOW), Git prompt (1 MEDIUM), Tab handling (1 LOW), Syntax highlighting (2 MEDIUM), category disambiguation (1 MEDIUM), Extra space after prompt (1 LOW - Issue #23)
 - 🚫 **MERGE BLOCKED** - Issues #20 and #21 must be resolved before merge (user choice principle violations)
+- ✅ **Issue #16 Fixed** - Prompt cache invalidated on directory change (Session 67, 2025-12-26)
 - ✅ **Issue #17 Fixed** - Command-aware directory completion for cd/rmdir (Session 53, 2025-12-21)
 - ℹ️ **Issue #18 Clarified** - pushd/popd are bash extensions, not POSIX; not implemented in lusush (future work)
 - ✅ **Issue #14 Documented** - Git-aware prompt not showing git info (2025-12-02)
@@ -335,13 +336,32 @@ The `pushd` and `popd` commands are not implemented in lusush. They are highligh
 
 ---
 
-### Issue #16: Prompt/Cursor Desync Display Corruption (ROOT CAUSE IDENTIFIED)
+### Issue #16: Prompt/Cursor Desync Display Corruption (FIXED)
 **Severity**: HIGH  
 **Discovered**: 2025-12-17 (Session 52 - manual testing)  
-**Updated**: 2025-12-25 (Session 66 - comprehensive root cause analysis)  
-**Status**: Root cause identified - requires architectural redesign  
+**Updated**: 2025-12-26 (Session 67 - immediate fix applied)  
+**Status**: FIXED - prompt cache invalidated on directory change  
 **Component**: Prompt/theme system cache architecture  
 **Full Investigation**: See `ISSUE_16_INVESTIGATION.md` for complete technical analysis
+
+**Fix Applied (Session 67)**:
+Added `prompt_cache_invalidate()` call in `bin_cd()` after successful directory change.
+This forces prompt regeneration (including fresh git status) on the next prompt display.
+
+```c
+// In src/builtins/builtins.c, bin_cd():
+// After successful chdir():
+prompt_cache_invalidate();
+```
+
+**Architectural Note**:
+Shell lifecycle events (`LLE_EVENT_DIRECTORY_CHANGED`, etc.) were added to the LLE event
+system in Session 67, but the LLE event system (`lle_event_system_t`) is **per-readline-session**,
+not global. It is created at the start of `lle_readline()` and destroyed when readline returns.
+
+For a full event-driven architecture, a **persistent shell-level event system** would need
+to be created that spans across readline sessions. The current direct cache invalidation
+is the functional fix that works with the existing architecture.
 
 **Description**:
 Display corruption where the prompt and cursor position become desynchronized. The prompt may be partially overwritten or truncated, and typed input appears in unexpected positions.
