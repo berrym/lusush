@@ -532,6 +532,17 @@ if lle_sources.length() > 0
        suite: 'lle-unit',
        timeout: 30)
 
+  # Template Engine Unit Tests (Spec 25 Section 6)
+  # Tests template parsing and rendering with segments, conditionals, colors
+  test_template_engine = executable('test_template_engine',
+                                    'tests/lle/unit/test_template_engine.c',
+                                    include_directories: inc,
+                                    dependencies: [lle_dep, readline_link_dep])
+
+  test('LLE Template Engine', test_template_engine,
+       suite: 'lle-unit',
+       timeout: 30)
+
   # Render cache unit tests
   test_render_cache = executable('test_render_cache',
                                  'tests/lle/unit/test_render_cache.c',

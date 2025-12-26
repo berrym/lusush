@@ -1,137 +1,95 @@
-# AI Assistant Handoff Document - Session 67
+# AI Assistant Handoff Document - Session 68
 
 **Date**: 2025-12-26  
-**Session Type**: LLE Implementation - Shell Lifecycle Events  
-**Status**: IMPLEMENTING - Shell lifecycle events for prompt cache invalidation (Issue #16)  
+**Session Type**: LLE Implementation - Spec 25 Prompt/Theme System  
+**Status**: IMPLEMENTING - Template engine and async worker integration  
 **Branch**: `feature/lle`
 
 ---
 
-## CURRENT PRIORITY: Spec 25 Foundation - Shell Lifecycle Events
+## CURRENT PRIORITY: Spec 25 Prompt/Theme System Implementation
 
-**Goal**: Implement shell lifecycle events to enable prompt cache invalidation (Issue #16 fix).
+**Goal**: Implement the Prompt/Theme System per Spec 25, providing unified prompt
+generation with segment-based composition, template engine, and async data providers.
 
 **Reference Document**: `docs/lle_specification/LLE_IMPLEMENTATION_STATUS_AND_ROADMAP.md`
 
-### Session 67 Accomplishments
+### Session 68 Accomplishments
 
-1. **Created Implementation Roadmap Document**:
-   Comprehensive analysis of all LLE specifications, implementation status, and
-   dependencies for Spec 25 (Prompt/Theme System). Document created at:
-   `docs/lle_specification/LLE_IMPLEMENTATION_STATUS_AND_ROADMAP.md`
+1. **Integrated Async Worker with Prompt System**:
+   Connected the async worker infrastructure to the prompt system for non-blocking
+   git status fetching.
 
-2. **Added Shell Lifecycle Events to Event System**:
-   Extended the event system (Spec 07) with new event types for shell lifecycle
-   tracking. These events are essential for prompt cache invalidation.
+   **Changes to `src/prompt.c`**:
+   - Added async worker state variables and mutex
+   - Implemented `git_async_completion()` callback
+   - Added `prompt_async_init()`, `prompt_async_cleanup()`, `prompt_async_refresh_git()`
 
-   **New Event Types Added** (`include/lle/event_system.h`):
-   ```c
-   /* Shell Lifecycle Events (0xD000 - 0xDFFF) - Priority: HIGH */
-   LLE_EVENT_DIRECTORY_CHANGED = 0xD000, /* Working directory changed (cd) */
-   LLE_EVENT_PRE_COMMAND,                /* Before command execution */
-   LLE_EVENT_POST_COMMAND,               /* After command execution */
-   LLE_EVENT_COMMAND_NOT_FOUND,          /* Command not found */
-   LLE_EVENT_PROMPT_DISPLAY,             /* Prompt about to be displayed */
+   **Changes to `include/prompt.h`**:
+   - Added async git status function declarations
+
+   **Changes to `src/init.c`**:
+   - Call `prompt_async_init()` during shell initialization
+   - Register `prompt_async_cleanup()` in atexit handlers
+
+   **Changes to `src/builtins/builtins.c`**:
+   - Added `prompt_async_refresh_git()` call in `bin_cd()` after cache invalidation
+
+2. **Implemented Spec 25 Template Engine**:
+   Created the template parsing and rendering infrastructure per Spec 25 Section 6.
+
+   **New Files**:
+   - `include/lle/prompt/template.h` - Template engine API and types
+   - `src/lle/prompt/template_engine.c` - Parser and renderer implementation
+   - `tests/lle/unit/test_template_engine.c` - 28 unit tests
+
+   **Template Syntax Supported**:
+   ```
+   ${segment}              - Render segment (e.g., ${directory}, ${git})
+   ${segment.property}     - Access segment property (e.g., ${git.branch})
+   ${?segment:true:false}  - Conditional based on segment visibility
+   ${?segment.prop:t:f}    - Conditional on property existence
+   ${color:text}           - Apply theme color to text
+   \n                      - Literal newline
+   \\                      - Escaped backslash
+   \$                      - Escaped dollar sign
    ```
 
-   **New Event Source**:
+   **Token Types**:
+   - `LLE_TOKEN_LITERAL` - Plain text
+   - `LLE_TOKEN_SEGMENT` - Segment reference
+   - `LLE_TOKEN_PROPERTY` - Segment property access
+   - `LLE_TOKEN_CONDITIONAL` - Conditional rendering
+   - `LLE_TOKEN_COLOR` - Color application
+   - `LLE_TOKEN_NEWLINE` - Newline character
+   - `LLE_TOKEN_END` - End of template
+
+   **API**:
    ```c
-   LLE_EVENT_SOURCE_SHELL,      /* Shell lifecycle event (cd, command exec) */
+   // Parse template string into token list
+   lle_result_t lle_template_parse(const char *template_str,
+                                    lle_parsed_template_t **parsed);
+
+   // Render parsed template using callbacks
+   lle_result_t lle_template_render(const lle_parsed_template_t *tmpl,
+                                     const lle_template_render_ctx_t *ctx,
+                                     char *output, size_t output_size);
+
+   // Convenience: parse, render, and free in one call
+   lle_result_t lle_template_evaluate(const char *template_str,
+                                       const lle_template_render_ctx_t *ctx,
+                                       char *output, size_t output_size);
    ```
 
-   **New Data Structure**:
-   ```c
-   typedef struct {
-       char old_directory[4096];
-       char new_directory[4096];
-       char command[4096];
-       int exit_code;
-       uint64_t duration_us;
-   } lle_shell_event_data_t;
-   ```
-
-   **New API Functions**:
-   ```c
-   lle_result_t lle_event_fire_directory_changed(lle_event_system_t *system,
-                                                  const char *old_dir,
-                                                  const char *new_dir);
-   lle_result_t lle_event_fire_pre_command(lle_event_system_t *system,
-                                            const char *command);
-   lle_result_t lle_event_fire_post_command(lle_event_system_t *system,
-                                             const char *command,
-                                             int exit_code,
-                                             uint64_t duration_us);
-   lle_result_t lle_event_fire_prompt_display(lle_event_system_t *system);
-   ```
-
-3. **Implementation in event_system.c**:
-   - Added name strings for new events in `lle_event_type_name()`
-   - Implemented all four `lle_event_fire_*` convenience functions
-   - Functions create appropriate events, populate data, and enqueue
+3. **Template Engine Unit Tests**:
+   28 tests covering all template functionality:
+   - Token creation (7 tests)
+   - Template parsing (12 tests)
+   - Template rendering (9 tests)
 
 4. **Build and Test Verification**:
    - Build: 0 errors, 0 warnings
-   - All 35 event system tests pass
-   - All 51 total tests pass
-
-5. **Integrated Prompt Cache Invalidation with cd Builtin**:
-   Modified `src/builtins/builtins.c` to call `prompt_cache_invalidate()` after
-   successful directory change. This is the immediate fix for Issue #16:
-   
-   ```c
-   // In bin_cd(), after successful chdir():
-   prompt_cache_invalidate();
-   ```
-   
-   **Why this approach**:
-   - The LLE event system (`lle_event_system_t`) is per-readline-session, not global
-   - The display layer event system (`layer_event_system_t`) is for display layers
-   - `prompt_cache_invalidate()` is the direct, existing mechanism for forcing
-     prompt regeneration including fresh git status
-   
-   **Result**: After `cd`, the next prompt display will regenerate completely,
-   fetching fresh git info for the new directory.
-
-6. **Created Async Worker Thread Pool Infrastructure**:
-   Implemented pthread-based worker thread for async operations (Spec 25 Section 7).
-   
-   **New Files**:
-   - `include/lle/async_worker.h` - Public API for async worker
-   - `src/lle/core/async_worker.c` - Implementation
-   
-   **Features**:
-   - Single worker thread with request queue
-   - Mutex/condition variable synchronization
-   - Completion callbacks for async responses
-   - Git status provider (branch, staged, unstaged, ahead/behind)
-   - Graceful shutdown with pending request draining
-   
-   **API**:
-   ```c
-   lle_async_worker_init(&worker, on_complete_callback, user_data);
-   lle_async_worker_start(worker);
-   lle_async_request_t *req = lle_async_request_create(LLE_ASYNC_GIT_STATUS);
-   strncpy(req->cwd, "/path/to/repo", sizeof(req->cwd) - 1);
-   lle_async_worker_submit(worker, req);
-   // ... later ...
-   lle_async_worker_shutdown(worker);
-   lle_async_worker_wait(worker);
-   lle_async_worker_destroy(worker);
-   ```
-
-7. **Added Async Worker Unit Tests**:
-   Created comprehensive test suite for the async worker infrastructure.
-   
-   **New Test File**: `tests/lle/unit/test_async_worker.c`
-   
-   **Tests** (15 total):
-   - Lifecycle: init, start, double-start, shutdown, destroy
-   - Requests: create, free, submit to stopped worker, submit after shutdown
-   - Callbacks: completion invoked, git status detection, non-repo handling
-   - Statistics: request/completion counting, pending count
-   
-   **Bug Fix**: Fixed pipe blocking in `run_git_command()` by draining
-   remaining output after reading first line.
+   - All 53 tests pass
 
 ### Current Todo List
 
@@ -139,70 +97,60 @@
 |------|--------|
 | Add LLE_EVENT_DIRECTORY_CHANGED to event system | **COMPLETE** |
 | Integrate directory change event with cd builtin | **COMPLETE** |
-| Document widget hooks architectural analysis | **COMPLETE** |
 | Create async worker thread pool infrastructure | **COMPLETE** |
 | Add unit tests for async worker | **COMPLETE** |
+| Integrate async worker with prompt system | **COMPLETE** |
+| Implement Spec 25 template engine | **COMPLETE** |
+| Add template engine unit tests | **COMPLETE** |
+| Create Spec 25 segment system | **PENDING** |
 
 ### Next Steps
 
-1. **Integrate async worker with prompt system**: Wire the async worker to the
-   prompt generation flow so git status is fetched asynchronously.
+1. **Implement Segment System**: Create segment registry and built-in segments
+   (directory, git, user, host, time, etc.) per Spec 25 Section 5.
 
-2. **Implement remaining Spec 25 components**: Template engine, segment system,
-   theme registry, and display integration per the roadmap.
+2. **Implement Theme Registry**: Create theme registration, lookup, and inheritance
+   per Spec 25 Section 4.
+
+3. **Integrate Template Engine with Theme System**: Connect the new template engine
+   to the existing theme system for prompt generation.
 
 ---
 
 ## PREVIOUS SESSION CONTEXT
 
-### Session 66 Summary
+### Session 67 Summary
 
-**Bug Investigation - Issue #16 Root Cause Identified**:
-Multiple display bugs (cursor desync, stale prompt content, previous command appearing
-in new prompt) stem from a single root cause: **git prompt information not being
-refreshed between readline sessions**.
+1. **Created Implementation Roadmap Document**:
+   Comprehensive analysis at `docs/lle_specification/LLE_IMPLEMENTATION_STATUS_AND_ROADMAP.md`
 
-**Key Observation**: After `cd /tmp` (a non-git directory), the prompt still showed
-`(feature/lle *)` git branch/status from the previous directory. This stale git info
-causes prompt width calculations to be wrong.
+2. **Added Shell Lifecycle Events**:
+   - `LLE_EVENT_DIRECTORY_CHANGED`, `LLE_EVENT_PRE_COMMAND`, etc.
+   - Convenience functions: `lle_event_fire_directory_changed()`, etc.
 
-**Documentation Updates**:
-- Created `docs/lle_specification/LLE_IMPLEMENTATION_STATUS_AND_ROADMAP.md`
-- Issue #16 elevated to HIGH priority with detailed root cause analysis
+3. **Fixed Issue #16 - Stale Git Prompt**:
+   - Added `prompt_cache_invalidate()` call in `bin_cd()`
+   - Git info now refreshes when changing directories
 
-### All Cleanup Phases Complete
-
-| Phase | Description | Status |
-|-------|-------------|--------|
-| 1 | Build System & C11 Standard | **COMPLETE** |
-| 2 | Code Deduplication | **COMPLETE** |
-| 3 | Directory Structure Reorganization | **COMPLETE** |
-| 4 | Spec Compliance Audit | **COMPLETE** |
-| 5 | Test Suite Cleanup | **COMPLETE** |
-| 6 | Documentation Cleanup | **COMPLETE** |
-| 7 | Legacy Readline Cruft Removal | **COMPLETE** |
-| 8 | Legacy termcap.c Removal | **COMPLETE** |
-| 9 | Include Path Standardization | **COMPLETE** |
-| 10 | Unused Include Cleanup | **COMPLETE** |
-| 11 | Codebase clang-format | **COMPLETE** |
+4. **Created Async Worker Infrastructure**:
+   - pthread-based worker thread with request queue
+   - Git status provider for branch, staged, unstaged, ahead/behind
 
 ---
 
 ## Important Reference Documents
 
 - **Implementation Roadmap**: `docs/lle_specification/LLE_IMPLEMENTATION_STATUS_AND_ROADMAP.md`
-- **Dead Code Audit**: `docs/development/DEAD_CODE_AUDIT.md`
-- **LLE Cleanup Plan**: `docs/development/LLE_CLEANUP_PLAN.md`
+- **Spec 25 Complete**: `docs/lle_specification/25_prompt_theme_system_complete.md`
 - **Known Issues**: `docs/lle_implementation/tracking/KNOWN_ISSUES.md`
 
 ---
 
 ## Known Issues (Merge Blockers)
 
-**Issue #16 - Stale Git Prompt Info** (HIGH - ROOT CAUSE IDENTIFIED):
-- Git prompt information not refreshed when changing directories
-- Causes all downstream display issues (cursor desync, wrong prompt width)
-- **Fix in progress**: Shell lifecycle events for cache invalidation
+**Issue #16 - Stale Git Prompt Info** (FIXED):
+- Fixed by adding `prompt_cache_invalidate()` in `bin_cd()`
+- Async worker provides non-blocking git status refresh
 
 **Issue #20 - Theme System Overwrites User PS1/PS2** (HIGH - MERGE BLOCKER):
 - `build_prompt()` unconditionally overwrites PS1/PS2 every time
@@ -228,7 +176,9 @@ causes prompt width calculations to be wrong.
 | Undo/Redo | Working | Ctrl+_ / Ctrl+^ |
 | Widget System | Working | 24 builtin widgets |
 | Syntax Highlighting | Working | Spec-compliant system |
-| Shell Lifecycle Events | **NEW** | Directory change, pre/post command |
+| Shell Lifecycle Events | Working | Directory change, pre/post command |
+| Async Worker | Working | Non-blocking git status |
+| Template Engine | Working | Spec 25 Section 6 |
 | macOS Compatibility | Working | Verified |
 | Linux Compatibility | Working | Verified |
 
@@ -245,5 +195,5 @@ ninja -C builddir test
 
 # Expected results
 - 0 errors, 0 warnings
-- 51/51 tests pass
+- 53/53 tests pass
 ```
