@@ -92,25 +92,51 @@
    **Result**: After `cd`, the next prompt display will regenerate completely,
    fetching fresh git info for the new directory.
 
+6. **Created Async Worker Thread Pool Infrastructure**:
+   Implemented pthread-based worker thread for async operations (Spec 25 Section 7).
+   
+   **New Files**:
+   - `include/lle/async_worker.h` - Public API for async worker
+   - `src/lle/core/async_worker.c` - Implementation
+   
+   **Features**:
+   - Single worker thread with request queue
+   - Mutex/condition variable synchronization
+   - Completion callbacks for async responses
+   - Git status provider (branch, staged, unstaged, ahead/behind)
+   - Graceful shutdown with pending request draining
+   
+   **API**:
+   ```c
+   lle_async_worker_init(&worker, on_complete_callback, user_data);
+   lle_async_worker_start(worker);
+   lle_async_request_t *req = lle_async_request_create(LLE_ASYNC_GIT_STATUS);
+   strncpy(req->cwd, "/path/to/repo", sizeof(req->cwd) - 1);
+   lle_async_worker_submit(worker, req);
+   // ... later ...
+   lle_async_worker_shutdown(worker);
+   lle_async_worker_wait(worker);
+   lle_async_worker_destroy(worker);
+   ```
+
 ### Current Todo List
 
 | Task | Status |
 |------|--------|
 | Add LLE_EVENT_DIRECTORY_CHANGED to event system | **COMPLETE** |
 | Integrate directory change event with cd builtin | **COMPLETE** |
-| Complete widget hooks integration for prompt lifecycle | Pending |
-| Create async worker thread pool infrastructure | Pending |
+| Document widget hooks architectural analysis | **COMPLETE** |
+| Create async worker thread pool infrastructure | **COMPLETE** |
 
 ### Next Steps
 
-1. **Widget hooks**: Implement `LLE_HOOK_CHPWD` as specified in Spec 08 for
-   full event-driven architecture (the current fix is functional but not event-based).
+1. **Integrate async worker with prompt system**: Wire the async worker to the
+   prompt generation flow so git status is fetched asynchronously.
 
-2. **Global shell event system**: Create a persistent shell-level event system
-   for lifecycle events that spans across readline sessions.
+2. **Implement remaining Spec 25 components**: Template engine, segment system,
+   theme registry, and display integration per the roadmap.
 
-3. **Async worker pool**: Implement background git status fetching to avoid
-   blocking prompt display.
+3. **Add tests for async worker**: Unit tests for the async worker infrastructure.
 
 ---
 

@@ -37,8 +37,8 @@ lle_sources += files(
 )
 
 # ============================================================================
-# CORE MODULE (Spec 14, 15, 16, 17)
-# Foundation: Error handling, memory, performance, testing, hashtable
+# CORE MODULE (Spec 14, 15, 16, 17, 25)
+# Foundation: Error handling, memory, performance, testing, hashtable, async
 # ============================================================================
 
 lle_sources += files(
@@ -47,6 +47,7 @@ lle_sources += files(
   'core/performance.c',
   'core/testing.c',
   'core/hashtable.c',
+  'core/async_worker.c',
 )
 
 # ============================================================================
