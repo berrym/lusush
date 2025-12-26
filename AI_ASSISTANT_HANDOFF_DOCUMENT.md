@@ -74,25 +74,43 @@
    - All 35 event system tests pass
    - All 51 total tests pass
 
+5. **Integrated Prompt Cache Invalidation with cd Builtin**:
+   Modified `src/builtins/builtins.c` to call `prompt_cache_invalidate()` after
+   successful directory change. This is the immediate fix for Issue #16:
+   
+   ```c
+   // In bin_cd(), after successful chdir():
+   prompt_cache_invalidate();
+   ```
+   
+   **Why this approach**:
+   - The LLE event system (`lle_event_system_t`) is per-readline-session, not global
+   - The display layer event system (`layer_event_system_t`) is for display layers
+   - `prompt_cache_invalidate()` is the direct, existing mechanism for forcing
+     prompt regeneration including fresh git status
+   
+   **Result**: After `cd`, the next prompt display will regenerate completely,
+   fetching fresh git info for the new directory.
+
 ### Current Todo List
 
 | Task | Status |
 |------|--------|
 | Add LLE_EVENT_DIRECTORY_CHANGED to event system | **COMPLETE** |
-| Integrate directory change event with cd builtin | **IN PROGRESS** |
+| Integrate directory change event with cd builtin | **COMPLETE** |
 | Complete widget hooks integration for prompt lifecycle | Pending |
 | Create async worker thread pool infrastructure | Pending |
 
 ### Next Steps
 
-1. **Integrate with cd builtin**: Modify `src/builtins/cd.c` to fire
-   `LLE_EVENT_DIRECTORY_CHANGED` when the directory changes successfully.
-   This will allow prompt cache subscribers to invalidate stale git info.
+1. **Widget hooks**: Implement `LLE_HOOK_CHPWD` as specified in Spec 08 for
+   full event-driven architecture (the current fix is functional but not event-based).
 
-2. **Add event handlers**: Create handlers that respond to directory change
-   events by invalidating prompt cache (git status, etc.).
+2. **Global shell event system**: Create a persistent shell-level event system
+   for lifecycle events that spans across readline sessions.
 
-3. **Widget hooks**: Implement `LLE_HOOK_CHPWD` as specified in Spec 08.
+3. **Async worker pool**: Implement background git status fetching to avoid
+   blocking prompt display.
 
 ---
 

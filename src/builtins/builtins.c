@@ -15,7 +15,7 @@
 #include "lusush.h"
 #include "lusush_memory_pool.h"
 #include "network.h"
-#include "prompt.h"
+#include "prompt.h"  // For prompt_cache_invalidate()
 #include "signals.h"
 #include "symtable.h"
 #include "themes.h"
@@ -391,6 +391,10 @@ int bin_cd(int argc __attribute__((unused)),
             }
         }
     }
+
+    // Invalidate prompt cache to force refresh of git info and other
+    // directory-dependent content on next prompt display
+    prompt_cache_invalidate();
 
     return 0;
 }
