@@ -396,6 +396,9 @@ int bin_cd(int argc __attribute__((unused)),
     // directory-dependent content on next prompt display
     prompt_cache_invalidate();
 
+    // Trigger async git status fetch for new directory
+    prompt_async_refresh_git();
+
     return 0;
 }
 

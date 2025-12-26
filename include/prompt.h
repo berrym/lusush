@@ -32,4 +32,9 @@ void prompt_cache_set(const lusush_prompt_cache_t *entry);
 void prompt_cache_invalidate(void);
 bool prompt_cache_is_valid_for_context(void);
 
+// Async git status system
+bool prompt_async_init(void);
+void prompt_async_cleanup(void);
+void prompt_async_refresh_git(void);
+
 #endif

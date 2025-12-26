@@ -2,12 +2,14 @@
 
 #include "config.h"
 #include "display_integration.h"
+#include "lle/async_worker.h"
 #include "lusush.h"
 #include "symtable.h"
 #include "themes.h"
 
 #include <getopt.h>
 #include <limits.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,6 +40,12 @@ typedef struct {
 
 static git_info_t git_info = {0};
 static time_t last_git_check = 0;
+
+// Async git status system
+static lle_async_worker_t *git_async_worker = NULL;
+static pthread_mutex_t git_async_mutex = PTHREAD_MUTEX_INITIALIZER;
+static bool git_async_pending = false;
+static char git_async_cwd[PATH_MAX] = {0};
 
 /**
  * run_command:
@@ -377,3 +385,122 @@ void prompt_cache_set(const lusush_prompt_cache_t *entry) {
  * Invalidate the prompt cache.
  */
 void prompt_cache_invalidate(void) { cache_valid = false; }
+
+// ============================================================================
+// ASYNC GIT STATUS SYSTEM
+// ============================================================================
+
+/**
+ * Callback when async git status completes.
+ * Updates the cached git_info with fresh data.
+ */
+static void git_async_completion(const lle_async_response_t *response,
+                                 void *user_data) {
+    (void)user_data;
+
+    pthread_mutex_lock(&git_async_mutex);
+
+    if (response->result == LLE_SUCCESS) {
+        const lle_git_status_data_t *status = &response->data.git_status;
+
+        // Update cached git_info from async response
+        memset(&git_info, 0, sizeof(git_info));
+
+        if (status->is_git_repo) {
+            snprintf(git_info.branch, sizeof(git_info.branch), "%s", status->branch);
+            git_info.has_staged = status->has_staged ? 1 : 0;
+            git_info.has_changes = status->has_unstaged ? 1 : 0;
+            git_info.has_untracked = status->has_untracked ? 1 : 0;
+            git_info.ahead = status->ahead;
+            git_info.behind = status->behind;
+        }
+
+        last_git_check = time(NULL);
+    }
+
+    git_async_pending = false;
+    pthread_mutex_unlock(&git_async_mutex);
+
+    // Invalidate prompt cache so next prompt shows fresh git info
+    prompt_cache_invalidate();
+}
+
+/**
+ * Initialize the async git status system.
+ * Should be called during shell initialization.
+ */
+bool prompt_async_init(void) {
+    if (git_async_worker != NULL) {
+        return true; // Already initialized
+    }
+
+    lle_result_t result = lle_async_worker_init(&git_async_worker,
+                                                 git_async_completion, NULL);
+    if (result != LLE_SUCCESS) {
+        return false;
+    }
+
+    result = lle_async_worker_start(git_async_worker);
+    if (result != LLE_SUCCESS) {
+        lle_async_worker_destroy(git_async_worker);
+        git_async_worker = NULL;
+        return false;
+    }
+
+    return true;
+}
+
+/**
+ * Cleanup the async git status system.
+ * Should be called during shell cleanup.
+ */
+void prompt_async_cleanup(void) {
+    if (git_async_worker == NULL) {
+        return;
+    }
+
+    lle_async_worker_shutdown(git_async_worker);
+    lle_async_worker_wait(git_async_worker);
+    lle_async_worker_destroy(git_async_worker);
+    git_async_worker = NULL;
+}
+
+/**
+ * Queue an async git status fetch for the current directory.
+ * Returns immediately - results will update git_info via callback.
+ */
+void prompt_async_refresh_git(void) {
+    if (git_async_worker == NULL || !lle_async_worker_is_running(git_async_worker)) {
+        return;
+    }
+
+    char cwd[PATH_MAX];
+    if (getcwd(cwd, sizeof(cwd)) == NULL) {
+        return;
+    }
+
+    pthread_mutex_lock(&git_async_mutex);
+
+    // Don't queue if already pending for same directory
+    if (git_async_pending && strcmp(git_async_cwd, cwd) == 0) {
+        pthread_mutex_unlock(&git_async_mutex);
+        return;
+    }
+
+    lle_async_request_t *req = lle_async_request_create(LLE_ASYNC_GIT_STATUS);
+    if (req == NULL) {
+        pthread_mutex_unlock(&git_async_mutex);
+        return;
+    }
+
+    snprintf(req->cwd, sizeof(req->cwd), "%s", cwd);
+
+    if (lle_async_worker_submit(git_async_worker, req) == LLE_SUCCESS) {
+        git_async_pending = true;
+        snprintf(git_async_cwd, sizeof(git_async_cwd), "%s", cwd);
+    } else {
+        lle_async_request_free(req);
+    }
+
+    pthread_mutex_unlock(&git_async_mutex);
+}

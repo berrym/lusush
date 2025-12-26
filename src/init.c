@@ -520,6 +520,18 @@ int init(int argc, char **argv, FILE **in) {
         symtable_set_global("0", argv[0]);
     }
 
+    // Initialize async git status for prompt (before history, lightweight)
+    if (IS_INTERACTIVE_SHELL) {
+        if (!prompt_async_init()) {
+            // Non-fatal: fall back to synchronous git status
+            const char *debug_env = getenv("LUSUSH_DEBUG");
+            if (debug_env &&
+                (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0)) {
+                fprintf(stderr, "Warning: Failed to initialize async git status\n");
+            }
+        }
+    }
+
     // Initialize history for interactive shells
     if (IS_INTERACTIVE_SHELL) {
         init_history();
@@ -586,6 +598,7 @@ int init(int argc, char **argv, FILE **in) {
     if (IS_INTERACTIVE_SHELL) {
         atexit(lusush_readline_cleanup);
         atexit(display_integration_cleanup);
+        atexit(prompt_async_cleanup);
     }
 
     return 0;
