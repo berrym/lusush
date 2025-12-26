@@ -73,9 +73,12 @@ generation with segment-based composition, template engine, and async data provi
    - `composer_is_visible()` - Checks segment visibility
    - `composer_get_color()` - Maps semantic colors to ANSI codes
 
-3. **Build and Test Verification**:
+3. **Added Composer Compliance Tests**:
+   31 compliance tests across 6 phases verifying Spec 25 adherence.
+
+4. **Build and Test Verification**:
    - Build: 0 errors, 0 warnings
-   - All 58 tests pass
+   - All 59 tests pass
 
 ### Current Todo List
 
@@ -91,6 +94,7 @@ generation with segment-based composition, template engine, and async data provi
 | Create theme compliance tests | **COMPLETE** |
 | Integrate template engine with segment system | **COMPLETE** |
 | Add prompt composer unit tests | **COMPLETE** |
+| Create composer compliance tests | **COMPLETE** |
 | Address merge blockers (Issue #20, #21) | **PENDING** |
 
 ### Next Steps
@@ -137,14 +141,15 @@ generation with segment-based composition, template engine, and async data provi
 ## New Files This Session
 
 ```
-include/lle/prompt/theme.h                       - Theme system API
-src/lle/prompt/theme.c                           - Theme implementation (6 built-in)
-include/lle/prompt/composer.h                    - Composer API
-src/lle/prompt/composer.c                        - Template/segment/theme integration
-tests/lle/unit/test_theme_registry.c             - 30 unit tests
-tests/lle/unit/test_prompt_composer.c            - 26 unit tests
+include/lle/prompt/theme.h                        - Theme system API
+src/lle/prompt/theme.c                            - Theme implementation (6 built-in)
+include/lle/prompt/composer.h                     - Composer API
+src/lle/prompt/composer.c                         - Template/segment/theme integration
+tests/lle/unit/test_theme_registry.c              - 30 unit tests
+tests/lle/unit/test_prompt_composer.c             - 26 unit tests
 tests/lle/compliance/spec_25_segment_compliance.c - 27 compliance tests
-tests/lle/compliance/spec_25_theme_compliance.c  - 34 compliance tests
+tests/lle/compliance/spec_25_theme_compliance.c   - 34 compliance tests
+tests/lle/compliance/spec_25_composer_compliance.c - 31 compliance tests
 ```
 
 ---
@@ -203,5 +208,5 @@ ninja -C builddir test
 
 # Expected results
 - 0 errors, 0 warnings
-- 58/58 tests pass
+- 59/59 tests pass
 ```

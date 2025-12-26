@@ -829,6 +829,18 @@ endif
          timeout: 60)
   endif
 
+  # Spec 25 Composer Compliance Test
+  # Validates compliance with Spec 25 prompt composer requirements
+  if fs.exists('tests/lle/compliance/spec_25_composer_compliance.c')
+    test_spec25_composer_compliance = executable('spec_25_composer_compliance',
+                                        'tests/lle/compliance/spec_25_composer_compliance.c',
+                                        include_directories: inc,
+                                        dependencies: [lle_dep])
+    test('Spec 25 Prompt Composer Compliance', test_spec25_composer_compliance,
+         suite: 'lle-compliance',
+         timeout: 60)
+  endif
+
   # Spec 26 Compliance Test (Adaptive Terminal Integration)
   # Validates compliance with Spec 26 Phases 1-2 requirements
   if fs.exists('tests/lle/compliance/spec_26_adaptive_terminal_compliance.c')
