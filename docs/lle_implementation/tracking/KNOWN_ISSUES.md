@@ -335,53 +335,79 @@ The `pushd` and `popd` commands are not implemented in lusush. They are highligh
 
 ---
 
-### Issue #16: Prompt/Cursor Desync Display Corruption (CRITICAL ROOT CAUSE IDENTIFIED)
-**Severity**: HIGH (upgraded from MEDIUM - root cause now understood)  
+### Issue #16: Prompt/Cursor Desync Display Corruption (ROOT CAUSE IDENTIFIED)
+**Severity**: HIGH  
 **Discovered**: 2025-12-17 (Session 52 - manual testing)  
-**Updated**: 2025-12-25 (Session 66 - root cause analysis)  
-**Status**: Root cause identified - requires architectural fix  
-**Component**: Display system / prompt layer / git prompt caching  
+**Updated**: 2025-12-25 (Session 66 - comprehensive root cause analysis)  
+**Status**: Root cause identified - requires architectural redesign  
+**Component**: Prompt/theme system cache architecture  
+**Full Investigation**: See `ISSUE_16_INVESTIGATION.md` for complete technical analysis
 
 **Description**:
-Display corruption where the prompt and cursor position become desynchronized. The prompt may be partially overwritten or truncated, and typed input appears in unexpected positions. **This is now understood to be a symptom of stale prompt content not being refreshed when the prompt should change.**
+Display corruption where the prompt and cursor position become desynchronized. The prompt may be partially overwritten or truncated, and typed input appears in unexpected positions.
 
-**Root Cause Identified (2025-12-25)**:
-The core issue is that **git prompt information is not being refreshed between readline sessions**. When the user changes directories (e.g., `cd /tmp` from a git repo), the prompt layer continues to display stale git branch/status info from the previous directory. This causes:
+**Root Cause: Four Independent Cache Layers with Mismatched Invalidation**
 
-1. **Prompt width mismatch**: LLE calculates cursor positions based on what it thinks the prompt width is, but the displayed prompt has different content/width than what LLE expects
-2. **Cursor desync**: When LLE clears "from cursor to end of line", it uses the wrong position because the prompt boundary is incorrect
-3. **Command overlay**: Typed commands appear to overlay the prompt because LLE thinks the command starts at position X, but the actual prompt ends at position Y
+The prompt system has FOUR caches that operate independently:
 
-**Evidence (Session 66 Testing)**:
-```bash
-# Start in git repo
-[mberry@fedora-xps13.local] ~/Lab/c/lusush (feature/lle ↑1) $ cd /tmp/unicode_test
+| Cache | Location | TTL | Directory Aware? |
+|-------|----------|-----|------------------|
+| **Git Info** | `src/prompt.c` | **10 seconds** | **NO - THIS IS THE BUG** |
+| Prompt Content | `src/prompt.c` | 5 seconds | YES |
+| Prompt Layer | `src/display/prompt_layer.c` | 5 seconds | NO |
+| Theme | `src/themes.c` | 30 seconds | NO |
 
-# BUG: Git info still shown even though /tmp is NOT a git repo!
-[mberry@fedora-xps13.local] /tmp (feature/lle ↑1) $ 
+**The Critical Bug**:
+The git info cache in `src/prompt.c` uses pure time-based expiry:
 
-# Type "cd" and the desync becomes visible:
-[mberry@fedora-xps13.local] /tmp (fcd /tmp
-                                  ^^^^^^^^ command overlays where git info was
+```c
+void update_git_info(void) {
+    time_t now = time(NULL);
+    // BUG: Returns cached info if < 10 seconds old
+    // Does NOT check if directory changed!
+    if (now - last_git_check < GIT_CACHE_SECONDS) {
+        return;  // STALE DATA RETURNED
+    }
+    get_git_status(&git_info);
+    last_git_check = now;
+}
+```
 
-# The "/tmp" shown is autosuggestion ghost text, proving LLE is confused
-# about where the prompt ends and command begins
+**The Race Condition**:
+```
+Time 0s:  User in /git_repo_A, git_info cached (branch: feature/lle)
+Time 3s:  User types "cd /tmp" and presses ENTER
+Time 4s:  cd completes, now in /tmp (NOT a git repo)
+          NO CACHE INVALIDATION OCCURS
+Time 5s:  Next readline prompt needed
+          - build_prompt() detects directory changed
+          - Calls theme_generate_primary_prompt()
+          - Calls update_git_info()
+          - 5s - 0s = 5s < 10s TTL
+          - Returns WITHOUT updating git_info!
+          - Prompt shows "(feature/lle)" even though /tmp is not a git repo
 ```
 
 **Why Previous Fix Attempts Failed**:
-Session 66 attempted several fixes that all failed or introduced new bugs:
-1. **prompt_layer.c change** (bb20f7b): Stopped regenerating prompt to fix width desync during editing, but this made the stale prompt problem worse
-2. **command_layer_clear** (2c084b9): Cleared command text on reset, but didn't address the root prompt caching issue
-3. **prompt_layer_force_render**: Attempted to force fresh prompt, but the prompt content itself was already stale before reaching the layer
+All Session 66 fixes targeted the DISPLAY side, but the problem is on the DATA side:
+- Clearing display layers just re-renders the same stale data
+- The git_info struct contains old repository data
+- Only time expiry (10 seconds) clears it
 
-**The Real Problem**:
-The prompt string passed to `lle_readline()` is generated ONCE at the start of each readline session. However:
-- The git prompt info is computed when `build_prompt()` / `theme_generate_primary_prompt()` is called
-- This prompt string is then cached/reused throughout the session
-- When the directory changes, the NEXT readline session should get a fresh prompt
-- But somewhere in the flow, stale prompt data persists
+**Missing Integration Point**:
+`display_integration_post_command_update()` in `src/display_integration.c`:
+- Called after every command completes
+- Does NOT detect directory-changing commands
+- Does NOT invalidate any caches
+- Does NOT force git info refresh
 
-**Reproduction Steps** (now reliable):
+**Symptoms**:
+- Stale git branch/status shown after `cd`
+- Cursor position calculated wrong due to prompt width mismatch
+- Typed commands overlay prompt content
+- Autosuggestion ghost text appears in wrong position
+
+**Reproduction**:
 ```bash
 LLE_ENABLED=1 ./builddir/lusush
 cd /tmp           # Change to non-git directory
@@ -389,41 +415,35 @@ cd /tmp           # Change to non-git directory
 # Type any command - cursor position will be wrong
 ```
 
-**Related Symptoms**:
-- Extra space after prompt (may be separate issue or related)
-- Autosuggestion ghost text not clearing properly
-- Previous command text appearing in new prompt (symptom of same root cause)
-
-**Impact**:
-- HIGH: Affects basic shell usability
-- Display corruption on common operations (cd)
-- Requires Ctrl+L or Enter to recover
-
 **Workaround**:
 - Press Ctrl+L to clear screen and force full redraw
-- Press Enter to get a fresh prompt
+- Wait 10 seconds for git cache to expire
 
-**Priority**: HIGH (blocks normal usage, root cause now understood)
+**Solution Options** (from investigation):
 
-**Investigation Needed**:
-1. Trace the prompt generation flow from `lusush_readline_with_prompt()` through to `prompt_layer_set_content()`
-2. Identify where stale prompt data is persisting between readline sessions
-3. Ensure `build_prompt()` is called fresh for each new readline session
-4. Verify git status commands are executed for each new prompt
-5. Check if prompt_layer, composition_engine, or display_controller caches are not being invalidated
+1. **Quick Fix** (Not Recommended): Detect `cd` in post-command hook, force git refresh
+   - Fragile string matching, doesn't handle all cases
 
-**Files Likely Involved**:
-- `src/readline_integration.c` - `lusush_generate_prompt()` flow
-- `src/readline_stubs.c` - `lusush_readline_with_prompt()` 
-- `src/prompt.c` - `build_prompt()`, git status integration
-- `src/display/prompt_layer.c` - Prompt caching
-- `src/display/composition_engine.c` - Composition caching
-- `src/display/display_controller.c` - Display state reset
+2. **Better Fix**: Track directory at readline entry, invalidate on change
+   - More robust but still a band-aid
 
-**Architectural Note**:
-The fix requires ensuring that prompt content is ALWAYS freshly generated for each new readline session, and that all display layers are properly reset/invalidated when a new prompt is set. Quick fixes to individual layers have proven to cause cascading issues.
+3. **Best Fix**: Event-driven cache invalidation (PWD_CHANGED event)
+   - Clean architecture, handles all cases
 
-**Status**: ROOT CAUSE IDENTIFIED - Requires careful architectural fix
+4. **Recommended**: Move prompt/theme into LLE as new specification
+   - Solves #16, #20, #21, #22 together
+   - Uses LLE's existing event system
+   - Single unified cache management
+
+**Related Issues**:
+- Issue #20: Theme overwrites user PS1/PS2 (same architectural problem)
+- Issue #21: Themes not user-extensible (same system)
+- Issue #22: Template variables dead code (blocked by same issues)
+- Issue #23: Extra space after prompt (may be symptom of width mismatch)
+
+**Priority**: HIGH (affects basic usability, root cause of multiple symptoms)
+
+**Status**: ROOT CAUSE IDENTIFIED - Requires architectural redesign of prompt/theme system
 
 ---
 
