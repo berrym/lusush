@@ -119,6 +119,20 @@
    lle_async_worker_destroy(worker);
    ```
 
+7. **Added Async Worker Unit Tests**:
+   Created comprehensive test suite for the async worker infrastructure.
+   
+   **New Test File**: `tests/lle/unit/test_async_worker.c`
+   
+   **Tests** (15 total):
+   - Lifecycle: init, start, double-start, shutdown, destroy
+   - Requests: create, free, submit to stopped worker, submit after shutdown
+   - Callbacks: completion invoked, git status detection, non-repo handling
+   - Statistics: request/completion counting, pending count
+   
+   **Bug Fix**: Fixed pipe blocking in `run_git_command()` by draining
+   remaining output after reading first line.
+
 ### Current Todo List
 
 | Task | Status |
@@ -127,6 +141,7 @@
 | Integrate directory change event with cd builtin | **COMPLETE** |
 | Document widget hooks architectural analysis | **COMPLETE** |
 | Create async worker thread pool infrastructure | **COMPLETE** |
+| Add unit tests for async worker | **COMPLETE** |
 
 ### Next Steps
 
@@ -135,8 +150,6 @@
 
 2. **Implement remaining Spec 25 components**: Template engine, segment system,
    theme registry, and display integration per the roadmap.
-
-3. **Add tests for async worker**: Unit tests for the async worker infrastructure.
 
 ---
 

@@ -361,6 +361,12 @@ static bool run_git_command(const char *cmd, char *output, size_t output_size) {
         }
     }
 
+    /* Drain any remaining output to prevent pipe blocking */
+    char drain[256];
+    while (fgets(drain, sizeof(drain), fp) != NULL) {
+        /* Discard */
+    }
+
     int status = pclose(fp);
     return WIFEXITED(status) && WEXITSTATUS(status) == 0;
 }
