@@ -3,12 +3,17 @@
  * @brief LLE Prompt Composer - Template/Segment/Theme Integration
  *
  * Specification: Spec 25 - Prompt Composer
- * Version: 1.0.0
+ * Version: 1.1.0
  *
  * The prompt composer integrates the template engine, segment registry,
  * and theme registry to render complete prompts. It provides the callbacks
  * needed by the template engine to resolve segments, check visibility,
  * and apply theme colors.
+ *
+ * Shell Event Integration (Spec 26):
+ * The composer registers handlers with the shell event hub to automatically
+ * respond to directory changes, pre-command, and post-command events.
+ * This enables event-driven cache invalidation instead of time-based polling.
  */
 
 #ifndef LLE_PROMPT_COMPOSER_H
@@ -21,6 +26,9 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+
+/* Forward declaration for shell event hub */
+struct lle_shell_event_hub;
 
 #ifdef __cplusplus
 extern "C" {
@@ -58,6 +66,11 @@ typedef struct lle_composer_config {
  *
  * Central coordinator that connects template engine, segment registry,
  * and theme registry for unified prompt rendering.
+ *
+ * Shell Event Integration:
+ * The composer maintains a reference to the shell event hub and registers
+ * handlers for directory changed, pre-command, and post-command events.
+ * This enables automatic cache invalidation and context updates.
  */
 typedef struct lle_prompt_composer {
     lle_segment_registry_t *segments;  /**< Segment registry */
@@ -65,6 +78,16 @@ typedef struct lle_prompt_composer {
     lle_prompt_context_t context;      /**< Current prompt context */
     lle_composer_config_t config;      /**< Composer configuration */
     bool initialized;                  /**< Composer is initialized */
+
+    /** @brief Shell event hub integration (Spec 26) */
+    struct lle_shell_event_hub *shell_event_hub; /**< Shell event hub ref */
+    bool events_registered;            /**< Event handlers registered */
+    bool needs_regeneration;           /**< Prompt needs to be re-rendered */
+
+    /** @brief Transient prompt state */
+    int last_prompt_line;              /**< Line where last PS1 was rendered */
+    const char *current_command;       /**< Command being executed */
+    bool current_command_is_bg;        /**< Command is background */
 
     /** @brief Cached parsed templates */
     lle_parsed_template_t *cached_left_template;
@@ -78,6 +101,7 @@ typedef struct lle_prompt_composer {
     uint64_t total_renders;
     uint64_t total_render_time_ns;
     uint64_t cache_hits;
+    uint64_t event_triggered_refreshes; /**< Refreshes triggered by events */
 } lle_prompt_composer_t;
 
 /**
@@ -223,6 +247,61 @@ lle_result_t lle_composer_set_theme(lle_prompt_composer_t *composer,
  * @return Pointer to active theme or NULL
  */
 const lle_theme_t *lle_composer_get_theme(const lle_prompt_composer_t *composer);
+
+/* ============================================================================
+ * SHELL EVENT INTEGRATION API (Spec 26)
+ * ============================================================================
+ */
+
+/**
+ * @brief Register prompt composer with shell event hub
+ *
+ * Registers event handlers for directory changed, pre-command, and
+ * post-command events. This enables automatic cache invalidation and
+ * context updates based on shell activity.
+ *
+ * This is the key integration point with Spec 26 (LLE Initialization System).
+ * Call this after composer init and when shell event hub is available.
+ *
+ * @param composer   Prompt composer
+ * @param event_hub  Shell event hub from Spec 26
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_composer_register_shell_events(
+    lle_prompt_composer_t *composer,
+    struct lle_shell_event_hub *event_hub);
+
+/**
+ * @brief Unregister prompt composer from shell event hub
+ *
+ * Removes event handlers. Call before destroying the composer if
+ * the event hub will outlive it.
+ *
+ * @param composer  Prompt composer
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_composer_unregister_shell_events(
+    lle_prompt_composer_t *composer);
+
+/**
+ * @brief Check if prompt needs regeneration
+ *
+ * Returns true if an event has triggered a need to re-render the prompt.
+ * Call this before rendering to determine if cached output is stale.
+ *
+ * @param composer  Prompt composer
+ * @return true if regeneration needed
+ */
+bool lle_composer_needs_regeneration(const lle_prompt_composer_t *composer);
+
+/**
+ * @brief Clear regeneration flag
+ *
+ * Call after successfully rendering the prompt to clear the flag.
+ *
+ * @param composer  Prompt composer
+ */
+void lle_composer_clear_regeneration_flag(lle_prompt_composer_t *composer);
 
 /* ============================================================================
  * TEMPLATE CALLBACK HELPERS (INTERNAL)

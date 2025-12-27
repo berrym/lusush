@@ -72,7 +72,6 @@ src = ['src/builtins/alias.c',
        'src/display/layer_events.c',
        'src/display/prompt_layer.c',
        'src/display/command_layer.c',
-       'src/display/continuation_prompt_layer.c',
        'src/display/composition_engine.c',
        'src/display/display_controller.c',
        'src/display/screen_buffer.c',
@@ -218,7 +217,6 @@ display_sources = [
   'src/display/layer_events.c',
   'src/display/prompt_layer.c',
   'src/display/command_layer.c',
-  'src/display/continuation_prompt_layer.c',
   'src/display/composition_engine.c',
   'src/display/display_controller.c',
   'src/display/screen_buffer.c',
@@ -241,8 +239,10 @@ display_dep = declare_dependency(link_with: display_lib,
                                  dependencies: [ncurses_link_dep, readline_link_dep])
 
 # Build lusush executable (with or without LLE)
+# NOTE: lle_shell_sources contains shell integration files that depend on
+# shell globals (config, builtins, etc.) and cannot be in liblle.a
 lusush_exe = executable('lusush',
-                        src,
+                        src + lle_shell_sources,
                         include_directories: inc,
                         dependencies: [readline_link_dep, lle_dep])
 
@@ -1064,23 +1064,3 @@ endif
 
 # Phase 4: Continuation Prompt Tests
 # ============================================================================
-
-# Continuation Prompt Layer Unit Tests
-# Tests layer lifecycle, event handling, prompt generation modes
-# Tests simple mode, context-aware mode, error handling
-if fs.exists('tests/unit/test_continuation_prompt_layer.c')
-  test_continuation_prompt = executable('test_continuation_prompt_layer',
-                                       ['tests/unit/test_continuation_prompt_layer.c',
-                                        'tests/unit/test_lusush_stubs.c',
-                                        'src/display/continuation_prompt_layer.c',
-                                        'src/display/layer_events.c',
-                                        'src/input_continuation.c',
-                                        'src/symtable.c',
-                                        'src/lle/unicode/utf8_support.c',
-                                        'src/lle/unicode/unicode_grapheme.c'],
-                                       include_directories: inc,
-                                       dependencies: [readline_link_dep])
-  test('Continuation Prompt Layer', test_continuation_prompt,
-       suite: 'unit',
-       timeout: 30)
-endif

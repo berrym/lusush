@@ -19,7 +19,6 @@
  */
 
 #include "lle/error_handling.h"
-#include <errno.h>
 #include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>

@@ -23,7 +23,6 @@
 #include "lle/memory_management.h"
 #include "lle/unicode_grapheme.h" /* For grapheme boundary detection */
 #include "lle/utf8_support.h"     /* For UTF-8 utilities */
-#include <locale.h>               /* For UTF-8 locale support */
 #include <stdio.h>                /* For fprintf() */
 #include <stdlib.h>               /* For getenv() */
 #include <string.h>

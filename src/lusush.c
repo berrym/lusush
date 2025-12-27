@@ -23,14 +23,60 @@
 #include "executor.h"
 #include "init.h"
 #include "input.h"
+#include "lle/lle_shell_event_hub.h"
+#include "lle/lle_shell_integration.h"
 #include "posix_history.h"
 #include "signals.h"
+
+#include <time.h>
 
 #include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+/**
+ * @brief Detect if command line ends with background operator
+ *
+ * Checks if command ends with '&' but not '&&' (logical AND).
+ * Used by Spec 26 shell event hub to set is_background flag correctly.
+ *
+ * @param command The command line to check
+ * @return true if command will run in background, false otherwise
+ */
+static bool is_background_command(const char *command) {
+    if (!command) {
+        return false;
+    }
+
+    size_t len = strlen(command);
+    if (len == 0) {
+        return false;
+    }
+
+    /* Find last non-whitespace character */
+    size_t i = len;
+    while (i > 0 && isspace((unsigned char)command[i - 1])) {
+        i--;
+    }
+
+    if (i == 0) {
+        return false;
+    }
+
+    /* Check if ends with '&' */
+    if (command[i - 1] != '&') {
+        return false;
+    }
+
+    /* Make sure it's not '&&' (logical AND) */
+    if (i >= 2 && command[i - 2] == '&') {
+        return false;
+    }
+
+    return true;
+}
 
 // Forward declarations
 extern posix_history_manager_t *global_posix_history;
@@ -59,8 +105,37 @@ int main(int argc, char **argv) {
             fprintf(stderr, "%s\n", shell_opts.command_string);
         }
 
+        /**
+         * @brief Fire pre-command event for command mode (Spec 26)
+         *
+         * Command mode (-c) must also fire shell events for consistency
+         * with the event system. This enables proper tracking even for
+         * single-command invocations.
+         */
+        uint64_t cmd_start_us = 0;
+        if (g_lle_integration) {
+            struct timespec ts;
+            clock_gettime(CLOCK_MONOTONIC, &ts);
+            cmd_start_us = (uint64_t)ts.tv_sec * 1000000ULL +
+                           (uint64_t)ts.tv_nsec / 1000;
+            bool is_bg = is_background_command(shell_opts.command_string);
+            lle_fire_pre_command(shell_opts.command_string, is_bg);
+        }
+
         // Execute the command string and exit
         int exit_status = parse_and_execute(shell_opts.command_string);
+
+        /**
+         * @brief Fire post-command event for command mode (Spec 26)
+         */
+        if (g_lle_integration) {
+            struct timespec ts;
+            clock_gettime(CLOCK_MONOTONIC, &ts);
+            uint64_t cmd_end_us = (uint64_t)ts.tv_sec * 1000000ULL +
+                                  (uint64_t)ts.tv_nsec / 1000;
+            lle_fire_post_command(shell_opts.command_string, exit_status,
+                                  cmd_end_us - cmd_start_us);
+        }
 
         // Flush output buffers before exit to ensure all output is displayed
         fflush(stdout);
@@ -102,10 +177,37 @@ int main(int argc, char **argv) {
         // Add command to history if in interactive mode (handled by readline)
         // History is automatically managed by the readline integration
 
+        /**
+         * @brief Fire pre-command event for LLE shell integration (Spec 26)
+         *
+         * Records command start time and notifies handlers before execution.
+         * Detects background commands (ending with &) to set is_background flag.
+         */
+        uint64_t cmd_start_us = 0;
+        if (g_lle_integration) {
+            struct timespec ts;
+            clock_gettime(CLOCK_MONOTONIC, &ts);
+            cmd_start_us = (uint64_t)ts.tv_sec * 1000000ULL +
+                           (uint64_t)ts.tv_nsec / 1000;
+            bool is_bg = is_background_command(line);
+            lle_fire_pre_command(line, is_bg);
+        }
+
         // Execute using unified modern parser and store exit status
         int exit_status = parse_and_execute(line);
         last_exit_status = exit_status;
         set_exit_status(exit_status);
+
+        /* Fire post-command event for LLE shell integration (Spec 26)
+         * Provides exit code and execution duration for prompt and history.
+         */
+        if (g_lle_integration) {
+            struct timespec ts;
+            clock_gettime(CLOCK_MONOTONIC, &ts);
+            uint64_t cmd_end_us = (uint64_t)ts.tv_sec * 1000000ULL +
+                                  (uint64_t)ts.tv_nsec / 1000;
+            lle_fire_post_command(line, exit_status, cmd_end_us - cmd_start_us);
+        }
 
         // Phase 1: Post-command display integration for layered display caching
         // This enables the layered display system to handle post-command prompt

@@ -46,7 +46,6 @@
 #include "symtable.h"
 #include "themes.h"
 
-#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -452,26 +451,13 @@ static prompt_layer_error_t render_prompt_content(prompt_layer_t *layer) {
 
     char rendered_buffer[PROMPT_LAYER_MAX_CONTENT_SIZE];
 
-    if (theme) {
-        // Use theme system to render prompt
-        if (theme_generate_primary_prompt(rendered_buffer,
-                                          sizeof(rendered_buffer))) {
-            // Successfully generated themed prompt
-            DEBUG_PRINT("Theme system generated prompt");
-        } else {
-            // Theme generation failed - use raw content
-            strncpy(rendered_buffer, layer->raw_content,
-                    sizeof(rendered_buffer) - 1);
-            rendered_buffer[sizeof(rendered_buffer) - 1] = '\0';
-            DEBUG_PRINT("Theme generation failed - using raw content");
-        }
-    } else {
-        // No theme available - use raw content
-        strncpy(rendered_buffer, layer->raw_content,
-                sizeof(rendered_buffer) - 1);
-        rendered_buffer[sizeof(rendered_buffer) - 1] = '\0';
-        DEBUG_PRINT("No theme available - using raw content");
-    }
+    // Use raw_content directly - it's already been rendered by the appropriate
+    // prompt system (Spec 25 composer or legacy theme system)
+    // Do NOT re-render here as that would override Spec 25 prompts with legacy
+    strncpy(rendered_buffer, layer->raw_content,
+            sizeof(rendered_buffer) - 1);
+    rendered_buffer[sizeof(rendered_buffer) - 1] = '\0';
+    DEBUG_PRINT("Using raw content as prompt");
 
     // Calculate metrics
     calculate_prompt_metrics(rendered_buffer, &layer->current_metrics);

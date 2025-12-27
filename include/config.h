@@ -3,7 +3,6 @@
 
 #include <stdbool.h>
 #include <stddef.h>
-#include <stdio.h>
 
 // Configuration file paths
 #define USER_CONFIG_FILE ".lusushrc"

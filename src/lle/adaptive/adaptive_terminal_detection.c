@@ -401,14 +401,16 @@ lle_result_t lle_detect_terminal_capabilities_comprehensive(
         return LLE_ERROR_INVALID_PARAMETER;
     }
 
-    /* Allocate detection result */
+    /* Allocate detection result using standard malloc, not the pool.
+     * This is intentional: the detection result is cached as a singleton
+     * and may outlive pool shutdown. Using the pool would cause double-free
+     * or use-after-free when the pool is cleaned up while cached_result
+     * still holds a reference. */
     lle_terminal_detection_result_t *detection =
-        lle_pool_alloc(sizeof(lle_terminal_detection_result_t));
+        calloc(1, sizeof(lle_terminal_detection_result_t));
     if (!detection) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
-
-    memset(detection, 0, sizeof(lle_terminal_detection_result_t));
 
     uint64_t start_time = get_current_time_us();
 
@@ -504,7 +506,7 @@ lle_result_t lle_detect_terminal_capabilities_optimized(
     if (res == LLE_SUCCESS) {
         /* Update cache */
         if (cached_result) {
-            lle_pool_free(cached_result);
+            free(cached_result);
         }
         cached_result = *result;
         cache_timestamp_us = current_time;
@@ -519,7 +521,7 @@ lle_result_t lle_detect_terminal_capabilities_optimized(
 void lle_terminal_detection_result_destroy(
     lle_terminal_detection_result_t *result) {
     if (result && result != cached_result) {
-        lle_pool_free(result);
+        free(result);
     }
 }
 

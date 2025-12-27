@@ -4,8 +4,6 @@
 
 #include <getopt.h>
 #include <stdbool.h>
-#include <stdio.h>
-#include <string.h>
 
 // Legacy shell options - now using config system
 

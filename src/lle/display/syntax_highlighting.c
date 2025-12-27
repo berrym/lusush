@@ -13,8 +13,9 @@
  */
 
 #include "lle/syntax_highlighting.h"
-#include "lle/error_handling.h"
 #include <ctype.h>
+#include <stdio.h>
+#include <time.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>

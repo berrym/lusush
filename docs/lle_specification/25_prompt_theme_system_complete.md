@@ -51,7 +51,7 @@ The Prompt and Theme System provides a unified, first-class architecture for pro
 ### 1.3 Critical Design Principles
 
 1. **First-Class Citizenship**: All themes (built-in and user) use identical registration
-2. **Event-Driven**: No time-based polling; react to LLE_HOOK_CHPWD and similar
+2. **Event-Driven**: No time-based polling; react to shell events via Spec 26 event hub
 3. **Non-Blocking**: Expensive operations (git) run asynchronously
 4. **Zero External Dependencies**: No Lua, no external parsers, pthreads only
 5. **Performance Parity**: Equal or better than current prompt/theme system
@@ -101,9 +101,9 @@ The Prompt and Theme System provides a unified, first-class architecture for pro
 │  └─────────────────────────────────────────────────────────────────────┘    │
 │                                                                              │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                      Event Integration                               │    │
+│  │                   Shell Event Hub Integration (Spec 26)              │    │
 │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                  │    │
-│  │  │ CHPWD       │  │ PRECMD      │  │ THEME_CHANGE│                  │    │
+│  │  │ DIR_CHANGED │  │ PRE_COMMAND │  │ POST_COMMAND│                  │    │
 │  │  │ Handler     │  │ Handler     │  │ Handler     │                  │    │
 │  │  └─────────────┘  └─────────────┘  └─────────────┘                  │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
@@ -122,15 +122,17 @@ The Prompt and Theme System provides a unified, first-class architecture for pro
 User Action (cd, command, etc.)
         │
         ▼
-┌───────────────────┐
-│ Event System      │──── LLE_HOOK_CHPWD ────┐
-│                   │──── LLE_HOOK_PRECMD ───┤
-└───────────────────┘                        │
-                                             ▼
-                                   ┌─────────────────────┐
-                                   │ Cache Invalidation  │
-                                   │ (git provider)      │
-                                   └─────────────────────┘
+┌───────────────────────────────┐
+│ Shell Event Hub (Spec 26)     │
+│  lle_fire_directory_changed() │──── DIR_CHANGED ────┐
+│  lle_fire_pre_command()       │──── PRE_COMMAND ────┤
+│  lle_fire_post_command()      │──── POST_COMMAND ───┤
+└───────────────────────────────┘                     │
+                                                      ▼
+                                            ┌─────────────────────┐
+                                            │ Prompt Handlers     │
+                                            │ (cache invalidation)│
+                                            └─────────────────────┘
                                              │
                                              ▼
                                    ┌─────────────────────┐
@@ -2111,108 +2113,100 @@ static lle_prompt_result_t lle_async_get_git_status(
 
 ## 8. Event Integration
 
-The event system provides automatic cache invalidation and prompt regeneration through
-LLE's hook mechanism. This is the core solution to Issue #16 (stale git prompt).
+The prompt system integrates with the LLE shell event hub (Spec 26) for automatic
+cache invalidation and prompt regeneration. This is the core solution to Issue #16
+(stale git prompt).
 
-### 8.1 Event Types and Handlers
+**IMPORTANT**: The prompt system does NOT define its own event types. It registers
+handlers with the shell event hub defined in Spec 26 (LLE Initialization System).
+
+### 8.1 Shell Event Hub Integration
+
+The prompt composer registers handlers for shell events through `lle_shell_event_hub_t`
+(defined in Spec 26). This ensures a single, unified event system across LLE.
 
 ```c
 /**
- * Prompt-related event types (extend existing LLE_HOOK_* enum)
+ * @brief Shell event types (from Spec 26)
+ *
+ * These are defined in lle_shell_event_hub.h, NOT here.
+ * Shown for reference only.
  */
-typedef enum {
-    // Existing hooks used by prompt system
-    LLE_HOOK_CHPWD,          // Directory changed - invalidate caches
-    LLE_HOOK_PRECMD,         // Before command prompt - regenerate prompt
-    LLE_HOOK_PREEXEC,        // Before command execution - transient prompt
-    LLE_HOOK_POSTEXEC,       // After command execution - update status
-    
-    // New prompt-specific events
-    LLE_EVENT_THEME_CHANGE,  // Theme was changed
-    LLE_EVENT_GIT_UPDATE,    // Git state changed (async completion)
-    LLE_EVENT_CACHE_EXPIRE,  // Cache entry expired
+typedef enum lle_shell_event_type {
+    LLE_SHELL_EVENT_DIRECTORY_CHANGED,  /**< cd/pushd/popd completed */
+    LLE_SHELL_EVENT_PRE_COMMAND,        /**< About to execute command */
+    LLE_SHELL_EVENT_POST_COMMAND,       /**< Command execution finished */
+} lle_shell_event_type_t;
+
+/**
+ * @brief Prompt-specific internal events
+ *
+ * These are internal to the prompt system, fired after processing
+ * shell events. User code should subscribe to these for prompt updates.
+ */
+typedef enum lle_prompt_event {
+    LLE_PROMPT_EVENT_THEME_CHANGE,   /**< Theme was changed */
+    LLE_PROMPT_EVENT_GIT_UPDATE,     /**< Git async data ready */
+    LLE_PROMPT_EVENT_CACHE_EXPIRE,   /**< Cache entry invalidated */
+    LLE_PROMPT_EVENT_REGENERATED,    /**< Prompt was regenerated */
 } lle_prompt_event_t;
 
 /**
- * Event callback signature
+ * @brief Prompt event callback signature
+ *
+ * @param event Event type
+ * @param event_data Event-specific data (may be NULL)
+ * @param user_data User-provided context
  */
 typedef void (*lle_prompt_event_callback_t)(
     lle_prompt_event_t event,
     void *event_data,
     void *user_data
 );
-
-/**
- * Event subscription
- */
-typedef struct {
-    lle_prompt_event_t event;
-    lle_prompt_event_callback_t callback;
-    void *user_data;
-    int priority;  // Higher = called first
-} lle_prompt_event_subscription_t;
 ```
 
 ### 8.2 Directory Change Handler (Issue #16 Fix)
 
 ```c
 /**
- * Handler for LLE_HOOK_CHPWD - the core Issue #16 fix
- * 
- * When the directory changes, we:
- * 1. Invalidate all directory-dependent caches
- * 2. Queue async git status refresh
- * 3. Mark prompt as needing regeneration
+ * @brief Handler for LLE_SHELL_EVENT_DIRECTORY_CHANGED
+ *
+ * This is the core fix for Issue #16 (stale git prompt). When the
+ * directory changes, we invalidate caches and queue async refresh.
+ *
+ * @param event_data Pointer to lle_directory_changed_event_t (from Spec 26)
+ * @param user_data Pointer to lle_prompt_composer_t
  */
-static void lle_prompt_on_chpwd(void *data) {
-    lle_prompt_context_t *ctx = data;
+static void lle_prompt_on_directory_changed(void *event_data, void *user_data) {
+    lle_prompt_composer_t *composer = user_data;
+    lle_directory_changed_event_t *event = event_data;
     
-    if (!ctx) return;
+    if (!composer) return;
     
-    // Invalidate git cache - this is the key fix for Issue #16
-    // Instead of time-based expiry, we invalidate on directory change
-    lle_prompt_cache_invalidate_by_tag(&ctx->cache, "git");
+    /* Invalidate git cache - this is the key fix for Issue #16 */
+    /* Instead of time-based expiry, we invalidate on directory change */
+    lle_prompt_cache_invalidate_by_tag(&composer->cache, "git");
     
-    // Also invalidate directory-specific caches
-    lle_prompt_cache_invalidate_by_tag(&ctx->cache, "directory");
-    lle_prompt_cache_invalidate_by_tag(&ctx->cache, "vcs");
+    /* Also invalidate directory-specific caches */
+    lle_prompt_cache_invalidate_by_tag(&composer->cache, "directory");
+    lle_prompt_cache_invalidate_by_tag(&composer->cache, "vcs");
     
-    // Queue async git status refresh for new directory
-    if (ctx->async_worker.running) {
+    /* Queue async git status refresh for new directory */
+    if (composer->async_worker && composer->async_worker->running) {
         lle_async_request_t *request = calloc(1, sizeof(*request));
         if (request) {
             request->type = LLE_ASYNC_REQUEST_GIT_STATUS;
-            if (getcwd(request->cwd, sizeof(request->cwd))) {
-                request->timeout_ms = 1000;  // 1 second timeout
-                lle_async_worker_submit(&ctx->async_worker, request);
-            } else {
-                free(request);
-            }
+            strncpy(request->cwd, event->new_dir, PATH_MAX - 1);
+            request->timeout_ms = 1000;
+            lle_async_worker_submit(composer->async_worker, request);
         }
     }
     
-    // Mark prompt for regeneration
-    ctx->needs_regeneration = true;
+    /* Mark prompt for regeneration */
+    composer->needs_regeneration = true;
     
-    // Fire custom event for subscribers
-    lle_prompt_fire_event(ctx, LLE_EVENT_CACHE_EXPIRE, NULL);
-}
-
-/**
- * Register the chpwd handler with LLE hook system
- */
-lle_prompt_result_t lle_prompt_register_chpwd_handler(lle_prompt_context_t *ctx) {
-    if (!ctx) {
-        return LLE_PROMPT_ERROR_INVALID_PARAM;
-    }
-    
-    // Register with LLE's hook system
-    // This uses the existing hook infrastructure from hooks.h
-    if (lle_hook_register(LLE_HOOK_CHPWD, lle_prompt_on_chpwd, ctx) != 0) {
-        return LLE_PROMPT_ERROR_INVALID_PARAM;
-    }
-    
-    return LLE_PROMPT_SUCCESS;
+    /* Fire internal event for subscribers */
+    lle_prompt_fire_event(composer, LLE_PROMPT_EVENT_CACHE_EXPIRE, NULL);
 }
 ```
 
@@ -2220,56 +2214,96 @@ lle_prompt_result_t lle_prompt_register_chpwd_handler(lle_prompt_context_t *ctx)
 
 ```c
 /**
- * Handler for LLE_HOOK_PRECMD - called before displaying prompt
- * 
- * This is where we:
- * 1. Check if regeneration is needed
- * 2. Apply transient prompt to previous line if needed
- * 3. Generate and render the new prompt
+ * @brief Handler for LLE_SHELL_EVENT_PRE_COMMAND
+ *
+ * Called just before command execution begins. This is where we:
+ * 1. Apply transient prompt to the current prompt line
+ * 2. Record command start time for duration calculation
+ *
+ * @param event_data Pointer to lle_pre_command_event_t (from Spec 26)
+ * @param user_data Pointer to lle_prompt_composer_t
  */
-static void lle_prompt_on_precmd(void *data) {
-    lle_prompt_context_t *ctx = data;
+static void lle_prompt_on_pre_command(void *event_data, void *user_data) {
+    lle_prompt_composer_t *composer = user_data;
+    lle_pre_command_event_t *event = event_data;
     
-    if (!ctx) return;
+    if (!composer) return;
     
-    // Apply transient prompt if enabled and we have a previous prompt
-    if (ctx->current_theme && ctx->current_theme->transient.enabled &&
-        ctx->last_prompt_line > 0) {
-        lle_prompt_apply_transient(ctx);
+    /* Apply transient prompt if enabled - simplify current prompt before
+     * command output starts, reducing visual clutter */
+    if (composer->current_theme && 
+        composer->current_theme->layout.enable_transient &&
+        composer->last_prompt_line > 0) {
+        lle_prompt_apply_transient(composer);
     }
     
-    // Check if we need to regenerate
-    if (ctx->needs_regeneration || ctx->cached_prompt == NULL) {
-        lle_prompt_regenerate(ctx);
-    }
+    /* Save command info for post-command handling */
+    composer->current_command = event->command;
+    composer->current_command_is_bg = event->is_background;
+    
+    /* Command start time is recorded in shell event hub (Spec 26) */
+}
+```
+
+### 8.4 Post-Command Handler
+
+```c
+/**
+ * @brief Handler for LLE_SHELL_EVENT_POST_COMMAND
+ *
+ * Called after command execution completes. This is where we:
+ * 1. Update context with exit code and duration
+ * 2. Mark prompt for regeneration
+ *
+ * @param event_data Pointer to lle_post_command_event_t (from Spec 26)
+ * @param user_data Pointer to lle_prompt_composer_t
+ */
+static void lle_prompt_on_post_command(void *event_data, void *user_data) {
+    lle_prompt_composer_t *composer = user_data;
+    lle_post_command_event_t *event = event_data;
+    
+    if (!composer) return;
+    
+    /* Update context with command results */
+    composer->context.last_exit_code = event->exit_code;
+    composer->context.last_cmd_duration_ms = event->duration_us / 1000;
+    
+    /* Mark prompt for regeneration - exit code may affect display */
+    composer->needs_regeneration = true;
+    
+    /* Fire internal event */
+    lle_prompt_fire_event(composer, LLE_PROMPT_EVENT_REGENERATED, NULL);
 }
 
 /**
- * Regenerate prompt from current theme and segments
+ * @brief Regenerate prompt from current theme and segments
+ *
+ * @param composer The prompt composer
+ * @return LLE_PROMPT_SUCCESS or error code
  */
-static lle_prompt_result_t lle_prompt_regenerate(lle_prompt_context_t *ctx) {
-    if (!ctx || !ctx->current_theme) {
+static lle_prompt_result_t lle_prompt_regenerate(lle_prompt_composer_t *composer) {
+    if (!composer || !composer->current_theme) {
         return LLE_PROMPT_ERROR_INVALID_PARAM;
     }
     
-    // Free old cached prompt
-    free(ctx->cached_prompt);
-    ctx->cached_prompt = NULL;
+    /* Free old cached prompt */
+    free(composer->cached_prompt);
+    composer->cached_prompt = NULL;
     
-    // Determine which template to use based on prompt type
+    /* Determine which template to use based on prompt type */
     const char *template = NULL;
-    switch (ctx->prompt_type) {
+    switch (composer->prompt_type) {
         case LLE_PROMPT_PS1:
-            template = ctx->current_theme->templates.ps1;
+            template = composer->current_theme->layout.left_format;
             break;
         case LLE_PROMPT_PS2:
-            template = ctx->current_theme->templates.ps2;
+            template = composer->current_theme->layout.continuation_format;
             break;
         case LLE_PROMPT_RPROMPT:
-            template = ctx->current_theme->templates.rprompt;
+            template = composer->current_theme->layout.right_format;
             break;
         default:
-            template = ctx->current_theme->templates.ps1;
+            template = composer->current_theme->layout.left_format;
             break;
     }
     
@@ -2277,39 +2311,21 @@ static lle_prompt_result_t lle_prompt_regenerate(lle_prompt_context_t *ctx) {
         return LLE_PROMPT_ERROR_INVALID_PARAM;
     }
     
-    // Render template
+    /* Render template */
     lle_prompt_result_t result = lle_template_render(
-        template,
-        ctx->segment_outputs,
-        ctx->segment_count,
-        &ctx->cached_prompt
+        composer->parsed_template,
+        &composer->context,
+        composer->current_theme,
+        composer->segment_registry,
+        composer->cached_prompt,
+        LLE_PROMPT_OUTPUT_MAX
     );
     
     if (result == LLE_PROMPT_SUCCESS) {
-        ctx->needs_regeneration = false;
+        composer->needs_regeneration = false;
     }
     
     return result;
-}
-```
-
-### 8.4 Pre-Execution Handler
-
-```c
-/**
- * Handler for LLE_HOOK_PREEXEC - called just before command runs
- * 
- * Record the current prompt line for transient prompt feature
- */
-static void lle_prompt_on_preexec(void *data) {
-    lle_prompt_context_t *ctx = data;
-    
-    if (!ctx) return;
-    
-    // Save cursor position for transient prompt
-    // This will be used to overwrite the full prompt with transient version
-    ctx->last_prompt_line = ctx->current_cursor_line;
-    ctx->command_start_time = time(NULL);
 }
 ```
 
@@ -2317,20 +2333,23 @@ static void lle_prompt_on_preexec(void *data) {
 
 ```c
 /**
- * Callback when async git status completes
- * 
- * This runs in the main thread after async worker signals completion
+ * @brief Callback when async git status completes
+ *
+ * This runs in the main thread after async worker signals completion.
+ *
+ * @param response The async response with git status data
+ * @param user_data Pointer to lle_prompt_composer_t
  */
 static void lle_prompt_on_async_complete(
     lle_async_response_t *response,
     void *user_data
 ) {
-    lle_prompt_context_t *ctx = user_data;
+    lle_prompt_composer_t *composer = user_data;
     
-    if (!ctx || !response) return;
+    if (!composer || !response) return;
     
     if (response->result == LLE_PROMPT_SUCCESS) {
-        // Cache the git status
+        /* Cache the git status */
         lle_prompt_cache_entry_t *entry = calloc(1, sizeof(*entry));
         if (entry) {
             entry->key = strdup("git_status");
@@ -2340,66 +2359,154 @@ static void lle_prompt_on_async_complete(
                        sizeof(lle_git_status_data_t));
                 entry->data_size = sizeof(lle_git_status_data_t);
                 entry->timestamp = time(NULL);
-                entry->ttl = UINT32_MAX;  // Never expire by time - only by event
+                entry->ttl = UINT32_MAX;  /* Never expire by time - only by event */
                 
-                // Add tag for event-based invalidation
+                /* Add tag for event-based invalidation */
                 entry->tags = malloc(sizeof(char*));
                 if (entry->tags) {
                     entry->tags[0] = strdup("git");
                     entry->tag_count = 1;
                 }
                 
-                lle_prompt_cache_set(&ctx->cache, entry);
+                lle_prompt_cache_set(&composer->cache, entry);
             }
         }
         
-        // Fire update event
-        lle_prompt_fire_event(ctx, LLE_EVENT_GIT_UPDATE, &response->data.git_status);
+        /* Fire internal update event */
+        lle_prompt_fire_event(composer, LLE_PROMPT_EVENT_GIT_UPDATE, 
+                              &response->data.git_status);
         
-        // Mark for regeneration - new git data available
-        ctx->needs_regeneration = true;
+        /* Mark for regeneration - new git data available */
+        composer->needs_regeneration = true;
     }
 }
 ```
 
-### 8.6 Event Firing and Subscription
+### 8.6 Shell Event Hub Registration
+
+This is the critical integration point with Spec 26. The prompt composer registers
+its handlers with the shell event hub during initialization.
 
 ```c
 /**
- * Event subscriber list
+ * @brief Register prompt handlers with shell event hub
+ *
+ * Called during lle_prompt_composer_init() to wire up event handlers.
+ * The shell event hub is obtained from the LLE shell integration (Spec 26).
+ *
+ * @param composer The prompt composer to register
+ * @param event_hub The shell event hub from Spec 26
+ * @return LLE_PROMPT_SUCCESS or error code
  */
-#define LLE_MAX_EVENT_SUBSCRIBERS 32
+lle_prompt_result_t lle_prompt_register_shell_events(
+    lle_prompt_composer_t *composer,
+    lle_shell_event_hub_t *event_hub
+) {
+    if (!composer || !event_hub) {
+        return LLE_PROMPT_ERROR_INVALID_PARAM;
+    }
+    
+    lle_result_t result;
+    
+    /* Register directory change handler (Issue #16 fix) */
+    result = lle_shell_event_hub_register(
+        event_hub,
+        LLE_SHELL_EVENT_DIRECTORY_CHANGED,
+        lle_prompt_on_directory_changed,
+        composer
+    );
+    if (result != LLE_SUCCESS) {
+        return LLE_PROMPT_ERROR_INVALID_PARAM;
+    }
+    
+    /* Register pre-command handler (transient prompt) */
+    result = lle_shell_event_hub_register(
+        event_hub,
+        LLE_SHELL_EVENT_PRE_COMMAND,
+        lle_prompt_on_pre_command,
+        composer
+    );
+    if (result != LLE_SUCCESS) {
+        return LLE_PROMPT_ERROR_INVALID_PARAM;
+    }
+    
+    /* Register post-command handler (exit code, duration) */
+    result = lle_shell_event_hub_register(
+        event_hub,
+        LLE_SHELL_EVENT_POST_COMMAND,
+        lle_prompt_on_post_command,
+        composer
+    );
+    if (result != LLE_SUCCESS) {
+        return LLE_PROMPT_ERROR_INVALID_PARAM;
+    }
+    
+    /* Store reference to event hub for later use */
+    composer->shell_event_hub = event_hub;
+    
+    return LLE_PROMPT_SUCCESS;
+}
+```
 
+### 8.7 Internal Event Firing
+
+The prompt system has its own internal events for subscribers who want to react
+to prompt-specific changes (theme changes, git updates, etc.).
+
+```c
+/** @brief Maximum internal event subscribers */
+#define LLE_MAX_PROMPT_EVENT_SUBSCRIBERS 32
+
+/**
+ * @brief Internal event subscription
+ */
 typedef struct {
-    lle_prompt_event_subscription_t subscribers[LLE_MAX_EVENT_SUBSCRIBERS];
+    lle_prompt_event_t event;
+    lle_prompt_event_callback_t callback;
+    void *user_data;
+    int priority;
+} lle_prompt_event_subscription_t;
+
+/**
+ * @brief Internal event manager
+ */
+typedef struct {
+    lle_prompt_event_subscription_t subscribers[LLE_MAX_PROMPT_EVENT_SUBSCRIBERS];
     size_t count;
     pthread_mutex_t lock;
 } lle_prompt_event_manager_t;
 
 /**
- * Subscribe to prompt events
+ * @brief Subscribe to internal prompt events
+ *
+ * @param composer The prompt composer
+ * @param event Event type to subscribe to
+ * @param callback Callback function
+ * @param user_data User-provided context
+ * @param priority Higher priority callbacks run first
+ * @return LLE_PROMPT_SUCCESS or error code
  */
 lle_prompt_result_t lle_prompt_event_subscribe(
-    lle_prompt_context_t *ctx,
+    lle_prompt_composer_t *composer,
     lle_prompt_event_t event,
     lle_prompt_event_callback_t callback,
     void *user_data,
     int priority
 ) {
-    if (!ctx || !callback) {
+    if (!composer || !callback) {
         return LLE_PROMPT_ERROR_INVALID_PARAM;
     }
     
-    lle_prompt_event_manager_t *mgr = &ctx->event_manager;
+    lle_prompt_event_manager_t *mgr = &composer->event_manager;
     
     pthread_mutex_lock(&mgr->lock);
     
-    if (mgr->count >= LLE_MAX_EVENT_SUBSCRIBERS) {
+    if (mgr->count >= LLE_MAX_PROMPT_EVENT_SUBSCRIBERS) {
         pthread_mutex_unlock(&mgr->lock);
-        return LLE_PROMPT_ERROR_MEMORY_ALLOCATION;
+        return LLE_PROMPT_ERROR_REGISTRY_FULL;
     }
     
-    // Insert sorted by priority (higher first)
+    /* Insert sorted by priority (higher first) */
     size_t insert_pos = mgr->count;
     for (size_t i = 0; i < mgr->count; i++) {
         if (mgr->subscribers[i].priority < priority) {
@@ -2408,14 +2515,14 @@ lle_prompt_result_t lle_prompt_event_subscribe(
         }
     }
     
-    // Shift existing entries
+    /* Shift existing entries */
     if (insert_pos < mgr->count) {
         memmove(&mgr->subscribers[insert_pos + 1],
                 &mgr->subscribers[insert_pos],
                 (mgr->count - insert_pos) * sizeof(lle_prompt_event_subscription_t));
     }
     
-    // Insert new subscription
+    /* Insert new subscription */
     mgr->subscribers[insert_pos] = (lle_prompt_event_subscription_t){
         .event = event,
         .callback = callback,
@@ -2430,22 +2537,26 @@ lle_prompt_result_t lle_prompt_event_subscribe(
 }
 
 /**
- * Fire an event to all subscribers
+ * @brief Fire an internal event to all subscribers
+ *
+ * @param composer The prompt composer
+ * @param event Event type
+ * @param event_data Event-specific data (may be NULL)
  */
 void lle_prompt_fire_event(
-    lle_prompt_context_t *ctx,
+    lle_prompt_composer_t *composer,
     lle_prompt_event_t event,
     void *event_data
 ) {
-    if (!ctx) return;
+    if (!composer) return;
     
-    lle_prompt_event_manager_t *mgr = &ctx->event_manager;
+    lle_prompt_event_manager_t *mgr = &composer->event_manager;
     
     pthread_mutex_lock(&mgr->lock);
     
     for (size_t i = 0; i < mgr->count; i++) {
         if (mgr->subscribers[i].event == event) {
-            // Unlock during callback to prevent deadlock
+            /* Unlock during callback to prevent deadlock */
             lle_prompt_event_callback_t cb = mgr->subscribers[i].callback;
             void *user_data = mgr->subscribers[i].user_data;
             pthread_mutex_unlock(&mgr->lock);
@@ -4056,173 +4167,188 @@ typedef struct {
 
 ```c
 /**
- * Apply transient prompt to previous prompt
- * Called from LLE_HOOK_PRECMD before new prompt is drawn
+ * @brief Apply transient prompt to previous prompt
+ *
+ * Called from LLE_SHELL_EVENT_PRE_COMMAND handler (Section 8.3) before
+ * command execution begins. This replaces the current full prompt with
+ * a simplified version to reduce visual clutter.
+ *
+ * @param composer The prompt composer
+ * @return LLE_PROMPT_SUCCESS or error code
  */
-lle_prompt_result_t lle_prompt_apply_transient(lle_prompt_context_t *ctx) {
-    if (!ctx || !ctx->current_theme) {
+lle_prompt_result_t lle_prompt_apply_transient(lle_prompt_composer_t *composer) {
+    if (!composer || !composer->current_theme) {
         return LLE_PROMPT_ERROR_INVALID_PARAM;
     }
     
-    // Check if transient is enabled
-    if (!ctx->current_theme->transient.enabled) {
+    /* Check if transient is enabled */
+    if (!composer->current_theme->layout.enable_transient) {
         return LLE_PROMPT_SUCCESS;
     }
     
-    // Check if we should preserve on error
-    if (ctx->current_theme->transient.preserve_on_error && 
-        ctx->last_exit_code != 0) {
+    /* Check if we should preserve on error */
+    if (composer->transient_config.preserve_on_error && 
+        composer->context.last_exit_code != 0) {
         return LLE_PROMPT_SUCCESS;
     }
     
-    // Check if we have a previous prompt to replace
-    if (ctx->transient_state.original_start_line < 0) {
+    /* Check if we have a previous prompt to replace */
+    if (composer->transient_state.original_start_line < 0) {
         return LLE_PROMPT_SUCCESS;
     }
     
-    // Get transient template
-    const char *template = ctx->current_theme->transient.template;
-    if (!template) {
-        template = "${symbol.prompt} ";  // Default fallback
+    /* Get transient template from theme layout */
+    const char *template = composer->current_theme->layout.transient_format;
+    if (!template || strlen(template) == 0) {
+        template = "${symbol.prompt} ";  /* Default fallback */
     }
     
-    // Render transient prompt
-    char *transient_prompt = NULL;
+    /* Render transient prompt */
+    char transient_prompt[LLE_PROMPT_OUTPUT_MAX];
     lle_prompt_result_t result = lle_template_render(
-        template,
-        ctx->segment_outputs,
-        ctx->segment_count,
-        &transient_prompt
+        composer->transient_template,
+        &composer->context,
+        composer->current_theme,
+        composer->segment_registry,
+        transient_prompt,
+        sizeof(transient_prompt)
     );
     
-    if (result != LLE_PROMPT_SUCCESS || !transient_prompt) {
+    if (result != LLE_PROMPT_SUCCESS) {
         return result;
     }
     
-    // Apply transient to screen
-    result = lle_prompt_transient_overwrite(ctx, transient_prompt);
+    /* Apply transient to screen */
+    result = lle_prompt_transient_overwrite(composer, transient_prompt);
     
-    free(transient_prompt);
-    ctx->transient_state.applied = true;
+    composer->transient_state.applied = true;
     
     return result;
 }
 
 /**
- * Overwrite previous prompt with transient version
+ * @brief Overwrite previous prompt with transient version
+ *
+ * @param composer The prompt composer
+ * @param transient_prompt The rendered transient prompt string
+ * @return LLE_PROMPT_SUCCESS or error code
  */
 static lle_prompt_result_t lle_prompt_transient_overwrite(
-    lle_prompt_context_t *ctx,
+    lle_prompt_composer_t *composer,
     const char *transient_prompt
 ) {
-    lle_prompt_display_t *display = &ctx->display;
+    lle_prompt_display_t *display = &composer->display;
     
-    // Save current cursor position
+    /* Save current cursor position */
     int saved_x = display->screen->cursor_x;
     int saved_y = display->screen->cursor_y;
     
-    // Move to start of original prompt
+    /* Move to start of original prompt */
     lle_screen_buffer_move_cursor(
         display->screen,
-        ctx->transient_state.original_start_col,
-        ctx->transient_state.original_start_line
+        composer->transient_state.original_start_col,
+        composer->transient_state.original_start_line
     );
     
-    // Clear the original prompt lines
-    for (int y = ctx->transient_state.original_start_line;
-         y <= ctx->transient_state.original_end_line;
+    /* Clear the original prompt lines */
+    for (int y = composer->transient_state.original_start_line;
+         y <= composer->transient_state.original_end_line;
          y++) {
         lle_screen_buffer_clear_line(display->screen, y);
     }
     
-    // If original prompt was multi-line, we need to collapse
-    int lines_removed = ctx->transient_state.original_end_line - 
-                        ctx->transient_state.original_start_line;
+    /* If original prompt was multi-line, we need to collapse */
+    int lines_removed = composer->transient_state.original_end_line - 
+                        composer->transient_state.original_start_line;
     
     if (lines_removed > 0) {
-        // Scroll content up to remove extra lines
+        /* Scroll content up to remove extra lines */
         lle_screen_buffer_scroll_region(
             display->screen,
-            ctx->transient_state.original_start_line + 1,
+            composer->transient_state.original_start_line + 1,
             display->screen->height - 1,
             -lines_removed
         );
     }
     
-    // Move back to first line
+    /* Move back to first line */
     lle_screen_buffer_move_cursor(
         display->screen,
-        ctx->transient_state.original_start_col,
-        ctx->transient_state.original_start_line
+        composer->transient_state.original_start_col,
+        composer->transient_state.original_start_line
     );
     
-    // Write transient prompt
+    /* Write transient prompt */
     lle_prompt_display_write_styled(display, transient_prompt);
     
-    // Clear right prompt if configured
-    if (ctx->current_theme->transient.apply_to_rprompt) {
-        // Clear rprompt area on same line
+    /* Clear right prompt if configured */
+    if (composer->transient_config.apply_to_rprompt) {
         int rprompt_start = display->rprompt_col;
         for (int x = rprompt_start; x < display->screen->width; x++) {
             lle_screen_buffer_set_cell(display->screen, x, 
-                                        ctx->transient_state.original_start_line,
+                                        composer->transient_state.original_start_line,
                                         ' ', (lle_cell_style_t){0});
         }
     }
     
-    // Restore cursor position (adjusted for removed lines)
+    /* Restore cursor position (adjusted for removed lines) */
     lle_screen_buffer_move_cursor(
         display->screen,
         saved_x,
         saved_y - lines_removed
     );
     
-    // Flush changes
+    /* Flush changes */
     lle_screen_buffer_flush(display->screen);
     
     return LLE_PROMPT_SUCCESS;
 }
 
 /**
- * Record current prompt position for later transient application
- * Called just before command execution (LLE_HOOK_PREEXEC)
+ * @brief Record current prompt position for later transient application
+ *
+ * Called during prompt rendering to save position for transient replacement.
+ *
+ * @param composer The prompt composer
  */
-void lle_prompt_transient_record(lle_prompt_context_t *ctx) {
-    if (!ctx) return;
+void lle_prompt_transient_record(lle_prompt_composer_t *composer) {
+    if (!composer) return;
     
-    // Store original prompt location
-    ctx->transient_state.original_start_line = ctx->display.ps1_start_line;
-    ctx->transient_state.original_end_line = ctx->display.ps1_end_line;
-    ctx->transient_state.original_start_col = 0;
+    /* Store original prompt location */
+    composer->transient_state.original_start_line = composer->display.ps1_start_line;
+    composer->transient_state.original_end_line = composer->display.ps1_end_line;
+    composer->transient_state.original_start_col = 0;
     
-    // Store original prompt content (for potential restore)
-    free(ctx->transient_state.original_prompt);
-    ctx->transient_state.original_prompt = 
-        ctx->cached_prompt ? strdup(ctx->cached_prompt) : NULL;
+    /* Store original prompt content (for potential restore) */
+    free(composer->transient_state.original_prompt);
+    composer->transient_state.original_prompt = 
+        composer->cached_prompt ? strdup(composer->cached_prompt) : NULL;
     
-    free(ctx->transient_state.original_rprompt);
-    ctx->transient_state.original_rprompt = 
-        ctx->cached_rprompt ? strdup(ctx->cached_rprompt) : NULL;
+    free(composer->transient_state.original_rprompt);
+    composer->transient_state.original_rprompt = 
+        composer->cached_rprompt ? strdup(composer->cached_rprompt) : NULL;
     
-    ctx->transient_state.applied = false;
+    composer->transient_state.applied = false;
 }
 
 /**
- * Reset transient state (after new prompt is drawn)
+ * @brief Reset transient state (after new prompt is drawn)
+ *
+ * @param composer The prompt composer
  */
-void lle_prompt_transient_reset(lle_prompt_context_t *ctx) {
-    if (!ctx) return;
+void lle_prompt_transient_reset(lle_prompt_composer_t *composer) {
+    if (!composer) return;
     
-    ctx->transient_state.original_start_line = -1;
-    ctx->transient_state.original_end_line = -1;
+    composer->transient_state.original_start_line = -1;
+    composer->transient_state.original_end_line = -1;
     
-    free(ctx->transient_state.original_prompt);
-    ctx->transient_state.original_prompt = NULL;
+    free(composer->transient_state.original_prompt);
+    composer->transient_state.original_prompt = NULL;
     
-    free(ctx->transient_state.original_rprompt);
-    ctx->transient_state.original_rprompt = NULL;
+    free(composer->transient_state.original_rprompt);
+    composer->transient_state.original_rprompt = NULL;
     
-    ctx->transient_state.applied = false;
+    composer->transient_state.applied = false;
 }
 ```
 
@@ -5258,7 +5384,8 @@ include/
 
 ### Phase 2: Cache and Events
 - Cache system with TTL
-- Event-driven invalidation (LLE_HOOK_CHPWD)
+- Shell event hub integration (Spec 26)
+- Event-driven invalidation (LLE_SHELL_EVENT_DIRECTORY_CHANGED)
 - Tag-based cache invalidation
 - Git segment with caching
 

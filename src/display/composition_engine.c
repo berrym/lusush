@@ -40,7 +40,6 @@
 
 #include "display/composition_engine.h"
 #include "display/base_terminal.h"
-#include "display/continuation_prompt_layer.h"
 #include "display/screen_buffer.h"
 #include "display_integration.h"
 
@@ -753,8 +752,8 @@ composition_engine_error_t composition_engine_init(
     engine->command_layer = command_layer;
     engine->event_system = event_system;
 
-    // Initialize continuation prompt support (Phase 4)
-    engine->continuation_prompt_layer = NULL;
+    // Continuation prompts are handled via screen_buffer line prefixes
+    // in display_controller.c using screen_buffer_render_with_continuation()
     engine->continuation_prompts_enabled = false;
 
     // Subscribe to relevant events
@@ -1599,41 +1598,6 @@ composition_engine_error_t composition_engine_compose_with_cursor(
 
     return COMPOSITION_ENGINE_SUCCESS;
 }
-// ============================================================================
-// CONTINUATION PROMPT SUPPORT (Phase 4)
-// ============================================================================
-
-composition_engine_error_t composition_engine_set_continuation_layer(
-    composition_engine_t *engine,
-    continuation_prompt_layer_t *continuation_layer) {
-    if (!engine) {
-        return COMPOSITION_ENGINE_ERROR_INVALID_PARAM;
-    }
-
-    engine->continuation_prompt_layer = continuation_layer;
-
-    // Invalidate cache when continuation layer changes
-    composition_engine_clear_cache(engine);
-
-    return COMPOSITION_ENGINE_SUCCESS;
-}
-
-composition_engine_error_t
-composition_engine_enable_continuation_prompts(composition_engine_t *engine,
-                                               bool enable) {
-    if (!engine) {
-        return COMPOSITION_ENGINE_ERROR_INVALID_PARAM;
-    }
-
-    if (engine->continuation_prompts_enabled != enable) {
-        engine->continuation_prompts_enabled = enable;
-
-        // Invalidate cache when setting changes
-        composition_engine_clear_cache(engine);
-    }
-
-    return COMPOSITION_ENGINE_SUCCESS;
-}
 
 composition_engine_error_t
 composition_engine_set_screen_buffer(composition_engine_t *engine,
@@ -1708,10 +1672,9 @@ static size_t split_command_lines(const char *command_text,
 /**
  * Build continuation prompts for all lines
  *
- * This implements the prompt coordination logic from Phase 1 design:
- * - Use primary prompt for line 0
- * - Request from continuation_prompt_layer for lines 1+
- * - Handle fallback to "> " on error
+ * Note: Context-aware continuation prompts are handled in display_controller.c
+ * via screen_buffer_render_with_continuation() callback. This function is only
+ * used as a fallback in the composition engine's multiline strategy.
  *
  * @param engine Composition engine
  * @param primary_prompt Primary prompt (for first line)
@@ -1727,34 +1690,21 @@ build_continuation_prompts(composition_engine_t *engine,
                            const char *primary_prompt, const char *command_text,
                            const command_line_info_t *lines, size_t line_count,
                            char (*prompts)[256], size_t prompt_size) {
-    if (!engine || !primary_prompt || !command_text || !lines || !prompts ||
-        line_count == 0) {
+    (void)command_text; /* Used by display_controller callback instead */
+    (void)lines;        /* Used by display_controller callback instead */
+
+    if (!engine || !primary_prompt || !prompts || line_count == 0) {
         return COMPOSITION_ENGINE_ERROR_INVALID_PARAM;
     }
 
-    // Line 0: Use primary prompt
+    /* Line 0: Use primary prompt */
     strncpy(prompts[0], primary_prompt, prompt_size - 1);
     prompts[0][prompt_size - 1] = '\0';
 
-    // Lines 1+: Request from continuation_prompt_layer
+    /* Lines 1+: Simple fallback (context-aware prompts via display_controller) */
     for (size_t i = 1; i < line_count; i++) {
-        if (engine->continuation_prompt_layer) {
-            continuation_prompt_error_t cont_error =
-                continuation_prompt_layer_get_prompt_for_line(
-                    engine->continuation_prompt_layer,
-                    i, // line_number (1-based for continuation lines)
-                    command_text, prompts[i], prompt_size);
-
-            if (cont_error != CONTINUATION_PROMPT_SUCCESS) {
-                // Fallback to simple "> " on error
-                strncpy(prompts[i], "> ", prompt_size - 1);
-                prompts[i][prompt_size - 1] = '\0';
-            }
-        } else {
-            // No continuation layer - use simple fallback
-            strncpy(prompts[i], "> ", prompt_size - 1);
-            prompts[i][prompt_size - 1] = '\0';
-        }
+        strncpy(prompts[i], "> ", prompt_size - 1);
+        prompts[i][prompt_size - 1] = '\0';
     }
 
     return COMPOSITION_ENGINE_SUCCESS;

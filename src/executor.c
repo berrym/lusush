@@ -9,6 +9,8 @@
 #include "executor.h"
 
 #include "alias.h"
+#include "lle/lle_shell_event_hub.h"
+#include "prompt.h"
 #include "arithmetic.h"
 #include "autocorrect.h"
 #include "builtins.h"
@@ -866,19 +868,53 @@ static int execute_command(executor_t *executor, node_t *command) {
             struct stat st;
             // Check if the command is actually a directory
             if (stat(argv[0], &st) == 0 && S_ISDIR(st.st_mode)) {
-                // Auto-cd to the directory
+                /**
+                 * @brief Save old directory for event firing
+                 * 
+                 * Required by Spec 26 shell event hub to notify handlers
+                 * of directory change with both old and new paths.
+                 */
+                char *old_pwd = getcwd(NULL, 0);
+                
+                /* Auto-cd to the directory */
                 if (chdir(argv[0]) == 0) {
-                    // Successfully changed directory, update PWD
+                    /* Successfully changed directory, update PWD */
                     char *new_pwd = getcwd(NULL, 0);
                     if (new_pwd) {
                         symtable_set_global("PWD", new_pwd);
+                        
+                        /**
+                         * @brief Invalidate all prompt-related caches
+                         * 
+                         * Per Spec 25/26: Directory changes must invalidate:
+                         * - Legacy prompt cache (prompt.c)
+                         * - LLE segment caches (via event hub -> composer)
+                         * - Trigger async git status refresh
+                         */
+                        prompt_cache_invalidate();
+                        prompt_async_refresh_git();
+                        
+                        /**
+                         * @brief Fire directory changed event for LLE shell integration
+                         * 
+                         * This notifies the prompt composer which:
+                         * - Refreshes context.cwd
+                         * - Invalidates all segment caches
+                         * - Sets needs_regeneration flag
+                         */
+                        lle_fire_directory_changed(old_pwd, new_pwd);
+                        
                         free(new_pwd);
                     }
-                    result = 0; // Success
+                    result = 0; /* Success */
                 } else {
-                    // Failed to change directory, show error
+                    /* Failed to change directory, show error */
                     perror("cd");
                     result = 1;
+                }
+                
+                if (old_pwd) {
+                    free(old_pwd);
                 }
             } else {
                 // Not a directory, proceed with normal command execution

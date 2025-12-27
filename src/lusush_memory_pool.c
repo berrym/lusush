@@ -467,9 +467,21 @@ void lusush_pool_free(void *ptr) {
 
     pthread_mutex_lock(&pool_mutex);
 
+    // If pool is already shut down, skip the free entirely.
+    // The pool shutdown already freed all pool-managed memory blocks.
+    // Calling free() on pool memory after shutdown causes double-free.
+    if (!global_memory_pool) {
+        pthread_mutex_unlock(&pool_mutex);
+        // Note: We intentionally do NOT call free(ptr) here.
+        // If the pool is gone, either:
+        // 1. The memory was from the pool and was freed during shutdown, or
+        // 2. The memory was from malloc fallback and we leak it (acceptable at exit)
+        return;
+    }
+
     bool returned_to_pool = false;
 
-    if (global_memory_pool && global_memory_pool->initialized) {
+    if (global_memory_pool->initialized) {
         // Try to return to appropriate pool
         for (int i = 0; i < LUSUSH_POOL_COUNT; i++) {
             if (return_to_pool(&global_memory_pool->pools[i], ptr)) {

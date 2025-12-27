@@ -10,6 +10,7 @@
 
 #include "lle/prompt/segment.h"
 
+#include "lle/adaptive_terminal_integration.h"
 #include "lle/utf8_support.h"
 
 #include <pwd.h>
@@ -177,12 +178,27 @@ lle_result_t lle_prompt_context_init(lle_prompt_context_t *ctx) {
     /* Default keymap */
     snprintf(ctx->keymap, sizeof(ctx->keymap), "emacs");
 
-    /* Terminal capabilities - defaults, should be set by caller */
+    /* Terminal capabilities - detect from adaptive terminal system */
     ctx->has_unicode = true;
-    ctx->has_256_color = true;
-    ctx->has_true_color = false;
     ctx->terminal_width = 80;
     ctx->terminal_height = 24;
+
+    /* Use adaptive terminal detection for color capabilities.
+     * Note: The optimized detection returns a cached result that is
+     * managed by the detection system - do NOT destroy it, as that
+     * could cause a double-free if the cache was refreshed. */
+    lle_terminal_detection_result_t *detection = NULL;
+    lle_result_t det_result = lle_detect_terminal_capabilities_optimized(&detection);
+    if (det_result == LLE_SUCCESS && detection) {
+        ctx->has_256_color = detection->supports_256_colors;
+        ctx->has_true_color = detection->supports_truecolor;
+        /* Do NOT call lle_terminal_detection_result_destroy here -
+         * the optimized version manages the cached result internally */
+    } else {
+        /* Default to 256 colors if detection fails */
+        ctx->has_256_color = true;
+        ctx->has_true_color = false;
+    }
 
     return LLE_SUCCESS;
 }
@@ -400,6 +416,17 @@ static lle_result_t segment_user_render(const lle_prompt_segment_t *self,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Cache invalidation callback for user segment
+ *
+ * User information is static during a shell session, but this callback
+ * is required for consistency with the LLE_SEG_CAP_CACHEABLE capability.
+ * Called by lle_segment_registry_invalidate_all() on directory change events.
+ */
+static void segment_user_invalidate(lle_prompt_segment_t *self) {
+    (void)self;
+}
+
 lle_prompt_segment_t *lle_segment_create_user(void) {
     lle_prompt_segment_t *seg = lle_segment_create(
         "user",
@@ -410,6 +437,7 @@ lle_prompt_segment_t *lle_segment_create_user(void) {
 
     seg->is_visible = segment_user_is_visible;
     seg->render = segment_user_render;
+    seg->invalidate_cache = segment_user_invalidate;
 
     return seg;
 }
@@ -438,6 +466,17 @@ static lle_result_t segment_host_render(const lle_prompt_segment_t *self,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Cache invalidation callback for host segment
+ *
+ * Hostname is static during a shell session, but this callback
+ * is required for consistency with the LLE_SEG_CAP_CACHEABLE capability.
+ * Called by lle_segment_registry_invalidate_all() on directory change events.
+ */
+static void segment_host_invalidate(lle_prompt_segment_t *self) {
+    (void)self;
+}
+
 lle_prompt_segment_t *lle_segment_create_host(void) {
     lle_prompt_segment_t *seg = lle_segment_create(
         "host",
@@ -448,6 +487,7 @@ lle_prompt_segment_t *lle_segment_create_host(void) {
 
     seg->is_visible = segment_host_is_visible;
     seg->render = segment_host_render;
+    seg->invalidate_cache = segment_host_invalidate;
 
     return seg;
 }
@@ -634,12 +674,121 @@ static bool segment_git_is_visible(const lle_prompt_segment_t *self,
     return ctx->cwd_is_git_repo || (state && state->is_repo);
 }
 
+/**
+ * @brief Run a git command and capture output
+ */
+static int run_git_command(const char *args, char *output, size_t output_size) {
+    char cmd[512];
+    snprintf(cmd, sizeof(cmd), "git %s 2>/dev/null", args);
+    
+    FILE *fp = popen(cmd, "r");
+    if (!fp) {
+        return -1;
+    }
+    
+    if (output && output_size > 0) {
+        if (fgets(output, output_size, fp) != NULL) {
+            /* Remove trailing newline */
+            size_t len = strlen(output);
+            if (len > 0 && output[len - 1] == '\n') {
+                output[len - 1] = '\0';
+            }
+        } else {
+            output[0] = '\0';
+        }
+    }
+    
+    return pclose(fp);
+}
+
+/**
+ * @brief Check if we're in a git repository (checks parent dirs too)
+ */
+static bool is_in_git_repo(void) {
+    char output[16];
+    int ret = run_git_command("rev-parse --is-inside-work-tree", output, sizeof(output));
+    return (ret == 0 && strcmp(output, "true") == 0);
+}
+
+/**
+ * @brief Fetch git status and populate state
+ */
+static void fetch_git_status(segment_git_state_t *state) {
+    if (!state) return;
+    
+    /* Check if in git repo */
+    state->is_repo = is_in_git_repo();
+    if (!state->is_repo) {
+        state->branch[0] = '\0';
+        state->staged = 0;
+        state->unstaged = 0;
+        state->untracked = 0;
+        state->ahead = 0;
+        state->behind = 0;
+        return;
+    }
+    
+    /* Get branch name */
+    run_git_command("symbolic-ref --short HEAD", state->branch, sizeof(state->branch));
+    if (state->branch[0] == '\0') {
+        /* Detached HEAD - get short commit hash */
+        run_git_command("rev-parse --short HEAD", state->branch, sizeof(state->branch));
+    }
+    
+    /* Get status counts using git status --porcelain */
+    FILE *fp = popen("git status --porcelain 2>/dev/null", "r");
+    if (fp) {
+        char line[512];
+        state->staged = 0;
+        state->unstaged = 0;
+        state->untracked = 0;
+        
+        while (fgets(line, sizeof(line), fp)) {
+            if (line[0] == '?') {
+                state->untracked++;
+            } else {
+                if (line[0] != ' ' && line[0] != '?') {
+                    state->staged++;
+                }
+                if (line[1] != ' ' && line[1] != '?') {
+                    state->unstaged++;
+                }
+            }
+        }
+        pclose(fp);
+    }
+    
+    /* Get ahead/behind counts */
+    char ab_output[64];
+    if (run_git_command("rev-list --left-right --count @{upstream}...HEAD", 
+                        ab_output, sizeof(ab_output)) == 0) {
+        sscanf(ab_output, "%d\t%d", &state->behind, &state->ahead);
+    } else {
+        state->ahead = 0;
+        state->behind = 0;
+    }
+    
+    state->cache_valid = true;
+}
+
 static lle_result_t segment_git_render(const lle_prompt_segment_t *self,
                                         const lle_prompt_context_t *ctx,
                                         lle_segment_output_t *output) {
     segment_git_state_t *state = self->state;
+    
+    if (!state) {
+        output->is_empty = true;
+        output->content[0] = '\0';
+        output->content_len = 0;
+        return LLE_SUCCESS;
+    }
+    
+    /* Fetch git status if cache invalid or not in repo */
+    if (!state->cache_valid) {
+        fetch_git_status(state);
+    }
 
-    if (!state || !state->is_repo) {
+    if (!state->is_repo) {
         output->is_empty = true;
         output->content[0] = '\0';
         output->content_len = 0;

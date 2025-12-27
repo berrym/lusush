@@ -18,6 +18,7 @@
 
 #include "display_integration.h"
 #include "lle/adaptive_terminal_integration.h"
+#include "lle/lle_shell_integration.h"
 #include "lusush_memory_pool.h"
 #include "themes.h"
 #include "version.h"
@@ -393,14 +394,7 @@ int init(int argc, char **argv, FILE **in) {
 
     // Set up interactive shell features if needed
     if (IS_INTERACTIVE_SHELL) {
-        // UTF-8 encoding is handled automatically by readline
-        // Initialize readline integration
-        if (!lusush_readline_init()) {
-            fprintf(stderr, "Warning: Failed to initialize readline\n");
-        }
-        lusush_multiline_set_enabled(config.multiline_mode);
-
-        // Initialize display integration system
+        // Initialize display integration system config first (needed for debug flags)
         display_integration_config_t display_config;
         display_integration_create_default_config(&display_config);
 
@@ -429,7 +423,7 @@ int init(int argc, char **argv, FILE **in) {
             }
         }
 
-        // Initialize memory pool system for display operations
+        // Initialize memory pool system FIRST - required by LLE and display
         lusush_pool_config_t pool_config =
             lusush_pool_get_display_optimized_config();
         pool_config.enable_debugging = (getenv("LUSUSH_MEMORY_DEBUG") != NULL);
@@ -444,9 +438,37 @@ int init(int argc, char **argv, FILE **in) {
                 fprintf(stderr,
                         "Continuing with standard malloc/free operations\n");
             }
-        } else if (display_config.debug_mode || getenv("LUSUSH_MEMORY_DEBUG")) {
-            fprintf(stderr, "Memory pool system initialized successfully\n");
+        } else {
+            /* Register memory pool cleanup FIRST so it runs LAST in atexit.
+             * atexit handlers run in LIFO order (last registered = first run).
+             * By registering pool shutdown BEFORE LLE init, the LLE atexit
+             * handler (registered later) will run BEFORE pool shutdown,
+             * ensuring LLE can safely save history using pool memory. */
+            atexit(lusush_pool_shutdown);
+
+            if (display_config.debug_mode || getenv("LUSUSH_MEMORY_DEBUG")) {
+                fprintf(stderr, "Memory pool system initialized successfully\n");
+            }
         }
+
+        /* Initialize LLE shell integration (Spec 26)
+         * This must happen before readline init because readline's prompt
+         * generation calls build_prompt() which needs g_lle_integration.
+         * Requires: global_memory_pool (initialized above)
+         */
+        if (config.use_lle) {
+            lle_result_t lle_result = lle_shell_integration_init();
+            if (lle_result != LLE_SUCCESS) {
+                config.use_lle = false;
+            }
+        }
+
+        // UTF-8 encoding is handled automatically by readline
+        // Initialize readline integration
+        if (!lusush_readline_init()) {
+            fprintf(stderr, "Warning: Failed to initialize readline\n");
+        }
+        lusush_multiline_set_enabled(config.multiline_mode);
 
         // Initialize display integration ONLY in interactive mode
         if (IS_INTERACTIVE_SHELL) {
@@ -478,6 +500,8 @@ int init(int argc, char **argv, FILE **in) {
                         "Display integration skipped (non-interactive mode)\n");
             }
         }
+
+        /* LLE shell integration already initialized above, before readline */
 
         build_prompt();
     }
@@ -591,15 +615,17 @@ int init(int argc, char **argv, FILE **in) {
         process_shebang(*in);
     }
 
-    // Register memory pool cleanup first (for all shell modes) - runs LAST
-    atexit(lusush_pool_shutdown);
-
     // Register cleanup for readline integration
+    // Note: atexit handlers run in REVERSE order of registration
     if (IS_INTERACTIVE_SHELL) {
         atexit(lusush_readline_cleanup);
         atexit(display_integration_cleanup);
         atexit(prompt_async_cleanup);
     }
+
+    /* Memory pool cleanup is now registered immediately after pool init
+     * (before LLE init) so it runs LAST in atexit order (LIFO).
+     * This ensures LLE can safely use pool memory during shutdown. */
 
     return 0;
 }

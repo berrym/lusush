@@ -20,9 +20,7 @@
 #ifndef LLE_HISTORY_H
 #define LLE_HISTORY_H
 
-#include "ht.h" /* libhashtable */
 #include "lle/error_handling.h"
-#include "lle/hashtable.h"
 #include "lle/memory_management.h"
 #include "lle/performance.h"
 

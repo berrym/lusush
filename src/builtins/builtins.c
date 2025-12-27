@@ -10,8 +10,12 @@
 #include "input.h"
 #include "lle/adaptive_terminal_integration.h"
 #include "lle/history.h"
+#include "lle/lle_shell_event_hub.h"
+#include "lle/lle_shell_integration.h"
 #include "lle/keybinding.h"
 #include "lle/lle_editor.h"
+#include "lle/prompt/theme.h"
+#include "lle/prompt/composer.h"
 #include "lusush.h"
 #include "lusush_memory_pool.h"
 #include "network.h"
@@ -398,6 +402,12 @@ int bin_cd(int argc __attribute__((unused)),
 
     // Trigger async git status fetch for new directory
     prompt_async_refresh_git();
+
+    /* Fire LLE shell event for directory change (Spec 26)
+     * This notifies registered handlers (prompt composer, autosuggestions, etc.)
+     * that the working directory has changed. previous_dir holds the old dir.
+     */
+    lle_fire_directory_changed(previous_dir, NULL);
 
     return 0;
 }
@@ -4483,6 +4493,11 @@ int bin_display(int argc, char **argv) {
                    "autosuggestions\n");
             printf("  syntax on|off           - Control syntax highlighting\n");
             printf("  multiline on|off        - Control multiline editing\n");
+            printf("  theme [list|set <name>] - Control LLE prompt theme\n");
+            printf("\nReset Commands (recovery):\n");
+            printf("  reset            - Hard reset: destroy/recreate editor\n");
+            printf("  reset --soft     - Soft reset: abort current line\n");
+            printf("  reset --terminal - Nuclear reset: hard + terminal reset\n");
             printf("\nInformation:\n");
             printf("  keybindings      - Show active keybindings\n");
             printf("  diagnostics      - Show LLE diagnostics and health\n");
@@ -4498,6 +4513,15 @@ int bin_display(int argc, char **argv) {
         if (strcmp(lle_cmd, "enable") == 0) {
             extern config_values_t config;
             config.use_lle = true;
+            
+            /* Initialize LLE shell integration if not already done */
+            if (!g_lle_integration) {
+                lle_result_t result = lle_shell_integration_init();
+                if (result != LLE_SUCCESS) {
+                    fprintf(stderr, "Warning: LLE shell integration init failed\n");
+                }
+            }
+            
             printf(
                 "✓ LLE enabled for this session (takes effect immediately)\n");
             printf("  Next prompt will use LLE line editor\n");
@@ -4862,6 +4886,135 @@ int bin_display(int argc, char **argv) {
             }
 
             return 0;
+
+        } else if (strcmp(lle_cmd, "reset") == 0) {
+            /* LLE reset commands (Spec 26: Three-tier reset hierarchy)
+             * - reset        : Hard reset (destroy/recreate editor)
+             * - reset --soft : Soft reset (abort current line)
+             * - reset --terminal : Nuclear reset (hard + terminal reset)
+             */
+            extern config_values_t config;
+
+            if (!config.use_lle) {
+                fprintf(stderr, "display lle reset: LLE is not active\n");
+                fprintf(stderr, "Run 'display lle enable' first\n");
+                return 1;
+            }
+
+            if (!lle_is_active()) {
+                fprintf(stderr,
+                        "display lle reset: LLE shell integration not "
+                        "initialized\n");
+                return 1;
+            }
+
+            /* Check for options */
+            if (argc >= 4) {
+                const char *opt = argv[3];
+                if (strcmp(opt, "--soft") == 0) {
+                    /* Soft reset: abort current line */
+                    lle_soft_reset();
+                    printf("LLE soft reset complete (line aborted)\n");
+                    return 0;
+                } else if (strcmp(opt, "--terminal") == 0) {
+                    /* Nuclear reset: hard reset + terminal reset */
+                    printf("Performing LLE nuclear reset...\n");
+                    lle_nuclear_reset();
+                    printf("LLE nuclear reset complete (editor recreated, "
+                           "terminal reset)\n");
+                    return 0;
+                } else {
+                    fprintf(stderr,
+                            "display lle reset: Unknown option '%s'\n", opt);
+                    fprintf(stderr, "Options: --soft, --terminal\n");
+                    return 1;
+                }
+            }
+
+            /* Default: Hard reset (destroy and recreate editor) */
+            printf("Performing LLE hard reset...\n");
+            lle_hard_reset();
+            printf("LLE hard reset complete (editor recreated)\n");
+            return 0;
+
+        } else if (strcmp(lle_cmd, "theme") == 0) {
+            /* LLE prompt theme control */
+            if (!g_lle_integration || !g_lle_integration->prompt_composer) {
+                fprintf(stderr, "display lle theme: LLE prompt system not initialized\n");
+                fprintf(stderr, "Run 'display lle enable' first\n");
+                return 1;
+            }
+
+            lle_theme_registry_t *themes = g_lle_integration->prompt_composer->themes;
+            if (!themes) {
+                fprintf(stderr, "display lle theme: Theme registry not available\n");
+                return 1;
+            }
+
+            /* No subcommand - show current theme and usage */
+            if (argc < 4) {
+                const lle_theme_t *active = lle_theme_registry_get_active(themes);
+                printf("LLE Prompt Theme\n");
+                printf("  Current: %s\n", active ? active->name : "(none)");
+                if (active && active->description[0]) {
+                    printf("  Description: %s\n", active->description);
+                }
+                printf("\nUsage:\n");
+                printf("  display lle theme list       - List available themes\n");
+                printf("  display lle theme set <name> - Set active theme\n");
+                return 0;
+            }
+
+            const char *theme_subcmd = argv[3];
+
+            if (strcmp(theme_subcmd, "list") == 0) {
+                /* List all available themes */
+                printf("Available LLE Prompt Themes:\n\n");
+                const lle_theme_t *active = lle_theme_registry_get_active(themes);
+                
+                for (size_t i = 0; i < themes->count; i++) {
+                    const lle_theme_t *t = themes->themes[i];
+                    if (t) {
+                        const char *marker = (active && strcmp(active->name, t->name) == 0) ? "*" : " ";
+                        printf("  %s %-12s - %s\n", marker, t->name,
+                               t->description[0] ? t->description : "(no description)");
+                    }
+                }
+                printf("\n  * = currently active\n");
+                printf("\nUse 'display lle theme set <name>' to change theme\n");
+                return 0;
+
+            } else if (strcmp(theme_subcmd, "set") == 0) {
+                /* Set active theme */
+                if (argc < 5) {
+                    fprintf(stderr, "display lle theme set: Missing theme name\n");
+                    fprintf(stderr, "Usage: display lle theme set <name>\n");
+                    fprintf(stderr, "Use 'display lle theme list' to see available themes\n");
+                    return 1;
+                }
+
+                const char *theme_name = argv[4];
+                /* Use lle_composer_set_theme to properly clear cached templates */
+                lle_result_t result = lle_composer_set_theme(
+                    g_lle_integration->prompt_composer, theme_name);
+
+                if (result == LLE_SUCCESS) {
+                    printf("LLE theme set to '%s'\n", theme_name);
+                    return 0;
+                } else if (result == LLE_ERROR_NOT_FOUND) {
+                    fprintf(stderr, "display lle theme set: Theme '%s' not found\n", theme_name);
+                    fprintf(stderr, "Use 'display lle theme list' to see available themes\n");
+                    return 1;
+                } else {
+                    fprintf(stderr, "display lle theme set: Failed to set theme (error %d)\n", result);
+                    return 1;
+                }
+
+            } else {
+                fprintf(stderr, "display lle theme: Unknown subcommand '%s'\n", theme_subcmd);
+                fprintf(stderr, "Usage: display lle theme [list|set <name>]\n");
+                return 1;
+            }
 
         } else {
             fprintf(stderr, "display lle: Unknown command '%s'\n", lle_cmd);

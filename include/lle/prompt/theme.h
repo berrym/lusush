@@ -462,6 +462,22 @@ size_t lle_color_to_ansi(const lle_color_t *color,
                           char *output,
                           size_t output_size);
 
+/**
+ * @brief Downgrade a color to match terminal capabilities
+ *
+ * Converts colors to a mode supported by the terminal. For example,
+ * if the terminal only supports 256 colors, a true color will be
+ * converted to the closest 256-color palette entry.
+ *
+ * @param color          Color to downgrade
+ * @param has_truecolor  Terminal supports 24-bit true color
+ * @param has_256color   Terminal supports 256 colors
+ * @return Downgraded color that matches terminal capabilities
+ */
+lle_color_t lle_color_downgrade(const lle_color_t *color,
+                                 bool has_truecolor,
+                                 bool has_256color);
+
 /* ============================================================================
  * BUILT-IN THEMES
  * ============================================================================

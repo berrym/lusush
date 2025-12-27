@@ -462,9 +462,9 @@ TEST(register_builtins) {
     lle_theme_registry_init(&registry);
     
     size_t count = lle_theme_register_builtins(&registry);
-    ASSERT_EQ(count, 6);
-    ASSERT_EQ(registry.count, 6);
-    ASSERT_EQ(registry.builtin_count, 6);
+    ASSERT_EQ(count, 10);
+    ASSERT_EQ(registry.count, 10);
+    ASSERT_EQ(registry.builtin_count, 10);
     
     /* Verify all themes registered */
     ASSERT_NOT_NULL(lle_theme_registry_find(&registry, "minimal"));
@@ -473,6 +473,10 @@ TEST(register_builtins) {
     ASSERT_NOT_NULL(lle_theme_registry_find(&registry, "powerline"));
     ASSERT_NOT_NULL(lle_theme_registry_find(&registry, "informative"));
     ASSERT_NOT_NULL(lle_theme_registry_find(&registry, "two-line"));
+    ASSERT_NOT_NULL(lle_theme_registry_find(&registry, "corporate"));
+    ASSERT_NOT_NULL(lle_theme_registry_find(&registry, "dark"));
+    ASSERT_NOT_NULL(lle_theme_registry_find(&registry, "light"));
+    ASSERT_NOT_NULL(lle_theme_registry_find(&registry, "colorful"));
     
     /* Minimal is set as active */
     lle_theme_t *active = lle_theme_registry_get_active(&registry);

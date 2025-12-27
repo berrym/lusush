@@ -124,12 +124,16 @@ char **lusush_completion_matches(const char *text, int start, int end) {
 
 char *lusush_generate_prompt(void) {
     /* Generate themed prompt using Lusush's prompt system */
+    const char *debug = getenv("LUSUSH_PROMPT_DEBUG");
 
     /* Try to get enhanced prompt from display integration first */
     if (display_integration_is_layered_active()) {
         char *enhanced_prompt = NULL;
         if (display_integration_get_enhanced_prompt(&enhanced_prompt)) {
             if (enhanced_prompt) {
+                if (debug && strcmp(debug, "1") == 0) {
+                    fprintf(stderr, "[STUBS] enhanced_prompt='%s'\n", enhanced_prompt);
+                }
                 return enhanced_prompt;
             }
         }
@@ -138,6 +142,9 @@ char *lusush_generate_prompt(void) {
     /* Fallback: Build prompt and get PS1 from symbol table */
     build_prompt();
     const char *ps1 = symtable_get_global_default("PS1", "$ ");
+    if (debug && strcmp(debug, "1") == 0) {
+        fprintf(stderr, "[STUBS] fallback ps1='%s'\n", ps1);
+    }
     return strdup(ps1 ? ps1 : "$ ");
 }
 

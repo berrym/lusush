@@ -3,6 +3,8 @@
 #include "config.h"
 #include "display_integration.h"
 #include "lle/async_worker.h"
+#include "lle/lle_shell_integration.h"
+#include "lle/prompt/composer.h"
 #include "lusush.h"
 #include "symtable.h"
 #include "themes.h"
@@ -213,6 +215,38 @@ void format_git_prompt(char *git_prompt, size_t size) {
  *      without modifying PS1/PS2, allowing user customization to be respected.
  */
 void build_prompt(void) {
+    // Debug: check state
+    const char *debug = getenv("LUSUSH_PROMPT_DEBUG");
+    if (debug && strcmp(debug, "1") == 0) {
+        fprintf(stderr, "[PROMPT] use_lle=%d g_lle_integration=%p prompt_composer=%p\n",
+                config.use_lle, (void*)g_lle_integration,
+                g_lle_integration ? (void*)g_lle_integration->prompt_composer : NULL);
+    }
+    
+    // Use Spec 25 prompt composer when LLE is active
+    if (config.use_lle && g_lle_integration && g_lle_integration->prompt_composer) {
+        lle_prompt_composer_t *composer = g_lle_integration->prompt_composer;
+        lle_prompt_output_t output;
+        memset(&output, 0, sizeof(output));
+        
+        lle_result_t result = lle_composer_render(composer, &output);
+        if (debug && strcmp(debug, "1") == 0) {
+            fprintf(stderr, "[PROMPT] Render: result=%d ps1_len=%zu ps1='%s'\n",
+                    result, output.ps1_len, output.ps1);
+        }
+        if (result == LLE_SUCCESS && output.ps1_len > 0) {
+            symtable_set_global("PS1", output.ps1);
+            symtable_set_global("PS2", output.ps2);
+            lle_composer_clear_regeneration_flag(composer);
+            return;
+        }
+        // LLE mode but render failed - use minimal failsafe prompts
+        // Do NOT fall through to legacy theme system
+        symtable_set_global("PS1", (getuid() > 0) ? "$ " : "# ");
+        symtable_set_global("PS2", "> ");
+        return;
+    }
+
     // Check if theme system is disabled - respect user PS1/PS2
     if (!config.use_theme_prompt) {
         // User has disabled theme prompts - don't overwrite PS1/PS2

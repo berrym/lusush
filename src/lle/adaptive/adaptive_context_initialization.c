@@ -337,11 +337,13 @@ lle_result_t lle_create_adaptive_interface(lle_adaptive_interface_t **interface,
     result = lle_initialize_adaptive_context(&context, detection, NULL);
 
     if (result != LLE_SUCCESS) {
-        lle_terminal_detection_result_destroy(detection);
+        /* Do NOT destroy detection - the optimized version returns a cached
+         * result that is managed internally. Destroying it could cause
+         * double-free if the cache was refreshed. */
         return result;
     }
 
-    /* Detection result is now owned by context, don't free it here */
+    /* Detection result is cached by the detection system, don't free it */
 
     /* Create interface wrapper */
     lle_adaptive_interface_t *iface =

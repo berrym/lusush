@@ -10,11 +10,55 @@
  */
 
 #include "lle/prompt/composer.h"
-#include "lle/utf8_support.h"
+#include "lle/adaptive_terminal_integration.h"
+#include "lle/lle_shell_event_hub.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+/* ============================================================================
+ * Terminal Capability Detection Cache
+ * ============================================================================
+ */
+
+/**
+ * @brief Cached terminal color capabilities
+ *
+ * Detected once at first use and cached for performance.
+ */
+static struct {
+    bool initialized;
+    bool has_256_color;
+    bool has_true_color;
+} g_terminal_color_caps = {false, false, false};
+
+/**
+ * @brief Get cached terminal color capabilities
+ */
+static void get_terminal_color_capabilities(bool *has_256, bool *has_true) {
+    if (!g_terminal_color_caps.initialized) {
+        /* Detect terminal capabilities.
+         * Note: The optimized detection returns a cached result that is
+         * managed by the detection system - do NOT destroy it. */
+        lle_terminal_detection_result_t *detection = NULL;
+        lle_result_t result = lle_detect_terminal_capabilities_optimized(&detection);
+
+        if (result == LLE_SUCCESS && detection) {
+            g_terminal_color_caps.has_256_color = detection->supports_256_colors;
+            g_terminal_color_caps.has_true_color = detection->supports_truecolor;
+        } else {
+            /* Default to 256 colors if detection fails */
+            g_terminal_color_caps.has_256_color = true;
+            g_terminal_color_caps.has_true_color = false;
+        }
+        g_terminal_color_caps.initialized = true;
+    }
+
+    if (has_256) *has_256 = g_terminal_color_caps.has_256_color;
+    if (has_true) *has_true = g_terminal_color_caps.has_true_color;
+}
 
 /* ============================================================================
  * Internal Helper Types
@@ -29,6 +73,45 @@ typedef struct composer_callback_ctx {
     const lle_theme_t *theme;
 } composer_callback_ctx_t;
 
+/**
+ * @brief Get the semantic color for a segment from theme
+ *
+ * Maps segment names to their default semantic colors in the theme.
+ * This provides automatic coloring for built-in themes while still
+ * allowing users to override with explicit ${color:...} syntax.
+ *
+ * @param theme         Active theme (may be NULL)
+ * @param segment_name  Name of the segment
+ * @return Pointer to the color, or NULL if no mapping exists
+ */
+static const lle_color_t *get_segment_color(const lle_theme_t *theme,
+                                             const char *segment_name) {
+    if (!theme || !segment_name) {
+        return NULL;
+    }
+
+    /* Map segment names to semantic theme colors */
+    if (strcmp(segment_name, "user") == 0) {
+        return &theme->colors.primary;
+    } else if (strcmp(segment_name, "host") == 0) {
+        return &theme->colors.secondary;
+    } else if (strcmp(segment_name, "directory") == 0) {
+        return &theme->colors.path_normal;
+    } else if (strcmp(segment_name, "git") == 0) {
+        return &theme->colors.git_branch;
+    } else if (strcmp(segment_name, "status") == 0) {
+        return &theme->colors.status_error;
+    } else if (strcmp(segment_name, "jobs") == 0) {
+        return &theme->colors.warning;
+    } else if (strcmp(segment_name, "time") == 0) {
+        return &theme->colors.text_dim;
+    } else if (strcmp(segment_name, "symbol") == 0) {
+        return &theme->colors.primary;
+    }
+
+    return NULL;
+}
+
 /* ============================================================================
  * Template Engine Callbacks
  * ============================================================================
@@ -36,6 +119,10 @@ typedef struct composer_callback_ctx {
 
 /**
  * @brief Get segment content for template rendering
+ *
+ * Renders the segment and automatically wraps with theme color if available.
+ * This provides colored prompts by default for built-in themes, while users
+ * can override by using explicit ${color:...} syntax in custom templates.
  *
  * @param segment_name  Name of segment to render
  * @param property      Property name (NULL for full segment)
@@ -78,6 +165,37 @@ static char *composer_get_segment(const char *segment_name,
                                                &output);
         if (result != LLE_SUCCESS || output.is_empty) {
             return NULL;
+        }
+
+        /* Check if theme provides a color for this segment */
+        const lle_color_t *color = get_segment_color(ctx->theme, segment_name);
+        if (color && color->mode != LLE_COLOR_MODE_NONE) {
+            /* Get terminal color capabilities for adaptive color support */
+            bool has_256_color = false;
+            bool has_true_color = false;
+            get_terminal_color_capabilities(&has_256_color, &has_true_color);
+
+            /* Downgrade color to match terminal capabilities */
+            lle_color_t adapted_color = lle_color_downgrade(color,
+                                                             has_true_color,
+                                                             has_256_color);
+
+            /* Wrap content with color escape sequences */
+            char color_start[LLE_COLOR_CODE_MAX];
+            static const char *color_reset = "\033[0m";
+
+            lle_color_to_ansi(&adapted_color, true, color_start,
+                              sizeof(color_start));
+
+            /* Allocate buffer for colored output */
+            size_t total_len = strlen(color_start) + output.content_len +
+                               strlen(color_reset) + 1;
+            char *colored = malloc(total_len);
+            if (colored) {
+                snprintf(colored, total_len, "%s%s%s",
+                         color_start, output.content, color_reset);
+                return colored;
+            }
         }
 
         return strdup(output.content);
@@ -189,8 +307,18 @@ static const char *composer_get_color(const char *color_name,
         return "";
     }
 
+    /* Get terminal color capabilities for adaptive color support */
+    bool has_256_color = false;
+    bool has_true_color = false;
+    get_terminal_color_capabilities(&has_256_color, &has_true_color);
+
+    /* Downgrade color to match terminal capabilities */
+    lle_color_t adapted_color = lle_color_downgrade(color,
+                                                     has_true_color,
+                                                     has_256_color);
+
     /* Convert color to ANSI escape sequence (foreground) */
-    lle_color_to_ansi(color, true, ansi_buf, sizeof(ansi_buf));
+    lle_color_to_ansi(&adapted_color, true, ansi_buf, sizeof(ansi_buf));
     return ansi_buf;
 }
 
@@ -514,4 +642,216 @@ const lle_theme_t *lle_composer_get_theme(const lle_prompt_composer_t *composer)
     }
 
     return lle_theme_registry_get_active(composer->themes);
+}
+
+/* ============================================================================
+ * Shell Event Integration (Spec 26)
+ * 
+ * This section implements the Issue #16 fix: when the directory changes,
+ * we invalidate all segment caches so stale git info doesn't persist.
+ * ============================================================================
+ */
+
+/**
+ * @brief Directory changed event handler (Issue #16 fix)
+ *
+ * When the working directory changes (cd, pushd, popd), this handler
+ * invalidates all segment caches. This ensures git status, directory
+ * info, and other path-dependent data is refreshed for the new location.
+ *
+ * @param event_data Pointer to lle_directory_changed_event_t
+ * @param user_data  Pointer to lle_prompt_composer_t
+ */
+static void composer_on_directory_changed(void *event_data, void *user_data) {
+    lle_prompt_composer_t *composer = (lle_prompt_composer_t *)user_data;
+    (void)event_data; /* old_dir/new_dir available if needed */
+
+    if (!composer || !composer->initialized) {
+        return;
+    }
+
+    /* Refresh the context's directory info (cwd, cwd_display, cwd_is_git_repo).
+     * This also invalidates all segment caches. */
+    lle_composer_refresh_directory(composer);
+
+    /* Invalidate all segment caches - git status, directory display, etc. */
+    if (composer->segments) {
+        lle_segment_registry_invalidate_all(composer->segments);
+    }
+
+    /* Mark prompt for regeneration on next render */
+    composer->needs_regeneration = true;
+    composer->event_triggered_refreshes++;
+}
+
+/**
+ * @brief Handler for LLE_SHELL_EVENT_PRE_COMMAND
+ *
+ * Called just before command execution. Records command info for
+ * transient prompt support.
+ *
+ * @param event_data Pointer to lle_pre_command_event_t
+ * @param user_data  Pointer to lle_prompt_composer_t
+ */
+static void composer_on_pre_command(void *event_data, void *user_data) {
+    lle_prompt_composer_t *composer = (lle_prompt_composer_t *)user_data;
+    lle_pre_command_event_t *event = (lle_pre_command_event_t *)event_data;
+
+    if (!composer || !composer->initialized || !event) {
+        return;
+    }
+
+    /* Save command info for post-command handling */
+    composer->current_command = event->command;
+    composer->current_command_is_bg = event->is_background;
+
+    /* If transient prompt is enabled, we could apply it here.
+     * For now, just record state - transient prompt rendering
+     * is handled by the display layer. */
+}
+
+/**
+ * @brief Handler for LLE_SHELL_EVENT_POST_COMMAND
+ *
+ * Called after command completes. Updates context with exit code and
+ * duration, then marks prompt for regeneration.
+ *
+ * @param event_data Pointer to lle_post_command_event_t
+ * @param user_data  Pointer to lle_prompt_composer_t
+ */
+static void composer_on_post_command(void *event_data, void *user_data) {
+    lle_prompt_composer_t *composer = (lle_prompt_composer_t *)user_data;
+    lle_post_command_event_t *event = (lle_post_command_event_t *)event_data;
+
+    if (!composer || !composer->initialized || !event) {
+        return;
+    }
+
+    /* Update context with command results */
+    uint64_t duration_ms = event->duration_us / 1000;
+    lle_prompt_context_update(&composer->context, event->exit_code, duration_ms);
+
+    /* Clear current command state */
+    composer->current_command = NULL;
+    composer->current_command_is_bg = false;
+
+    /* Mark prompt for regeneration - exit code/duration affects display */
+    composer->needs_regeneration = true;
+    composer->event_triggered_refreshes++;
+}
+
+lle_result_t lle_composer_register_shell_events(
+    lle_prompt_composer_t *composer,
+    struct lle_shell_event_hub *event_hub) {
+    if (!composer) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+
+    if (!event_hub) {
+        /* No event hub provided - events won't be wired up.
+         * This is acceptable for unit testing or minimal configurations. */
+        return LLE_SUCCESS;
+    }
+
+    if (!composer->initialized) {
+        return LLE_ERROR_NOT_INITIALIZED;
+    }
+
+    if (composer->events_registered) {
+        /* Already registered */
+        return LLE_SUCCESS;
+    }
+
+    lle_result_t result;
+
+    /* Register directory change handler (Issue #16 fix) */
+    result = lle_shell_event_hub_register(
+        event_hub,
+        LLE_SHELL_EVENT_DIRECTORY_CHANGED,
+        composer_on_directory_changed,
+        composer,
+        "prompt_composer_dir");
+
+    if (result != LLE_SUCCESS) {
+        return result;
+    }
+
+    /* Register pre-command handler (transient prompt support) */
+    result = lle_shell_event_hub_register(
+        event_hub,
+        LLE_SHELL_EVENT_PRE_COMMAND,
+        composer_on_pre_command,
+        composer,
+        "prompt_composer_pre");
+
+    if (result != LLE_SUCCESS) {
+        /* Rollback directory handler */
+        lle_shell_event_hub_unregister(event_hub,
+                                        LLE_SHELL_EVENT_DIRECTORY_CHANGED,
+                                        "prompt_composer_dir");
+        return result;
+    }
+
+    /* Register post-command handler (exit code, duration) */
+    result = lle_shell_event_hub_register(
+        event_hub,
+        LLE_SHELL_EVENT_POST_COMMAND,
+        composer_on_post_command,
+        composer,
+        "prompt_composer_post");
+
+    if (result != LLE_SUCCESS) {
+        /* Rollback previous handlers */
+        lle_shell_event_hub_unregister(event_hub,
+                                        LLE_SHELL_EVENT_DIRECTORY_CHANGED,
+                                        "prompt_composer_dir");
+        lle_shell_event_hub_unregister(event_hub,
+                                        LLE_SHELL_EVENT_PRE_COMMAND,
+                                        "prompt_composer_pre");
+        return result;
+    }
+
+    /* Store reference and mark as registered */
+    composer->shell_event_hub = event_hub;
+    composer->events_registered = true;
+
+    return LLE_SUCCESS;
+}
+
+lle_result_t lle_composer_unregister_shell_events(
+    lle_prompt_composer_t *composer) {
+    if (!composer) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+
+    if (!composer->events_registered || !composer->shell_event_hub) {
+        /* Nothing to unregister */
+        return LLE_SUCCESS;
+    }
+
+    lle_shell_event_hub_t *hub = composer->shell_event_hub;
+
+    /* Unregister all handlers */
+    lle_shell_event_hub_unregister(hub,
+                                    LLE_SHELL_EVENT_DIRECTORY_CHANGED,
+                                    "prompt_composer_dir");
+    lle_shell_event_hub_unregister(hub,
+                                    LLE_SHELL_EVENT_PRE_COMMAND,
+                                    "prompt_composer_pre");
+    lle_shell_event_hub_unregister(hub,
+                                    LLE_SHELL_EVENT_POST_COMMAND,
+                                    "prompt_composer_post");
+
+    composer->shell_event_hub = NULL;
+    composer->events_registered = false;
+
+    return LLE_SUCCESS;
+}
+
+void lle_composer_clear_regeneration_flag(lle_prompt_composer_t *composer) {
+    if (!composer) {
+        return;
+    }
+
+    composer->needs_regeneration = false;
 }

@@ -10,7 +10,6 @@
 
 #include "lle/error_handling.h"
 #include "lle/input_parsing.h"
-#include "lle/performance.h"
 #include <string.h>
 #include <time.h>
 

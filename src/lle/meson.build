@@ -233,6 +233,23 @@ lle_sources += files(
 )
 
 # ============================================================================
+# SHELL INTEGRATION MODULE (Spec 26 - Initialization System)
+# ============================================================================
+
+# Shell event hub and safety utilities - no shell dependencies, included in liblle.a
+lle_sources += files(
+  'lle_shell_event_hub.c',
+  'lle_safety.c',
+)
+
+# Shell integration init - depends on shell globals (config, etc.) and is
+# NOT included in liblle.a. Added to lle_shell_sources which is linked
+# only with the main shell executable.
+lle_shell_sources = files(
+  'lle_shell_integration.c',
+)
+
+# ============================================================================
 # LLE CORE - Main Entry Points
 # ============================================================================
 

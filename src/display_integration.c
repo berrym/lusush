@@ -46,6 +46,8 @@
 #include "display/display_controller.h"
 #include "display/layer_events.h"
 #include "init.h"
+#include "lle/lle_shell_integration.h"
+#include "lle/prompt/composer.h"
 #include "lusush_memory_pool.h"
 #include "prompt.h"
 #include "readline_integration.h"
@@ -1171,15 +1173,61 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
         return false;
     }
 
-    // Use theme system to generate the base prompt content
-    // Get current theme info for debugging
-    theme_definition_t *active_theme = theme_get_active();
+    // Use Spec 25 prompt composer when LLE is active - completely bypass legacy
+    bool theme_result = false;
+    const char *theme_name = "default";
+    extern config_values_t config;
+    const char *debug = getenv("LUSUSH_PROMPT_DEBUG");
+    
+    if (debug && strcmp(debug, "1") == 0) {
+        fprintf(stderr, "[DI] use_lle=%d g_lle=%p composer=%p\n",
+                config.use_lle, (void*)g_lle_integration,
+                g_lle_integration ? (void*)g_lle_integration->prompt_composer : NULL);
+    }
+    
+    if (config.use_lle && g_lle_integration && g_lle_integration->prompt_composer) {
+        lle_prompt_composer_t *composer = g_lle_integration->prompt_composer;
+        lle_prompt_output_t output;
+        memset(&output, 0, sizeof(output));
+        
+        lle_result_t result = lle_composer_render(composer, &output);
+        if (debug && strcmp(debug, "1") == 0) {
+            fprintf(stderr, "[DI] Spec25 render: result=%d ps1='%s'\n", result, output.ps1);
+        }
+        if (result == LLE_SUCCESS && output.ps1_len > 0) {
+            /* Spec 25 prompt is ready - return directly, bypass display controller
+             * The display controller would transform/cache this incorrectly */
+            *enhanced_prompt = lusush_pool_strdup(output.ps1);
+            lusush_pool_free(base_prompt);
+            lle_composer_clear_regeneration_flag(composer);
+            
+            gettimeofday(&end_time, NULL);
+            uint64_t operation_time_ns =
+                ((uint64_t)(end_time.tv_sec - start_time.tv_sec)) * 1000000000ULL +
+                ((uint64_t)(end_time.tv_usec - start_time.tv_usec)) * 1000ULL;
+            display_integration_record_display_timing(operation_time_ns);
+            
+            return (*enhanced_prompt != NULL);
+        }
+        
+        // LLE mode but render failed - use minimal failsafe, do NOT use legacy
+        *enhanced_prompt = lusush_pool_strdup((getuid() > 0) ? "$ " : "# ");
+        lusush_pool_free(base_prompt);
+        return (*enhanced_prompt != NULL);
+    }
 
-    bool theme_result =
-        theme_generate_primary_prompt(base_prompt, base_prompt_size);
+    // Fallback to legacy theme system ONLY if LLE not configured (config.use_lle == false)
+    if (!theme_result) {
+        theme_definition_t *active_theme = theme_get_active();
+        if (active_theme) {
+            theme_name = active_theme->name;
+        }
+
+        theme_result = theme_generate_primary_prompt(base_prompt, base_prompt_size);
+    }
 
     if (!theme_result) {
-        // Fallback prompt generation
+        // Ultimate fallback prompt generation
         char *current_dir = getcwd(NULL, 0);
         const char *user = getenv("USER");
         const char *hostname = getenv("HOSTNAME");
@@ -1200,7 +1248,6 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
     }
 
     // Phase 2: Update theme context before display controller operations
-    const char *theme_name = active_theme ? active_theme->name : "default";
     symbol_compatibility_t symbol_mode = symbol_get_compatibility_mode();
 
     // Set theme context in display controller for theme-aware caching

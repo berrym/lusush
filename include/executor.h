@@ -10,7 +10,6 @@
 #define EXECUTOR_H
 
 #include "node.h"
-#include "parser.h"
 #include "symtable.h"
 
 #include <stdbool.h>

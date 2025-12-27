@@ -15,8 +15,6 @@
  */
 
 #include "display/screen_buffer.h"
-#include "lle/completion/completion_menu_renderer.h"
-#include "lle/completion/completion_menu_state.h"
 #include <stdlib.h>
 #include <string.h>
 

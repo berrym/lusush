@@ -17,7 +17,7 @@
  * - Theme Lifecycle API (3 functions)
  * - Color Helper API (4 functions)
  * - Symbol Set API (2 functions)
- * - Built-in Theme Factories (6 themes)
+ * - Built-in Theme Factories (10 themes)
  * - Theme Capabilities and Categories
  *
  * Specification:
@@ -452,9 +452,9 @@ static void test_builtin_themes(void) {
     lle_theme_registry_t registry;
     lle_theme_registry_init(&registry);
     size_t count = lle_theme_register_builtins(&registry);
-    COMPLIANCE_ASSERT(count == 6, "registers 6 themes");
-    COMPLIANCE_ASSERT(registry.builtin_count == 6,
-                      "builtin_count is 6");
+    COMPLIANCE_ASSERT(count == 10, "registers 10 themes");
+    COMPLIANCE_ASSERT(registry.builtin_count == 10,
+                      "builtin_count is 10");
     /* Verify all registered */
     COMPLIANCE_ASSERT(lle_theme_registry_find(&registry, "minimal") != NULL,
                       "minimal registered");

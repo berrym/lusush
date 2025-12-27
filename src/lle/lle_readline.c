@@ -68,6 +68,7 @@
 #include "lle/keybinding.h" /* Keybinding manager for Group 1+ migration */
 #include "lle/keybinding_actions.h" /* Smart arrow navigation functions */
 #include "lle/lle_editor.h"         /* Proper LLE editor architecture */
+#include "lle/lle_shell_integration.h" /* Spec 26: Shell integration */
 #include "lle/memory_management.h"
 #include "lle/terminal_abstraction.h"
 #include "lle/unicode_compare.h" /* TR#29 compliant Unicode prefix matching */
@@ -96,9 +97,21 @@ static lle_editor_t *global_lle_editor = NULL;
 
 /**
  * @brief Get the global LLE editor instance
+ *
+ * Returns the editor from shell integration (Spec 26) if available,
+ * otherwise falls back to the local global_lle_editor for backward
+ * compatibility during lazy initialization.
+ *
  * Allows other modules to access the editor for adding history, etc.
  */
-lle_editor_t *lle_get_global_editor(void) { return global_lle_editor; }
+lle_editor_t *lle_get_global_editor(void) {
+    /* Prefer shell integration's editor (Spec 26) */
+    if (g_lle_integration && g_lle_integration->editor) {
+        return g_lle_integration->editor;
+    }
+    /* Fallback for backward compatibility */
+    return global_lle_editor;
+}
 
 /**
  * @brief Populate LLE history config from Lusush config system
@@ -1039,26 +1052,6 @@ static lle_result_t handle_enter(lle_event_t *event, void *user_data) {
         }
 
         if (result == LLE_SUCCESS) {
-            /* NOTE: Continuation prompts not yet supported in LLE
-             *
-             * ARCHITECTURAL LIMITATION: LLE uses single-buffer model where
-             * entire multiline command is edited in one buffer with embedded
-             * newlines. Continuation prompts (loop>, if>, etc.) cannot be
-             * injected into buffer (would break shell parsing) or easily
-             * displayed per-line without major display system enhancements.
-             *
-             * GNU Readline calls readline() multiple times with different
-             * prompts, so each line naturally gets its own prompt. LLE would
-             * need display system to parse buffer at newlines and inject
-             * prompts in rendered output (not in buffer) - requires significant
-             * composition engine work.
-             *
-             * FUTURE WORK: Enhance composition_engine to support per-line
-             * prompt injection in display output without modifying command
-             * buffer content. See:
-             * docs/lle_specification/future/continuation_prompts.md
-             */
-
             refresh_display(ctx);
         }
 
@@ -1169,26 +1162,6 @@ lle_result_t lle_accept_line_context(readline_context_t *ctx) {
         }
 
         if (result == LLE_SUCCESS) {
-            /* NOTE: Continuation prompts not yet supported in LLE
-             *
-             * ARCHITECTURAL LIMITATION: LLE uses single-buffer model where
-             * entire multiline command is edited in one buffer with embedded
-             * newlines. Continuation prompts (loop>, if>, etc.) cannot be
-             * injected into buffer (would break shell parsing) or easily
-             * displayed per-line without major display system enhancements.
-             *
-             * GNU Readline calls readline() multiple times with different
-             * prompts, so each line naturally gets its own prompt. LLE would
-             * need display system to parse buffer at newlines and inject
-             * prompts in rendered output (not in buffer) - requires significant
-             * composition engine work.
-             *
-             * FUTURE WORK: Enhance composition_engine to support per-line
-             * prompt injection in display output without modifying command
-             * buffer content. See:
-             * docs/lle_specification/future/continuation_prompts.md
-             */
-
             refresh_display(ctx);
         }
 
@@ -1327,6 +1300,9 @@ static lle_result_t handle_abort(lle_event_t *event, void *user_data) {
     (void)event; /* Unused */
     readline_context_t *ctx = (readline_context_t *)user_data;
 
+    /* Record Ctrl+G for panic detection (triple Ctrl+G triggers hard reset) */
+    lle_record_ctrl_g();
+
     /* Signal done with empty result - this aborts the readline */
     *ctx->done = true;
     *ctx->final_line =
@@ -1456,6 +1432,9 @@ lle_result_t lle_abort_line_context(readline_context_t *ctx) {
      * cleanup when final_line is returned. Calling it here would cause double
      * newline. */
     dc_reset_prompt_display_state();
+
+    /* Record Ctrl+G for panic detection (triple Ctrl+G triggers hard reset) */
+    lle_record_ctrl_g();
 
     *ctx->done = true;
     *ctx->final_line =
@@ -2519,50 +2498,62 @@ char *lle_readline(const char *prompt) {
     bool done = false;
     char *final_line = NULL;
     /* === STEP 6.5: Initialize LLE editor (proper architecture) === */
-    /* Create global editor instance if it doesn't exist */
-    if (!global_lle_editor) {
-        result = lle_editor_create(&global_lle_editor, global_memory_pool);
-        if (result != LLE_SUCCESS || !global_lle_editor) {
-            /* Failed to create editor - non-fatal, history won't work */
-            global_lle_editor = NULL;
-        } else {
-            /* Initialize history subsystem with config from Lusush */
-            lle_history_config_t hist_config;
-            populate_history_config_from_lusush_config(&hist_config);
+    /* Spec 26: Use shell integration's editor if available, otherwise
+     * fall back to lazy initialization for backward compatibility.
+     */
+    lle_editor_t *editor_to_use = NULL;
 
-            result = lle_history_core_create(&global_lle_editor->history_system,
-                                             global_lle_editor->lle_pool,
-                                             &hist_config);
+    if (g_lle_integration && g_lle_integration->editor) {
+        /* Use editor from shell integration (Spec 26) */
+        editor_to_use = g_lle_integration->editor;
+    } else {
+        /* Fallback: Create global editor instance if it doesn't exist */
+        if (!global_lle_editor) {
+            result = lle_editor_create(&global_lle_editor, global_memory_pool);
+            if (result != LLE_SUCCESS || !global_lle_editor) {
+                /* Failed to create editor - non-fatal, history won't work */
+                global_lle_editor = NULL;
+            } else {
+                /* Initialize history subsystem with config from Lusush */
+                lle_history_config_t hist_config;
+                populate_history_config_from_lusush_config(&hist_config);
 
-            if (result == LLE_SUCCESS && global_lle_editor->history_system) {
-                /* Load existing history from LLE history file */
-                const char *history_file = getenv("HOME");
-                char history_path[1024];
-                if (history_file) {
-                    snprintf(history_path, sizeof(history_path),
-                             "%s/.lusush_history_lle", history_file);
-                    lle_history_load_from_file(
-                        global_lle_editor->history_system, history_path);
+                result = lle_history_core_create(
+                    &global_lle_editor->history_system,
+                    global_lle_editor->lle_pool, &hist_config);
+
+                if (result == LLE_SUCCESS &&
+                    global_lle_editor->history_system) {
+                    /* Load existing history from LLE history file */
+                    const char *history_file = getenv("HOME");
+                    char history_path[1024];
+                    if (history_file) {
+                        snprintf(history_path, sizeof(history_path),
+                                 "%s/.lusush_history_lle", history_file);
+                        lle_history_load_from_file(
+                            global_lle_editor->history_system, history_path);
+                    }
                 }
             }
         }
+        editor_to_use = global_lle_editor;
     }
 
     /* Set buffer in editor if editor exists */
-    if (global_lle_editor) {
-        global_lle_editor->buffer = buffer;
+    if (editor_to_use) {
+        editor_to_use->buffer = buffer;
 
         /* Update cursor_manager's buffer reference to stay synchronized */
-        if (global_lle_editor->cursor_manager) {
-            global_lle_editor->cursor_manager->buffer = buffer;
+        if (editor_to_use->cursor_manager) {
+            editor_to_use->cursor_manager->buffer = buffer;
         }
 
         /* CRITICAL: Reset history navigation position for new readline session
          */
         /* Each readline() call starts fresh - not in history navigation mode */
-        global_lle_editor->history_navigation_pos = 0;
+        editor_to_use->history_navigation_pos = 0;
         /* Clear the seen set for unique-only navigation mode */
-        global_lle_editor->history_nav_seen_count = 0;
+        editor_to_use->history_nav_seen_count = 0;
     }
 
     /* === STEP 6.6: Create keybinding manager and load Emacs preset === */
@@ -2636,8 +2627,8 @@ char *lle_readline(const char *prompt) {
         .kill_buffer = kill_buffer,
         .kill_buffer_size = kill_buffer_size,
 
-        /* LLE Editor - proper architecture */
-        .editor = global_lle_editor,
+        /* LLE Editor - proper architecture (Spec 26: prefer shell integration) */
+        .editor = editor_to_use,
 
         /* Keybinding manager - Group 1+ migration */
         .keybinding_manager = keybinding_manager,
@@ -2647,15 +2638,15 @@ char *lle_readline(const char *prompt) {
         .suggestion_alloc_size = 0,
         .suppress_autosuggestion = false};
 
-    /* CRITICAL: Reset per-readline-call flags on global editor
+    /* CRITICAL: Reset per-readline-call flags on editor
      * The editor is persistent across readline calls, but these flags
      * must be reset at the start of each new readline session.
      * Without this reset, abort_requested/eof_requested persist across
      * readline calls, causing all subsequent actions to immediately exit.
      */
-    if (global_lle_editor) {
-        global_lle_editor->abort_requested = false;
-        global_lle_editor->eof_requested = false;
+    if (editor_to_use) {
+        editor_to_use->abort_requested = false;
+        editor_to_use->eof_requested = false;
     }
 
     /* Register handler for character input */
@@ -2685,9 +2676,9 @@ char *lle_readline(const char *prompt) {
 
     /* === WIDGET HOOK: LINE_INIT === */
     /* Trigger line-init hook at start of readline (ZSH zle-line-init) */
-    if (global_lle_editor && global_lle_editor->widget_hooks_manager) {
-        lle_widget_hook_trigger(global_lle_editor->widget_hooks_manager,
-                                LLE_HOOK_LINE_INIT, global_lle_editor);
+    if (editor_to_use && editor_to_use->widget_hooks_manager) {
+        lle_widget_hook_trigger(editor_to_use->widget_hooks_manager,
+                                LLE_HOOK_LINE_INIT, editor_to_use);
     }
 
     /* === STEP 8: Main input loop === */
@@ -3053,10 +3044,10 @@ char *lle_readline(const char *prompt) {
             }
 
             /* Trigger terminal-resize hook for registered widgets */
-            if (global_lle_editor && global_lle_editor->widget_hooks_manager) {
-                lle_widget_hook_trigger(global_lle_editor->widget_hooks_manager,
+            if (editor_to_use && editor_to_use->widget_hooks_manager) {
+                lle_widget_hook_trigger(editor_to_use->widget_hooks_manager,
                                         LLE_HOOK_TERMINAL_RESIZE,
-                                        global_lle_editor);
+                                        editor_to_use);
             }
 
             refresh_display(&ctx);
@@ -3087,9 +3078,9 @@ char *lle_readline(const char *prompt) {
 
     /* === WIDGET HOOK: LINE_FINISH === */
     /* Trigger line-finish hook at end of readline (ZSH zle-line-finish) */
-    if (global_lle_editor && global_lle_editor->widget_hooks_manager) {
-        lle_widget_hook_trigger(global_lle_editor->widget_hooks_manager,
-                                LLE_HOOK_LINE_FINISH, global_lle_editor);
+    if (editor_to_use && editor_to_use->widget_hooks_manager) {
+        lle_widget_hook_trigger(editor_to_use->widget_hooks_manager,
+                                LLE_HOOK_LINE_FINISH, editor_to_use);
     }
 
     /* === STEP 10: Exit raw mode and finalize input === */
@@ -3129,6 +3120,18 @@ char *lle_readline(const char *prompt) {
     continuation_state_cleanup(&continuation_state);
     lle_event_system_destroy(event_system);
     lle_buffer_destroy(buffer);
+    
+    /* Clear editor's buffer pointer to prevent double-free on shell exit.
+     * The buffer was created per-readline call and assigned to the persistent
+     * editor (g_lle_integration->editor). Now that we've destroyed it, we must
+     * clear the reference so lle_editor_destroy won't try to free it again. */
+    if (editor_to_use) {
+        editor_to_use->buffer = NULL;
+        if (editor_to_use->cursor_manager) {
+            editor_to_use->cursor_manager->buffer = NULL;
+        }
+    }
+    
     lle_terminal_abstraction_destroy(term);
 
     return final_line;

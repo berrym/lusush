@@ -31,7 +31,6 @@
 #include "lle/memory_management.h"
 #include "lle/widget_hooks.h"
 #include <string.h>
-#include <time.h>
 
 /* ========================================================================== */
 /*                      WIDGET HOOK TRIGGERS LIFECYCLE                        */

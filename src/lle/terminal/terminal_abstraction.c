@@ -18,7 +18,6 @@
 
 #include "lle/terminal_abstraction.h"
 #include <stdlib.h>
-#include <string.h>
 
 /* ============================================================================
  * MAIN TERMINAL ABSTRACTION LIFECYCLE
