@@ -759,6 +759,12 @@ static void composer_on_post_command(void *event_data, void *user_data) {
     composer->current_command = NULL;
     composer->current_command_is_bg = false;
 
+    /* Invalidate all segment caches - commands like git push/pull/commit
+     * change repository state, so we must refetch git status */
+    if (composer->segments) {
+        lle_segment_registry_invalidate_all(composer->segments);
+    }
+
     /* Mark prompt for regeneration - exit code/duration affects display */
     composer->needs_regeneration = true;
     composer->event_triggered_refreshes++;

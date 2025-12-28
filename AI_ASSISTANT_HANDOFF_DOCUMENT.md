@@ -9,6 +9,15 @@
 
 ## Session 80: Defensive State Machine, Watchdog & Bugfixes
 
+### Commit 5: Fix git segment not updating after commands
+
+**Bug**: Git status in prompt wasn't updating after `git push`, `git commit`, etc.
+
+**Cause**: `composer_on_post_command()` marked prompt for regeneration but didn't
+invalidate segment caches. The git segment's `cache_valid` stayed true.
+
+**Fix**: Add `lle_segment_registry_invalidate_all()` to post-command handler.
+
 ### Commit 4: Add newline-before-prompt option
 
 New feature for visual separation between command output and prompt:
