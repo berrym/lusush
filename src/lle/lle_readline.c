@@ -2772,11 +2772,9 @@ char *lle_readline(const char *prompt) {
     /* CRITICAL FIX: Timeout counter to prevent infinite loops
      * If we get too many consecutive timeouts without any user input,
      * something is wrong (e.g., terminal state corruption, fd closed).
-     * Force exit to prevent the shell from being completely stuck.
-     * 600 timeouts * 100ms = 60 seconds before forced exit.
+     * The watchdog (SIGALRM) handles actual processing freezes.
+     * Idle waiting for user input is normal and should not be interrupted.
      */
-    size_t consecutive_timeouts = 0;
-    const size_t MAX_CONSECUTIVE_TIMEOUTS = 600;
 
     while (!done) {
 
@@ -2863,38 +2861,17 @@ char *lle_readline(const char *prompt) {
             continue;
         }
 
-        /* Handle timeout and null events - increment counter and continue */
+        /* Handle timeout and null events - just continue waiting
+         * Idle waiting for user input is completely normal.
+         * The watchdog catches actual processing freezes. */
         if (result == LLE_ERROR_TIMEOUT || event == NULL) {
-            consecutive_timeouts++;
-            if (consecutive_timeouts >= MAX_CONSECUTIVE_TIMEOUTS) {
-                /* Too many consecutive timeouts - force exit with error */
-                fprintf(stderr,
-                        "\nlle: readline timeout - no input for 60 seconds\n");
-                /* STATE MACHINE: Force timeout state */
-                lle_readline_state_force_timeout(&ctx);
-                done = true;
-                final_line = strdup("");
-            }
             continue;
         }
 
-        /* ALSO check event type for timeout (timeout can be returned as SUCCESS
-         * with type=TIMEOUT) */
+        /* ALSO check event type for timeout */
         if (event->type == LLE_INPUT_TYPE_TIMEOUT) {
-            consecutive_timeouts++;
-            if (consecutive_timeouts >= MAX_CONSECUTIVE_TIMEOUTS) {
-                fprintf(stderr,
-                        "\nlle: readline timeout - no input for 60 seconds\n");
-                /* STATE MACHINE: Force timeout state */
-                lle_readline_state_force_timeout(&ctx);
-                done = true;
-                final_line = strdup("");
-            }
             continue;
         }
-
-        /* Reset timeout counter - we got real input */
-        consecutive_timeouts = 0;
 
         /* STATE MACHINE: Transition from IDLE to EDITING on first real input */
         if (ctx.state == LLE_READLINE_STATE_IDLE) {

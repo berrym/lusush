@@ -571,18 +571,34 @@ lle_result_t lle_template_render(const lle_parsed_template_t *tmpl,
                             render_ctx->user_data);
                     }
 
-                    const char *result = condition_met ?
+                    const char *branch = condition_met ?
                         token->data.conditional.true_value :
                         token->data.conditional.false_value;
 
-                    if (result && strlen(result) > 0) {
-                        size_t len = strlen(result);
+                    if (branch && strlen(branch) > 0) {
+                        /* Recursively evaluate the branch content to expand
+                         * nested segment references like ${git} inside
+                         * conditionals like ${?git: (${git})} */
                         size_t avail = output_size - pos - 1;
-                        if (len > avail) {
-                            len = avail;
+                        char *temp = malloc(avail + 1);
+                        if (temp) {
+                            lle_result_t eval_result = lle_template_evaluate(
+                                branch, render_ctx, temp, avail + 1);
+                            if (eval_result == LLE_SUCCESS) {
+                                size_t len = strlen(temp);
+                                memcpy(output + pos, temp, len);
+                                pos += len;
+                            } else {
+                                /* Fallback: copy branch literally */
+                                size_t len = strlen(branch);
+                                if (len > avail) {
+                                    len = avail;
+                                }
+                                memcpy(output + pos, branch, len);
+                                pos += len;
+                            }
+                            free(temp);
                         }
-                        memcpy(output + pos, result, len);
-                        pos += len;
                     }
                 }
                 break;

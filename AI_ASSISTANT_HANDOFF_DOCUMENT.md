@@ -2,12 +2,30 @@
 
 **Date**: 2025-12-28  
 **Session Type**: LLE Defensive State Machine & Watchdog  
-**Status**: COMPLETE - Both commits implemented  
+**Status**: COMPLETE - All commits implemented  
 **Branch**: `feature/lle`
 
 ---
 
-## Session 80: Defensive State Machine & Watchdog Implementation
+## Session 80: Defensive State Machine, Watchdog & Bugfixes
+
+### Commit 3: Fix idle timeout and template expansion bugs
+
+Two critical UX bugs fixed:
+
+1. **Removed 60-second idle timeout** (`lle_readline.c`)
+   - The timeout was discarding user input after 60 seconds of idle
+   - Terrible UX: users returning from break found their work lost
+   - The watchdog handles actual processing freezes; idle waiting is normal
+
+2. **Fixed ${git} segment not expanding** (`template_engine.c`)
+   - Template conditionals like `${?git: (${git})}` were not recursively expanding
+   - The nested `${git}` was rendered literally instead of being substituted
+   - Fix: `lle_template_evaluate()` now called recursively on conditional branches
+
+---
+
+## Session 80 (earlier): Defensive State Machine & Watchdog Implementation
 
 Two-commit implementation for freeze/deadlock prevention in LLE readline.
 
