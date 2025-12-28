@@ -9,6 +9,12 @@
 
 ## Session 80: Defensive State Machine, Watchdog & Bugfixes
 
+### Commit 6: Clear autosuggestion ghost text on Enter
+
+**Bug**: Pressing Enter with partial autosuggestion visible left ghost text on screen.
+
+**Fix**: Clear autosuggestion from display controller and context in `handle_enter()`.
+
 ### Commit 5: Fix git segment not updating after commands
 
 **Bug**: Git status in prompt wasn't updating after `git push`, `git commit`, etc.

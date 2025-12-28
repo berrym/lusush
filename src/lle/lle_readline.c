@@ -1123,6 +1123,16 @@ static lle_result_t handle_enter(lle_event_t *event, void *user_data) {
 
     /* Line complete - accept entire buffer regardless of cursor position */
 
+    /* Clear autosuggestion ghost text before accepting line
+     * Without this, partial suggestions remain visible after Enter */
+    display_controller_t *dc = display_integration_get_controller();
+    if (dc) {
+        display_controller_set_autosuggestion(dc, NULL);
+    }
+    if (ctx->current_suggestion) {
+        ctx->current_suggestion[0] = '\0';
+    }
+
     /* Add to LLE history before completing */
     if (ctx->editor && ctx->editor->history_system && ctx->buffer->data &&
         ctx->buffer->data[0] != '\0') {
