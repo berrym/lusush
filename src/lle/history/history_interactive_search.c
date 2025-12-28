@@ -252,6 +252,16 @@ lle_history_interactive_search_init(lle_history_core_t *history_core,
         lle_history_interactive_search_cancel();
     }
 
+    /* CRITICAL FIX: Clean up any leftover results from previous session
+     * If the previous search ended with accept() rather than cancel(),
+     * the results were kept alive for the caller to read. We must free
+     * them now to prevent memory leak.
+     */
+    if (session->results) {
+        lle_history_search_results_destroy(session->results);
+        session->results = NULL;
+    }
+
     /* Initialize session */
     session->state = LLE_SEARCH_STATE_ACTIVE;
     session->active = true;

@@ -979,6 +979,41 @@ static lle_result_t handle_backspace(lle_event_t *event, void *user_data) {
     (void)event; /* Unused */
     readline_context_t *ctx = (readline_context_t *)user_data;
 
+    /* CRITICAL FIX: Reset history navigation when user backspaces */
+    /* This follows bash/readline behavior: editing exits history mode */
+    if (ctx->editor && ctx->editor->history_navigation_pos > 0) {
+        ctx->editor->history_navigation_pos = 0;
+        ctx->editor->history_nav_seen_count = 0;
+    }
+
+    /* CRITICAL FIX: Clear completion menu on backspace */
+    /* Prevents stale menu state with indices pointing to deleted buffer positions */
+    if (ctx->editor) {
+        bool menu_cleared = false;
+
+        if (ctx->editor->completion_system &&
+            lle_completion_system_is_menu_visible(
+                ctx->editor->completion_system)) {
+            lle_completion_system_clear(ctx->editor->completion_system);
+            menu_cleared = true;
+        }
+
+        if (menu_cleared) {
+            display_controller_t *dc = display_integration_get_controller();
+            if (dc) {
+                display_controller_clear_completion_menu(dc);
+                /* Also clear autosuggestion to prevent conflict with stale menu */
+                display_controller_set_autosuggestion(dc, NULL);
+            }
+            /* Clear current suggestion in context */
+            if (ctx->current_suggestion) {
+                ctx->current_suggestion[0] = '\0';
+            }
+            /* Suppress autosuggestion regeneration for this refresh cycle */
+            ctx->suppress_autosuggestion = true;
+        }
+    }
+
     if (ctx->buffer->cursor.byte_offset > 0 && ctx->editor &&
         ctx->editor->cursor_manager) {
         /* Sync cursor manager position with buffer cursor before moving */
@@ -1038,6 +1073,27 @@ static lle_result_t handle_enter(lle_event_t *event, void *user_data) {
     /* Check for incomplete input using shared continuation parser */
     bool incomplete =
         is_input_incomplete(ctx->buffer->data, ctx->continuation_state);
+
+    if (incomplete) {
+        /* SAFETY CHECK: Limit maximum line count to prevent infinite loops
+         * If the parser has a bug and always reports incomplete, this prevents
+         * the shell from inserting newlines forever. 1000 lines is generous
+         * for any legitimate shell command but prevents runaway input.
+         */
+        size_t line_count = 1;
+        for (const char *p = ctx->buffer->data; *p; p++) {
+            if (*p == '\n') {
+                line_count++;
+            }
+        }
+        const size_t MAX_MULTILINE_LINES = 1000;
+        if (line_count >= MAX_MULTILINE_LINES) {
+            fprintf(stderr,
+                    "\nlle: maximum line count (%zu) reached, forcing accept\n",
+                    MAX_MULTILINE_LINES);
+            incomplete = false; /* Force accept */
+        }
+    }
 
     if (incomplete) {
         /* Input incomplete - insert newline and continue */
@@ -2641,12 +2697,31 @@ char *lle_readline(const char *prompt) {
     /* CRITICAL: Reset per-readline-call flags on editor
      * The editor is persistent across readline calls, but these flags
      * must be reset at the start of each new readline session.
-     * Without this reset, abort_requested/eof_requested persist across
-     * readline calls, causing all subsequent actions to immediately exit.
+     * Without this reset, state persists across readline calls, causing
+     * all subsequent actions to behave incorrectly.
+     *
+     * State categories that MUST be reset:
+     * 1. Abort/EOF signals - prevent immediate exit on next readline
+     * 2. History navigation - start fresh each command
+     * 3. Interactive search - don't inherit previous search state
+     * 4. Special input modes - prevent stuck quoted insert mode
      */
     if (editor_to_use) {
+        /* Category 1: Abort/EOF signals */
         editor_to_use->abort_requested = false;
         editor_to_use->eof_requested = false;
+
+        /* Category 2: History navigation state */
+        editor_to_use->history_navigation_pos = 0;
+        editor_to_use->history_nav_seen_count = 0;
+        /* Note: history_nav_seen_hashes array is reused, just reset count */
+
+        /* Category 3: Interactive search state */
+        editor_to_use->history_search_active = false;
+        editor_to_use->history_search_direction = 0;
+
+        /* Category 4: Special input modes */
+        editor_to_use->quoted_insert_mode = false;
     }
 
     /* Register handler for character input */
@@ -2683,7 +2758,25 @@ char *lle_readline(const char *prompt) {
 
     /* === STEP 8: Main input loop === */
 
+    /* CRITICAL FIX: Timeout counter to prevent infinite loops
+     * If we get too many consecutive timeouts without any user input,
+     * something is wrong (e.g., terminal state corruption, fd closed).
+     * Force exit to prevent the shell from being completely stuck.
+     * 600 timeouts * 100ms = 60 seconds before forced exit.
+     */
+    size_t consecutive_timeouts = 0;
+    const size_t MAX_CONSECUTIVE_TIMEOUTS = 600;
+
     while (!done) {
+
+        /* CRITICAL FIX: Reset suppress_autosuggestion at start of each iteration
+         * This flag is set during operations that temporarily suppress autosuggestion
+         * (e.g., Ctrl+G clearing, menu dismissal). Resetting here ensures the flag
+         * cannot stay stuck - it will be re-set if needed by the current operation.
+         * This prevents the bug where suppress_autosuggestion stays true forever
+         * if a handler sets it but doesn't reset it before returning.
+         */
+        ctx.suppress_autosuggestion = false;
 
         /* Check if SIGINT was received (Ctrl+C)
          * The signal handler sets a flag instead of interrupting directly,
@@ -2725,14 +2818,57 @@ char *lle_readline(const char *prompt) {
             term->input_processor, &event, 100 /* 100ms timeout */
         );
 
-        /* Handle timeout and null events - just continue */
+        /* Handle timeout and null events - increment counter and continue */
         if (result == LLE_ERROR_TIMEOUT || event == NULL) {
+            consecutive_timeouts++;
+            if (consecutive_timeouts >= MAX_CONSECUTIVE_TIMEOUTS) {
+                /* Too many consecutive timeouts - force exit with error */
+                fprintf(stderr,
+                        "\nlle: readline timeout - no input for 60 seconds\n");
+                done = true;
+                final_line = strdup("");
+            }
             continue;
         }
 
         /* ALSO check event type for timeout (timeout can be returned as SUCCESS
          * with type=TIMEOUT) */
         if (event->type == LLE_INPUT_TYPE_TIMEOUT) {
+            consecutive_timeouts++;
+            if (consecutive_timeouts >= MAX_CONSECUTIVE_TIMEOUTS) {
+                fprintf(stderr,
+                        "\nlle: readline timeout - no input for 60 seconds\n");
+                done = true;
+                final_line = strdup("");
+            }
+            continue;
+        }
+
+        /* Reset timeout counter - we got real input */
+        consecutive_timeouts = 0;
+
+        /* CRITICAL FIX: Re-check Ctrl+C after input read
+         * SIGINT can arrive during the blocking read call. We check again here
+         * to catch Ctrl+C pressed during the read, ensuring responsive handling.
+         * This fixes the race window where Ctrl+C between the initial check and
+         * the read would be delayed until the next iteration.
+         */
+        if (check_and_clear_sigint_flag()) {
+            write(STDOUT_FILENO, "^C\n", 3);
+            if (ctx.editor && ctx.editor->completion_system) {
+                lle_completion_system_clear(ctx.editor->completion_system);
+            }
+            display_controller_t *dc = display_integration_get_controller();
+            if (dc) {
+                display_controller_set_autosuggestion(dc, NULL);
+                display_controller_clear_completion_menu(dc);
+            }
+            if (ctx.current_suggestion) {
+                ctx.current_suggestion[0] = '\0';
+            }
+            dc_reset_prompt_display_state();
+            done = true;
+            final_line = strdup("");
             continue;
         }
 
