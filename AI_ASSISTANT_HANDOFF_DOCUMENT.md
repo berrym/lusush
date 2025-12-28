@@ -217,7 +217,7 @@ meson compile -C builddir
 | Issue | Severity | Description |
 |-------|----------|-------------|
 | #24 | ✅ RESOLVED | Transient prompts fully implemented |
-| #23 | LOW | Extra space between prompt and cursor |
+| #23 | ✅ RESOLVED | Extra space fixed by Spec 25 architecture |
 | #22 | MEDIUM | Template variables exit_code/jobs dead code |
 | #21 | MEDIUM | Theme file loading not implemented |
 | #20 | LOW | respect_user_ps1 not exposed to users |
@@ -279,18 +279,14 @@ meson compile -C builddir
 
 ## Next Steps (Suggested)
 
-1. **Fix Extra Space in Prompt** (Issue #23):
-   - Use `screen_buffer_ends_with_visible_space()` approach
-   - Skip ANSI escape sequences when checking for trailing space
-
-2. **Implement Theme File Loading** (Issue #21):
+1. **Implement Theme File Loading** (Issue #21):
    - Parse TOML/INI files from `~/.config/lusush/themes/`
    - Register user themes at startup
 
-3. **Expose respect_user_ps1 Config** (Issue #20):
+2. **Expose respect_user_ps1 Config** (Issue #20):
    - Add config file option to disable LLE prompt system
    - Allow users to use their own PS1/PS2
 
-4. **Investigate macOS Cursor Flicker**:
+3. **Investigate macOS Cursor Flicker**:
    - Known pre-existing issue with LLE on macOS
    - May be related to terminal emulator compatibility

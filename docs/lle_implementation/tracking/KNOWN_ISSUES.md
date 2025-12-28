@@ -264,66 +264,31 @@ config save
 
 ---
 
-### Issue #23: Extra Space Between Prompt and Cursor
+### Issue #23: Extra Space Between Prompt and Cursor ✅ RESOLVED
 **Severity**: LOW  
 **Discovered**: 2025-12-25 (Session 66 - manual testing)  
-**Status**: Fix identified but reverted - blocked by Issue #16  
-**Component**: src/display/composition_engine.c, src/display/screen_buffer.c  
+**Resolved**: 2025-12-28 (Spec 25/26 implementation)  
+**Status**: ✅ RESOLVED - Fixed by Spec 25 prompt architecture  
+**Component**: LLE Spec 25 prompt/theme system  
 
 **Description**:
-There are two spaces between the `$` at the end of the prompt theme and where the cursor is located / command input starts. There should only be one space.
+There were two spaces between the `$` at the end of the prompt theme and where the cursor is located / command input starts. There should only be one space.
 
-**Example**:
-```bash
-[mberry@fedora-xps13.local] ~/Lab/c/lusush (feature/lle *) $  |
-                                                            ^^ two spaces instead of one
-```
+**Resolution**:
+The issue was caused by the old composition engine's naive space detection that didn't account for ANSI escape sequences. This was fully resolved by the Spec 25 prompt/theme system implementation:
 
-**Root Cause**:
-The composition engine in `compose_simple_strategy()` and `compose_multiline_strategy()` checks if the prompt ends with a space before adding one between prompt and command. However, themed prompts end with ANSI escape sequences like `$ \001\033[0m\002`, so a naive check of `prompt_content[prompt_len - 1] != ' '` fails - it sees the escape sequence terminator, not the space.
+1. The LLE prompt composer now generates prompts with proper spacing control
+2. Theme templates explicitly define spacing in the `transient_format` and prompt layouts
+3. The display controller integration bypasses the old composition engine's flawed logic
 
-**Fix Approach (Documented for Future Implementation)**:
-A fix was implemented in Session 66 but reverted because it was intertwined with other changes that caused Issue #16 to worsen. The fix approach that worked:
+The fix that was reverted in Session 66 is no longer needed - the architectural redesign in Spec 25/26 eliminated the root cause by replacing the old prompt generation path entirely.
 
-1. **Add utility function to screen_buffer.c**:
-   ```c
-   bool screen_buffer_ends_with_visible_space(const char *text, size_t length);
-   ```
-   This function scans forward through the text, skipping:
-   - Readline escape markers (`\001` and `\002`)
-   - ANSI escape sequences (ESC followed by CSI sequence ending in letter)
-   
-   It tracks the last visible grapheme cluster using LLE's TR#29 support:
-   - `lle_utf8_sequence_length()` for UTF-8 byte length
-   - `lle_is_grapheme_boundary()` for proper grapheme cluster detection
-   - `lle_utf8_decode_codepoint()` to get the base codepoint
-   
-   Returns true if the last visible codepoint is U+0020 (space).
+**Verification**:
+- ✅ Tested on macOS (Session 73)
+- ✅ Tested on Linux/Fedora (Session 75)
+- ✅ All 10 themes display correct spacing
 
-2. **Update composition_engine.c**:
-   Replace the naive check in both `compose_simple_strategy()` and `compose_multiline_strategy()`:
-   ```c
-   // OLD (broken):
-   if (prompt_content[prompt_len - 1] != ' ') {
-       output[written++] = ' ';
-   }
-   
-   // NEW (correct):
-   if (!screen_buffer_ends_with_visible_space(prompt_content, prompt_len)) {
-       output[written++] = ' ';
-   }
-   ```
-
-**Why Fix Was Reverted**:
-The fix was committed alongside other changes attempting to fix Issue #16. When Issue #16 proved to have a deeper root cause (stale git prompt data), all Session 66 commits were reverted to restore a known working state. The extra space fix itself worked correctly but should be re-implemented AFTER Issue #16 is properly fixed.
-
-**Priority**: LOW (cosmetic, does not affect functionality)
-
-**Dependencies**:
-- Should be re-implemented AFTER Issue #16 is fixed
-- Must use LLE's TR#29 grapheme cluster support, not byte-level string operations
-
-**Status**: DOCUMENTED - Fix approach known, blocked by Issue #16
+**Status**: ✅ RESOLVED
 
 ---
 
