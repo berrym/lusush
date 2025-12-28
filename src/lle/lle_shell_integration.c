@@ -412,6 +412,7 @@ static lle_result_t create_and_configure_prompt_composer(lle_shell_integration_t
 
     /* Sync composer config with global config settings */
     integ->prompt_composer->config.enable_transient = config.display_transient_prompt;
+    integ->prompt_composer->config.newline_before_prompt = config.display_newline_before_prompt;
 
     /* Register with shell event hub for automatic updates
      * This is the key Spec 25 <-> Spec 26 integration point */

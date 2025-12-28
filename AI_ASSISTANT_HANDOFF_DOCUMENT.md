@@ -9,6 +9,17 @@
 
 ## Session 80: Defensive State Machine, Watchdog & Bugfixes
 
+### Commit 4: Add newline-before-prompt option
+
+New feature for visual separation between command output and prompt:
+
+- **Config option**: `display_newline_before_prompt` (default: true)
+- **Composer config**: `newline_before_prompt` field synced from global config
+- **Builtin command**: `display lle newline-before on|off`
+- **Implementation**: Prepends `\n` to PS1 in `lle_composer_render()`
+
+Especially useful with transient prompts where output can visually blend together.
+
 ### Commit 3: Fix idle timeout and template expansion bugs
 
 Two critical UX bugs fixed:

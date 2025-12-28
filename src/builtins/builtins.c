@@ -4494,6 +4494,7 @@ int bin_display(int argc, char **argv) {
                    "autosuggestions\n");
             printf("  syntax on|off           - Control syntax highlighting\n");
             printf("  transient on|off        - Control transient prompts\n");
+            printf("  newline-before on|off   - Control newline before prompt\n");
             printf("  multiline on|off        - Control multiline editing\n");
             printf("  theme [list|set <name>] - Control LLE prompt theme\n");
             printf("\nReset Commands (recovery):\n");
@@ -4808,6 +4809,42 @@ int bin_display(int argc, char **argv) {
             } else {
                 fprintf(stderr,
                         "display lle transient: Invalid option '%s' (use 'on' "
+                        "or 'off')\n",
+                        state);
+                return 1;
+            }
+
+        } else if (strcmp(lle_cmd, "newline-before") == 0) {
+            /* Control newline before prompt for visual separation */
+            extern config_values_t config;
+
+            if (argc < 4) {
+                printf("Newline before prompt: %s\n",
+                       config.display_newline_before_prompt ? "enabled" : "disabled");
+                printf("Usage: display lle newline-before on|off\n");
+                printf("\nPrints a blank line before each prompt for visual separation\n");
+                printf("between command output and the next prompt.\n");
+                return 0;
+            }
+
+            const char *state = argv[3];
+            if (strcmp(state, "on") == 0) {
+                config.display_newline_before_prompt = true;
+                if (g_lle_integration && g_lle_integration->prompt_composer) {
+                    g_lle_integration->prompt_composer->config.newline_before_prompt = true;
+                }
+                printf("Newline before prompt enabled\n");
+                return 0;
+            } else if (strcmp(state, "off") == 0) {
+                config.display_newline_before_prompt = false;
+                if (g_lle_integration && g_lle_integration->prompt_composer) {
+                    g_lle_integration->prompt_composer->config.newline_before_prompt = false;
+                }
+                printf("Newline before prompt disabled\n");
+                return 0;
+            } else {
+                fprintf(stderr,
+                        "display lle newline-before: Invalid option '%s' (use 'on' "
                         "or 'off')\n",
                         state);
                 return 1;

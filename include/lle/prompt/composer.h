@@ -57,6 +57,7 @@ extern "C" {
 typedef struct lle_composer_config {
     bool enable_right_prompt;     /**< Render right prompt (RPROMPT) */
     bool enable_transient;        /**< Use transient prompt for history */
+    bool newline_before_prompt;   /**< Print newline before prompt for visual separation */
     bool respect_user_ps1;        /**< Don't overwrite user PS1/PS2 */
     bool use_external_prompt;     /**< Defer to external prompt program */
     char external_prompt_cmd[256]; /**< External prompt command */

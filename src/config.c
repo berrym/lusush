@@ -1525,6 +1525,7 @@ void config_set_defaults(void) {
     config.display_syntax_highlighting = true;
     config.display_autosuggestions = true;
     config.display_transient_prompt = true;  // Transient prompts enabled by default (Spec 25 Section 12)
+    config.display_newline_before_prompt = true;  // Visual separation before prompt (default on)
     config.display_performance_monitoring = false;
     config.display_optimization_level = 0;
 

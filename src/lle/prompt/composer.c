@@ -507,13 +507,26 @@ lle_result_t lle_composer_render(lle_prompt_composer_t *composer,
     lle_template_render_ctx_t render_ctx = lle_composer_create_render_ctx(composer);
 
     /* Render PS1 */
-    lle_result_t result = lle_template_evaluate(left_format,
-                                                 &render_ctx,
-                                                 output->ps1,
-                                                 sizeof(output->ps1));
-    if (result != LLE_SUCCESS) {
-        /* Fallback to simple prompt on error */
-        snprintf(output->ps1, sizeof(output->ps1), "$ ");
+    lle_result_t result;
+    
+    /* Prepend newline for visual separation if enabled */
+    if (composer->config.newline_before_prompt) {
+        output->ps1[0] = '\n';
+        result = lle_template_evaluate(left_format,
+                                       &render_ctx,
+                                       output->ps1 + 1,
+                                       sizeof(output->ps1) - 1);
+        if (result != LLE_SUCCESS) {
+            snprintf(output->ps1, sizeof(output->ps1), "\n$ ");
+        }
+    } else {
+        result = lle_template_evaluate(left_format,
+                                       &render_ctx,
+                                       output->ps1,
+                                       sizeof(output->ps1));
+        if (result != LLE_SUCCESS) {
+            snprintf(output->ps1, sizeof(output->ps1), "$ ");
+        }
     }
     output->ps1_len = strlen(output->ps1);
     output->ps1_visual_width = calculate_visual_width(output->ps1);
