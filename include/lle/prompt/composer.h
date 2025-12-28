@@ -23,6 +23,7 @@
 #include "lle/prompt/segment.h"
 #include "lle/prompt/template.h"
 #include "lle/prompt/theme.h"
+#include "lle/prompt/transient.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -84,8 +85,8 @@ typedef struct lle_prompt_composer {
     bool events_registered;            /**< Event handlers registered */
     bool needs_regeneration;           /**< Prompt needs to be re-rendered */
 
-    /** @brief Transient prompt state */
-    int last_prompt_line;              /**< Line where last PS1 was rendered */
+    /** @brief Transient prompt state (Spec 25 Section 12) */
+    lle_transient_state_t transient;   /**< Transient prompt tracking */
     const char *current_command;       /**< Command being executed */
     bool current_command_is_bg;        /**< Command is background */
 

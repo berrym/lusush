@@ -25,7 +25,11 @@
 #include "lle/error_handling.h"
 #include "lle/keybinding_actions.h"
 #include "lle/lle_editor.h"
+#include "lle/lle_shell_integration.h"
+#include "lle/prompt/composer.h"
+#include "lle/widget_hooks.h"
 #include "lle/widget_system.h"
+#include "display/display_controller.h"
 #include <string.h>
 
 /* ============================================================================
@@ -289,6 +293,72 @@ static lle_result_t widget_smart_down(lle_editor_t *editor, void *user_data) {
 }
 
 /* ============================================================================
+ * TRANSIENT PROMPT WIDGET (Spec 25 Section 12)
+ * ============================================================================
+ */
+
+/**
+ * @brief Apply transient prompt - simplify prompt in scrollback
+ *
+ * This widget is triggered by the LINE_ACCEPTED hook, which fires after
+ * the user presses Enter but before the cursor moves to the output area.
+ * At this point:
+ * - Cursor is at end of command line
+ * - Screen buffer still has valid prompt metrics
+ * - Display controller can re-render with transient prompt
+ *
+ * The transient prompt replaces the fancy multi-line prompt with a minimal
+ * version (e.g., "❯ ") in the terminal scrollback, reducing visual clutter.
+ *
+ * This implementation uses dc_apply_transient_prompt() which goes through
+ * the screen buffer system, respecting the LLE architecture.
+ */
+static lle_result_t widget_transient_prompt(lle_editor_t *editor,
+                                            void *user_data) {
+    (void)user_data;
+
+    /* Get shell integration for composer access */
+    if (!g_lle_integration || !g_lle_integration->prompt_composer) {
+        return LLE_SUCCESS; /* Graceful degradation */
+    }
+
+    lle_prompt_composer_t *composer = g_lle_integration->prompt_composer;
+
+    /* Check if transient prompts are enabled */
+    if (!composer->config.enable_transient) {
+        return LLE_SUCCESS;
+    }
+
+    /* Get active theme */
+    const lle_theme_t *theme = lle_theme_registry_get_active(composer->themes);
+    if (!theme || !theme->layout.enable_transient ||
+        theme->layout.transient_format[0] == '\0') {
+        return LLE_SUCCESS;
+    }
+
+    /* Render transient format using template engine */
+    char transient_output[LLE_TRANSIENT_OUTPUT_MAX];
+    lle_result_t result = lle_composer_render_template(
+        composer, theme->layout.transient_format, transient_output,
+        sizeof(transient_output));
+
+    if (result != LLE_SUCCESS) {
+        return LLE_SUCCESS; /* Graceful degradation on render failure */
+    }
+
+    /* Get command text from editor buffer */
+    const char *command_text = NULL;
+    if (editor && editor->buffer && editor->buffer->data) {
+        command_text = editor->buffer->data;
+    }
+
+    /* Apply transient prompt through display controller (screen buffer) */
+    dc_apply_transient_prompt(transient_output, command_text);
+
+    return LLE_SUCCESS;
+}
+
+/* ============================================================================
  * REGISTRATION
  * ============================================================================
  */
@@ -461,6 +531,43 @@ lle_result_t lle_register_builtin_widgets(lle_widget_registry_t *registry) {
                                  LLE_WIDGET_BUILTIN, NULL);
     if (result != LLE_SUCCESS)
         return result;
+
+    /* Transient prompt widget (Spec 25 Section 12) */
+    result = lle_widget_register(registry, "transient-prompt",
+                                 widget_transient_prompt, LLE_WIDGET_BUILTIN,
+                                 NULL);
+    if (result != LLE_SUCCESS)
+        return result;
+
+    return LLE_SUCCESS;
+}
+
+/**
+ * @brief Register built-in widget hooks
+ *
+ * Registers widgets for their associated lifecycle hooks. Called after
+ * both widget registry and hooks manager are initialized.
+ *
+ * @param hooks_manager Widget hooks manager
+ * @return LLE_SUCCESS on success, error code if any registration fails
+ */
+lle_result_t
+lle_register_builtin_widget_hooks(lle_widget_hooks_manager_t *hooks_manager) {
+    if (!hooks_manager) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+
+    lle_result_t result;
+
+    /* Register transient-prompt widget for LINE_ACCEPTED hook
+     * This applies transient prompt when user presses Enter, before
+     * cursor moves to output area (Spec 25 Section 12) */
+    result = lle_widget_hook_register(hooks_manager, LLE_HOOK_LINE_ACCEPTED,
+                                      "transient-prompt");
+    if (result != LLE_SUCCESS && result != LLE_ERROR_NOT_FOUND) {
+        /* NOT_FOUND is acceptable if shell integration not available */
+        return result;
+    }
 
     return LLE_SUCCESS;
 }

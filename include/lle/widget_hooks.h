@@ -56,9 +56,13 @@ extern "C" {
  *
  * These represent lifecycle points where widgets can be automatically
  * triggered without explicit invocation.
+ *
+ * Lifecycle order for line editing:
+ *   LINE_INIT -> [editing] -> LINE_ACCEPTED -> LINE_FINISH -> PRE_COMMAND
  */
 typedef enum {
     LLE_HOOK_LINE_INIT,        /**< Start of line editing (zle-line-init) */
+    LLE_HOOK_LINE_ACCEPTED,    /**< Line accepted, before display finalized */
     LLE_HOOK_LINE_FINISH,      /**< End of line editing (zle-line-finish) */
     LLE_HOOK_BUFFER_MODIFIED,  /**< Buffer content changed */
     LLE_HOOK_PRE_COMMAND,      /**< Before command execution (precmd) */

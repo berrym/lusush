@@ -194,6 +194,118 @@ void dc_finalize_input(void) {
     dc_reset_prompt_display_state();
 }
 
+bool dc_apply_transient_prompt(const char *transient_prompt,
+                               const char *command_text) {
+    if (!transient_prompt || !screen_buffer_initialized) {
+        return false;
+    }
+
+    /*
+     * Transient Prompt Replacement (Spec 25 Section 12)
+     *
+     * Replace the current (fancy) prompt with a minimal transient prompt
+     * while preserving the command text. This simplifies scrollback history.
+     *
+     * Current state (from current_screen):
+     * - command_start_row: row where command starts (0 = same line as prompt)
+     * - cursor_row: current cursor row (last row of display)
+     * - We need to go back and redraw everything from row 0
+     *
+     * Algorithm:
+     * 1. Move cursor up to row 0, column 1
+     * 2. Clear from there to end of screen
+     * 3. Write transient prompt + command text
+     * 4. Update screen buffer to reflect new state
+     */
+
+    int total_rows = current_screen.cursor_row + 1;
+    char seq_buf[32];
+    int seq_len;
+
+    /* Step 1: Move cursor up to the first row (where prompt started) */
+    if (current_screen.cursor_row > 0) {
+        seq_len = snprintf(seq_buf, sizeof(seq_buf), "\033[%dA",
+                           current_screen.cursor_row);
+        if (seq_len > 0) {
+            write(STDOUT_FILENO, seq_buf, (size_t)seq_len);
+        }
+    }
+
+    /* Step 2: Move to column 1 */
+    write(STDOUT_FILENO, "\033[1G", 4);
+
+    /* Step 3: Clear from cursor to end of screen */
+    write(STDOUT_FILENO, "\033[J", 3);
+
+    /* Step 4: Write transient prompt */
+    if (transient_prompt[0] != '\0') {
+        write(STDOUT_FILENO, transient_prompt, strlen(transient_prompt));
+    }
+
+    /* Step 5: Write command text */
+    if (command_text && command_text[0] != '\0') {
+        write(STDOUT_FILENO, command_text, strlen(command_text));
+    }
+
+    /* Step 6: Update screen buffer to reflect new state
+     * Re-render with transient prompt so current_screen is accurate */
+    size_t cursor_offset = command_text ? strlen(command_text) : 0;
+    screen_buffer_render(&current_screen, transient_prompt,
+                         command_text ? command_text : "", cursor_offset);
+
+    /* Mark that we handled this - prompt_rendered stays true since we
+     * wrote a prompt, but next dc_reset_prompt_display_state will clear it */
+
+    (void)total_rows; /* Used for documentation, may use later */
+
+    return true;
+}
+
+void dc_get_prompt_metrics(int *prompt_lines, int *total_lines,
+                           int *command_col) {
+    if (!screen_buffer_initialized) {
+        if (prompt_lines)
+            *prompt_lines = 1;
+        if (total_lines)
+            *total_lines = 1;
+        if (command_col)
+            *command_col = 0;
+        return;
+    }
+
+    /*
+     * current_screen contains the last rendered state:
+     * - command_start_row: row where command text starts (0-based)
+     * - command_start_col: column where command text starts
+     * - cursor_row: current cursor row (0-based)
+     *
+     * For a single-line prompt "$ cmd":
+     *   command_start_row = 0, command_start_col > 0
+     *   prompt occupies part of row 0
+     *
+     * For a two-line prompt:
+     *   Line 0: "[user@host] ~/path"
+     *   Line 1: "$ cmd"
+     *   command_start_row = 1, prompt occupies rows 0-1
+     *
+     * prompt_lines = command_start_row + 1 (since it's 0-indexed)
+     * But if command_start_row == 0, prompt shares line with command,
+     * so prompt_lines = 1.
+     */
+    if (prompt_lines) {
+        *prompt_lines = current_screen.command_start_row + 1;
+    }
+
+    if (total_lines) {
+        /* Total lines = cursor row + 1 (cursor is on the last used row) */
+        *total_lines = current_screen.cursor_row + 1;
+    }
+
+    if (command_col) {
+        *command_col = current_screen.command_start_col;
+    }
+}
+
 /**
  * Callback for screen_buffer_render_with_continuation.
  *

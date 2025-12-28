@@ -107,51 +107,160 @@ The system now has two event layers working together:
 
 ## Active Issues
 
-### Issue #24: Transient Prompt Not Yet Implemented
-**Severity**: LOW  
-**Discovered**: 2025-12-27 (Session 71 - Audit)  
-**Status**: Infrastructure exists, not wired  
-**Component**: src/lle/prompt/composer.c, Spec 25 Section 12  
+### Issue #26: LLE Complete Freeze/Hang - No Input Accepted
+**Severity**: CRITICAL  
+**Discovered**: 2025-12-27 (Session 73 - Transient prompt testing)  
+**Status**: Not reproducible - observed once  
+**Component**: Unknown - possibly autosuggestion/input handling  
 
 **Description**:
-Transient prompts (simplifying previous prompts after command execution to reduce visual clutter) are specified in Spec 25 Section 12 but not yet implemented.
+LLE can enter a state where it completely freezes, accepting no input whatsoever. The shell process must be externally killed (e.g., via `kill` from another terminal or Ctrl+C if it works). Even the panic recovery mechanism (Ctrl+G) has no effect.
 
-**Current State**:
-- ✅ `enable_transient` config flag exists in `lle_prompt_composer_config_t`
-- ✅ `transient_format` field exists in `lle_prompt_layout_t`
-- ✅ Themes define transient formats (e.g., powerline has `"❯ "`)
-- ✅ Pre-command handler now records command info for transient support
-- ❌ Transient prompt rendering not implemented in display layer
-- ❌ No code to replace previous prompt with transient version
+**Reproduction** (uncertain):
+The issue was observed once during transient prompt testing:
+1. Typed `ls`
+2. Either accepted an autosuggestion and backspaced back to `ls`, OR dismissed an autosuggestion
+3. At some point, input stopped working entirely
+4. Cursor could not move, no characters accepted, Ctrl+G had no effect
+5. Required external kill of the lusush process
+
+**Symptoms**:
+- Shell appears frozen - no response to any keyboard input
+- Cursor does not move
+- Ctrl+G (panic recovery) does not trigger reset
+- Ctrl+C may or may not work
+- Only fix is to kill the process externally
+
+**Potential Causes** (speculation):
+- Autosuggestion state corruption
+- Input buffer deadlock
+- Event loop blocking condition
+- Terminal mode misconfiguration
+
+**Impact**:
+- Complete loss of shell session
+- Unsaved work in that shell is lost
+- User must manually kill process
+
+**Priority**: CRITICAL (when it occurs, shell is completely unusable)
+
+**Mitigation**:
+- Issue only observed once, may be rare race condition
+- No known reliable reproduction steps
+- Monitor for additional occurrences to identify pattern
+
+**Status**: DOCUMENTED - Needs investigation if reproducible
+
+---
+
+### Issue #25: macOS Cursor Flicker on Multiline Input
+**Severity**: LOW  
+**Discovered**: 2025-12-27 (Session 73 - Transient prompt testing)  
+**Status**: Known issue, harmless  
+**Platform**: macOS only  
+**Component**: LLE display/cursor positioning  
+
+**Description**:
+On macOS, when LLE enters multiline input mode (for loops, if statements, or when command text wraps to multiple lines), the cursor briefly flickers to an incorrect position before syncing back to the correct location.
+
+**Symptoms**:
+- Cursor briefly appears far to the right of where input is happening
+- May appear on wrong row momentarily
+- Quickly corrects itself to proper position
+- Only occurs when on a line other than the original prompt line
+
+**Reproduction**:
+```bash
+$ for i in 1 2 3; do
+>     echo $i        # Typing here causes cursor flicker
+>     # Any input on continuation lines triggers it
+> done
+```
+
+Or with line wrapping:
+```bash
+$ echo "this is a very long command that wraps to the next line and any typing here..."
+# Cursor flickers during input on wrapped portion
+```
+
+**Root Cause** (suspected):
+LLE's internal state authority model correctly tracks cursor position, but there may be a timing issue between terminal output and cursor positioning sequences on macOS. The flicker-then-correct behavior suggests LLE's state sync is working, but there's a brief visual desync.
+
+**Impact**:
+- Visual annoyance only
+- No functional impact - input works correctly
+- Cursor always ends up in correct position
+
+**Workaround**:
+None needed - issue is purely cosmetic and self-correcting.
+
+**Priority**: LOW (harmless visual glitch, macOS-specific)
+
+**Status**: DOCUMENTED - May be terminal emulator specific
+
+---
+
+### Issue #24: Transient Prompt System ✅ FULLY IMPLEMENTED
+**Severity**: LOW  
+**Discovered**: 2025-12-27 (Session 71 - Audit)  
+**Status**: ✅ RESOLVED (Session 72-73)  
+**Resolved**: 2025-12-27  
+**Component**: LLE widget hooks, display controller, config system  
+
+**Description**:
+Transient prompts (simplifying previous prompts after command execution to reduce visual clutter) are specified in Spec 25 Section 12.
+
+**Resolution** (Final Implementation - Session 73):
+The original implementation using direct terminal writes was rejected as it violated LLE's architecture. The final implementation uses proper LLE systems:
+
+**Architecture**:
+1. **New Widget Hook**: `LLE_HOOK_LINE_ACCEPTED` fires after Enter but before `dc_finalize_input()`
+2. **Widget**: `widget_transient_prompt()` registered on LINE_ACCEPTED hook
+3. **Display Controller**: `dc_apply_transient_prompt()` handles rendering through screen buffer
+4. **Config Integration**: `config.display_transient_prompt` with `display lle transient on|off` command
+
+**Key Files**:
+- `include/lle/widget_hooks.h` - Added LLE_HOOK_LINE_ACCEPTED
+- `src/lle/widget/widget_hooks.c` - Added "line-accepted" to HOOK_NAMES
+- `src/lle/lle_readline.c` - Fire LINE_ACCEPTED before dc_finalize_input
+- `src/lle/widget/builtin_widgets.c` - widget_transient_prompt implementation
+- `include/display/display_controller.h` - dc_apply_transient_prompt declaration
+- `src/display/display_controller.c` - dc_apply_transient_prompt implementation
+- `include/config.h` - display_transient_prompt field
+- `src/config.c` - Config option registration
+- `src/builtins/builtins.c` - display lle transient command
+
+**All 10 Themes Updated**:
+Every built-in theme now has `enable_transient = true` and a `transient_format`.
 
 **What Transient Prompts Do**:
-When enabled, after a command executes, the fancy multi-line prompt is replaced with a minimal version in the scrollback. This keeps the terminal cleaner:
-
 ```
-Before transient (current):
-[user@host] ~/long/path (feature/lle *) $ echo hello
+Before transient:
+┌─[user@host]─[~/path]─[(branch *)]
+└─$ echo hello
 hello
-[user@host] ~/long/path (feature/lle *) $ ls
-...
-[user@host] ~/long/path (feature/lle *) $ 
+┌─[user@host]─[~/path]─[(branch *)]
+└─$ 
 
-After transient (desired):
-❯ echo hello
+After transient:
+$ echo hello
 hello
-❯ ls
-...
-[user@host] ~/long/path (feature/lle *) $ 
+┌─[user@host]─[~/path]─[(branch *)]
+└─$ 
 ```
 
-**Implementation Notes** (from Spec 25):
-1. Pre-command event triggers transient prompt replacement
-2. Use cursor movement to go back to previous prompt line
-3. Overwrite with transient format from theme
-4. Requires tracking prompt line position
+**Configuration**:
+```bash
+# Toggle via command
+display lle transient on
+display lle transient off
 
-**Priority**: LOW (enhancement, not a blocker)
+# Via config system
+config set display.transient_prompt true
+config save
+```
 
-**Status**: DOCUMENTED - Future work after core features stable
+**Status**: ✅ FULLY IMPLEMENTED AND TESTED
 
 ---
 

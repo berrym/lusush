@@ -372,6 +372,16 @@ static config_option_t config_options[] = {
     // v1.3.0: Layered display is now the exclusive system - no configuration
     // needed
     // display.system_mode and display.layered_display options removed
+    {"display.syntax_highlighting", CONFIG_TYPE_BOOL, CONFIG_SECTION_DISPLAY,
+     &config.display_syntax_highlighting,
+     "Enable syntax highlighting", config_validate_bool, NULL},
+    {"display.autosuggestions", CONFIG_TYPE_BOOL, CONFIG_SECTION_DISPLAY,
+     &config.display_autosuggestions,
+     "Enable Fish-style autosuggestions", config_validate_bool, NULL},
+    {"display.transient_prompt", CONFIG_TYPE_BOOL, CONFIG_SECTION_DISPLAY,
+     &config.display_transient_prompt,
+     "Enable transient prompts (simplify previous prompts in scrollback)",
+     config_validate_bool, NULL},
     {"display.performance_monitoring", CONFIG_TYPE_BOOL, CONFIG_SECTION_DISPLAY,
      &config.display_performance_monitoring,
      "Enable display performance monitoring", config_validate_bool, NULL},
@@ -469,21 +479,7 @@ static bool config_handle_legacy_key(const char *key, const char *value
         return false;
     }
 
-    // Legacy display configuration keys (removed for v1.3.0 stability)
-    if (strcmp(key, "display.syntax_highlighting") == 0) {
-        // Legacy key - syntax highlighting requires LLE for safe implementation
-        // Silently ignore to maintain compatibility with existing .lusushrc
-        // files
-        return true;
-    }
-
-    if (strcmp(key, "display.autosuggestions") == 0) {
-        // Legacy key - autosuggestions require LLE for safe implementation
-        // Silently ignore to maintain compatibility with existing .lusushrc
-        // files
-        return true;
-    }
-
+    // Legacy display configuration keys
     if (strcmp(key, "behavior.enhanced_display_mode") == 0) {
         // Legacy key - replaced by layered display system
         // Silently ignore to maintain compatibility with existing .lusushrc
@@ -504,10 +500,12 @@ static bool config_handle_legacy_key(const char *key, const char *value
             return true;
         }
 
-        if (strcmp(display_key, "performance_monitoring") == 0 ||
+        // Valid current display keys - let normal processing handle them
+        if (strcmp(display_key, "syntax_highlighting") == 0 ||
+            strcmp(display_key, "autosuggestions") == 0 ||
+            strcmp(display_key, "transient_prompt") == 0 ||
+            strcmp(display_key, "performance_monitoring") == 0 ||
             strcmp(display_key, "optimization_level") == 0) {
-            // These are valid current keys that should be handled by config
-            // system Return false to let normal processing handle them
             return false;
         }
 
@@ -1524,6 +1522,9 @@ void config_set_defaults(void) {
     // Display defaults
     // v1.3.0: Layered display is now the exclusive system - no configuration
     // needed
+    config.display_syntax_highlighting = true;
+    config.display_autosuggestions = true;
+    config.display_transient_prompt = true;  // Transient prompts enabled by default (Spec 25 Section 12)
     config.display_performance_monitoring = false;
     config.display_optimization_level = 0;
 

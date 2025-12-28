@@ -946,6 +946,41 @@ void dc_reset_prompt_display_state(void);
  */
 void dc_finalize_input(void);
 
+/**
+ * @brief Get prompt display metrics for transient prompt support
+ *
+ * Returns the number of lines the prompt occupies and the total display
+ * lines (prompt + command). Used by the transient prompt system to know
+ * how many lines to clear and replace.
+ *
+ * @param prompt_lines    Output: number of lines the prompt occupies (1+)
+ * @param total_lines     Output: total display lines including command
+ * @param command_col     Output: column where command starts on last prompt line
+ */
+void dc_get_prompt_metrics(int *prompt_lines, int *total_lines, int *command_col);
+
+/**
+ * @brief Apply transient prompt replacement through display system
+ *
+ * Replaces the current prompt with a transient (simplified) prompt while
+ * preserving the command text. This is called from the LINE_ACCEPTED hook,
+ * before dc_finalize_input(), to simplify prompts in scrollback history.
+ *
+ * The function:
+ * 1. Re-renders the screen buffer with the transient prompt + same command
+ * 2. Uses the display diff system to output minimal escape sequences
+ * 3. Properly handles multi-line prompts collapsing to single line
+ *
+ * This approach respects the LLE architecture by going through the screen
+ * buffer rather than writing directly to the terminal.
+ *
+ * @param transient_prompt  The simplified prompt string (e.g., "❯ ")
+ * @param command_text      The command text to preserve
+ * @return true on success, false on failure
+ */
+bool dc_apply_transient_prompt(const char *transient_prompt,
+                               const char *command_text);
+
 #ifdef __cplusplus
 }
 #endif

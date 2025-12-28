@@ -72,8 +72,8 @@
 #include "lle/memory_management.h"
 #include "lle/terminal_abstraction.h"
 #include "lle/unicode_compare.h" /* TR#29 compliant Unicode prefix matching */
-#include "lle/widget_hooks.h"    /* Widget hooks for lifecycle events */
-#include "signals.h"             /* For SIGINT flag coordination with LLE */
+#include "lle/widget_hooks.h" /* Widget hooks for lifecycle events */
+#include "signals.h"          /* For SIGINT flag coordination with LLE */
 
 /* Forward declarations for history action functions */
 lle_result_t lle_history_previous(lle_editor_t *editor);
@@ -3091,11 +3091,29 @@ char *lle_readline(const char *prompt) {
 
     lle_unix_interface_exit_raw_mode(unix_iface);
 
-    /* If we got a line, tell display system to finalize input.
-     * This moves cursor to next line and resets display state.
-     * The display system handles terminal I/O, not LLE.
+    /* If we got a line, fire LINE_ACCEPTED hook then finalize input.
+     *
+     * LINE_ACCEPTED Hook (Spec 25 Section 12):
+     * This hook fires when the user has pressed Enter and the line is
+     * complete, but BEFORE dc_finalize_input() which:
+     * 1. Writes \n to move cursor down
+     * 2. Resets screen buffer state (prompt metrics lost)
+     *
+     * At this point:
+     * - Cursor is at end of command line
+     * - Screen buffer has valid prompt metrics (command_start_row, etc.)
+     * - Handlers can use relative cursor movement to modify display
+     *
+     * Primary use case: Transient prompts - replace fancy prompt with
+     * minimal version in scrollback before cursor moves to output area.
      */
     if (final_line) {
+        /* === WIDGET HOOK: LINE_ACCEPTED === */
+        if (editor_to_use && editor_to_use->widget_hooks_manager) {
+            lle_widget_hook_trigger(editor_to_use->widget_hooks_manager,
+                                    LLE_HOOK_LINE_ACCEPTED, editor_to_use);
+        }
+
         dc_finalize_input();
     }
 

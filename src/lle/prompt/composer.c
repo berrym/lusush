@@ -346,9 +346,12 @@ lle_result_t lle_composer_init(lle_prompt_composer_t *composer,
 
     /* Default configuration */
     composer->config.enable_right_prompt = false;
-    composer->config.enable_transient = false;
+    composer->config.enable_transient = true; /* Transient prompts enabled by default */
     composer->config.respect_user_ps1 = false;
     composer->config.use_external_prompt = false;
+
+    /* Initialize transient prompt state (Spec 25 Section 12) */
+    lle_transient_init(&composer->transient);
 
     composer->initialized = true;
 
@@ -705,9 +708,17 @@ static void composer_on_pre_command(void *event_data, void *user_data) {
     composer->current_command = event->command;
     composer->current_command_is_bg = event->is_background;
 
-    /* If transient prompt is enabled, we could apply it here.
-     * For now, just record state - transient prompt rendering
-     * is handled by the display layer. */
+    /*
+     * Note: Transient prompt application (Spec 25 Section 12) is handled by
+     * the LINE_ACCEPTED widget hook in lle_readline.c, NOT here.
+     *
+     * The LINE_ACCEPTED hook fires earlier in the pipeline (before
+     * dc_finalize_input writes the newline), when cursor position and
+     * screen buffer state are still valid for relative cursor movement.
+     *
+     * By the time PRE_COMMAND fires here, the cursor has already moved
+     * to the output area and screen state has been reset.
+     */
 }
 
 /**

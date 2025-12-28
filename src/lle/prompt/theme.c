@@ -641,6 +641,9 @@ lle_theme_t *lle_theme_create_minimal(void) {
              "${directory} ${symbol} ");
     snprintf(theme->layout.ps2_format, sizeof(theme->layout.ps2_format),
              "> ");
+    snprintf(theme->layout.transient_format, sizeof(theme->layout.transient_format),
+             "${symbol} ");
+    theme->layout.enable_transient = true;
 
     return theme;
 }
@@ -672,6 +675,9 @@ lle_theme_t *lle_theme_create_default(void) {
              "${user}@${host}:${directory}${?git: (${git})} ${symbol} ");
     snprintf(theme->layout.ps2_format, sizeof(theme->layout.ps2_format),
              "> ");
+    snprintf(theme->layout.transient_format, sizeof(theme->layout.transient_format),
+             "${symbol} ");
+    theme->layout.enable_transient = true;
 
     return theme;
 }
@@ -698,6 +704,9 @@ lle_theme_t *lle_theme_create_classic(void) {
              "[${user}@${host} ${directory}]${symbol} ");
     snprintf(theme->layout.ps2_format, sizeof(theme->layout.ps2_format),
              "> ");
+    snprintf(theme->layout.transient_format, sizeof(theme->layout.transient_format),
+             "${symbol} ");
+    theme->layout.enable_transient = true;
 
     return theme;
 }
@@ -790,8 +799,11 @@ lle_theme_t *lle_theme_create_informative(void) {
              "... ");
     snprintf(theme->layout.rps1_format, sizeof(theme->layout.rps1_format),
              "${time}${?jobs: [${jobs}]}");
+    snprintf(theme->layout.transient_format, sizeof(theme->layout.transient_format),
+             "${symbol} ");
     theme->layout.enable_right_prompt = true;
     theme->layout.enable_multiline = true;
+    theme->layout.enable_transient = true;
 
     return theme;
 }
@@ -821,7 +833,10 @@ lle_theme_t *lle_theme_create_two_line(void) {
              "└─${symbol} ");
     snprintf(theme->layout.ps2_format, sizeof(theme->layout.ps2_format),
              "   > ");
+    snprintf(theme->layout.transient_format, sizeof(theme->layout.transient_format),
+             "${symbol} ");
     theme->layout.enable_multiline = true;
+    theme->layout.enable_transient = true;
 
     return theme;
 }
@@ -867,7 +882,10 @@ lle_theme_t *lle_theme_create_corporate(void) {
              "> ");
     snprintf(theme->layout.rps1_format, sizeof(theme->layout.rps1_format),
              "${time}");
+    snprintf(theme->layout.transient_format, sizeof(theme->layout.transient_format),
+             "${symbol} ");
     theme->layout.enable_right_prompt = true;
+    theme->layout.enable_transient = true;
 
     return theme;
 }
@@ -915,8 +933,11 @@ lle_theme_t *lle_theme_create_dark(void) {
              "└─> ");
     snprintf(theme->layout.rps1_format, sizeof(theme->layout.rps1_format),
              "${time}");
+    snprintf(theme->layout.transient_format, sizeof(theme->layout.transient_format),
+             "${symbol} ");
     theme->layout.enable_right_prompt = true;
     theme->layout.enable_multiline = true;
+    theme->layout.enable_transient = true;
 
     return theme;
 }
@@ -960,6 +981,9 @@ lle_theme_t *lle_theme_create_light(void) {
              "${user}@${host}:${directory}${?git: (${git})} ${symbol} ");
     snprintf(theme->layout.ps2_format, sizeof(theme->layout.ps2_format),
              "> ");
+    snprintf(theme->layout.transient_format, sizeof(theme->layout.transient_format),
+             "${symbol} ");
+    theme->layout.enable_transient = true;
 
     return theme;
 }
@@ -1010,7 +1034,10 @@ lle_theme_t *lle_theme_create_colorful(void) {
              "▶ ");
     snprintf(theme->layout.rps1_format, sizeof(theme->layout.rps1_format),
              "⏰ ${time}");
+    snprintf(theme->layout.transient_format, sizeof(theme->layout.transient_format),
+             "➜ ");
     theme->layout.enable_right_prompt = true;
+    theme->layout.enable_transient = true;
 
     return theme;
 }

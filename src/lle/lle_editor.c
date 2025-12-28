@@ -21,8 +21,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Forward declaration for builtin widget registration */
+/* Forward declarations for builtin widget registration */
 lle_result_t lle_register_builtin_widgets(lle_widget_registry_t *registry);
+lle_result_t
+lle_register_builtin_widget_hooks(lle_widget_hooks_manager_t *hooks_manager);
 
 /* ============================================================================
  * EDITOR LIFECYCLE FUNCTIONS
@@ -171,6 +173,9 @@ lle_result_t lle_editor_create(lle_editor_t **editor,
         if (result != LLE_SUCCESS) {
             /* Hooks manager failed - widgets work but hooks won't trigger */
             ed->widget_hooks_manager = NULL;
+        } else {
+            /* Register builtin widget hooks (e.g., transient-prompt) */
+            lle_register_builtin_widget_hooks(ed->widget_hooks_manager);
         }
     }
 

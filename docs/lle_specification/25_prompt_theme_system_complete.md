@@ -4117,6 +4117,52 @@ The transient prompt feature simplifies previous prompts after command execution
 reducing visual clutter and highlighting the current prompt. This is inspired by
 starship's transient prompt feature.
 
+### 12.0 Implementation Notes (Session 73 - 2025-12-27)
+
+> **IMPORTANT**: The actual implementation differs from the specification below.
+> The specification describes a complex approach with direct terminal manipulation.
+> The implemented solution uses a simpler, more robust architecture that integrates
+> with LLE's existing systems.
+
+**Actual Implementation Architecture**:
+
+1. **Widget Hook Approach**: Instead of the pre-command event handler approach 
+   described in Section 8.3, transient prompts use a dedicated widget hook:
+   - New hook type: `LLE_HOOK_LINE_ACCEPTED`
+   - Fires after Enter key but before `dc_finalize_input()`
+   - Registered widget: `widget_transient_prompt()`
+
+2. **Display Controller Integration**: Instead of direct terminal escape sequences,
+   the implementation uses `dc_apply_transient_prompt()` which:
+   - Uses `current_screen.cursor_row` to know display height
+   - Moves cursor up to row 0 using `\033[nA`
+   - Clears from cursor to end of screen using `\033[J`
+   - Writes transient prompt + command text
+   - Updates screen buffer state via `screen_buffer_render()`
+
+3. **Config System Integration**:
+   - Global config: `config.display_transient_prompt` (default: true)
+   - Composer config: `composer->config.enable_transient`
+   - Theme config: `theme->layout.enable_transient` and `theme->layout.transient_format`
+   - User command: `display lle transient on|off`
+
+4. **Simplified State**: Instead of the complex `lle_transient_state_t` struct in
+   the spec, the implementation relies on the screen buffer's existing tracking
+   of cursor position and uses that for transient replacement.
+
+**Key Files**:
+- `include/lle/widget_hooks.h` - LLE_HOOK_LINE_ACCEPTED definition
+- `src/lle/widget/builtin_widgets.c` - widget_transient_prompt()
+- `src/display/display_controller.c` - dc_apply_transient_prompt()
+- `include/lle/prompt/transient.h` - Simplified state struct (constants only)
+
+**Why This Approach**:
+- Respects LLE's internal state authority model (no terminal queries)
+- Uses screen buffer for accurate position tracking
+- Integrates with existing widget hook system
+- Simpler, more maintainable code
+- Works with all themes via template engine
+
 ### 12.1 Transient Prompt Mechanics
 
 ```

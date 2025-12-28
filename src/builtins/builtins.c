@@ -4492,6 +4492,7 @@ int bin_display(int argc, char **argv) {
             printf("  autosuggestions on|off  - Control Fish-style "
                    "autosuggestions\n");
             printf("  syntax on|off           - Control syntax highlighting\n");
+            printf("  transient on|off        - Control transient prompts\n");
             printf("  multiline on|off        - Control multiline editing\n");
             printf("  theme [list|set <name>] - Control LLE prompt theme\n");
             printf("\nReset Commands (recovery):\n");
@@ -4773,6 +4774,44 @@ int bin_display(int argc, char **argv) {
                 return 1;
             }
 
+        } else if (strcmp(lle_cmd, "transient") == 0) {
+            /* Control transient prompts (Spec 25 Section 12) */
+            extern config_values_t config;
+
+            if (argc < 4) {
+                printf("Transient prompts: %s\n",
+                       config.display_transient_prompt ? "enabled" : "disabled");
+                printf("Usage: display lle transient on|off\n");
+                printf("\nTransient prompts simplify previous prompts in scrollback,\n");
+                printf("reducing visual clutter from fancy multi-line prompts.\n");
+                return 0;
+            }
+
+            const char *state = argv[3];
+            if (strcmp(state, "on") == 0) {
+                config.display_transient_prompt = true;
+                /* Also update composer config if available */
+                if (g_lle_integration && g_lle_integration->prompt_composer) {
+                    g_lle_integration->prompt_composer->config.enable_transient = true;
+                }
+                printf("Transient prompts enabled\n");
+                return 0;
+            } else if (strcmp(state, "off") == 0) {
+                config.display_transient_prompt = false;
+                /* Also update composer config if available */
+                if (g_lle_integration && g_lle_integration->prompt_composer) {
+                    g_lle_integration->prompt_composer->config.enable_transient = false;
+                }
+                printf("Transient prompts disabled\n");
+                return 0;
+            } else {
+                fprintf(stderr,
+                        "display lle transient: Invalid option '%s' (use 'on' "
+                        "or 'off')\n",
+                        state);
+                return 1;
+            }
+
         } else if (strcmp(lle_cmd, "multiline") == 0) {
             /* Control multiline editing */
             extern config_values_t config;
@@ -4788,11 +4827,11 @@ int bin_display(int argc, char **argv) {
             const char *state = argv[3];
             if (strcmp(state, "on") == 0) {
                 config.lle_enable_multiline_editing = true;
-                printf("✓ Multiline editing enabled\n");
+                printf("Multiline editing enabled\n");
                 return 0;
             } else if (strcmp(state, "off") == 0) {
                 config.lle_enable_multiline_editing = false;
-                printf("✓ Multiline editing disabled\n");
+                printf("Multiline editing disabled\n");
                 return 0;
             } else {
                 fprintf(stderr,
@@ -4864,6 +4903,8 @@ int bin_display(int argc, char **argv) {
                    config.display_autosuggestions ? "enabled" : "disabled");
             printf("  Syntax highlighting: %s\n",
                    config.display_syntax_highlighting ? "enabled" : "disabled");
+            printf("  Transient prompts: %s\n",
+                   config.display_transient_prompt ? "enabled" : "disabled");
             printf("  Multiline editing: %s\n",
                    config.lle_enable_multiline_editing ? "enabled"
                                                        : "disabled");
