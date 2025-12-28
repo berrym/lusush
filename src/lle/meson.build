@@ -259,4 +259,5 @@ lle_sources += files(
   'lle_editor.c',
   'lle_readline.c',
   'lle_readline_state.c',
+  'lle_watchdog.c',
 )

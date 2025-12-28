@@ -2,23 +2,27 @@
 
 **Date**: 2025-12-28  
 **Session Type**: LLE Defensive State Machine & Watchdog  
-**Status**: IN PROGRESS - Implementing state machine and watchdog  
+**Status**: COMPLETE - Both commits implemented  
 **Branch**: `feature/lle`
 
 ---
 
-## Session 80: Defensive State Machine Implementation
+## Session 80: Defensive State Machine & Watchdog Implementation
 
-Implementing explicit state machine for readline input handling to replace implicit flag-based state tracking. This provides guaranteed exit paths for Ctrl+C/Ctrl+G from any state.
+Two-commit implementation for freeze/deadlock prevention in LLE readline.
 
-### New Files Created
+### Commit 1: Defensive State Machine
+
+Explicit state machine for readline input handling to replace implicit flag-based state tracking. Provides guaranteed exit paths for Ctrl+C/Ctrl+G from any state.
+
+#### New Files Created
 
 | File | Purpose | Lines |
 |------|---------|-------|
 | `include/lle/lle_readline_state.h` | State enum and transition API | ~180 |
 | `src/lle/lle_readline_state.c` | State transition implementation | ~170 |
 
-### State Machine Design
+#### State Machine Design
 
 States:
 - **Normal states**: IDLE, EDITING, COMPLETION, SEARCH, MULTILINE, QUOTED_INSERT
@@ -29,7 +33,7 @@ Key invariants:
 - `lle_readline_state_force_abort()` NEVER fails - guaranteed Ctrl+C/Ctrl+G exit
 - State is reset to IDLE at start of each readline() call
 
-### Changes to lle_readline.c
+#### Changes to lle_readline.c
 
 1. Added state and previous_state fields to readline_context_t
 2. State initialized to IDLE at context creation
@@ -38,12 +42,38 @@ Key invariants:
 5. Timeout handlers call `lle_readline_state_force_timeout()`
 6. Read errors call `lle_readline_state_force_error()`
 
+### Commit 2: SIGALRM Watchdog
+
+Watchdog mechanism using SIGALRM to detect when readline is stuck in processing and force recovery. Complements the state machine by catching event processing hangs.
+
+#### New Files Created
+
+| File | Purpose | Lines |
+|------|---------|-------|
+| `include/lle/lle_watchdog.h` | Watchdog API declarations | ~130 |
+| `src/lle/lle_watchdog.c` | SIGALRM-based implementation | ~180 |
+
+#### Watchdog Design
+
+- **SIGALRM handler** sets atomic flag (async-signal-safe)
+- **10-second default timeout**, configurable per pet() call
+- **No SA_RESTART flag** - allows interrupting syscalls
+- **Statistics tracking** for diagnostics (fires, resets)
+
+#### Integration Points
+
+1. `lle_watchdog_pet(0)` called before input read in main loop
+2. `lle_watchdog_check_and_clear()` after read to detect stuck processing
+3. `lle_watchdog_stop()` on normal readline exit
+4. `lle_watchdog_init()` in lle_shell_integration_init()
+5. `lle_watchdog_cleanup()` in lle_shell_integration_shutdown()
+
 ### Migration Strategy
 
-The state machine is added alongside existing `done` flag for now. This allows:
-- Parallel operation during testing
-- Gradual migration from flag-based to state-based checks
-- Easy rollback if issues found
+Both systems added alongside existing mechanisms for now:
+- State machine runs parallel to `done` flag
+- Watchdog is optional (shell continues if init fails)
+- Easy to extend/rollback if issues found
 
 ---
 

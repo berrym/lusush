@@ -12,6 +12,7 @@
 #include "lle/lle_shell_integration.h"
 #include "lle/lle_shell_event_hub.h"
 #include "lle/lle_editor.h"
+#include "lle/lle_watchdog.h"
 #include "lle/history.h"
 #include "lle/prompt/composer.h"
 #include "lle/prompt/segment.h"
@@ -203,6 +204,13 @@ lle_result_t lle_shell_integration_init(void) {
         }
     }
 
+    /* Step 8: Initialize watchdog subsystem for deadlock detection */
+    result = lle_watchdog_init();
+    if (result != LLE_SUCCESS) {
+        /* Watchdog is optional - log warning but continue */
+        /* Shell can still function without watchdog protection */
+    }
+
     /* Mark shell hooks as installed */
     integ->init_state.shell_hooks_installed = true;
 
@@ -242,6 +250,9 @@ void lle_shell_integration_shutdown(void) {
         lle_shell_event_hub_destroy(integ->event_hub);
         integ->event_hub = NULL;
     }
+
+    /* Cleanup watchdog subsystem */
+    lle_watchdog_cleanup();
 
     /* Clear global pointer */
     g_lle_integration = NULL;

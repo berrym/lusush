@@ -70,6 +70,7 @@
 #include "lle/lle_editor.h"         /* Proper LLE editor architecture */
 #include "lle/lle_readline_state.h" /* State machine for input handling */
 #include "lle/lle_shell_integration.h" /* Spec 26: Shell integration */
+#include "lle/lle_watchdog.h" /* Watchdog timer for deadlock detection */
 #include "lle/memory_management.h"
 #include "lle/terminal_abstraction.h"
 #include "lle/unicode_compare.h" /* TR#29 compliant Unicode prefix matching */
@@ -2827,9 +2828,40 @@ char *lle_readline(const char *prompt) {
 
         /* Read next input event */
         lle_input_event_t *event = NULL;
+
+        /* WATCHDOG: Pet the watchdog before blocking on input read.
+         * This resets the alarm timer. If we get stuck in processing
+         * and don't return here within the timeout, the watchdog fires.
+         */
+        lle_watchdog_pet(0); /* 0 = use default timeout (10 seconds) */
+
         result = lle_input_processor_read_next_event(
             term->input_processor, &event, 100 /* 100ms timeout */
         );
+
+        /* WATCHDOG: Check if watchdog fired during processing.
+         * This catches scenarios where event processing hangs.
+         */
+        if (lle_watchdog_check_and_clear()) {
+            fprintf(stderr,
+                    "\nlle: watchdog timeout - forcing recovery\n");
+            /* Attempt recovery: clear all subsystem state */
+            if (ctx.editor && ctx.editor->completion_system) {
+                lle_completion_system_clear(ctx.editor->completion_system);
+            }
+            display_controller_t *dc = display_integration_get_controller();
+            if (dc) {
+                display_controller_set_autosuggestion(dc, NULL);
+                display_controller_clear_completion_menu(dc);
+            }
+            dc_reset_prompt_display_state();
+
+            /* STATE MACHINE: Force timeout state */
+            lle_readline_state_force_timeout(&ctx);
+            done = true;
+            final_line = strdup("");
+            continue;
+        }
 
         /* Handle timeout and null events - increment counter and continue */
         if (result == LLE_ERROR_TIMEOUT || event == NULL) {
@@ -3313,6 +3345,9 @@ char *lle_readline(const char *prompt) {
     }
     
     lle_terminal_abstraction_destroy(term);
+
+    /* WATCHDOG: Stop watchdog on normal exit */
+    lle_watchdog_stop();
 
     return final_line;
 }
