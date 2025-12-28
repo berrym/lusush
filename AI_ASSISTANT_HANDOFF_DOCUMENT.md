@@ -1,9 +1,49 @@
-# AI Assistant Handoff Document - Session 79
+# AI Assistant Handoff Document - Session 80
 
 **Date**: 2025-12-28  
-**Session Type**: LLE Input Handling Freeze Audit & Fixes  
-**Status**: STABLE - Critical freeze conditions fixed  
+**Session Type**: LLE Defensive State Machine & Watchdog  
+**Status**: IN PROGRESS - Implementing state machine and watchdog  
 **Branch**: `feature/lle`
+
+---
+
+## Session 80: Defensive State Machine Implementation
+
+Implementing explicit state machine for readline input handling to replace implicit flag-based state tracking. This provides guaranteed exit paths for Ctrl+C/Ctrl+G from any state.
+
+### New Files Created
+
+| File | Purpose | Lines |
+|------|---------|-------|
+| `include/lle/lle_readline_state.h` | State enum and transition API | ~180 |
+| `src/lle/lle_readline_state.c` | State transition implementation | ~170 |
+
+### State Machine Design
+
+States:
+- **Normal states**: IDLE, EDITING, COMPLETION, SEARCH, MULTILINE, QUOTED_INSERT
+- **Terminal states**: DONE, ABORT, EOF, TIMEOUT, ERROR
+
+Key invariants:
+- Terminal states can be reached from ANY state (escape hatch)
+- `lle_readline_state_force_abort()` NEVER fails - guaranteed Ctrl+C/Ctrl+G exit
+- State is reset to IDLE at start of each readline() call
+
+### Changes to lle_readline.c
+
+1. Added state and previous_state fields to readline_context_t
+2. State initialized to IDLE at context creation
+3. Transition to EDITING on first real input
+4. Ctrl+C handlers call `lle_readline_state_force_abort()`
+5. Timeout handlers call `lle_readline_state_force_timeout()`
+6. Read errors call `lle_readline_state_force_error()`
+
+### Migration Strategy
+
+The state machine is added alongside existing `done` flag for now. This allows:
+- Parallel operation during testing
+- Gradual migration from flag-based to state-based checks
+- Easy rollback if issues found
 
 ---
 

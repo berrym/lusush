@@ -68,6 +68,7 @@
 #include "lle/keybinding.h" /* Keybinding manager for Group 1+ migration */
 #include "lle/keybinding_actions.h" /* Smart arrow navigation functions */
 #include "lle/lle_editor.h"         /* Proper LLE editor architecture */
+#include "lle/lle_readline_state.h" /* State machine for input handling */
 #include "lle/lle_shell_integration.h" /* Spec 26: Shell integration */
 #include "lle/memory_management.h"
 #include "lle/terminal_abstraction.h"
@@ -215,6 +216,11 @@ typedef struct readline_context {
     size_t suggestion_alloc_size; /* Allocated size of suggestion buffer */
     bool suppress_autosuggestion; /* Temporarily suppress autosuggestion
                                      regeneration */
+
+    /* Explicit state machine for input handling
+     * Provides guaranteed exit paths and replaces implicit flag checks */
+    lle_readline_state_t state;          /* Current state */
+    lle_readline_state_t previous_state; /* For debugging/recovery */
 } readline_context_t;
 
 /* ============================================================================
@@ -2692,7 +2698,11 @@ char *lle_readline(const char *prompt) {
         /* Fish-style autosuggestions - LLE history integration */
         .current_suggestion = NULL,
         .suggestion_alloc_size = 0,
-        .suppress_autosuggestion = false};
+        .suppress_autosuggestion = false,
+
+        /* State machine - start in IDLE state */
+        .state = LLE_READLINE_STATE_IDLE,
+        .previous_state = LLE_READLINE_STATE_IDLE};
 
     /* CRITICAL: Reset per-readline-call flags on editor
      * The editor is persistent across readline calls, but these flags
@@ -2806,6 +2816,9 @@ char *lle_readline(const char *prompt) {
             /* Reset display state for fresh prompt */
             dc_reset_prompt_display_state();
 
+            /* STATE MACHINE: Force abort state - this ALWAYS succeeds */
+            lle_readline_state_force_abort(&ctx);
+
             /* Abort line - return empty string (not NULL, which signals EOF) */
             done = true;
             final_line = strdup("");
@@ -2825,6 +2838,8 @@ char *lle_readline(const char *prompt) {
                 /* Too many consecutive timeouts - force exit with error */
                 fprintf(stderr,
                         "\nlle: readline timeout - no input for 60 seconds\n");
+                /* STATE MACHINE: Force timeout state */
+                lle_readline_state_force_timeout(&ctx);
                 done = true;
                 final_line = strdup("");
             }
@@ -2838,6 +2853,8 @@ char *lle_readline(const char *prompt) {
             if (consecutive_timeouts >= MAX_CONSECUTIVE_TIMEOUTS) {
                 fprintf(stderr,
                         "\nlle: readline timeout - no input for 60 seconds\n");
+                /* STATE MACHINE: Force timeout state */
+                lle_readline_state_force_timeout(&ctx);
                 done = true;
                 final_line = strdup("");
             }
@@ -2846,6 +2863,11 @@ char *lle_readline(const char *prompt) {
 
         /* Reset timeout counter - we got real input */
         consecutive_timeouts = 0;
+
+        /* STATE MACHINE: Transition from IDLE to EDITING on first real input */
+        if (ctx.state == LLE_READLINE_STATE_IDLE) {
+            lle_readline_state_transition(&ctx, LLE_READLINE_STATE_EDITING);
+        }
 
         /* CRITICAL FIX: Re-check Ctrl+C after input read
          * SIGINT can arrive during the blocking read call. We check again here
@@ -2867,6 +2889,8 @@ char *lle_readline(const char *prompt) {
                 ctx.current_suggestion[0] = '\0';
             }
             dc_reset_prompt_display_state();
+            /* STATE MACHINE: Force abort state */
+            lle_readline_state_force_abort(&ctx);
             done = true;
             final_line = strdup("");
             continue;
@@ -2875,6 +2899,8 @@ char *lle_readline(const char *prompt) {
         /* Handle read errors */
         if (result != LLE_SUCCESS) {
             /* Error reading input - abort */
+            /* STATE MACHINE: Force error state */
+            lle_readline_state_force_error(&ctx);
             done = true;
             final_line = NULL;
             continue;
