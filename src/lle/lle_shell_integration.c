@@ -16,7 +16,6 @@
 #include "lle/prompt/composer.h"
 #include "lle/prompt/segment.h"
 #include "lle/prompt/theme.h"
-#include "lle/terminal_abstraction.h"
 #include "config.h"
 #include "lusush_memory_pool.h"
 

@@ -52,7 +52,6 @@
 #include "prompt.h"
 #include "readline_integration.h"
 #include "themes.h"
-#include <libgen.h>
 
 #include <inttypes.h>
 #include <libgen.h>
@@ -72,8 +71,10 @@ static char *rl_line_buffer = NULL;
 static int rl_end = 0;
 static int rl_point = 0;
 static inline void rl_redisplay(void) {}
-static inline void rl_clear_visible_line(void) {}
-static inline void rl_on_new_line(void) {}
+static inline int rl_clear_visible_line(void) { return 0; }
+static inline int rl_on_new_line(void) { return 0; }
+MAYBE_UNUSED
+static inline int rl_clear_screen(int count, int key) { (void)count; (void)key; return 0; }
 #endif
 
 /**
