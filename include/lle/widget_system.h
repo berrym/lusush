@@ -36,7 +36,7 @@
 #define LLE_WIDGET_SYSTEM_H
 
 #include "lle/error_handling.h"
-#include "lle/hashtable.h"
+#include "lle/hashtable.h" // IWYU pragma: keep (provides lle_hashtable_t)
 #include "lle/memory_management.h"
 
 #include <stdbool.h>

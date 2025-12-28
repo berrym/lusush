@@ -27,6 +27,15 @@
  * - Git integration in prompts
  */
 
+#include "readline_integration.h"
+
+/*
+ * This entire file requires GNU Readline. When HAVE_READLINE is not defined
+ * or is 0, the file compiles to nothing. This allows static analyzers like
+ * clangd to process the file without errors when readline is not available.
+ */
+#if HAVE_READLINE
+
 /*
  * IMPORTANT: stdio.h MUST be included before readline headers.
  * GNU readline's rltypedefs.h uses FILE* without including stdio.h itself.
@@ -56,7 +65,6 @@
 #include "lle/lle_readline.h"
 #include "lusush.h"
 #include "prompt.h"
-#include "readline_integration.h"
 #include "symtable.h"
 
 // Forward declarations
@@ -1611,3 +1619,5 @@ static int lusush_getc(FILE *stream) {
 
     return c;
 }
+
+#endif /* HAVE_READLINE */

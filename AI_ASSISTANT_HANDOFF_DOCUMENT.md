@@ -1,9 +1,28 @@
-# AI Assistant Handoff Document - Session 77
+# AI Assistant Handoff Document - Session 78
 
 **Date**: 2025-12-28  
-**Session Type**: LLE Feature - Theme File Loading System (Issue #21)  
-**Status**: STABLE - Theme file loading complete  
+**Session Type**: Clangd Warning Cleanup  
+**Status**: STABLE - All clangd warnings resolved  
 **Branch**: `feature/lle`
+
+---
+
+## Session 78: Clangd Warning Cleanup
+
+Cleaned up clangd/clang-tidy warnings that were causing editor noise despite the code compiling correctly.
+
+### Changes Made
+
+1. **`include/lle/prompt/theme_loader.h`**: Removed unused `#include "lle/prompt/theme_parser.h"` - the implementation file includes it directly.
+
+2. **`src/readline_integration.c`**: Wrapped entire file in `#if HAVE_READLINE ... #endif` guard so clangd doesn't report errors when readline headers aren't available in the build environment.
+
+3. **`include/lle/widget_system.h`**: Added `// IWYU pragma: keep` to silence false-positive unused include warning for `lle/hashtable.h` (which provides `lle_hashtable_t` typedef used in the struct).
+
+### Technical Notes
+
+- The `readline_integration.c` file is only compiled when `readline_support=true` in meson, but clangd still analyzes it. The `#if HAVE_READLINE` guard makes it compile to nothing when readline isn't available.
+- IWYU (Include What You Use) pragmas are respected by clangd's `UnusedIncludes: Strict` checker.
 
 ---
 

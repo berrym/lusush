@@ -18,7 +18,6 @@
 
 #include "lle/error_handling.h"
 #include "lle/prompt/theme.h"
-#include "lle/prompt/theme_parser.h"
 
 #include <stdbool.h>
 #include <stddef.h>
