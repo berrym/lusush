@@ -222,13 +222,15 @@ lle_sources += files(
 )
 
 # ============================================================================
-# PROMPT MODULE (Spec 25 - Prompt/Theme System)
+# PROMPT MODULE (Spec 25 - Prompt/Theme System, Issue #21 Theme Files)
 # ============================================================================
 
 lle_sources += files(
   'prompt/template_engine.c',
   'prompt/segment.c',
   'prompt/theme.c',
+  'prompt/theme_parser.c',
+  'prompt/theme_loader.c',
   'prompt/composer.c',
 )
 

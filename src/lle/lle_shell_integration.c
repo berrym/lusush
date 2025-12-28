@@ -16,6 +16,7 @@
 #include "lle/prompt/composer.h"
 #include "lle/prompt/segment.h"
 #include "lle/prompt/theme.h"
+#include "lle/prompt/theme_loader.h"
 #include "config.h"
 #include "lusush_memory_pool.h"
 
@@ -366,6 +367,13 @@ static lle_result_t create_and_configure_prompt_composer(lle_shell_integration_t
             return result;
         }
         lle_theme_register_builtins(&g_theme_registry);
+
+        /* Load user themes from standard locations (Issue #21)
+         * This loads themes from:
+         * - $XDG_CONFIG_HOME/lusush/themes/ (~/.config/lusush/themes/)
+         * - /etc/lusush/themes/ (system-wide)
+         */
+        lle_theme_load_user_themes(&g_theme_registry);
 
         g_registries_initialized = true;
     }

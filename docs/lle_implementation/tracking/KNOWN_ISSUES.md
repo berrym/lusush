@@ -316,31 +316,57 @@ The new LLE prompt/theme system is now integrated and working:
 
 ---
 
-### Issue #21: Theme System Not User-Extensible ✅ ARCHITECTURE VERIFIED
-**Severity**: HIGH → MEDIUM (architecture working, file loading not implemented)  
+### Issue #21: Theme System Not User-Extensible ✅ FULLY RESOLVED
+**Severity**: HIGH → RESOLVED  
 **Discovered**: 2025-12-21 (Session 54 - theme variable investigation)  
-**Updated**: 2025-12-27 (Manual testing verified)  
-**Component**: LLE Spec 25 prompt/theme system (`include/lle/prompt/theme.h`)  
+**Resolved**: 2025-12-28 (Session 77 - Theme file loading implementation)  
+**Component**: LLE Spec 25 prompt/theme system  
 
 **Description**:
-The OLD theme system was completely hardcoded in C.
+The OLD theme system was completely hardcoded in C. Users could not create or customize themes without modifying source code.
 
-**Resolution - Architecture Verified Working**:
-The new LLE prompt/theme system architecture is verified:
-- ✅ 10 built-in themes available and switchable at runtime
-- ✅ Theme registry with source tracking (BUILTIN, SYSTEM, USER, RUNTIME)
-- ✅ Theme inheritance support (`inherits_from` field)
-- ✅ Template-based prompts working
-- ✅ Runtime theme switching via `display lle theme set`
+**Resolution - Theme File Loading System Implemented**:
+Session 77 implemented a complete theme file loading system inspired by starship.rs:
 
-**Not Yet Implemented** (Future Enhancement):
-- ❌ File parser for theme config files (TOML/INI format)
-- ❌ `~/.config/lusush/themes/` directory scanning at startup
-- ❌ `lle_theme_load_from_file()` function
+**New Files**:
+- `include/lle/prompt/theme_parser.h` - TOML-subset parser API
+- `src/lle/prompt/theme_parser.c` - Custom parser (~800 lines, no dependencies)
+- `include/lle/prompt/theme_loader.h` - File loading and export API
+- `src/lle/prompt/theme_loader.c` - Directory scanning, hot reload, TOML export
 
-**Priority**: MEDIUM (architecture works, file loading is future enhancement)
+**Features Implemented**:
+- ✅ Custom TOML-subset parser (dependency-free, ~800 lines)
+- ✅ Theme file loading from `~/.config/lusush/themes/` and `/etc/lusush/themes/`
+- ✅ All color formats: basic ANSI, 256-color, hex RGB (#ff5500), rgb(255,85,0)
+- ✅ Theme export to TOML via `display lle theme export <name>`
+- ✅ Hot reload via `display lle theme reload`
+- ✅ Automatic loading of user themes at shell startup
+- ✅ Theme inheritance support in file format
 
-**Status**: ✅ ARCHITECTURE VERIFIED - File-based themes future work
+**Example Theme File** (`~/.config/lusush/themes/ocean.toml`):
+```toml
+[theme]
+name = "ocean"
+description = "A calming blue-green theme"
+inherits_from = "default"
+
+[colors]
+primary = { fg = "cyan", bold = true }
+git_branch = { fg = "#00ffff" }
+
+[symbols]
+prompt = "~>"
+```
+
+**User Workflow**:
+```bash
+display lle theme export powerline ~/.config/lusush/themes/my-theme.toml
+vim ~/.config/lusush/themes/my-theme.toml
+display lle theme reload
+display lle theme set my-theme
+```
+
+**Status**: ✅ FULLY RESOLVED
 
 ---
 

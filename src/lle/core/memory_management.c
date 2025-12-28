@@ -20,6 +20,7 @@
  */
 
 #include "lle/memory_management.h"
+#include <errno.h>
 #include <fcntl.h> /* For O_CREAT, O_EXCL on macOS sem_open */
 #include <pthread.h>
 #include <stdio.h>
