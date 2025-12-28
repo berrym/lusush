@@ -3,8 +3,6 @@
 #include "builtins.h"
 #include "errors.h"
 #include "ht.h"
-#include "lusush.h"
-#include "strings.h"
 #include "tokenizer.h"
 
 #include <ctype.h>

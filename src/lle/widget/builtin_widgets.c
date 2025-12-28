@@ -30,7 +30,6 @@
 #include "lle/widget_hooks.h"
 #include "lle/widget_system.h"
 #include "display/display_controller.h"
-#include <string.h>
 
 /* ============================================================================
  * MOVEMENT WIDGETS

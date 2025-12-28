@@ -15,14 +15,7 @@
  */
 
 #include "lle/display_integration.h"
-#include "display/command_layer.h"
-#include "display/layer_events.h"
-#include "display/prompt_layer.h"
-#include "display_integration.h"
-#include "lle/lle_readline.h"
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 /* ========================================================================== */
 /*                         GLOBAL STATE                                       */

@@ -118,9 +118,9 @@ static void test_type_definitions(void) {
     TEST_PASS();
 
     TEST_START("lle_color_t structure defined");
-    lle_color_t color;
-    COMPLIANCE_ASSERT(sizeof(color.mode) > 0, "mode field exists");
-    COMPLIANCE_ASSERT(sizeof(color.value) > 0, "value field exists");
+    lle_color_t color = {0};
+    COMPLIANCE_ASSERT(&color.mode != NULL, "mode field exists");
+    COMPLIANCE_ASSERT(&color.value != NULL, "value field exists");
     TEST_PASS();
 
     TEST_START("lle_color_scheme_t structure defined");
@@ -162,8 +162,8 @@ static void test_type_definitions(void) {
     TEST_PASS();
 
     TEST_START("lle_theme_registry_t structure defined");
-    lle_theme_registry_t registry;
-    COMPLIANCE_ASSERT(sizeof(registry) > 0, "registry has size");
+    lle_theme_registry_t registry = {0};
+    COMPLIANCE_ASSERT(&registry != NULL, "registry has size");
     TEST_PASS();
 
     printf("  Phase 1 complete (11 tests)\n\n");

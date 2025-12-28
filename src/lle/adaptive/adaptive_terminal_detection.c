@@ -14,7 +14,6 @@
 
 #include "lle/adaptive_terminal_integration.h"
 #include "lle/error_handling.h"
-#include "lle/memory_management.h"
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>

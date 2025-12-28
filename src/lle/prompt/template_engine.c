@@ -11,7 +11,6 @@
 
 #include "lle/prompt/template.h"
 
-#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -577,26 +576,13 @@ lle_result_t lle_template_render(const lle_parsed_template_t *tmpl,
                         token->data.conditional.false_value;
 
                     if (result && strlen(result) > 0) {
-                        /* Recursively evaluate the result in case it contains
-                         * segment references like ${git} */
+                        size_t len = strlen(result);
                         size_t avail = output_size - pos - 1;
-                        char *sub_output = malloc(avail + 1);
-                        if (sub_output) {
-                            lle_result_t sub_result = lle_template_evaluate(
-                                result, render_ctx, sub_output, avail + 1);
-                            if (sub_result == LLE_SUCCESS) {
-                                size_t len = strlen(sub_output);
-                                memcpy(output + pos, sub_output, len);
-                                pos += len;
-                            } else {
-                                /* Fallback: copy literal on parse error */
-                                size_t len = strlen(result);
-                                if (len > avail) len = avail;
-                                memcpy(output + pos, result, len);
-                                pos += len;
-                            }
-                            free(sub_output);
+                        if (len > avail) {
+                            len = avail;
                         }
+                        memcpy(output + pos, result, len);
+                        pos += len;
                     }
                 }
                 break;

@@ -20,7 +20,6 @@
 #include "lle/lle_shell_event_hub.h"
 
 #include <stdio.h>
-#include <string.h>
 
 /* ============================================================================
  * DIAGNOSTIC FUNCTIONS

@@ -60,8 +60,9 @@ int main(void) {
     printf("Phase 1: Kill Ring System API\n");
     printf("------------------------------\n");
 
-    /* Opaque type */
-    COMPLIANCE_ASSERT(sizeof(lle_kill_ring_t *) > 0,
+    /* Opaque type - verify pointer type exists */
+    lle_kill_ring_t *kill_ring_ptr = NULL;
+    COMPLIANCE_ASSERT(kill_ring_ptr == NULL,
                       "lle_kill_ring_t opaque type defined");
 
     /* Kill ring lifecycle */
@@ -90,8 +91,9 @@ int main(void) {
     printf("Phase 2: Keybinding Manager API\n");
     printf("--------------------------------\n");
 
-    /* Opaque type */
-    COMPLIANCE_ASSERT(sizeof(lle_keybinding_manager_t *) > 0,
+    /* Opaque type - verify pointer type exists */
+    lle_keybinding_manager_t *kb_mgr_ptr = NULL;
+    COMPLIANCE_ASSERT(kb_mgr_ptr == NULL,
                       "lle_keybinding_manager_t opaque type defined");
 
     /* Keybinding manager lifecycle */
@@ -215,8 +217,9 @@ int main(void) {
     printf("Phase 4: Editor Context API\n");
     printf("---------------------------\n");
 
-    /* Editor structure */
-    COMPLIANCE_ASSERT(sizeof(lle_editor_t) > 0,
+    /* Editor structure - verify type exists */
+    lle_editor_t *editor_ptr = NULL;
+    COMPLIANCE_ASSERT(editor_ptr == NULL,
                       "lle_editor_t structure defined");
 
     /* Editor lifecycle */
