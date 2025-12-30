@@ -1,454 +1,427 @@
 # LLE Implementation Status and Roadmap
 
-**Created**: 2025-12-26
-**Purpose**: Comprehensive analysis of LLE specification implementation status, dependencies, and recommended implementation order for the Prompt/Theme System (Spec 25) and all supporting systems.
+**Last Updated**: 2025-12-30  
+**Document Version**: 2.0  
+**Purpose**: Accurate assessment of LLE implementation status, realistic next milestones, and long-term vision
 
 ---
 
 ## Executive Summary
 
-This document provides a thorough analysis of the LLE specification landscape, implementation status, and a recommended order for completing the system in a spec-compliant, architecturally correct manner.
+The Lusush Line Editor (LLE) is a comprehensive in-house line editing solution designed to replace GNU Readline with a modern, buffer-oriented, event-driven architecture. As of December 2025, **LLE's core systems are substantially complete** and functional.
 
-**Key Finding**: While significant LLE infrastructure exists (94 source files, 80 test files), several critical specifications required by the Prompt/Theme System (Spec 25) are either partially implemented or have architectural gaps that must be addressed before Spec 25 can be properly integrated.
+### Current State
 
----
+| Metric | Value |
+|--------|-------|
+| Source Files | 106 (.c files in src/lle/) |
+| Header Files | 59 (.h files in include/lle/) |
+| Lines of Code | ~60,000 |
+| Subdirectories | 15 major components |
+| Test Files | 80+ |
 
-## 1. Specification Inventory
+### Project Philosophy
 
-### 1.1 Core Specifications (02-21)
+- **Quality over popularity** - No compromises on doing things right
+- **Self-contained** - Minimize external dependencies (ncurses acceptable, external scripting languages not)
+- **Native extensibility** - Customization through lusush scripting, not Lua/Python
+- **Specs as inspiration** - Original specifications preserved as vision; realistic milestones guide actual work
+- **No rush** - Get it right the first time
 
-| Spec | Title | Doc Status | Implementation | Compliance Test | Notes |
-|------|-------|------------|----------------|-----------------|-------|
-| 02 | Terminal Abstraction | ✅ Complete | ✅ ~90% | ✅ Yes | Core terminal detection working |
-| 03 | Buffer Management | ✅ Complete | ✅ ~95% | ✅ Yes (5 tests) | Buffer, cursor, UTF-8 working |
-| 04 | Event System | ✅ Complete | ✅ ~90% | ✅ Yes | Phase 1-2D complete |
-| 05 | libhashtable Integration | ✅ Complete | ✅ 100% | ✅ Yes | Fully integrated |
-| 06 | Input Parsing | ✅ Complete | ✅ ~85% | ❌ No | Sequence parser, UTF-8 working |
-| 07 | Extensibility Framework | ✅ Complete | ⚠️ ~30% | ❌ No | Widget system partial |
-| 08 | Display Integration | ✅ Complete | ✅ ~80% | ✅ Yes | Bridge, render pipeline working |
-| 09 | History System | ✅ Complete | ✅ ~85% | ✅ Yes | Core history working |
-| 10 | Autosuggestions | ✅ Complete | ⚠️ ~40% | ❌ No | Layer exists, integration partial |
-| 11 | Syntax Highlighting | ✅ Complete | ⚠️ ~50% | ❌ No | Basic highlighting, theme partial |
-| 12 | Completion System | ✅ Complete | ✅ ~85% | ✅ Yes | 10 files, menu working |
-| 13 | User Customization | ✅ Complete | ⚠️ ~20% | ❌ No | Keybindings done, config partial |
-| 14 | Performance Optimization | ✅ Complete | ⚠️ ~30% | ✅ Yes | Performance core exists |
-| 15 | Memory Management | ✅ Complete | ✅ ~90% | ✅ Yes | Pool, secure memory working |
-| 16 | Error Handling | ✅ Complete | ✅ ~85% | ✅ Yes | Error system implemented |
-| 17 | Testing Framework | ✅ Complete | ✅ ~80% | ✅ Yes | Testing infrastructure exists |
-| 18 | Plugin API | ✅ Complete | ❌ ~5% | ❌ No | Spec only, not implemented |
-| 19 | Security Analysis | ✅ Complete | ⚠️ ~40% | ❌ No | Secure memory exists |
-| 20 | Deployment Procedures | ✅ Complete | N/A | N/A | Documentation only |
-| 21 | Maintenance Procedures | ✅ Complete | N/A | N/A | Documentation only |
-| 22 | User Interface | ✅ Complete | ⚠️ ~30% | ❌ No | Partial UI elements |
+### Architectural Context
 
-### 1.2 Critical Gap Specifications (22-27)
+LLE is a **client** of lusush's layered display system, not the display system itself. This has important implications:
 
-| Spec | Title | Doc Status | Implementation | Priority |
-|------|-------|------------|----------------|----------|
-| 22 | History-Buffer Integration | ✅ Complete | ✅ 100% | ✅ DONE |
-| 23 | Interactive Completion Menu | ✅ Complete | ✅ 100% | ✅ DONE |
-| 24 | Advanced Prompt Widget Hooks | ✅ Complete | ⚠️ 5% | 🔥 CRITICAL |
-| 25 | Default Keybindings | ✅ Complete | ✅ 100% | ✅ DONE |
-| 26 | Adaptive Terminal Integration | ✅ Complete | ✅ 100% | ✅ DONE |
-| 27 | Fuzzy Matching Library | ❌ Incomplete | ❌ N/A | ⏸️ Later |
+- **Runtime configuration**: Via `display lle ...` subcommands (not standalone `theme` command)
+- **The `theme` builtin is deprecated**: Legacy command predating readline adoption; will be removed once nothing depends on it
+- **Correct usage**: `display lle theme set dark`, `display lle keybindings mode emacs`, etc.
 
-### 1.3 New Specification
+### Configuration Systems
 
-| Spec | Title | Doc Status | Implementation | Priority |
-|------|-------|------------|----------------|----------|
-| 25 (new) | Prompt/Theme System | ✅ Complete | ❌ 0% | 🔥 TARGET |
+Two configuration formats currently coexist:
+
+| System | Format | Location | Purpose |
+|--------|--------|----------|---------|
+| Core lusush config | INI | `src/config.c` | Overall shell behavior, subsystem control |
+| LLE prompt/theme | TOML-subset | `src/lle/prompt/theme_parser.c` | Theme files, prompt configuration |
+
+This coexistence is intentional for now. The TOML-subset parser is custom and dependency-free. Unification may be considered in the future if a compelling rationale emerges, but there are no current plans to change either system.
 
 ---
 
-## 2. Prompt/Theme System Dependencies
+## 1. Implementation Status
 
-Spec 25 (Prompt/Theme System) requires these systems to be fully operational:
+### 1.1 Complete Systems (85-100%)
 
-### 2.1 Hard Dependencies (Must Have)
+These core systems are implemented, tested, and working in production:
 
-| Dependency | Required For | Status | Gap Analysis |
-|------------|--------------|--------|--------------|
-| **Event System (04)** | LLE_HOOK_CHPWD, cache invalidation | ✅ Ready | Event types exist, but no LLE_HOOK_CHPWD specifically |
-| **Widget Hooks (07/24)** | Pre/post command hooks | ⚠️ Partial | LLE_HOOK_PRE_COMMAND exists but not fully integrated |
-| **Display Integration (08)** | screen_buffer rendering | ✅ Ready | screen_buffer.c exists and functional |
-| **Memory Management (15)** | Memory pools, safe allocation | ✅ Ready | Fully functional |
-| **Error Handling (16)** | Result types, recovery | ✅ Ready | Fully functional |
+| Component | Location | Status | Description |
+|-----------|----------|--------|-------------|
+| **Buffer Management** | buffer/*.c | 95% | UTF-8 aware, undo/redo, secure mode, change tracking |
+| **History System** | history/*.c (13 files) | 95% | Forensics, dedup (5 strategies), search, expansion, multiline |
+| **Completion System** | completion/*.c (10 files) | 90% | Context analyzer, menu, categories, source manager |
+| **Keybinding System** | keybinding/*.c | 95% | Emacs mode complete, kill ring, 44 keybinding actions |
+| **Widget System** | widget/*.c | 90% | Registry with O(1) lookup, 24 builtin widgets, hooks |
+| **Terminal Abstraction** | terminal/*.c | 95% | Capability detection, Unix interface, internal state |
+| **Adaptive Terminal** | adaptive/*.c | 100% | 12+ terminal types, tmux/screen support, graceful fallback |
+| **Unicode Support** | unicode/*.c | 95% | UTF-8 codec, grapheme clusters, character width, NFC normalization |
+| **Event System** | event/*.c | 90% | Queue, handlers, timers, filters, shell lifecycle events |
+| **Prompt/Theme System** | prompt/*.c (6 files) | 90% | Template engine, segments, 10 themes, transient prompts |
+| **Multiline Editing** | multiline/*.c | 90% | Structure analysis, edit sessions, reconstruction |
+| **Screen Buffer** | display/screen_buffer.c | 100% | Virtual screen for cursor positioning (post-spec addition) |
+| **Shell Event Hub** | lle_shell_event_hub.c | 100% | Directory change, pre/post command events |
+| **Input Parsing** | input/*.c | 90% | Escape sequences, mouse, UTF-8, state machine |
+| **Core Readline** | lle_readline.c | 95% | Main loop, defensive state machine, watchdog |
+| **Memory Management** | core/memory_management.c | 90% | Pool system, secure memory |
+| **Async Worker** | core/async_worker.c | 85% | Thread pool for non-blocking operations |
+| **Error Handling** | core/error_handling.c | 85% | Result types, error context |
 
-### 2.2 Soft Dependencies (Should Have)
+### 1.2 Partially Complete Systems (40-70%)
 
-| Dependency | Required For | Status | Gap Analysis |
-|------------|--------------|--------|--------------|
-| **Syntax Highlighting (11)** | Template syntax coloring | ⚠️ Partial | Exists but needs theme integration |
-| **User Customization (13)** | TOML config parsing | ⚠️ Partial | No TOML parser yet |
-| **Terminal Abstraction (02)** | Symbol/color detection | ✅ Ready | Capability detection working |
+These systems exist and function but have gaps or need enhancement:
 
-### 2.3 Critical Gaps Identified
+| Component | Status | Gap Description |
+|-----------|--------|-----------------|
+| **Syntax Highlighting** | 60% | Basic shell highlighting works; advanced rules and full theme integration needed |
+| **Autosuggestions** | 70% | History-based suggestions work; not Fish-level sophistication |
+| **Display Rendering** | 75% | Works correctly; differential update code exists but is broken/unused (full redraw used instead) |
+| **Vi Mode** | 50% | Keybindings exist; not fully tested or complete |
+| **User Interface Commands** | 50% | Some `display lle` commands exist; not all spec'd commands implemented |
 
-1. **~~No LLE_HOOK_CHPWD Event~~** ✅ FIXED (Session 67)
-   - ~~The event system has LLE_HOOK_PRE_COMMAND but no directory change hook~~
-   - ~~This is THE core fix for Issue #16~~
-   - Shell lifecycle events added: `LLE_EVENT_DIRECTORY_CHANGED`, `LLE_EVENT_PRE_COMMAND`, 
-     `LLE_EVENT_POST_COMMAND`, `LLE_EVENT_COMMAND_NOT_FOUND`, `LLE_EVENT_PROMPT_DISPLAY`
-   - Direct cache invalidation implemented in `bin_cd()` via `prompt_cache_invalidate()`
-   - **Issue #16 is FIXED**
+### 1.3 Not Implemented (Deferred)
 
-2. **Widget Hooks Architecture Limitation** ⚠️ ARCHITECTURAL NOTE
-   - widget_hooks.h exists with LLE_HOOK_PRE_COMMAND, LLE_HOOK_POST_COMMAND, etc.
-   - **Key Finding**: Widget hooks manager is part of `lle_editor_t`, which is per-readline-session
-   - Widget hooks CANNOT be triggered from shell-level events (like `bin_cd()`) because:
-     - `lle_readline()` creates the editor and hooks manager
-     - `lle_readline()` returns before command execution
-     - `bin_cd()` runs after readline returns, editor is destroyed
-   - **Solution Applied**: Direct `prompt_cache_invalidate()` call instead of event-based
-   - **Future Architecture**: Persistent shell-level event system needed for full event-driven approach
+These features exist only in specifications and are **explicitly deferred**:
 
-3. **No Async Worker Thread Infrastructure**
-   - Spec 25 requires internal thread pool for async git status
-   - No pthread-based worker pool exists in LLE yet
-   - Must be created from scratch
-
-4. **No TOML Parser**
-   - Spec 25 specifies TOML configuration
-   - No TOML parsing library integrated
-   - Options: tomlc99, or simpler custom parser
-
-5. **screen_buffer Not Used for Prompts**
-   - screen_buffer.c exists but prompt.c uses direct terminal writes
-   - Integration layer needed
+| Feature | Spec | Status | Rationale |
+|---------|------|--------|-----------|
+| **Plugin System** | 07/18 | 0% | No plugin loading infrastructure; widget system provides basic extensibility |
+| **Lua/Python Scripting** | 13 | 0% | **DEFERRED** - Conflicts with self-contained philosophy; no external language dependencies |
+| **Plugin Sandboxing** | 19 | 0% | **DEFERRED** - Security sandboxing requires expertise not currently prioritized |
+| **Configuration Schema System** | 13 | 0% | No plugin configuration validation system |
+| **Plugin Marketplace** | 07 | 0% | Aspirational; far future if ever |
 
 ---
 
-## 3. Implementation Order Recommendation
+## 2. Specification Compliance Summary
 
-Based on dependency analysis, here is the recommended implementation order:
+### 2.1 Core Specifications (02-12)
 
-### Phase 1: Foundation Fixes
+| Spec | Title | Implementation | Notes |
+|------|-------|----------------|-------|
+| 02 | Terminal Abstraction | ✅ 95% | Screen buffer added post-spec; working |
+| 03 | Buffer Management | ✅ 95% | Complete with UTF-8, undo/redo |
+| 04 | Event System | ✅ 90% | Shell event hub complete |
+| 05 | libhashtable Integration | ✅ 100% | Fully integrated |
+| 06 | Input Parsing | ✅ 90% | Escape sequences, UTF-8 working |
+| 07 | Extensibility Framework | ⚠️ 15% | Widget system only; no plugins |
+| 08 | Display Integration | ✅ 85% | Render pipeline working |
+| 09 | History System | ✅ 95% | Most comprehensive subsystem |
+| 10 | Autosuggestions | ⚠️ 70% | History-based working |
+| 11 | Syntax Highlighting | ⚠️ 60% | Basic highlighting |
+| 12 | Completion System | ✅ 90% | Menu, categories, sources |
 
-**Goal**: Fill gaps in existing systems that Spec 25 depends on
+### 2.2 Feature Specifications (13-22)
 
-#### 1.1 Add LLE_HOOK_CHPWD Event ✅ COMPLETE (Session 67)
-- **File**: `include/lle/event_system.h`, `src/lle/event/event_system.c`
-- **Completed**:
-  - Added `LLE_EVENT_DIRECTORY_CHANGED`, `LLE_EVENT_PRE_COMMAND`, `LLE_EVENT_POST_COMMAND`,
-    `LLE_EVENT_COMMAND_NOT_FOUND`, `LLE_EVENT_PROMPT_DISPLAY`
-  - Added `lle_shell_event_data_t` structure
-  - Added convenience functions: `lle_event_fire_directory_changed()`, etc.
-  - Integrated with `bin_cd()` via `prompt_cache_invalidate()`
-- **Result**: Issue #16 FIXED
+| Spec | Title | Implementation | Notes |
+|------|-------|----------------|-------|
+| 13 | User Customization | ⚠️ 25% | Keybindings done; scripting **DEFERRED** |
+| 14 | Performance Optimization | ⚠️ 40% | Core monitoring exists |
+| 15 | Memory Management | ✅ 90% | Pool system working |
+| 16 | Error Handling | ✅ 85% | Error system implemented |
+| 17 | Testing Framework | ✅ 70% | Tests exist, coverage ongoing |
+| 18 | Plugin API | ❌ 5% | **DEFERRED** - Spec only |
+| 19 | Security Analysis | ⚠️ 30% | Secure memory exists; sandboxing **DEFERRED** |
+| 20 | Deployment Procedures | N/A | Documentation |
+| 21 | Maintenance Procedures | N/A | Documentation |
+| 22 | User Interface | ⚠️ 50% | Partial command implementation |
 
-#### 1.2 Widget Hooks Integration (Spec 24) ⚠️ ARCHITECTURAL LIMITATION
-- **Files**: `src/lle/widget/widget_hooks.c`, `include/lle/widget_hooks.h`
-- **Finding**: Widget hooks are per-readline-session, cannot receive shell-level events
-- **Current Status**: Widget hooks work for editor lifecycle (LINE_INIT, LINE_FINISH, BUFFER_MODIFIED)
-- **Not Possible**: LLE_HOOK_CHPWD via widget hooks (editor destroyed before command execution)
-- **Alternative**: Direct function calls at shell level (e.g., `prompt_cache_invalidate()` in `bin_cd()`)
-- **Priority**: HIGH
+### 2.3 Critical Gap Specifications (22-27 in critical_gaps/)
 
-#### 1.3 Create Async Worker Thread Infrastructure
-- **New Files**: `src/lle/core/async_worker.c`, `include/lle/async_worker.h`
-- **Task**: Implement thread pool with request queue (per Spec 25 Section 7)
-- **Priority**: HIGH
+| Spec | Title | Implementation | Notes |
+|------|-------|----------------|-------|
+| 22 | History-Buffer Integration | ✅ 100% | Complete |
+| 23 | Interactive Completion Menu | ✅ 100% | Complete |
+| 24 | Advanced Prompt Widget Hooks | ⚠️ 15% | Basic hooks work; full ZSH-equivalent features not implemented |
+| 25 | Default Keybindings | ✅ 100% | Complete |
+| 26 | Adaptive Terminal Integration | ✅ 100% | Complete |
+| 27 | Fuzzy Matching Library | ✅ 100% | Complete - `src/libfuzzy/fuzzy_match.c`, integrated into autocorrect, completion, history search |
 
-### Phase 2: Core Prompt Infrastructure (Week 2-3)
+### 2.4 New Specifications (25-26 in main folder)
 
-**Goal**: Build the core prompt system architecture
+These specifications were created to address architectural needs discovered during implementation:
 
-#### 2.1 Prompt Context and Types
-- **New Files**: `include/lle/prompt/prompt_types.h`, `src/lle/prompt/prompt_context.c`
-- **Task**: Implement lle_prompt_context_t, result codes, enums from Spec 25 Section 3
+| Spec | Title | Implementation | Notes |
+|------|-------|----------------|-------|
+| **25 (new)** | Prompt/Theme System | ✅ ~90% | Template engine, segments, 10 themes, transient prompts, composer |
+| **26 (new)** | Initialization System | ✅ ~95% | Shell integration, persistent editor, shell event hub, lifecycle management |
 
-#### 2.2 Template Engine
-- **New Files**: `src/lle/prompt/template_engine.c`, `include/lle/prompt/template.h`
-- **Task**: Implement template parser and renderer from Spec 25 Section 6
+**Note**: The main folder specs 25-26 are different from critical_gaps/ specs 25-26. The main folder versions represent the actual LLE prompt/theme and initialization systems that are implemented and working.
 
-#### 2.3 Segment System
-- **New Files**: `src/lle/prompt/segment.c`, `include/lle/prompt/segment.h`
-- **Task**: Implement segment registration, rendering, caching from Spec 25 Section 5
+### 2.5 Key Implementation Facts
 
-### Phase 3: Theme System (Week 3-4)
+These systems are **implemented and working** (not gaps or future work):
 
-**Goal**: Implement theme registration and inheritance
+| System | Location | Status |
+|--------|----------|--------|
+| **Persistent Global Editor** | `g_lle_integration->editor` | ✅ Working - survives across readline sessions |
+| **Shell Event Hub** | `lle_shell_event_hub.c` | ✅ Working - fires DIRECTORY_CHANGED, PRE/POST_COMMAND |
+| **Async Worker Thread Pool** | `core/async_worker.c` | ✅ Working - for non-blocking git status, etc. |
+| **TOML-Subset Parser** | `prompt/theme_parser.c` | ✅ Working - custom, dependency-free |
+| **Screen Buffer for Prompts** | Used by LLE prompt composer | ✅ Working - proper cursor positioning |
+| **Prompt Cache Invalidation** | Called from `bin_cd()`, etc. | ✅ Working - event-driven refresh |
 
-#### 3.1 Theme Registry
-- **New Files**: `src/lle/prompt/theme_registry.c`, `include/lle/prompt/theme.h`
-- **Task**: Implement theme registration, lookup, inheritance from Spec 25 Section 4
+**Legacy systems** (`src/prompt.c`, `src/themes.c`) exist only for GNU Readline compatibility and are deprecated.
 
-#### 3.2 Built-in Themes and Segments
-- **New Files**: `src/lle/prompt/builtin_themes.c`, `src/lle/prompt/builtin_segments.c`
-- **Task**: Implement 6 built-in themes, 7 built-in segments from Spec 25 Section 11
+### 2.6 Post-Spec Additions
 
-### Phase 4: Event Integration (Week 4-5)
+Components added during implementation that weren't in the original specs:
 
-**Goal**: Wire prompt system to shell events
-
-#### 4.1 Cache System with Tag Invalidation
-- **New Files**: `src/lle/prompt/cache.c`, `include/lle/prompt/cache.h`
-- **Task**: Implement tag-based cache with event-driven invalidation from Spec 25 Section 7
-
-#### 4.2 Event Handlers
-- **New Files**: `src/lle/prompt/event_handlers.c`
-- **Task**: Implement on_chpwd, on_precmd, on_preexec handlers from Spec 25 Section 8
-
-#### 4.3 Async Git Status Provider
-- **New Files**: `src/lle/prompt/git_provider.c`
-- **Task**: Implement async git status fetching from Spec 25 Section 7.3
-
-### Phase 5: Display Integration (Week 5-6)
-
-**Goal**: Integrate with screen_buffer and display system
-
-#### 5.1 Prompt Display Bridge
-- **New Files**: `src/lle/prompt/display_integration.c`
-- **Task**: Implement screen_buffer integration from Spec 25 Section 9
-
-#### 5.2 Transient Prompt
-- **New Files**: `src/lle/prompt/transient.c`
-- **Task**: Implement transient prompt feature from Spec 25 Section 12
-
-### Phase 6: Configuration (Week 6-7)
-
-**Goal**: Implement configuration loading
-
-#### 6.1 TOML Parser Integration
-- **Decision**: Use tomlc99 or implement minimal parser
-- **Task**: Integrate TOML parsing library
-
-#### 6.2 Configuration Loader
-- **New Files**: `src/lle/prompt/config.c`, `include/lle/prompt/config.h`
-- **Task**: Implement config hierarchy from Spec 25 Section 10
-
-### Phase 7: Migration and Testing (Week 7-8)
-
-**Goal**: Replace old prompt.c and themes.c
-
-#### 7.1 Legacy Adapter
-- **Task**: Create adapter for existing theme_definition_t format
-
-#### 7.2 Migration
-- **Task**: Gradually replace prompt.c functionality with new system
-
-#### 7.3 Compliance Testing
-- **New Files**: `tests/lle/compliance/spec_25_prompt_theme_compliance.c`
-- **Task**: Write comprehensive compliance tests
+| Component | Status | Description |
+|-----------|--------|-------------|
+| **Screen Buffer** | ✅ 100% | Virtual terminal screen for proper UTF-8/cursor handling |
+| **Watchdog** | ✅ 100% | SIGALRM-based deadlock detection (Session 80) |
+| **Defensive State Machine** | ✅ 100% | Guaranteed Ctrl+C/Ctrl+G exit paths from any state |
 
 ---
 
-## 4. Existing Code Analysis
+## 3. Realistic Milestones
 
-### 4.1 Files to Preserve (Working Infrastructure)
+These are achievable next steps, ordered by priority and dependency.
 
-```
-src/lle/
-├── adaptive/           # ✅ Keep - Spec 26 complete
-├── buffer/             # ✅ Keep - Spec 03 complete  
-├── completion/         # ✅ Keep - Spec 12/23 complete
-├── core/               # ✅ Keep - Core infrastructure
-├── display/            # ✅ Keep - Spec 08 working
-├── event/              # ✅ Keep - Spec 04 complete (add CHPWD)
-├── history/            # ✅ Keep - Spec 09/22 complete
-├── input/              # ✅ Keep - Spec 06 working
-├── keybinding/         # ✅ Keep - Spec 25 (keybindings) complete
-├── multiline/          # ✅ Keep - Multiline support
-├── terminal/           # ✅ Keep - Spec 02 working
-├── unicode/            # ✅ Keep - UTF-8 support
-└── widget/             # ⚠️ Extend - Needs Spec 24 completion
-```
+### Phase 1: Stability & Polish (Current Focus)
 
-### 4.2 Files to Replace Eventually
+**Goal**: Ensure rock-solid core functionality
 
-```
-src/
-├── prompt.c            # 🔄 Replace with Spec 25 implementation
-└── themes.c            # 🔄 Replace with Spec 25 implementation
-```
+| Task | Priority | Status | Notes |
+|------|----------|--------|-------|
+| Fix display stress test memory leak | Medium | Open | Pre-existing issue in display init/cleanup |
+| Address any remaining freeze scenarios | High | Ongoing | Session 80 added watchdog and state machine |
+| Complete Vi mode if desired | Low | Partial | Keybindings exist, needs testing |
+| Clean up dead code (broken diff updates) | Low | Open | Either fix or remove |
 
-### 4.3 New Files to Create
+### Phase 2: Configuration Foundation
 
-```
-src/lle/prompt/
-├── prompt_context.c
-├── template_engine.c
-├── segment.c
-├── theme_registry.c
-├── builtin_themes.c
-├── builtin_segments.c
-├── cache.c
-├── event_handlers.c
-├── git_provider.c
-├── display_integration.c
-├── transient.c
-└── config.c
+**Goal**: User customization without scripting dependencies
 
-src/lle/core/
-└── async_worker.c
+**Already Implemented:**
+- ✅ LLE preferences in core config (`src/config.c`) - arrow modes, history, dedup, multiline, search, etc.
+- ✅ User theme files from XDG paths (`$XDG_CONFIG_HOME/lusush/themes/` or `~/.config/lusush/themes/`)
+- ✅ System theme files (`/etc/lusush/themes/`)
+- ✅ Theme hot reload (`display lle theme reload`)
+- ✅ Theme export (`display lle theme export`)
 
-include/lle/prompt/
-├── prompt.h
-├── prompt_types.h
-├── template.h
-├── segment.h
-├── theme.h
-├── cache.h
-└── config.h
+**Remaining Work:**
 
-include/lle/
-└── async_worker.h
-```
+| Task | Priority | Description |
+|------|----------|-------------|
+| User keybinding configuration | High | Allow custom keybindings via config file |
+| Per-directory configuration | Low | Project-specific settings |
 
----
+### Phase 3: Native Extensibility
 
-## 5. Dependency Graph
+**Goal**: User customization through native means
 
-```
-                    ┌──────────────────────────────────────────────────┐
-                    │           SPEC 25: Prompt/Theme System           │
-                    └──────────────────────────────────────────────────┘
-                                           │
-           ┌───────────────────────────────┼───────────────────────────┐
-           │                               │                           │
-           ▼                               ▼                           ▼
-    ┌──────────────┐              ┌──────────────┐             ┌──────────────┐
-    │  Spec 04     │              │  Spec 07/24  │             │  Spec 08     │
-    │ Event System │              │Widget Hooks  │             │  Display     │
-    │  (+ CHPWD)   │              │  (Extend)    │             │ Integration  │
-    └──────────────┘              └──────────────┘             └──────────────┘
-           │                               │                           │
-           │                               │                           │
-           ▼                               ▼                           ▼
-    ┌──────────────┐              ┌──────────────┐             ┌──────────────┐
-    │   New:       │              │  Spec 07     │             │screen_buffer │
-    │ Async Worker │              │Extensibility │             │    (08)      │
-    │  (pthread)   │              │  Framework   │             │              │
-    └──────────────┘              └──────────────┘             └──────────────┘
-           │                               │
-           │                               │
-           ▼                               ▼
-    ┌──────────────┐              ┌──────────────┐
-    │  Spec 15     │              │  Spec 16     │
-    │   Memory     │              │    Error     │
-    │ Management   │              │  Handling    │
-    └──────────────┘              └──────────────┘
-```
+| Task | Priority | Description |
+|------|----------|-------------|
+| Custom completion source API | High | Register project-specific completion sources |
+| User-defined widget registration | High | Define custom widgets from config/lusush script |
+| Widget hooks for shell events | Medium | Trigger custom code on directory change, command execution |
+| Segment customization | Medium | User-defined prompt segments |
+
+### Phase 4: Display Improvements
+
+**Goal**: Enhanced visual experience
+
+| Task | Priority | Description |
+|------|----------|-------------|
+| Fix or remove differential updates | Medium | Currently broken; full redraw works but is less efficient |
+| Advanced syntax highlighting rules | Medium | More shell construct coverage |
+| Improved autosuggestion algorithm | Low | Context-aware, not just history prefix |
+| Fish-style path abbreviation | Low | ~/D/p/lusush instead of ~/Documents/projects/lusush |
+
+### Phase 5: Integration Polish
+
+**Goal**: Complete readline replacement
+
+| Task | Priority | Description |
+|------|----------|-------------|
+| Remove GNU readline dependency | High | Final goal: LLE is the only line editor |
+| Lusush scripting hooks | Medium | When lusush scripting matures, expose LLE hooks |
+| Complete `display lle` command set | Low | All spec'd UI commands |
 
 ---
 
-## 6. Risk Assessment
+## 4. Long-Term Vision (Aspirational)
 
-### 6.1 High Risk Items
+These features are preserved from the original specifications as future possibilities. They are **not** current priorities but represent the ultimate potential of LLE.
 
-1. **Async Worker Thread Pool**
-   - New code, not based on existing patterns
-   - Threading bugs are subtle
-   - Mitigation: Follow Spec 25 Section 7 exactly, extensive testing
+### Native Scripting Extensibility
+- When lusush's own scripting language matures beyond POSIX
+- User-defined functions callable from keybindings
+- Event handlers written in lusush script
+- No external language dependencies (Lua/Python)
 
-2. **Event System Extension (CHPWD)**
-   - Modifying working code
-   - Could introduce regressions
-   - Mitigation: Add new event type, don't modify existing
+### Advanced Async Providers
+- Non-blocking providers for slow data sources
+- Background file system scanning for completions
+- Network-aware completions for remote paths
 
-3. **Display Integration**
-   - Complex interaction with existing display system
-   - Cursor positioning edge cases
-   - Mitigation: Comprehensive testing with various terminal sizes
-
-### 6.2 Medium Risk Items
-
-1. **Template Engine**
-   - Complex parsing logic
-   - Edge cases in conditional syntax
-   - Mitigation: Thorough unit testing
-
-2. **Theme Inheritance**
-   - Cycle detection needed
-   - Property merging complexity
-   - Mitigation: Follow spec exactly, test inheritance chains
-
-### 6.3 Low Risk Items
-
-1. **Built-in Themes/Segments** - Straightforward implementation
-2. **Configuration Loading** - Clear hierarchy
-3. **Transient Prompt** - Isolated feature
+### Enhanced Widget System
+- More granular widget lifecycle hooks
+- Widget chaining and composition
+- Widget-level configuration
 
 ---
 
-## 7. Testing Strategy
+## 5. Deprecated / Legacy Items
 
-### 7.1 Unit Tests Required
+These components exist but are scheduled for removal:
 
-```
-tests/lle/unit/
-├── test_prompt_context.c
-├── test_template_engine.c
-├── test_segment_system.c
-├── test_theme_registry.c
-├── test_prompt_cache.c
-├── test_async_worker.c
-└── test_transient_prompt.c
-```
-
-### 7.2 Integration Tests Required
-
-```
-tests/lle/integration/
-├── test_prompt_event_integration.c
-├── test_prompt_display_integration.c
-└── test_prompt_config_integration.c
-```
-
-### 7.3 Compliance Test Required
-
-```
-tests/lle/compliance/
-└── spec_25_prompt_theme_compliance.c  # Following existing pattern
-```
+| Item | Status | Replacement | Notes |
+|------|--------|-------------|-------|
+| `theme` builtin command | Deprecated | `display lle theme ...` | Legacy command predating readline; will be removed once nothing depends on it |
+| GNU Readline dependency | To be removed | LLE | Final integration goal; LLE becomes the only line editor |
 
 ---
 
-## 8. Recommendations
+## 6. Explicitly Deferred Features
 
-### 8.1 Immediate Actions
+These features are **intentionally not being implemented** for the reasons stated:
 
-1. **Create this roadmap document** ✅ (this document)
-2. **Add LLE_HOOK_CHPWD to event system** - First concrete step
-3. **Create async_worker infrastructure** - Core dependency
+| Feature | Original Spec | Reason for Deferral |
+|---------|---------------|---------------------|
+| **Lua/Python Scripting** | Spec 13 | Conflicts with self-contained philosophy; introduces external dependencies |
+| **Plugin Sandboxing** | Spec 19 | Requires security expertise not currently prioritized; complexity not justified without plugin ecosystem |
+| **Plugin Marketplace** | Spec 07 | Requires user base and plugin ecosystem that don't exist |
+| **Enterprise Security Features** | Spec 19 | Over-engineered for current project stage |
+| **Configuration Schema Validation** | Spec 13 | Useful for plugins; less needed without plugin system |
 
-### 8.2 Development Approach
-
-- **One phase at a time** - Complete each phase before moving to next
-- **Test-first** - Write compliance tests as specs are implemented
-- **No shortcuts** - Follow specifications exactly
-- **Preserve working code** - Don't break existing systems
-
-### 8.3 Quality Gates
-
-Before moving to next phase:
-1. All new code has unit tests
-2. All unit tests pass
-3. No regressions in existing tests
-4. Code review completed
-5. Documentation updated
+These may be revisited if:
+1. Lusush gains significant user adoption
+2. Community expresses strong need
+3. Native lusush scripting becomes powerful enough to serve as plugin language
 
 ---
 
-## 9. Conclusion
+## 7. Known Issues
 
-The Prompt/Theme System (Spec 25) is well-specified and comprehensive. However, implementing it correctly requires:
+Active issues are tracked in `docs/lle_implementation/tracking/KNOWN_ISSUES.md`.
 
-1. **Filling gaps in supporting systems first** (Event CHPWD, Widget Hooks, Async Worker)
-2. **Building the new prompt infrastructure piece by piece**
-3. **Careful integration with existing display system**
-4. **Thorough testing at each phase**
+### Current Active Issues
 
-Estimated timeline: **6-8 weeks** for full implementation following this roadmap.
+| Issue | Severity | Description |
+|-------|----------|-------------|
+| Display stress test leak | Low | Memory leak in display init/cleanup cycles |
+| macOS cursor flicker | Low | Pre-existing multiline input flicker |
+| Differential updates broken | Low | Code exists but doesn't work; full redraw used |
 
-The investment is worthwhile because:
-- Fixes Issue #16 (stale git prompt) permanently
-- Provides modern prompt capabilities matching starship/powerlevel10k
-- Creates a foundation for future prompt enhancements
-- Maintains architectural consistency with other LLE systems
+### Recently Resolved
+
+| Issue | Resolution | Session |
+|-------|------------|---------|
+| LLE complete freeze/hang | Watchdog + state machine | Session 80 |
+| Git segment not updating | Segment cache invalidation | Session 80 |
+| Autosuggestion ghost text on Enter | Clear in handle_enter() | Session 80 |
+| Stale git prompt (Issue #16) | Shell event hub + cache invalidation | Session 67 |
+| Transient prompts | Full implementation | Sessions 72-73 |
+| Theme file loading | TOML parser + hot reload | Session 77 |
 
 ---
 
-**Document Version**: 1.0
-**Author**: LLE Development Analysis
-**Last Updated**: 2025-12-26
+## 8. Architecture Notes
+
+### Screen Buffer (Critical Post-Spec Component)
+
+The screen buffer (`src/display/screen_buffer.c`) was not in the original specifications but is **essential** for proper display:
+
+- Creates virtual terminal screen representation
+- Handles UTF-8 and wide character display width correctly
+- Calculates cursor position accounting for line wraps
+- Solves the "cursor positioning during output" problem
+
+**Key Principle**: Calculate complete screen layout once, then use for both rendering and cursor positioning.
+
+### Shell Integration Architecture
+
+LLE uses a **persistent global integration** (`g_lle_integration` in `lle_shell_integration.c`) that survives across readline sessions:
+
+```
+g_lle_integration (persistent)
+├── editor         - Persistent LLE editor instance
+├── event_hub      - Shell event hub for lifecycle events
+├── composer       - Prompt composer (Spec 25)
+└── init_state     - Initialization tracking
+```
+
+**Two complementary event systems:**
+
+1. **Shell Event Hub** (`lle_shell_event_hub.c`) - Shell-level, persistent
+   - Events: DIRECTORY_CHANGED, PRE_COMMAND, POST_COMMAND
+   - Fired from builtins (e.g., `bin_cd()` fires directory change)
+   - Handlers registered at shell startup, persist across readline calls
+   - Used by prompt composer for cache invalidation
+
+2. **Widget Hooks** (`widget/widget_hooks.c`) - Editor-level
+   - Events: LINE_INIT, LINE_FINISH, BUFFER_MODIFIED, etc.
+   - For editor lifecycle within a readline session
+
+**Example flow for `cd` command:**
+```
+bin_cd() 
+  → prompt_cache_invalidate()
+  → prompt_async_refresh_git() 
+  → lle_fire_directory_changed()
+    → lle_shell_event_hub_fire(DIRECTORY_CHANGED)
+      → registered handlers notified
+```
+
+### Differential Updates (Broken)
+
+The display system has code for differential updates (only redraw changed lines) but it **doesn't work correctly**. Current approach:
+
+1. Clear screen from cursor position to end
+2. Redraw everything
+
+This is functional but less efficient. Fixing this is lower priority since the current approach works.
+
+---
+
+## 9. Reference Documents
+
+### Specifications
+- `docs/lle_specification/LLE_DESIGN_DOCUMENT.md` - Overall architecture vision
+- `docs/lle_specification/02-22_*.md` - Core specifications (preserved as reference)
+- `docs/lle_specification/critical_gaps/*.md` - Integration specifications
+
+### Implementation Tracking
+- `docs/lle_implementation/tracking/KNOWN_ISSUES.md` - Active issues
+- `docs/lle_implementation/tracking/DECISION_LOG.md` - Technical decisions
+- `AI_ASSISTANT_HANDOFF_DOCUMENT.md` - Session continuity
+
+### Critical Component Docs
+- `docs/development/SCREEN_BUFFER_SPECIFICATION.md` - Screen buffer design
+
+---
+
+## 10. Conclusion
+
+LLE has evolved from ambitious specifications into a functional, production-quality line editor. The core systems are complete:
+
+- **Buffer management**, **history**, **completion**, **keybindings** - Fully working
+- **Prompt/theme system** - Modern, extensible, with 10 themes
+- **Event system** - Shell lifecycle events integrated
+- **Display** - Screen buffer solves cursor positioning
+
+The path forward focuses on:
+1. **Stability** - Fixing remaining edge cases
+2. **Configuration** - User customization through files
+3. **Native extensibility** - APIs for custom completions and widgets
+4. **Integration** - Removing readline dependency
+
+The original specifications remain as inspiration for what LLE could become, while realistic milestones guide actual development.
+
+---
+
+**Document History**:
+- v2.0 (2025-12-30): Complete rewrite with accurate status assessment
+- v1.0 (2025-12-26): Original document (now outdated)
