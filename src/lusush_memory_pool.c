@@ -41,6 +41,10 @@ static lusush_pool_error_t last_error = LUSUSH_POOL_SUCCESS;
 static size_t fallback_sizes[100];
 static int fallback_count = 0;
 
+// Track whether pool was ever initialized (vs never used)
+// This distinguishes "pool shutdown" from "pool never started"
+static bool pool_was_ever_initialized = false;
+
 // Pool size definitions (optimized for display operations)
 static const size_t POOL_SIZES[LUSUSH_POOL_COUNT] = {
     128,  // SMALL: state hashes, cache keys
@@ -358,6 +362,7 @@ lusush_pool_error_t lusush_pool_init(const lusush_pool_config_t *config) {
     }
 
     global_memory_pool->initialized = true;
+    pool_was_ever_initialized = true;
 
     pthread_mutex_unlock(&pool_mutex);
 
@@ -467,16 +472,19 @@ void lusush_pool_free(void *ptr) {
 
     pthread_mutex_lock(&pool_mutex);
 
-    // If pool is already shut down, skip the free entirely.
-    // The pool shutdown already freed all pool-managed memory blocks.
-    // Calling free() on pool memory after shutdown causes double-free.
+    // Handle case where pool is NULL
     if (!global_memory_pool) {
         pthread_mutex_unlock(&pool_mutex);
-        // Note: We intentionally do NOT call free(ptr) here.
-        // If the pool is gone, either:
-        // 1. The memory was from the pool and was freed during shutdown, or
-        // 2. The memory was from malloc fallback and we leak it (acceptable at exit)
-        return;
+        if (pool_was_ever_initialized) {
+            // Pool was shut down - memory was already freed during shutdown.
+            // Do NOT call free() here as it would cause double-free.
+            return;
+        } else {
+            // Pool was never initialized - this memory came from malloc fallback.
+            // We must free it to avoid leaking.
+            free(ptr);
+            return;
+        }
     }
 
     bool returned_to_pool = false;

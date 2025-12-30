@@ -194,7 +194,7 @@ These are achievable next steps, ordered by priority and dependency.
 
 | Task | Priority | Status | Notes |
 |------|----------|--------|-------|
-| Fix display stress test memory leak | Medium | Open | Pre-existing issue in display init/cleanup |
+| ~~Fix display stress test memory leak~~ | ~~Medium~~ | ✅ Fixed | Session 83: `pool_was_ever_initialized` flag in lusush_memory_pool.c |
 | Address any remaining freeze scenarios | High | Ongoing | Session 80 added watchdog and state machine |
 | Complete Vi mode if desired | Low | Partial | Keybindings exist, needs testing |
 | Clean up dead code (broken diff updates) | Low | Open | Either fix or remove |
@@ -311,7 +311,6 @@ Active issues are tracked in `docs/lle_implementation/tracking/KNOWN_ISSUES.md`.
 
 | Issue | Severity | Description |
 |-------|----------|-------------|
-| Display stress test leak | Low | Memory leak in display init/cleanup cycles |
 | macOS cursor flicker | Low | Pre-existing multiline input flicker |
 | Differential updates broken | Low | Code exists but doesn't work; full redraw used |
 
@@ -319,6 +318,7 @@ Active issues are tracked in `docs/lle_implementation/tracking/KNOWN_ISSUES.md`.
 
 | Issue | Resolution | Session |
 |-------|------------|---------|
+| Display stress test leak | `pool_was_ever_initialized` flag in memory pool | Session 83 |
 | LLE complete freeze/hang | Watchdog + state machine | Session 80 |
 | Git segment not updating | Segment cache invalidation | Session 80 |
 | Autosuggestion ghost text on Enter | Clear in handle_enter() | Session 80 |

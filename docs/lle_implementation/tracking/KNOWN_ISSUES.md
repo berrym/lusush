@@ -1019,6 +1019,58 @@ quote> world"
 
 ## Resolved Issues
 
+### Issue #27: Display Stress Test Memory Leak (macOS-only) ✅ FIXED
+**Severity**: MEDIUM  
+**Discovered**: 2025-12-30 (Session 83 - macOS clean build verification)  
+**Fixed**: 2025-12-30 (Session 83)  
+**Component**: src/lusush_memory_pool.c  
+
+**Description**:
+The LLE Display Stress Test was failing on macOS with a memory leak detection error. The test reported ~8MB of memory growth and the macOS `leaks` tool identified 38,650 leaks totaling ~17MB.
+
+**Root Cause**:
+When `lusush_pool_alloc()` is called without an initialized global memory pool, it falls back to `malloc()`. However, `lusush_pool_free()` had a bug where if `global_memory_pool` was NULL, it would return early **without calling `free()`** on the malloc'd memory.
+
+The logic was intended to prevent double-frees after pool shutdown, but it didn't distinguish between:
+1. Pool was never initialized → memory came from malloc fallback → must `free()`
+2. Pool was shut down → memory was already freed during shutdown → must NOT `free()`
+
+**Fix Applied**:
+Added a `pool_was_ever_initialized` static flag to track whether the pool was ever initialized:
+
+```c
+// Track whether pool was ever initialized (vs never used)
+static bool pool_was_ever_initialized = false;
+
+// Set in lusush_pool_init():
+pool_was_ever_initialized = true;
+
+// Used in lusush_pool_free():
+if (!global_memory_pool) {
+    if (pool_was_ever_initialized) {
+        // Pool was shut down - don't free (would double-free)
+        return;
+    } else {
+        // Pool never initialized - memory came from malloc
+        free(ptr);
+        return;
+    }
+}
+```
+
+**Verification**:
+- ✅ macOS `leaks` tool reports 0 leaks, 0 bytes leaked
+- ✅ Display Stress Test passes (all 6 sub-tests)
+- ✅ Full test suite passes (58/58 tests)
+- ✅ Memory delta in stress test dropped from 8396 KB to 0 KB
+
+**Files Modified**:
+- `src/lusush_memory_pool.c` - Added `pool_was_ever_initialized` flag and fixed free logic
+
+**Status**: ✅ FIXED
+
+---
+
 ### Issue #17: Command-Aware Directory Completion ✅ FIXED
 **Severity**: MEDIUM  
 **Discovered**: 2025-12-21 (Session 53)  
