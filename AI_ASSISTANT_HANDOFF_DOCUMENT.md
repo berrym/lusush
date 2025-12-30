@@ -255,7 +255,6 @@ Comprehensive audit fixing 15 critical/high/medium issues including:
 | #22 | MEDIUM | Template variables exit_code/jobs dead code |
 | #20 | LOW | respect_user_ps1 not exposed to users |
 | macOS | LOW | Known cursor flicker/sync issue (pre-existing) |
-| Stress Test | LOW | Display init/cleanup memory leak (pre-existing) |
 
 ---
 
@@ -301,13 +300,11 @@ Comprehensive audit fixing 15 critical/high/medium issues including:
 
 1. **User Keybinding Configuration**: Allow custom keybindings via config file
 
-2. **Investigate Display Stress Test Memory Leak**: Pre-existing issue
+2. **Clean Up exit_code/jobs Variables** (Issue #22): Wire to actual shell state
 
-3. **Clean Up exit_code/jobs Variables** (Issue #22): Wire to actual shell state
+3. **Complete Vi Mode**: Keybindings exist, needs testing
 
-4. **Complete Vi Mode**: Keybindings exist, needs testing
-
-5. **Remove Dead Code**: Fix or remove broken differential updates
+4. **Remove Dead Code**: Fix or remove broken differential updates
 
 ---
 
