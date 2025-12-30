@@ -7,31 +7,37 @@
 
 ---
 
-## Session 82: Linux Build Fix
+## Session 82: Linux Build Fix & Warning Cleanup
 
-Fixed Linux build errors caused by `strcasecmp` implicit declaration.
+Fixed Linux build errors and eliminated all compiler warnings for a clean build.
 
-### Problem
+### Commit 1: strcasecmp Forward Declarations
 
-The new theme_parser.c and theme_loader.c files used `strcasecmp()` but the
-function wasn't being declared due to feature test macro conflicts between
-`_POSIX_C_SOURCE=200809L` (set in lle_c_args) and `_XOPEN_SOURCE=700` on
-Linux/glibc.
+**Problem**: `strcasecmp()` implicit declaration due to feature test macro
+conflicts between `_POSIX_C_SOURCE=200809L` and `_XOPEN_SOURCE=700`.
 
-### Solution
+**Fix**: Added forward declarations matching the pattern in `ht_fnv1a.c`.
 
-Added forward declarations for `strcasecmp()` in both files, matching the
-pattern already used in `src/libhashtable/ht_fnv1a.c` for the same reason.
+### Commit 2: Warning Cleanup
 
-### Files Changed
+Fixed all GCC warnings in theme_parser.c and theme_loader.c:
 
-- `src/lle/prompt/theme_parser.c`: Added strcasecmp forward declaration
-- `src/lle/prompt/theme_loader.c`: Added strcasecmp forward declaration
+1. **Use-after-free** (theme_loader.c:352): Moved `free(theme)` after using `theme->name`
+2. **Format truncation** (theme_loader.c:253): Limited validation error to 230 chars
+3. **Format truncation** (theme_loader.c:468): Limited path components in snprintf
+4. **Format truncation** (theme_parser.c): Added precision specifiers to all string copies:
+   - `theme->name`: %.63s (64 byte field)
+   - `theme->description`: %.255s (256 byte field)
+   - `theme->author`: %.63s (64 byte field)
+   - `theme->version`: %.15s (16 byte field)
+   - `theme->inherits_from`: %.63s (64 byte field)
+   - `enabled_segments[i]`: %.31s (32 byte field)
+   - Symbol fields: %.15s (16 byte field)
 
 ### Build Status
 
-- Linux: **PASSING** (all 58 tests pass)
-- macOS: Should remain compatible (forward declaration is harmless)
+- Linux: **PASSING** (all 58 tests pass, zero warnings)
+- macOS: Should remain compatible
 
 ---
 

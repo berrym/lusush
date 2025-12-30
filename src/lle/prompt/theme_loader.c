@@ -250,7 +250,7 @@ lle_result_t lle_theme_load_from_string(const char *content, lle_theme_t *theme,
         if (result) {
             result->status = status;
             snprintf(result->error_msg, sizeof(result->error_msg),
-                     "Validation failed: %s", validation_error);
+                     "Validation failed: %.230s", validation_error);
         }
         return status;
     }
@@ -342,7 +342,6 @@ size_t lle_theme_load_directory(const char *dirpath,
 
         /* Check if theme already exists */
         if (lle_theme_registry_find(registry, theme->name)) {
-            free(theme);
             if (result) {
                 result->skipped_count++;
             }
@@ -351,6 +350,7 @@ size_t lle_theme_load_directory(const char *dirpath,
                 snprintf(load_result->error_msg, sizeof(load_result->error_msg),
                          "Theme '%s' already exists", theme->name);
             }
+            free(theme);
             continue;
         }
 
@@ -465,7 +465,8 @@ lle_result_t lle_theme_reload_by_name(lle_theme_registry_t *registry,
     char filepath[LLE_THEME_PATH_MAX];
 
     if (lle_theme_get_user_dir(user_dir, sizeof(user_dir)) == LLE_SUCCESS) {
-        snprintf(filepath, sizeof(filepath), "%s/%s%s", user_dir, name,
+        /* Limit components to prevent truncation: path + "/" + name + ext */
+        snprintf(filepath, sizeof(filepath), "%.4020s/%.64s%s", user_dir, name,
                  LLE_THEME_FILE_EXTENSION);
 
         if (lle_theme_file_exists(filepath)) {

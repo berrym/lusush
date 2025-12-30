@@ -1098,26 +1098,26 @@ static lle_result_t theme_builder_callback(const char *section, const char *key,
     /* [theme] section - metadata */
     if (strcmp(section, "theme") == 0) {
         if (strcmp(key, "name") == 0 && value->type == LLE_THEME_VALUE_STRING) {
-            snprintf(theme->name, sizeof(theme->name), "%s",
+            snprintf(theme->name, sizeof(theme->name), "%.63s",
                      value->data.string);
         } else if (strcmp(key, "description") == 0 &&
                    value->type == LLE_THEME_VALUE_STRING) {
-            snprintf(theme->description, sizeof(theme->description), "%s",
+            snprintf(theme->description, sizeof(theme->description), "%.255s",
                      value->data.string);
         } else if (strcmp(key, "author") == 0 &&
                    value->type == LLE_THEME_VALUE_STRING) {
-            snprintf(theme->author, sizeof(theme->author), "%s",
+            snprintf(theme->author, sizeof(theme->author), "%.63s",
                      value->data.string);
         } else if (strcmp(key, "version") == 0 &&
                    value->type == LLE_THEME_VALUE_STRING) {
-            snprintf(theme->version, sizeof(theme->version), "%s",
+            snprintf(theme->version, sizeof(theme->version), "%.15s",
                      value->data.string);
         } else if (strcmp(key, "category") == 0 &&
                    value->type == LLE_THEME_VALUE_STRING) {
             theme->category = parse_category(value->data.string);
         } else if (strcmp(key, "inherits_from") == 0 &&
                    value->type == LLE_THEME_VALUE_STRING) {
-            snprintf(theme->inherits_from, sizeof(theme->inherits_from), "%s",
+            snprintf(theme->inherits_from, sizeof(theme->inherits_from), "%.63s",
                      value->data.string);
         }
         return LLE_SUCCESS;
@@ -1198,7 +1198,7 @@ static lle_result_t theme_builder_callback(const char *section, const char *key,
                  i++) {
                 if (value->data.array.items[i].type == LLE_THEME_VALUE_STRING) {
                     snprintf(theme->enabled_segments[i],
-                             sizeof(theme->enabled_segments[i]), "%s",
+                             sizeof(theme->enabled_segments[i]), "%.31s",
                              value->data.array.items[i].data.string);
                     theme->enabled_segment_count++;
                 }
@@ -1323,7 +1323,8 @@ static lle_result_t theme_builder_callback(const char *section, const char *key,
             target = theme->symbols.jobs;
 
         if (target) {
-            snprintf(target, target_size, "%s", value->data.string);
+            /* Limit to LLE_SYMBOL_MAX-1 chars to prevent truncation warnings */
+            snprintf(target, target_size, "%.15s", value->data.string);
         }
         return LLE_SUCCESS;
     }
