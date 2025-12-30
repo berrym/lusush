@@ -1,21 +1,41 @@
 # AI Assistant Handoff Document - Session 83
 
 **Date**: 2025-12-30  
-**Session Type**: macOS Build Verification & Memory Leak Fix  
+**Session Type**: macOS Build Verification, Memory Leak Fix, Watchdog Metrics  
 **Status**: COMPLETE  
 **Branch**: `feature/lle`
 
 ---
 
-## Session 83: macOS Clean Build & Memory Pool Leak Fix
+## Session 83: macOS Build, Memory Leak Fix, Watchdog Audit
 
-Verified macOS build after Session 82's Linux fixes, discovered and fixed a memory leak in the memory pool system.
+Three parts: macOS build verification, memory pool leak fix, and watchdog effectiveness testing.
 
-### macOS Build Verification
+### Part 1: macOS Build Verification
 
 Clean build verification confirmed Session 82's Linux fixes didn't break macOS:
 - All 357 build targets compiled successfully
-- All 58 tests pass
+- All 58 tests pass (before watchdog test added)
+
+### Part 2: Watchdog Metrics & Stress Test
+
+Added ability to audit watchdog and defensive state machine effectiveness:
+
+**Option A: Enhanced `display lle diagnostics`**
+- Added Watchdog stats: pets, fires, recoveries, recovery rate, armed status
+- Added Safety System stats: errors, ctrl_g count, recovery mode, readline calls
+- Added Shell Event Hub stats: events fired, directory changes, commands executed
+
+**Option B: New Watchdog Stress Test**
+- Created `tests/lle/stress/watchdog_stress_test.c`
+- 6 tests covering initialization, pet, timeout detection, rapid pet, effectiveness, signal safety
+- Results: **100% detection rate, 100% recovery rate**
+- All 59 tests now pass
+
+### Files Modified (Watchdog)
+- `src/builtins/builtins.c` - Added watchdog/safety stats to diagnostics
+- `tests/lle/stress/watchdog_stress_test.c` - New stress test
+- `meson.build` - Added watchdog stress test target
 
 ### Memory Leak Fix (Issue #27)
 

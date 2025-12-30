@@ -12,6 +12,8 @@
 #include "lle/history.h"
 #include "lle/lle_shell_event_hub.h"
 #include "lle/lle_shell_integration.h"
+#include "lle/lle_watchdog.h"
+#include "lle/lle_safety.h"
 #include "lle/keybinding.h"
 #include "lle/lle_editor.h"
 #include "lle/prompt/theme.h"
@@ -4963,6 +4965,39 @@ int bin_display(int argc, char **argv) {
             } else {
                 printf("OK\n");
             }
+
+            /* Watchdog Statistics */
+            printf("\nWatchdog (Deadlock Detection):\n");
+            lle_watchdog_stats_t wd_stats;
+            if (lle_watchdog_get_stats(&wd_stats) == LLE_SUCCESS) {
+                printf("  Timer resets (pets): %u\n", wd_stats.total_pets);
+                printf("  Timeouts fired: %u\n", wd_stats.total_fires);
+                printf("  Successful recoveries: %u\n", wd_stats.total_recoveries);
+                if (wd_stats.total_fires > 0) {
+                    double recovery_rate = (double)wd_stats.total_recoveries / 
+                                           wd_stats.total_fires * 100.0;
+                    printf("  Recovery rate: %.1f%%\n", recovery_rate);
+                }
+                printf("  Currently armed: %s\n", 
+                       lle_watchdog_is_armed() ? "yes" : "no");
+            } else {
+                printf("  Status: not initialized\n");
+            }
+
+            /* Safety System Statistics */
+            printf("\nSafety System (Panic Recovery):\n");
+            printf("  %s\n", lle_safety_get_stats_summary());
+            printf("  Init state: %s\n", lle_safety_get_init_state_summary());
+            printf("  Recovery mode: %s\n", 
+                   lle_safety_is_recovery_mode() ? "ACTIVE" : "inactive");
+
+            /* Shell Event Hub Statistics */
+            printf("\nShell Event Hub:\n");
+            uint64_t events_fired = 0, dir_changes = 0, commands = 0;
+            lle_safety_get_event_stats(&events_fired, &dir_changes, &commands);
+            printf("  Total events fired: %llu\n", (unsigned long long)events_fired);
+            printf("  Directory changes: %llu\n", (unsigned long long)dir_changes);
+            printf("  Commands executed: %llu\n", (unsigned long long)commands);
 
             return 0;
 

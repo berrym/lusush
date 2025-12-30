@@ -377,6 +377,17 @@ if lle_sources.length() > 0
        suite: 'lle-stress',
        timeout: 300)
 
+  # Watchdog and Safety System stress tests
+  # Tests freeze detection, recovery mechanisms, and effectiveness metrics
+  stress_watchdog = executable('stress_watchdog_test',
+                               ['tests/lle/stress/watchdog_stress_test.c'],
+                               include_directories: inc,
+                               dependencies: [lle_dep, display_dep, readline_link_dep])
+
+  test('LLE Watchdog Stress Tests', stress_watchdog,
+       suite: 'lle-stress',
+       timeout: 60)
+
   # Display Bridge Unit Tests (Spec 08)
   # Unit tests for display bridge initialization, cleanup, and error handling
   # Uses mocks for display_controller and memory pool (standard unit test practice)
