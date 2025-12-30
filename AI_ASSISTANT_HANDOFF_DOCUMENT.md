@@ -34,6 +34,18 @@ Fixed all GCC warnings in theme_parser.c and theme_loader.c:
    - `enabled_segments[i]`: %.31s (32 byte field)
    - Symbol fields: %.15s (16 byte field)
 
+### Commit 3: Autocorrect Terminal Fix
+
+**Problem**: On Linux with LLE enabled, the autocorrect prompt displayed `^M` 
+when pressing Enter instead of accepting input. Worked on macOS.
+
+**Cause**: LLE disables `ICRNL` (CR to NL translation) in raw mode. After 
+`lle_readline()` exits, the terminal state wasn't being fully restored before
+`autocorrect_prompt_user()` called `fgets()`. Linux's `fgets()` saw raw CR.
+
+**Fix**: Modified `autocorrect_prompt_user()` to explicitly set canonical mode
+with `ICRNL` enabled before reading input, then restore original state after.
+
 ### Build Status
 
 - Linux: **PASSING** (all 58 tests pass, zero warnings)

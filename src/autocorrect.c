@@ -20,6 +20,7 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/stat.h>
+#include <termios.h>
 #include <unistd.h>
 
 // Global auto-correction configuration
@@ -248,9 +249,31 @@ bool autocorrect_prompt_user(const correction_results_t *results,
     printf("\nSelect (0-%d): ", results->count);
     fflush(stdout);
 
+    /* Ensure terminal is in canonical mode with proper CR->NL translation.
+     * This is needed because LLE may have left terminal in a state where
+     * ICRNL is disabled, causing fgets() to see raw CR (^M) instead of NL. */
+    struct termios orig_term, cooked_term;
+    bool term_modified = false;
+    if (tcgetattr(STDIN_FILENO, &orig_term) == 0) {
+        cooked_term = orig_term;
+        cooked_term.c_iflag |= ICRNL;  /* Translate CR to NL */
+        cooked_term.c_lflag |= (ICANON | ECHO);  /* Canonical mode with echo */
+        if (tcsetattr(STDIN_FILENO, TCSANOW, &cooked_term) == 0) {
+            term_modified = true;
+        }
+    }
+
     char input[10];
     if (!fgets(input, sizeof(input), stdin)) {
+        if (term_modified) {
+            tcsetattr(STDIN_FILENO, TCSANOW, &orig_term);
+        }
         return false;
+    }
+
+    /* Restore original terminal state */
+    if (term_modified) {
+        tcsetattr(STDIN_FILENO, TCSANOW, &orig_term);
     }
 
     int choice = atoi(input);
