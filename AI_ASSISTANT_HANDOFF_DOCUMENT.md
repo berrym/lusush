@@ -1,9 +1,37 @@
-# AI Assistant Handoff Document - Session 81
+# AI Assistant Handoff Document - Session 82
 
 **Date**: 2025-12-30  
-**Session Type**: LLE Implementation Audit & Roadmap Update  
+**Session Type**: Linux Build Fix  
 **Status**: COMPLETE  
 **Branch**: `feature/lle`
+
+---
+
+## Session 82: Linux Build Fix
+
+Fixed Linux build errors caused by `strcasecmp` implicit declaration.
+
+### Problem
+
+The new theme_parser.c and theme_loader.c files used `strcasecmp()` but the
+function wasn't being declared due to feature test macro conflicts between
+`_POSIX_C_SOURCE=200809L` (set in lle_c_args) and `_XOPEN_SOURCE=700` on
+Linux/glibc.
+
+### Solution
+
+Added forward declarations for `strcasecmp()` in both files, matching the
+pattern already used in `src/libhashtable/ht_fnv1a.c` for the same reason.
+
+### Files Changed
+
+- `src/lle/prompt/theme_parser.c`: Added strcasecmp forward declaration
+- `src/lle/prompt/theme_loader.c`: Added strcasecmp forward declaration
+
+### Build Status
+
+- Linux: **PASSING** (all 58 tests pass)
+- macOS: Should remain compatible (forward declaration is harmless)
 
 ---
 
