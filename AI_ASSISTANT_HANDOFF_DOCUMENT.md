@@ -1,9 +1,107 @@
-# AI Assistant Handoff Document - Session 85
+# AI Assistant Handoff Document - Session 86
 
 **Date**: 2025-12-31  
-**Session Type**: LLE User Keybinding Configuration  
+**Session Type**: Custom Completion Source API  
 **Status**: COMPLETE  
 **Branch**: `feature/lle`
+
+---
+
+## Session 86: Custom Completion Source API & Configuration
+
+Implemented a two-layer custom completion source system: a public C API for programmatic registration and a user-facing config file for shell command-based completions.
+
+### Problem
+
+Users couldn't define custom completion sources without modifying C code. There was no way to add project-specific or tool-specific completions.
+
+### Solution
+
+Created a complete extensibility system with two layers:
+
+1. **Layer 2: Public C API** (`include/lle/completion/custom_source.h`)
+   - `lle_custom_completion_source_t` struct for defining sources
+   - `lle_completion_register_source()` / `lle_completion_unregister_source()`
+   - Query functions for listing sources
+   - Helper: `lle_completion_add_item()` for adding completions
+
+2. **Layer 3: Config File** (`~/.config/lusush/completions.toml`)
+   - TOML format matching keybindings/themes
+   - Shell command execution with 2-second timeout
+   - Result caching with configurable TTL
+   - Pattern matching for command/argument context
+
+### Configuration Format
+
+```toml
+# ~/.config/lusush/completions.toml
+[sources.git-branches]
+description = "Git branch names"
+applies_to = ["git checkout", "git merge", "git rebase"]
+argument = 2
+command = "git branch --list 2>/dev/null | sed 's/^[* ]*//'"
+suffix = " "
+cache_seconds = 5
+```
+
+### Key Features
+
+- **Two-layer architecture**: C API foundation + config file on top
+- **Shell command execution**: Run any command to generate completions
+- **Caching**: Optional TTL-based result caching for performance
+- **Pattern matching**: `applies_to` matches command + subcommand patterns
+- **Argument position**: Target specific argument positions
+- **Thread-safe**: Mutex-protected registration and queries
+- **Hot reload**: `display lle completions reload` applies changes immediately
+
+### Display Commands
+
+- `display lle completions` - Show help
+- `display lle completions list` - Show all sources (built-in + custom)
+- `display lle completions reload` - Reload config file
+- `display lle completions help` - Show config format and examples
+
+### Files Created
+
+- `include/lle/completion/custom_source.h` - Public API header (400+ lines)
+- `src/lle/completion/custom_source.c` - C API implementation
+- `src/lle/completion/completion_config.c` - Config parser and command executor
+- `examples/completions.toml` - Comprehensive example with git, docker, ssh, npm, k8s, etc.
+
+### Files Modified
+
+- `include/lle/completion/source_manager.h` - Added `LLE_SOURCE_CUSTOM` enum
+- `include/lle/completion/completion_types.h` - Added `LLE_COMPLETION_TYPE_CUSTOM`
+- `src/lle/completion/completion_types.c` - Added custom type handling
+- `src/lle/meson.build` - Added new source files
+- `src/lle/lle_editor.c` - Initialize custom sources on editor creation
+- `src/builtins/builtins.c` - Added `display lle completions` commands
+
+### Architecture
+
+```
+┌─────────────────────────────────────────┐
+│  Layer 3: User Config (completions.toml)│  ← End users
+└─────────────────────────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────┐
+│  Layer 2: Public C API                  │  ← Builtins, future plugins
+│  lle_completion_register_source()       │
+└─────────────────────────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────┐
+│  Layer 1: Internal Infrastructure       │  ← Already exists
+│  lle_source_manager_register()          │
+└─────────────────────────────────────────┘
+```
+
+### Spec Coverage
+
+- **Spec 12** (Completion System): Custom source extensibility
+- **Spec 07** (Extensibility): User-defined completion providers
+- **Spec 13** (User Customization): Config file-based customization
 
 ---
 
@@ -223,7 +321,8 @@ Comprehensive audit of LLE implementation against original specifications (02-27
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| **User Keybindings** | **NEW** | ~/.config/lusush/keybindings.toml |
+| **Custom Completions** | **NEW** | ~/.config/lusush/completions.toml + C API |
+| **User Keybindings** | Complete | ~/.config/lusush/keybindings.toml |
 | Autosuggestions | Working | Fish-style, Ctrl+Right partial accept |
 | Emacs Keybindings | Working | Full preset loader |
 | Completion System | Working | Spec 12 implementation |
@@ -263,7 +362,7 @@ Comprehensive audit of LLE implementation against original specifications (02-27
 
 2. **Complete Vi Mode**: Keybindings exist, needs testing
 
-3. **Custom Completion Source API**: Allow users to register custom completers
+3. **User-Defined Widgets**: Allow users to define custom widgets from config
 
 4. **Remove GNU Readline Dependency**: Final step toward self-contained editor
 

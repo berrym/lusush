@@ -13,6 +13,7 @@
 #include "lle/lle_editor.h"
 #include "lle/buffer_management.h"
 #include "lle/completion/completion_system.h"
+#include "lle/completion/custom_source.h"
 #include "lle/error_handling.h"
 #include "lle/kill_ring.h"
 #include "lle/memory_management.h"
@@ -135,6 +136,16 @@ lle_result_t lle_editor_create(lle_editor_t **editor,
         return result;
     }
 
+    /* Initialize custom completion source subsystem */
+    result = lle_custom_source_init(ed->completion_system->source_manager,
+                                    ed->lle_pool);
+    if (result != LLE_SUCCESS) {
+        /* Non-fatal - custom sources won't be available but continue */
+    }
+
+    /* Load user completion config (non-fatal if fails) */
+    lle_completion_load_config();
+
     /* Initialize statistics */
     ed->total_keystrokes = 0;
     ed->command_count = 0;
@@ -220,6 +231,9 @@ lle_result_t lle_editor_destroy(lle_editor_t *editor) {
     /* Note: history_system, keybinding_manager, display_controller, etc.
      * should have their own destroy functions called if they're not NULL.
      * For now, we only handle the core subsystems we initialize. */
+
+    /* Shutdown custom completion sources before destroying completion system */
+    lle_custom_source_shutdown();
 
     /* Destroy completion system (Spec 12) */
     if (editor->completion_system) {

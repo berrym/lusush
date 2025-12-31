@@ -74,6 +74,11 @@ static const lle_completion_type_info_t TYPE_INFO_DATABASE[] = {
      .category_name = "HISTORY",
      .indicator = "", /* No symbols by default - user customizable via theme */
      .default_priority = 400},
+    {.type = LLE_COMPLETION_TYPE_CUSTOM,
+     .type_name = "Custom",
+     .category_name = "CUSTOM",
+     .indicator = "", /* No symbols by default - user customizable via theme */
+     .default_priority = 600},
     {.type = LLE_COMPLETION_TYPE_UNKNOWN,
      .type_name = "Other",
      .category_name = "OTHER",
@@ -323,6 +328,9 @@ lle_result_t lle_completion_result_add_item(lle_completion_result_t *result,
     case LLE_COMPLETION_TYPE_HISTORY:
         result->history_count++;
         break;
+    case LLE_COMPLETION_TYPE_CUSTOM:
+        result->custom_count++;
+        break;
     default:
         break;
     }
@@ -514,6 +522,8 @@ lle_completion_result_count_by_type(const lle_completion_result_t *result,
         return result->alias_count;
     case LLE_COMPLETION_TYPE_HISTORY:
         return result->history_count;
+    case LLE_COMPLETION_TYPE_CUSTOM:
+        return result->custom_count;
     default:
         return 0;
     }

@@ -59,6 +59,7 @@ typedef enum {
     LLE_COMPLETION_TYPE_VARIABLE,  // Shell/environment variables
     LLE_COMPLETION_TYPE_ALIAS,     // Command aliases
     LLE_COMPLETION_TYPE_HISTORY,   // History entries
+    LLE_COMPLETION_TYPE_CUSTOM,    // User-defined custom completions
     LLE_COMPLETION_TYPE_UNKNOWN,   // Unclassified/fallback
     LLE_COMPLETION_TYPE_COUNT      // Number of types (for iteration)
 } lle_completion_type_t;
@@ -100,6 +101,7 @@ typedef struct lle_completion_result {
     size_t variable_count;  // Number of variable completions
     size_t alias_count;     // Number of alias completions
     size_t history_count;   // Number of history completions
+    size_t custom_count;    // Number of custom completions
 
     // Memory pool for allocations
     lle_memory_pool_t *memory_pool; // Memory pool for allocations

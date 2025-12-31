@@ -1,0 +1,236 @@
+# Lusush Custom Completion Sources Configuration
+# ================================================
+#
+# This file defines custom completion sources for the lusush shell.
+# Each source executes a shell command and uses its output as completions.
+#
+# Location: ~/.config/lusush/completions.toml
+#
+# Format:
+#   [sources.NAME]
+#   description = "Human-readable description"
+#   applies_to = ["command", "command subcommand"]  # When to show completions
+#   argument = N                                    # Argument position (0 = any)
+#   command = "shell command"                       # Command to get completions
+#   suffix = " "                                    # Append after completion
+#   cache_seconds = 5                               # Cache duration (0 = no cache)
+#
+# Use 'display lle completions list' to see active sources
+# Use 'display lle completions reload' to reload this file
+
+# =============================================================================
+# GIT COMPLETIONS
+# =============================================================================
+
+[sources.git-branches]
+description = "Git branch names"
+applies_to = ["git checkout", "git branch -d", "git merge", "git rebase"]
+argument = 0
+command = "git branch --list 2>/dev/null | sed 's/^[* ]*//'"
+suffix = " "
+cache_seconds = 5
+
+[sources.git-remotes]
+description = "Git remote names"
+applies_to = ["git push", "git pull", "git fetch", "git remote remove"]
+argument = 2
+command = "git remote 2>/dev/null"
+suffix = " "
+cache_seconds = 30
+
+[sources.git-tags]
+description = "Git tag names"
+applies_to = ["git tag -d", "git checkout"]
+argument = 0
+command = "git tag --list 2>/dev/null"
+suffix = " "
+cache_seconds = 10
+
+[sources.git-stash]
+description = "Git stash entries"
+applies_to = ["git stash apply", "git stash drop", "git stash pop", "git stash show"]
+argument = 3
+command = "git stash list 2>/dev/null | cut -d: -f1"
+suffix = " "
+cache_seconds = 2
+
+# =============================================================================
+# DOCKER COMPLETIONS
+# =============================================================================
+
+[sources.docker-images]
+description = "Docker image names"
+applies_to = ["docker run", "docker pull", "docker rmi", "docker inspect"]
+argument = 2
+command = "docker images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -v '<none>'"
+suffix = " "
+cache_seconds = 10
+
+[sources.docker-containers]
+description = "Docker container names"
+applies_to = ["docker stop", "docker start", "docker rm", "docker exec", "docker logs", "docker attach"]
+argument = 2
+command = "docker ps -a --format '{{.Names}}' 2>/dev/null"
+suffix = " "
+cache_seconds = 5
+
+[sources.docker-running]
+description = "Running Docker containers"
+applies_to = ["docker exec", "docker attach", "docker logs"]
+argument = 2
+command = "docker ps --format '{{.Names}}' 2>/dev/null"
+suffix = " "
+cache_seconds = 3
+
+[sources.docker-volumes]
+description = "Docker volume names"
+applies_to = ["docker volume rm", "docker volume inspect"]
+argument = 3
+command = "docker volume ls --format '{{.Name}}' 2>/dev/null"
+suffix = " "
+cache_seconds = 15
+
+[sources.docker-networks]
+description = "Docker network names"
+applies_to = ["docker network rm", "docker network inspect", "docker network connect"]
+argument = 3
+command = "docker network ls --format '{{.Name}}' 2>/dev/null"
+suffix = " "
+cache_seconds = 15
+
+# =============================================================================
+# SSH/HOST COMPLETIONS
+# =============================================================================
+
+[sources.ssh-hosts]
+description = "SSH known hosts"
+applies_to = ["ssh", "scp", "rsync", "sftp"]
+argument = 0
+command = "cat ~/.ssh/known_hosts 2>/dev/null | cut -d' ' -f1 | cut -d',' -f1 | sort -u"
+suffix = " "
+cache_seconds = 60
+
+[sources.ssh-config-hosts]
+description = "SSH config hosts"
+applies_to = ["ssh", "scp", "sftp"]
+argument = 0
+command = "grep -E '^Host\\s+' ~/.ssh/config 2>/dev/null | awk '{for(i=2;i<=NF;i++) if($i !~ /[*?]/) print $i}'"
+suffix = " "
+cache_seconds = 60
+
+# =============================================================================
+# PACKAGE MANAGER COMPLETIONS
+# =============================================================================
+
+[sources.npm-scripts]
+description = "NPM script names"
+applies_to = ["npm run"]
+argument = 3
+command = "jq -r '.scripts | keys[]' package.json 2>/dev/null"
+suffix = " "
+cache_seconds = 10
+
+[sources.npm-packages]
+description = "NPM installed packages"
+applies_to = ["npm uninstall", "npm update", "npm info"]
+argument = 2
+command = "ls node_modules 2>/dev/null"
+suffix = " "
+cache_seconds = 30
+
+# Homebrew (macOS)
+[sources.brew-installed]
+description = "Homebrew installed packages"
+applies_to = ["brew uninstall", "brew upgrade", "brew info", "brew reinstall"]
+argument = 2
+command = "brew list --formula 2>/dev/null"
+suffix = " "
+cache_seconds = 60
+
+[sources.brew-casks]
+description = "Homebrew installed casks"
+applies_to = ["brew uninstall --cask", "brew upgrade --cask"]
+argument = 3
+command = "brew list --cask 2>/dev/null"
+suffix = " "
+cache_seconds = 60
+
+# =============================================================================
+# KUBERNETES COMPLETIONS
+# =============================================================================
+
+[sources.kubectl-pods]
+description = "Kubernetes pod names"
+applies_to = ["kubectl logs", "kubectl exec", "kubectl describe pod", "kubectl delete pod"]
+argument = 0
+command = "kubectl get pods -o name 2>/dev/null | sed 's|pod/||'"
+suffix = " "
+cache_seconds = 5
+
+[sources.kubectl-deployments]
+description = "Kubernetes deployment names"
+applies_to = ["kubectl scale", "kubectl rollout", "kubectl describe deployment", "kubectl delete deployment"]
+argument = 0
+command = "kubectl get deployments -o name 2>/dev/null | sed 's|deployment.apps/||'"
+suffix = " "
+cache_seconds = 10
+
+[sources.kubectl-services]
+description = "Kubernetes service names"
+applies_to = ["kubectl describe service", "kubectl delete service"]
+argument = 0
+command = "kubectl get services -o name 2>/dev/null | sed 's|service/||'"
+suffix = " "
+cache_seconds = 10
+
+[sources.kubectl-namespaces]
+description = "Kubernetes namespaces"
+applies_to = ["kubectl -n", "kubectl --namespace"]
+argument = 0
+command = "kubectl get namespaces -o name 2>/dev/null | sed 's|namespace/||'"
+suffix = " "
+cache_seconds = 30
+
+# =============================================================================
+# SYSTEM COMPLETIONS
+# =============================================================================
+
+[sources.systemctl-units]
+description = "Systemd unit names"
+applies_to = ["systemctl start", "systemctl stop", "systemctl restart", "systemctl status", "systemctl enable", "systemctl disable"]
+argument = 2
+command = "systemctl list-unit-files --no-pager 2>/dev/null | awk 'NR>1 && NF>0 {print $1}'"
+suffix = " "
+cache_seconds = 30
+
+[sources.running-processes]
+description = "Running process names"
+applies_to = ["killall", "pkill", "pgrep"]
+argument = 0
+command = "ps -eo comm= 2>/dev/null | sort -u"
+suffix = " "
+cache_seconds = 2
+
+# =============================================================================
+# MAKE COMPLETIONS
+# =============================================================================
+
+[sources.make-targets]
+description = "Makefile targets"
+applies_to = ["make"]
+argument = 0
+command = "make -qp 2>/dev/null | awk -F':' '/^[a-zA-Z0-9][^$#\\/\\t=]*:([^=]|$)/ {print $1}' | sort -u"
+suffix = " "
+cache_seconds = 10
+
+# =============================================================================
+# MESON/NINJA COMPLETIONS
+# =============================================================================
+
+[sources.meson-targets]
+description = "Meson build targets"
+applies_to = ["meson compile", "ninja"]
+argument = 0
+command = "meson introspect --targets builddir 2>/dev/null | jq -r '.[].name' 2>/dev/null"
+suffix = " "
+cache_seconds = 15

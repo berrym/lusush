@@ -9,6 +9,7 @@
 #include "ht.h"
 #include "input.h"
 #include "lle/adaptive_terminal_integration.h"
+#include "lle/completion/custom_source.h"
 #include "lle/history.h"
 #include "lle/lle_shell_event_hub.h"
 #include "lle/lle_shell_integration.h"
@@ -4509,6 +4510,9 @@ int bin_display(int argc, char **argv) {
             printf("                      list    - Show active bindings\n");
             printf("                      reload  - Reload from config file\n");
             printf("                      actions - List all action names\n");
+            printf("  completions [cmd] - Custom completion source management\n");
+            printf("                      list    - Show all sources\n");
+            printf("                      reload  - Reload from config file\n");
             printf("  diagnostics      - Show LLE diagnostics and health\n");
             printf(
                 "  history-import   - Import GNU Readline history into LLE\n");
@@ -5311,6 +5315,97 @@ int bin_display(int argc, char **argv) {
             } else {
                 fprintf(stderr, "display lle theme: Unknown subcommand '%s'\n", theme_subcmd);
                 fprintf(stderr, "Usage: display lle theme [list|set|reload|export]\n");
+                return 1;
+            }
+
+        } else if (strcmp(lle_cmd, "completions") == 0) {
+            /* LLE custom completion source management */
+            const char *comp_subcmd = (argc >= 4) ? argv[3] : "list";
+            
+            if (strcmp(comp_subcmd, "list") == 0) {
+                /* List all completion sources */
+                printf("LLE Completion Sources\n");
+                printf("======================\n\n");
+                
+                /* Built-in sources */
+                printf("Built-in Sources:\n");
+                size_t total = lle_completion_get_source_count();
+                for (size_t i = 0; i < total; i++) {
+                    if (!lle_completion_source_is_custom(i)) {
+                        const char *name = lle_completion_get_source_name(i);
+                        printf("  - %s\n", name ? name : "(unknown)");
+                    }
+                }
+                
+                /* Custom sources */
+                size_t custom_count = lle_completion_get_custom_source_count();
+                if (custom_count > 0) {
+                    printf("\nCustom Sources:\n");
+                    for (size_t i = 0; i < custom_count; i++) {
+                        const char *name = lle_completion_get_custom_source_name(i);
+                        const char *desc = lle_completion_get_custom_source_description(i);
+                        if (desc) {
+                            printf("  - %s: %s\n", name ? name : "(unknown)", desc);
+                        } else {
+                            printf("  - %s\n", name ? name : "(unknown)");
+                        }
+                    }
+                } else {
+                    printf("\nNo custom sources registered.\n");
+                }
+                
+                /* Config file info */
+                const lle_completion_config_t *cfg = lle_completion_get_config();
+                if (cfg && cfg->config_path) {
+                    printf("\nConfig file: %s\n", cfg->config_path);
+                    printf("Config sources: %zu\n", cfg->source_count);
+                } else {
+                    printf("\nNo config file loaded.\n");
+                    printf("Create ~/.config/lusush/completions.toml to define custom sources.\n");
+                }
+                
+                return 0;
+                
+            } else if (strcmp(comp_subcmd, "reload") == 0) {
+                /* Reload completion config */
+                printf("Reloading completion config...\n");
+                lle_result_t result = lle_completion_reload_config();
+                if (result == LLE_SUCCESS) {
+                    const lle_completion_config_t *cfg = lle_completion_get_config();
+                    if (cfg) {
+                        printf("Loaded %zu custom source(s)\n", cfg->source_count);
+                    } else {
+                        printf("Config reloaded (no sources defined)\n");
+                    }
+                    return 0;
+                } else {
+                    fprintf(stderr, "Failed to reload config (error %d)\n", result);
+                    return 1;
+                }
+                
+            } else if (strcmp(comp_subcmd, "help") == 0 || 
+                       strcmp(comp_subcmd, "--help") == 0) {
+                printf("LLE Completion Source Commands\n");
+                printf("==============================\n\n");
+                printf("Usage: display lle completions [command]\n\n");
+                printf("Commands:\n");
+                printf("  list    - Show all completion sources (default)\n");
+                printf("  reload  - Reload custom sources from config file\n");
+                printf("  help    - Show this help message\n");
+                printf("\nConfig File:\n");
+                printf("  ~/.config/lusush/completions.toml\n");
+                printf("\nExample config:\n");
+                printf("  [sources.git-branches]\n");
+                printf("  description = \"Git branch names\"\n");
+                printf("  applies_to = [\"git checkout\", \"git merge\"]\n");
+                printf("  argument = 2\n");
+                printf("  command = \"git branch --list 2>/dev/null | sed 's/^[* ]*//'\"\n");
+                printf("  cache_seconds = 5\n");
+                return 0;
+                
+            } else {
+                fprintf(stderr, "display lle completions: Unknown subcommand '%s'\n", comp_subcmd);
+                fprintf(stderr, "Usage: display lle completions [list|reload|help]\n");
                 return 1;
             }
 

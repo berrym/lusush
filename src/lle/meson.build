@@ -220,6 +220,8 @@ lle_sources += files(
   'completion/source_manager.c',
   'completion/completion_state.c',
   'completion/completion_system.c',
+  'completion/custom_source.c',
+  'completion/completion_config.c',
 )
 
 # ============================================================================
