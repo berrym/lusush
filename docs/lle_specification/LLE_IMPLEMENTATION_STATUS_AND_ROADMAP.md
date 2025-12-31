@@ -1,7 +1,7 @@
 # LLE Implementation Status and Roadmap
 
-**Last Updated**: 2025-12-31  
-**Document Version**: 2.0  
+**Last Updated**: 2025-12-31 (Session 87)  
+**Document Version**: 2.1  
 **Purpose**: Accurate assessment of LLE implementation status, realistic next milestones, and long-term vision
 
 ---
@@ -66,7 +66,7 @@ These core systems are implemented, tested, and working in production:
 | **Adaptive Terminal** | adaptive/*.c | 100% | 12+ terminal types, tmux/screen support, graceful fallback |
 | **Unicode Support** | unicode/*.c | 95% | UTF-8 codec, grapheme clusters, character width, NFC normalization |
 | **Event System** | event/*.c | 90% | Queue, handlers, timers, filters, shell lifecycle events |
-| **Prompt/Theme System** | prompt/*.c (6 files) | 90% | Template engine, segments, 10 themes, transient prompts |
+| **Prompt/Theme System** | prompt/*.c (6 files) | 95% | Template engine, segments, 10 themes, transient prompts, exit_code/jobs wiring |
 | **Multiline Editing** | multiline/*.c | 90% | Structure analysis, edit sessions, reconstruction |
 | **Screen Buffer** | display/screen_buffer.c | 100% | Virtual screen for cursor positioning (post-spec addition) |
 | **Shell Event Hub** | lle_shell_event_hub.c | 100% | Directory change, pre/post command events |
@@ -152,7 +152,7 @@ These specifications were created to address architectural needs discovered duri
 
 | Spec | Title | Implementation | Notes |
 |------|-------|----------------|-------|
-| **25 (new)** | Prompt/Theme System | ✅ ~90% | Template engine, segments, 10 themes, transient prompts, composer |
+| **25 (new)** | Prompt/Theme System | ✅ ~95% | Template engine, segments, 10 themes, transient prompts, composer, exit_code/jobs wiring |
 | **26 (new)** | Initialization System | ✅ ~95% | Shell integration, persistent editor, shell event hub, lifecycle management |
 
 **Note**: The main folder specs 25-26 are different from critical_gaps/ specs 25-26. The main folder versions represent the actual LLE prompt/theme and initialization systems that are implemented and working.
@@ -325,6 +325,7 @@ Active issues are tracked in `docs/lle_implementation/tracking/KNOWN_ISSUES.md`.
 
 | Issue | Resolution | Session |
 |-------|------------|---------|
+| exit_code/jobs template variables (Issue #22) | Wired `${status}` and `${jobs}` segments to shell state | Session 87 |
 | Display stress test leak | `pool_was_ever_initialized` flag in memory pool | Session 83 |
 | LLE complete freeze/hang | Watchdog + state machine | Session 80 |
 | Git segment not updating | Segment cache invalidation | Session 80 |
@@ -430,5 +431,6 @@ The original specifications remain as inspiration for what LLE could become, whi
 ---
 
 **Document History**:
+- v2.1 (2025-12-31): Session 87 - exit_code/jobs template variable wiring complete
 - v2.0 (2025-12-30): Complete rewrite with accurate status assessment
 - v1.0 (2025-12-26): Original document (now outdated)
