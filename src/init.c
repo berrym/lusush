@@ -394,6 +394,10 @@ int init(int argc, char **argv, FILE **in) {
 
     // Set up interactive shell features if needed
     if (IS_INTERACTIVE_SHELL) {
+        // Enable job control by default for interactive shells (POSIX behavior)
+        // This allows background jobs (cmd &) to be tracked and managed
+        shell_opts.job_control = true;
+        
         // Initialize display integration system config first (needed for debug flags)
         display_integration_config_t display_config;
         display_integration_create_default_config(&display_config);

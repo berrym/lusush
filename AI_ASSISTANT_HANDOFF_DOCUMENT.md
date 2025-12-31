@@ -9,13 +9,22 @@
 
 ## Session 88: Fix Jobs Count and Minimal Theme Variables
 
-Two fixes for the prompt template variable system:
+Three fixes for the prompt template variable system:
 
-### Fix 1: Jobs Count Not Displaying
+### Fix 1: Enable Job Control for Interactive Shells
 
-**Problem**: Background jobs indicator was not showing in prompt.
+**Problem**: Background jobs weren't being tracked at all - `jobs` builtin showed nothing.
 
-**Root Cause**: Code used `current_executor` which is NULL at prompt render time. This variable is only set temporarily during builtin execution and cleared immediately after.
+**Root Cause**: `shell_opts.job_control` defaults to `false` and was never enabled for interactive shells.
+
+**Solution**: Auto-enable job control when shell is interactive (POSIX behavior).
+
+**Files Modified**:
+- `src/init.c` - Set `shell_opts.job_control = true` for interactive shells
+
+### Fix 2: Jobs Count Wiring
+
+**Problem**: Code used `current_executor` which is NULL at prompt render time.
 
 **Solution**: Changed to use `get_global_executor()` which returns the persistent shell executor.
 
@@ -24,7 +33,7 @@ Two fixes for the prompt template variable system:
 - `src/display_integration.c` - Same fix, plus added `#include "lusush.h"`
 - `tests/lle/functional/display_test_stubs.c` - Added `get_global_executor()` stub
 
-### Fix 2: Minimal Theme Missing Variables
+### Fix 3: Minimal Theme Missing Variables
 
 **Problem**: The minimal theme's PS1 format did not include `${status}` or `${jobs}`.
 
@@ -39,7 +48,7 @@ Two fixes for the prompt template variable system:
 ### Testing
 
 - Build: All targets compile successfully
-- Tests: 58/59 pass (1 pre-existing stress test failure unrelated to this change)
+- Tests: 59/59 pass
 
 ### Usage
 
