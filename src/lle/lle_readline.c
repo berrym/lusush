@@ -67,6 +67,7 @@
 #include "lle/history.h"    /* History system for UP/DOWN navigation */
 #include "lle/keybinding.h" /* Keybinding manager for Group 1+ migration */
 #include "lle/keybinding_actions.h" /* Smart arrow navigation functions */
+#include "lle/keybinding_config.h"  /* User keybinding configuration */
 #include "lle/lle_editor.h"         /* Proper LLE editor architecture */
 #include "lle/lle_readline_state.h" /* State machine for input handling */
 #include "lle/lle_shell_integration.h" /* Spec 26: Shell integration */
@@ -2645,6 +2646,15 @@ char *lle_readline(const char *prompt) {
             /* Preset load failed - continue with context-aware overrides only
              */
         }
+
+        /* Load user keybinding configuration from ~/.config/lusush/keybindings.toml
+         * This allows users to override default Emacs bindings with custom ones.
+         * Errors are logged but don't prevent shell from starting. */
+        lle_keybinding_load_result_t load_result;
+        lle_keybinding_load_user_config(keybinding_manager, &load_result);
+        /* Note: We don't check load_result here - user config is optional.
+         * If file doesn't exist, that's fine (LLE_ERROR_NOT_FOUND).
+         * If there are parse errors, they're logged to stderr. */
 
         /* Override specific bindings with context-aware variants that need
          * readline_context_t. These provide Fish-style autosuggestion

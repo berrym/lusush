@@ -191,6 +191,7 @@ lle_sources += files(
 lle_sources += files(
   'keybinding/keybinding.c',
   'keybinding/keybinding_actions.c',
+  'keybinding/keybinding_config.c',
   'keybinding/kill_ring.c',
 )
 

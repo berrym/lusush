@@ -1,0 +1,68 @@
+# Lusush Line Editor (LLE) Keybinding Configuration
+#
+# Place this file at: ~/.config/lusush/keybindings.toml
+#
+# Format:
+#   [bindings]
+#   "KEY" = "ACTION"
+#
+# Key notation (GNU Readline style):
+#   C-x     = Ctrl+X
+#   M-x     = Alt/Meta+X (or ESC followed by x)
+#   C-M-x   = Ctrl+Alt+X
+#   UP, DOWN, LEFT, RIGHT = Arrow keys
+#   HOME, END, DEL, BACKSPACE = Special keys
+#   F1-F12  = Function keys
+#   TAB, ENTER, ESC = Common keys
+#
+# To see all available actions:
+#   display lle keybindings actions
+#
+# To reload after editing:
+#   display lle keybindings reload
+
+[bindings]
+
+# === Movement ===
+# Uncomment to customize movement keys
+
+# "C-a" = "beginning-of-line"   # Default: go to start of line
+# "C-e" = "end-of-line"         # Default: go to end of line
+# "C-f" = "forward-char"        # Default: move right one char
+# "C-b" = "backward-char"       # Default: move left one char
+# "M-f" = "forward-word"        # Default: move right one word
+# "M-b" = "backward-word"       # Default: move left one word
+
+# === Editing ===
+# Uncomment to customize editing keys
+
+# "C-d" = "delete-char"           # Default: delete char at cursor
+# "C-h" = "backward-delete-char"  # Default: backspace
+# "C-k" = "kill-line"             # Default: kill to end of line
+# "C-u" = "backward-kill-line"    # Default: kill to start of line
+# "C-w" = "backward-kill-word"    # Default: kill word backwards
+# "M-d" = "kill-word"             # Default: kill word forwards
+# "C-y" = "yank"                  # Default: paste from kill ring
+# "M-y" = "yank-pop"              # Default: cycle through kill ring
+
+# === History ===
+# Uncomment to customize history navigation
+
+# "C-p" = "history-previous"      # Default: previous history entry
+# "C-n" = "history-next"          # Default: next history entry
+# "C-r" = "reverse-search-history"  # Default: search backwards
+# "C-s" = "forward-search-history"  # Default: search forwards
+
+# === Example: Swap C-a and C-e (like some editors) ===
+# "C-a" = "end-of-line"
+# "C-e" = "beginning-of-line"
+
+# === Example: Vim-style history search ===
+# "M-k" = "history-search-backward"  # Search history with current prefix
+# "M-j" = "history-search-forward"
+
+# === Example: Unbind a key ===
+# "C-s" = "none"  # Remove forward search (prevents terminal freeze on some systems)
+
+# === Example: Quick clear screen ===
+# "C-l" = "clear-screen"

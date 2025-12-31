@@ -1,9 +1,80 @@
-# AI Assistant Handoff Document - Session 84
+# AI Assistant Handoff Document - Session 85
 
 **Date**: 2025-12-31  
-**Session Type**: LLE Completion Path Expansion  
+**Session Type**: LLE User Keybinding Configuration  
 **Status**: COMPLETE  
 **Branch**: `feature/lle`
+
+---
+
+## Session 85: User Keybinding Configuration System
+
+Implemented user-customizable keybindings via `~/.config/lusush/keybindings.toml`.
+
+### Problem
+
+Users couldn't customize LLE keybindings. The Emacs preset was hardcoded with no way to override or add custom bindings.
+
+### Solution
+
+Created a complete keybinding configuration system:
+
+1. **Action Registry** - Static table mapping 42+ GNU Readline action names to LLE function pointers
+2. **Config Parser** - TOML-subset parser reusing `lle_theme_parser_t` infrastructure
+3. **XDG Path Resolution** - Checks `$XDG_CONFIG_HOME/lusush/keybindings.toml` then `~/.config/lusush/keybindings.toml`
+4. **Display Commands** - `display lle keybindings [list|reload|actions|help]`
+
+### Configuration Format
+
+```toml
+# ~/.config/lusush/keybindings.toml
+[bindings]
+"C-a" = "end-of-line"           # Swap C-a and C-e
+"C-e" = "beginning-of-line"
+"M-p" = "history-search-backward"
+"C-s" = "none"                  # Unbind a key
+```
+
+### Key Features
+
+- **All 42+ actions bindable**: Movement, editing, history, completion, etc.
+- **GNU Readline notation**: `C-x` (Ctrl), `M-x` (Alt/Meta), `C-M-x` (both)
+- **Special keys**: UP, DOWN, LEFT, RIGHT, HOME, END, F1-F12, TAB, ENTER, ESC
+- **Unbind support**: `"C-s" = "none"` removes a binding
+- **Hot reload**: `display lle keybindings reload` applies changes without restart
+- **Action discovery**: `display lle keybindings actions` lists all available actions
+
+### Load Order
+
+1. `lle_keybinding_manager_create()` - Empty manager
+2. `lle_keybinding_manager_load_emacs_preset()` - Default bindings
+3. `lle_keybinding_load_user_config()` - User overrides (NEW)
+4. Context-aware bindings in `lle_readline.c` - Fish-style autosuggestion acceptance
+
+### Files Created
+
+- `include/lle/keybinding_config.h` - API declarations, action registry types
+- `src/lle/keybinding/keybinding_config.c` - Implementation with 42+ action registry
+- `examples/keybindings.toml` - Annotated example configuration
+
+### Files Modified
+
+- `src/lle/meson.build` - Added `keybinding_config.c` to build
+- `src/lle/lle_readline.c` - Loads user config after Emacs preset
+- `src/builtins/builtins.c` - Added `display lle keybindings` subcommands
+
+### Testing
+
+- All 32 LLE unit tests pass
+- `display lle keybindings help` - Shows help
+- `display lle keybindings actions` - Lists 42+ action names with descriptions
+- `display lle keybindings reload` - Reloads from config file
+
+### Spec Coverage
+
+- **Spec 13** (User Customization): Keybinding configuration
+- **Spec 22** (User Interface): Display commands
+- **Spec 25** (Default Keybindings): User override mechanism
 
 ---
 
@@ -82,30 +153,11 @@ Added ability to audit watchdog and defensive state machine effectiveness:
 
 **Root Cause**: When `lusush_pool_alloc()` is called without an initialized global memory pool, it falls back to `malloc()`. However, `lusush_pool_free()` had a bug where if `global_memory_pool` was NULL, it would return early **without calling `free()`** on the malloc'd memory.
 
-The original logic intended to prevent double-frees after pool shutdown, but didn't distinguish between:
-1. Pool was never initialized → memory came from malloc fallback → must `free()`
-2. Pool was shut down → memory was already freed during shutdown → must NOT `free()`
-
-**Fix**: Added `pool_was_ever_initialized` flag to track pool initialization state:
-
-```c
-static bool pool_was_ever_initialized = false;
-
-// In lusush_pool_free():
-if (!global_memory_pool) {
-    if (pool_was_ever_initialized) {
-        return;  // Pool shutdown - don't double-free
-    } else {
-        free(ptr);  // Never initialized - must free malloc'd memory
-        return;
-    }
-}
-```
+**Fix**: Added `pool_was_ever_initialized` flag to track pool initialization state.
 
 **Results**:
 - Before: 38,650 leaks, 17MB leaked, stress test FAIL
 - After: 0 leaks, 0 bytes leaked, all 58 tests PASS
-- Memory delta dropped from 8396 KB to 0 KB
 
 ### Files Modified
 
@@ -120,170 +172,40 @@ Fixed Linux build errors and eliminated all compiler warnings for a clean build.
 
 ### Commit 1: strcasecmp Forward Declarations
 
-**Problem**: `strcasecmp()` implicit declaration due to feature test macro
-conflicts between `_POSIX_C_SOURCE=200809L` and `_XOPEN_SOURCE=700`.
+**Problem**: `strcasecmp()` implicit declaration due to feature test macro conflicts.
 
 **Fix**: Added forward declarations matching the pattern in `ht_fnv1a.c`.
 
 ### Commit 2: Warning Cleanup
 
-Fixed all GCC warnings in theme_parser.c and theme_loader.c:
-
-1. **Use-after-free** (theme_loader.c:352): Moved `free(theme)` after using `theme->name`
-2. **Format truncation** (theme_loader.c:253): Limited validation error to 230 chars
-3. **Format truncation** (theme_loader.c:468): Limited path components in snprintf
-4. **Format truncation** (theme_parser.c): Added precision specifiers to all string copies:
-   - `theme->name`: %.63s (64 byte field)
-   - `theme->description`: %.255s (256 byte field)
-   - `theme->author`: %.63s (64 byte field)
-   - `theme->version`: %.15s (16 byte field)
-   - `theme->inherits_from`: %.63s (64 byte field)
-   - `enabled_segments[i]`: %.31s (32 byte field)
-   - Symbol fields: %.15s (16 byte field)
+Fixed all GCC warnings in theme_parser.c and theme_loader.c.
 
 ### Commit 3: Autocorrect Terminal Fix
 
-**Problem**: On Linux with LLE enabled, the autocorrect prompt displayed `^M` 
-when pressing Enter instead of accepting input. Worked on macOS.
+**Problem**: On Linux with LLE enabled, the autocorrect prompt displayed `^M` when pressing Enter.
 
-**Cause**: LLE disables `ICRNL` (CR to NL translation) in raw mode. After 
-`lle_readline()` exits, the terminal state wasn't being fully restored before
-`autocorrect_prompt_user()` called `fgets()`. Linux's `fgets()` saw raw CR.
-
-**Fix**: Modified `autocorrect_prompt_user()` to explicitly set canonical mode
-with `ICRNL` enabled before reading input, then restore original state after.
+**Fix**: Modified `autocorrect_prompt_user()` to explicitly set canonical mode with `ICRNL` enabled.
 
 ### Build Status
 
 - Linux: **PASSING** (all 58 tests pass, zero warnings)
-- macOS: Should remain compatible
+- macOS: Compatible
 
 ---
 
 ## Session 81: LLE Implementation Audit & Roadmap Rewrite
 
-Comprehensive audit of LLE implementation against original specifications (02-27), resulting in a complete rewrite of the roadmap document to accurately reflect current development status.
+Comprehensive audit of LLE implementation against original specifications (02-27), resulting in a complete rewrite of the roadmap document.
 
 ### Key Findings
 
-**LLE is substantially complete** - not a work-in-progress as the old roadmap suggested:
+**LLE is substantially complete** - not a work-in-progress:
 
 | Metric | Value |
 |--------|-------|
 | Source Files | 106 (.c files in src/lle/) |
 | Header Files | 59 (.h files in include/lle/) |
 | Lines of Code | ~60,000 |
-| Subdirectories | 15 major components |
-
-### Major Corrections Made
-
-1. **Spec 25 (Prompt/Theme System)**: Old doc said 0% - Actually **~90% complete**
-   - Template engine, segments, 10 themes, transient prompts, composer all working
-   
-2. **Spec 26 (Initialization System)**: Not mentioned - Actually **~95% complete**
-   - Persistent global editor (`g_lle_integration`)
-   - Shell event hub with DIRECTORY_CHANGED, PRE/POST_COMMAND
-   - Proper lifecycle management
-
-3. **Spec 27 (Fuzzy Matching Library)**: Said 0% - Actually **100% complete**
-   - `src/libfuzzy/fuzzy_match.c` exists (~22K lines)
-   - Integrated into autocorrect, completion, history search
-
-4. **Shell Event Hub Architecture**: Fixed incorrect claim that shell events can't reach LLE
-   - `g_lle_integration` is persistent with editor, event_hub, composer
-   - `bin_cd()` properly fires `lle_fire_directory_changed()`
-   - Events flow to registered handlers
-
-5. **Configuration System**: Already extensively implemented
-   - LLE preferences in core config (`src/config.c`) - arrow modes, history, dedup, etc.
-   - User theme files from XDG paths
-   - System theme files from `/etc/lusush/themes/`
-   - Theme hot reload and export commands
-
-### Document Structure (New)
-
-The rewritten `LLE_IMPLEMENTATION_STATUS_AND_ROADMAP.md` now has:
-
-1. **Executive Summary** - Current state, philosophy, architectural context
-2. **Implementation Status** - Honest assessment with three tiers:
-   - Complete (85-100%): 18 major systems
-   - Partial (40-70%): 5 systems with specific gaps
-   - Not Implemented: Only plugin system, scripting, sandboxing (deferred)
-3. **Specification Compliance** - All specs 02-27 with accurate percentages
-4. **Key Implementation Facts** - Explicitly documents what IS working
-5. **Realistic Milestones** - 5 phases with already-implemented items noted
-6. **Long-Term Vision** - Aspirational goals clearly marked
-7. **Deprecated/Legacy Items** - `theme` builtin, GNU readline
-8. **Explicitly Deferred** - Lua/Python, sandboxing, with rationale
-9. **Architecture Notes** - Screen buffer, shell integration, event systems
-
-### Project Philosophy Documented
-
-- **Quality over popularity** - No compromises
-- **Self-contained** - No external language dependencies (ncurses OK)
-- **Native extensibility** - Through lusush scripting, not Lua/Python
-- **Specs as inspiration** - Grand vision preserved, realistic milestones guide work
-
-### Configuration Systems Clarified
-
-Two formats coexist intentionally:
-- **Core lusush config**: INI-based (`src/config.c`)
-- **LLE theme files**: TOML-subset (`src/lle/prompt/theme_parser.c`)
-
-### Legacy vs LLE Systems
-
-Clarified the dual-path architecture:
-- **Legacy** (`src/prompt.c`, `src/themes.c`): For GNU Readline compatibility, deprecated
-- **LLE** (`src/lle/prompt/*.c`): The actual working implementation
-
----
-
-## Session 80: Defensive State Machine, Watchdog & Bugfixes
-
-### Commit 6: Clear autosuggestion ghost text on Enter
-
-**Bug**: Pressing Enter with partial autosuggestion visible left ghost text on screen.
-
-**Fix**: Clear autosuggestion from display controller and context in `handle_enter()`.
-
-### Commit 5: Fix git segment not updating after commands
-
-**Bug**: Git status in prompt wasn't updating after `git push`, `git commit`, etc.
-
-**Cause**: `composer_on_post_command()` marked prompt for regeneration but didn't
-invalidate segment caches. The git segment's `cache_valid` stayed true.
-
-**Fix**: Add `lle_segment_registry_invalidate_all()` to post-command handler.
-
-### Commit 4: Add newline-before-prompt option
-
-New feature for visual separation between command output and prompt:
-
-- **Config option**: `display_newline_before_prompt` (default: true)
-- **Composer config**: `newline_before_prompt` field synced from global config
-- **Builtin command**: `display lle newline-before on|off`
-- **Implementation**: Prepends `\n` to PS1 in `lle_composer_render()`
-
-### Commit 3: Fix idle timeout and template expansion bugs
-
-1. **Removed 60-second idle timeout** - was discarding user input after idle
-2. **Fixed ${git} segment not expanding** - recursive template evaluation
-
-### Commits 1-2: Defensive State Machine & Watchdog
-
-- Explicit state machine for readline with guaranteed Ctrl+C/Ctrl+G exit
-- SIGALRM-based watchdog for deadlock detection
-
----
-
-## Session 79: LLE Freeze Audit & Fixes
-
-Comprehensive audit fixing 15 critical/high/medium issues including:
-- Backspace handler fixes
-- State reset improvements  
-- Infinite loop prevention
-- Signal handling improvements
-- Memory leak fix in history search
 
 ---
 
@@ -301,6 +223,7 @@ Comprehensive audit fixing 15 critical/high/medium issues including:
 
 | Feature | Status | Notes |
 |---------|--------|-------|
+| **User Keybindings** | **NEW** | ~/.config/lusush/keybindings.toml |
 | Autosuggestions | Working | Fish-style, Ctrl+Right partial accept |
 | Emacs Keybindings | Working | Full preset loader |
 | Completion System | Working | Spec 12 implementation |
@@ -327,23 +250,22 @@ Comprehensive audit fixing 15 critical/high/medium issues including:
 
 ## Important Reference Documents
 
-- **Roadmap**: `docs/lle_specification/LLE_IMPLEMENTATION_STATUS_AND_ROADMAP.md` (UPDATED)
+- **Roadmap**: `docs/lle_specification/LLE_IMPLEMENTATION_STATUS_AND_ROADMAP.md`
 - **Spec 25**: `docs/lle_specification/25_prompt_theme_system_complete.md`
 - **Spec 26**: `docs/lle_specification/26_initialization_system_complete.md`
 - **Known Issues**: `docs/lle_implementation/tracking/KNOWN_ISSUES.md`
-- **Screen Buffer**: `docs/development/SCREEN_BUFFER_SPECIFICATION.md`
 
 ---
 
 ## Next Steps (Suggested)
 
-1. **User Keybinding Configuration**: Allow custom keybindings via config file
+1. **Clean Up exit_code/jobs Variables** (Issue #22): Wire to actual shell state
 
-2. **Clean Up exit_code/jobs Variables** (Issue #22): Wire to actual shell state
+2. **Complete Vi Mode**: Keybindings exist, needs testing
 
-3. **Complete Vi Mode**: Keybindings exist, needs testing
+3. **Custom Completion Source API**: Allow users to register custom completers
 
-4. **Remove Dead Code**: Fix or remove broken differential updates
+4. **Remove GNU Readline Dependency**: Final step toward self-contained editor
 
 ---
 
@@ -355,6 +277,9 @@ meson compile -C builddir
 
 # Run all tests
 meson test -C builddir
+
+# Run LLE unit tests only
+meson test -C builddir --suite lle-unit
 
 # Test in interactive shell
 ./builddir/lusush
