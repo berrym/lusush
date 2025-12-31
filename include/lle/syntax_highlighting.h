@@ -45,6 +45,9 @@ typedef enum lle_syntax_token_type {
     LLE_TOKEN_KEYWORD, /**< Shell keyword (if, then, else, fi, for, while, do,
                           done, case, esac) */
 
+    /* Assignment */
+    LLE_TOKEN_ASSIGNMENT, /**< Variable assignment (VAR=value, export VAR=val) */
+
     /* Literals */
     LLE_TOKEN_STRING_SINGLE,   /**< Single-quoted string */
     LLE_TOKEN_STRING_DOUBLE,   /**< Double-quoted string */
@@ -124,6 +127,9 @@ typedef struct lle_syntax_colors {
     uint32_t pipe;           /**< Pipe operator */
     uint32_t redirect;       /**< Redirection operators */
     uint32_t operator_other; /**< Other operators (&, ;, &&, ||) */
+
+    /* Assignment */
+    uint32_t assignment; /**< Variable assignment (VAR=value) */
 
     /* Other */
     uint32_t comment;  /**< Comments (typically dim/gray) */

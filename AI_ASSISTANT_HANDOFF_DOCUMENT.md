@@ -7,36 +7,42 @@
 
 ---
 
-## Session 84: Tilde and Variable Expansion for File Completion
+## Session 84: Completion Path Expansion & Assignment Highlighting
 
-Added support for POSIX shell path expansion in LLE file completion.
+Two enhancements to LLE: path expansion for completion and assignment syntax highlighting.
 
-### Problem
+### Part 1: Tilde and Variable Expansion for Completion
 
-LLE completion didn't understand tilde (`~/`) or variable (`$HOME/`) expansion. Pressing TAB after `~/` did nothing because `opendir("~")` fails - there's no directory literally named `~`.
+**Problem**: LLE completion didn't understand tilde (`~/`) or variable (`$HOME/`) expansion. Pressing TAB after `~/` did nothing because `opendir("~")` fails.
 
-### Solution
+**Solution**: Added path expansion helpers in `src/lle/completion/completion_sources.c`:
+- `lle_completion_expand_tilde()`: Expands `~/` and `~user/`
+- `lle_completion_expand_variable()`: Expands `$VAR/` and `${VAR}/`
+- `lle_completion_expand_path()`: Unified entry point
 
-Added path expansion helpers in `src/lle/completion/completion_sources.c`:
+Completions preserve original prefix: `~/Doc<TAB>` shows `~/Documents`.
 
-1. **`lle_completion_expand_tilde()`**: Expands `~/` to `$HOME/` and `~user/` to that user's home directory
-2. **`lle_completion_expand_variable()`**: Expands `$VAR/` and `${VAR}/` to the variable's value
-3. **`lle_completion_expand_path()`**: Unified entry point for path expansion
+### Part 2: Assignment Prefix Syntax Highlighting
 
-The file completion function now:
-1. Expands the prefix before calling `opendir()`
-2. Preserves the original unexpanded prefix in completion results
+**Problem**: `LLE_ENABLED=1 ./builddir/lusush` showed `LLE_ENABLED=1` in red (invalid command). While technically not a command, `VAR=value command` is valid POSIX shell syntax.
 
-So `~/Doc<TAB>` shows `~/Documents`, not `/Users/user/Documents`.
+**Solution**: Added assignment detection to syntax highlighter:
+- New token type `LLE_TOKEN_ASSIGNMENT` 
+- New color `assignment` in color scheme (violet, same as variables)
+- `is_assignment()` helper detects `VAR=value` pattern
+- After assignment, `expect_command` stays true (command follows)
+
+Now `VAR=value command` shows assignment in violet, command validated normally.
 
 ### Files Modified
 
-- `src/lle/completion/completion_sources.c` - Added path expansion (199 lines)
+- `src/lle/completion/completion_sources.c` - Path expansion helpers
+- `include/lle/syntax_highlighting.h` - Added `LLE_TOKEN_ASSIGNMENT` and `assignment` color
+- `src/lle/display/syntax_highlighting.c` - Assignment detection and coloring
 
 ### Testing
 
 - All 59 tests pass
-- Manual testing: `~/`, `$HOME/`, `${HOME}/` all complete correctly
 
 ---
 

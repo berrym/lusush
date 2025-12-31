@@ -58,6 +58,9 @@ static const lle_syntax_colors_t default_colors = {
     .redirect = 0x00D33682,       /* Magenta */
     .operator_other = 0x00839496, /* Base0 (default fg) */
 
+    /* Assignment */
+    .assignment = 0x006C71C4,     /* Violet (same as variable) */
+
     /* Other */
     .comment = 0x00586E75,  /* Base01 (dim) */
     .number = 0x002AA198,   /* Cyan */
@@ -151,7 +154,7 @@ static bool is_word_char(char c) {
     }
 
     return isalnum(uc) || c == '_' || c == '-' || c == '.' || c == '/' ||
-           c == '~' || c == '+' || c == '@' || c == ':';
+           c == '~' || c == '+' || c == '@' || c == ':' || c == '=';
 }
 
 static bool is_option_start(const char *s, size_t remaining) {
@@ -167,6 +170,37 @@ static bool is_variable_start(char c) {
 #endif
 
 static bool is_glob_char(char c) { return c == '*' || c == '?' || c == '['; }
+
+/**
+ * Check if a word is a variable assignment (VAR=value pattern)
+ * Valid variable names start with letter or underscore, followed by
+ * alphanumeric or underscore, then '='
+ */
+static bool is_assignment(const char *word, size_t len) {
+    if (len < 2) return false;  /* Minimum: "x=" */
+    
+    /* Find the '=' */
+    const char *eq = memchr(word, '=', len);
+    if (!eq) return false;
+    
+    /* Variable name must be before the '=' */
+    size_t name_len = eq - word;
+    if (name_len == 0) return false;
+    
+    /* First char must be letter or underscore */
+    if (!isalpha((unsigned char)word[0]) && word[0] != '_') {
+        return false;
+    }
+    
+    /* Rest must be alphanumeric or underscore */
+    for (size_t i = 1; i < name_len; i++) {
+        if (!isalnum((unsigned char)word[i]) && word[i] != '_') {
+            return false;
+        }
+    }
+    
+    return true;
+}
 
 static size_t skip_whitespace(const char *input, size_t pos, size_t len) {
     while (pos < len && isspace((unsigned char)input[pos])) {
@@ -542,7 +576,12 @@ int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
                 memcpy(word, input + token_start, copy_len);
                 word[copy_len] = '\0';
 
-                if (is_shell_keyword(input + token_start, word_len)) {
+                /* Check for VAR=value assignment prefix first */
+                if (is_assignment(input + token_start, word_len)) {
+                    type = LLE_TOKEN_ASSIGNMENT;
+                    /* Keep expect_command = true because command follows */
+                    /* e.g., "VAR=value command arg1 arg2" */
+                } else if (is_shell_keyword(input + token_start, word_len)) {
                     type = LLE_TOKEN_KEYWORD;
                     /* Block-ending keywords (done, fi, esac, etc.) don't expect
                        a command after them. Block-starting keywords do. */
@@ -644,6 +683,9 @@ int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
             tok->color = c->keyword;
             if (c->keyword_bold)
                 tok->attributes |= LLE_ATTR_BOLD;
+            break;
+        case LLE_TOKEN_ASSIGNMENT:
+            tok->color = c->assignment;
             break;
         case LLE_TOKEN_STRING_SINGLE:
         case LLE_TOKEN_STRING_DOUBLE:
