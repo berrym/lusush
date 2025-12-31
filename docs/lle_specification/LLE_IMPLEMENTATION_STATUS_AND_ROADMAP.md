@@ -1,7 +1,7 @@
 # LLE Implementation Status and Roadmap
 
-**Last Updated**: 2025-12-31 (Session 87)  
-**Document Version**: 2.1  
+**Last Updated**: 2025-12-31 (Session 88)  
+**Document Version**: 2.2  
 **Purpose**: Accurate assessment of LLE implementation status, realistic next milestones, and long-term vision
 
 ---
@@ -82,7 +82,7 @@ These systems exist and function but have gaps or need enhancement:
 
 | Component | Status | Gap Description |
 |-----------|--------|-----------------|
-| **Syntax Highlighting** | 60% | Basic shell highlighting works; advanced rules and full theme integration needed |
+| **Syntax Highlighting** | 85% | Core highlighting complete; TOML theme colors; here-docs, process substitution, ANSI-C quoting, arithmetic expansion added (Session 88) |
 | **Autosuggestions** | 70% | History-based suggestions work; not Fish-level sophistication |
 | **Display Rendering** | 75% | Works correctly; differential update code exists but is broken/unused (full redraw used instead) |
 | **Vi Mode** | 50% | Keybindings exist; not fully tested or complete |
@@ -117,7 +117,7 @@ These features exist only in specifications and are **explicitly deferred**:
 | 08 | Display Integration | ✅ 85% | Render pipeline working |
 | 09 | History System | ✅ 95% | Most comprehensive subsystem |
 | 10 | Autosuggestions | ⚠️ 70% | History-based working |
-| 11 | Syntax Highlighting | ⚠️ 60% | Basic highlighting |
+| 11 | Syntax Highlighting | ✅ 85% | Full shell construct coverage, TOML theme colors |
 | 12 | Completion System | ✅ 95% | Menu, categories, sources, custom source API |
 
 ### 2.2 Feature Specifications (13-22)
@@ -181,6 +181,51 @@ Components added during implementation that weren't in the original specs:
 | **Screen Buffer** | ✅ 100% | Virtual terminal screen for proper UTF-8/cursor handling |
 | **Watchdog** | ✅ 100% | SIGALRM-based deadlock detection (Session 80) |
 | **Defensive State Machine** | ✅ 100% | Guaranteed Ctrl+C/Ctrl+G exit paths from any state |
+
+### 2.7 Theme System Feature Status (Session 88 Audit)
+
+Many theme features are **parsed from TOML but not used** in rendering. This section documents which features actually work vs. are spec'd but unimplemented.
+
+#### Layout Options
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| `ps1`, `ps2` | ✅ Working | Main and continuation prompts |
+| `newline_before` | ✅ Working | Blank lines before prompt |
+| `rps1` (right prompt) | ⚠️ Parsed only | Rendered by composer but not displayed by display layer |
+| `transient` | ⚠️ Partial | Works in widgets only, not main prompt |
+| `enable_multiline` | ⚠️ Parsed only | Multiline is template-driven, flag ignored |
+| `compact_mode` | ⚠️ Parsed only | Never checked in rendering |
+| `newline_after` | ⚠️ Parsed only | Never used |
+
+#### Semantic Colors
+
+| Category | Working | Parsed but Unused |
+|----------|---------|-------------------|
+| Core accent | primary, secondary, success, warning, error, info | - |
+| Text | text, text_dim | text_bright |
+| Structural | - | border, background, highlight |
+| Git | git_clean, git_dirty, git_staged, git_branch | git_ahead, git_behind, git_untracked |
+| Path | path_normal, path_home | path_root, path_separator (not even parsed) |
+| Status | status_ok, status_error | status_running |
+
+#### Symbols
+
+| Category | Working | Parsed but Unused |
+|----------|---------|-------------------|
+| Prompt | prompt, prompt_root, continuation | - |
+| Separators | separator_left, separator_right | - |
+| Git | - | branch, staged, unstaged, untracked, ahead, behind, stash, conflict |
+| Other | - | directory, home, error, success, time, jobs |
+
+#### Other
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| `enabled_segments` array | ⚠️ Parsed only | Segment filtering not implemented |
+| Syntax highlighting colors | ✅ Working | All 30+ syntax colors work (Session 88) |
+
+**Reference**: See `examples/theme.toml` for detailed inline status annotations.
 
 ---
 
@@ -325,6 +370,8 @@ Active issues are tracked in `docs/lle_implementation/tracking/KNOWN_ISSUES.md`.
 
 | Issue | Resolution | Session |
 |-------|------------|---------|
+| Syntax highlighting incomplete | Added here-docs, here-strings, process substitution, ANSI-C quoting, arithmetic expansion; TOML theme color support | Session 88 |
+| Theme feature status unknown | Audited all theme features; documented working vs parsed-only in roadmap and examples/theme.toml | Session 88 |
 | exit_code/jobs template variables (Issue #22) | Wired `${status}` and `${jobs}` segments to shell state | Session 87 |
 | Display stress test leak | `pool_was_ever_initialized` flag in memory pool | Session 83 |
 | LLE complete freeze/hang | Watchdog + state machine | Session 80 |
@@ -431,6 +478,7 @@ The original specifications remain as inspiration for what LLE could become, whi
 ---
 
 **Document History**:
+- v2.2 (2025-12-31): Session 88 - Syntax highlighting 60%→85% (shell constructs, TOML colors); Theme feature audit with working/parsed-only status
 - v2.1 (2025-12-31): Session 87 - exit_code/jobs template variable wiring complete
 - v2.0 (2025-12-30): Complete rewrite with accurate status assessment
 - v1.0 (2025-12-26): Original document (now outdated)

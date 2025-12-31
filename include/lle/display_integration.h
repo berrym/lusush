@@ -972,6 +972,21 @@ lle_display_integrate_theme_system(lle_display_integration_t *integration,
                                    theme_definition_t *theme);
 lle_result_t lle_on_theme_changed(lle_display_integration_t *integration,
                                   const char *theme_name);
+
+/* Forward declare lle_theme_t from prompt/theme.h */
+struct lle_theme;
+typedef struct lle_theme lle_theme_t;
+
+/**
+ * Apply LLE theme syntax colors to command layer's spec highlighter
+ *
+ * @param lle_theme LLE theme with syntax colors (from lle_theme_t)
+ * @param cmd_layer Command layer containing the spec highlighter
+ * @return LLE_SUCCESS on success, error code on failure
+ */
+lle_result_t lle_apply_theme_syntax_colors(const lle_theme_t *lle_theme,
+                                           void *cmd_layer);
+
 lle_result_t
 lle_extract_syntax_colors_from_theme(theme_definition_t *theme,
                                      lle_syntax_color_table_t **table,

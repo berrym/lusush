@@ -1,63 +1,79 @@
 # AI Assistant Handoff Document - Session 88
 
 **Date**: 2025-12-31  
-**Session Type**: Fix Jobs Count Not Displaying in Prompt  
+**Session Type**: Syntax Highlighting Enhancement & Theme Feature Audit  
 **Status**: COMPLETE  
 **Branch**: `feature/lle`
 
 ---
 
-## Session 88: Fix Jobs Count and Minimal Theme Variables
+## Session 88: Syntax Highlighting Enhancement & Theme Feature Audit
 
-Three fixes for the prompt template variable system:
+Two major improvements: completing syntax highlighting for shell constructs and auditing/documenting which theme features actually work.
 
-### Fix 1: Enable Job Control for Interactive Shells
+### Part 1: Syntax Highlighting - Missing Shell Constructs
 
-**Problem**: Background jobs weren't being tracked at all - `jobs` builtin showed nothing.
+**Problem**: Syntax highlighting was at ~60% coverage, missing several shell constructs.
 
-**Root Cause**: `shell_opts.job_control` defaults to `false` and was never enabled for interactive shells.
+**Solution**: Added support for:
+- **ANSI-C quoting** (`$'...'`) - handles escape sequences
+- **Arithmetic expansion** (`$((...))`) - nested depth tracking
+- **Here-strings** (`<<<`)
+- **Here-documents** (`<<`, `<<-`)
+- **Process substitution** (`<(...)`, `>(...)`)
 
-**Solution**: Auto-enable job control when shell is interactive (POSIX behavior).
+All new token types have configurable colors in TOML themes.
 
-**Files Modified**:
-- `src/init.c` - Set `shell_opts.job_control = true` for interactive shells
+**New Token Types**:
+- `LLE_TOKEN_STRING_ANSIC`
+- `LLE_TOKEN_ARITHMETIC`
+- `LLE_TOKEN_HERESTRING`
+- `LLE_TOKEN_HEREDOC_OP`, `LLE_TOKEN_HEREDOC_DELIM`, `LLE_TOKEN_HEREDOC_CONTENT`
+- `LLE_TOKEN_PROCSUB_IN`, `LLE_TOKEN_PROCSUB_OUT`
 
-### Fix 2: Jobs Count Wiring
-
-**Problem**: Code used `current_executor` which is NULL at prompt render time.
-
-**Solution**: Changed to use `get_global_executor()` which returns the persistent shell executor.
-
-**Files Modified**:
-- `src/prompt.c` - Use `get_global_executor()` instead of `current_executor`
-- `src/display_integration.c` - Same fix, plus added `#include "lusush.h"`
-- `tests/lle/functional/display_test_stubs.c` - Added `get_global_executor()` stub
-
-### Fix 3: Minimal Theme Missing Variables
-
-**Problem**: The minimal theme's PS1 format did not include `${status}` or `${jobs}`.
-
-**Solution**: Updated minimal theme format to:
-```c
-"${directory}${?jobs: [${jobs}]}${?status: [${status}]} ${symbol} "
-```
+**New Color Fields** (in `lle_syntax_colors_t`):
+- `string_ansic`, `arithmetic`, `herestring`
+- `heredoc_op`, `heredoc_delim`, `heredoc_content`
+- `procsub`
 
 **Files Modified**:
-- `src/lle/prompt/theme.c` - Updated minimal theme PS1 format (line 640)
+- `include/lle/syntax_highlighting.h` - Added token types and color fields
+- `src/lle/display/syntax_highlighting.c` - Tokenizer logic and color application
+- `src/lle/prompt/theme_parser.c` - Parse new `[syntax]` keys from TOML
+- `src/lle/prompt/theme_loader.c` - Export new syntax colors to TOML
+
+### Part 2: Theme Feature Audit
+
+**Problem**: Many theme options were defined in specs/structs but unclear which actually worked.
+
+**Findings**: Many features are **parsed but never used** in rendering:
+
+| Category | Working | Parsed Only |
+|----------|---------|-------------|
+| **Layout** | ps1, ps2, newline_before | rps1, transient, enable_multiline, compact_mode, newline_after |
+| **Colors** | Core accent, text, most git/path/status | text_bright, border, background, highlight, git_ahead/behind, path_separator |
+| **Symbols** | prompt, prompt_root, separators | All git symbols, directory, home, error, success, time, jobs |
+| **Segments** | - | enabled_segments array (filtering not implemented) |
+| **Syntax** | All 30+ colors | - |
+
+**Key Gaps Identified**:
+- Right prompt (`rps1`) is rendered by composer but display layer ignores it
+- Most symbols (14 of 18) are dead code - parsed but never used
+- `enabled_segments` is parsed but segment filtering not implemented
+
+### Part 3: Documentation Updates
+
+1. **Created `examples/theme.toml`** - Comprehensive example with inline `[x]`/`[~]` status annotations showing what works vs. what's parsed only
+
+2. **Updated `docs/lle_specification/LLE_IMPLEMENTATION_STATUS_AND_ROADMAP.md`**:
+   - Added Section 2.7: Theme System Feature Status (Session 88 Audit)
+   - Updated syntax highlighting from 60% → 85%
+   - Added to Recently Resolved section
 
 ### Testing
 
-- Build: All targets compile successfully
-- Tests: 59/59 pass
-
-### Usage
-
-```bash
-$ display lle theme set minimal
-$ sleep 100 &
-$ false
-~/Lab/c/lusush [1] [1] $    # [1] job, [1] exit status
-```
+- Build: All targets compile successfully (`meson compile -C builddir lusush`)
+- Syntax highlighting status upgraded from 60% to 85%
 
 ---
 

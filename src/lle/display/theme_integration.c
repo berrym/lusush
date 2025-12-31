@@ -13,6 +13,7 @@
 #include "display/command_layer.h"
 #include "lle/display_integration.h"
 #include "lle/error_handling.h"
+#include "lle/prompt/theme.h"
 #include "lle/syntax_highlighting.h"
 #include <stdlib.h>
 #include <string.h>
@@ -306,6 +307,39 @@ apply_theme_syntax_to_command_layer(theme_definition_t *theme,
         command_layer_set_color_scheme(cmd_layer, &cmd_colors);
     if (result != COMMAND_LAYER_SUCCESS) {
         return LLE_ERROR_DISPLAY_INTEGRATION;
+    }
+
+    return LLE_SUCCESS;
+}
+
+/**
+ * Apply LLE theme syntax colors to command layer's spec highlighter
+ *
+ * This function applies syntax colors from an lle_theme_t to the
+ * spec-compliant syntax highlighter in the command layer.
+ *
+ * @param lle_theme LLE theme with syntax colors
+ * @param cmd_layer Command layer containing the spec highlighter
+ * @return LLE_SUCCESS on success, error code on failure
+ */
+lle_result_t
+lle_apply_theme_syntax_colors(const lle_theme_t *lle_theme,
+                              void *cmd_layer_ptr) {
+    if (!lle_theme || !cmd_layer_ptr) {
+        return LLE_ERROR_NULL_POINTER;
+    }
+
+    command_layer_t *cmd_layer = (command_layer_t *)cmd_layer_ptr;
+
+    /* Only apply if theme has syntax colors defined */
+    if (!lle_theme->has_syntax_colors) {
+        return LLE_SUCCESS;
+    }
+
+    /* Apply to spec highlighter if available */
+    if (cmd_layer->spec_highlighter) {
+        lle_syntax_highlighter_set_colors(cmd_layer->spec_highlighter,
+                                          &lle_theme->syntax_colors);
     }
 
     return LLE_SUCCESS;

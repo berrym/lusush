@@ -854,6 +854,73 @@ size_t lle_theme_export_to_toml(const lle_theme_t *theme, char *output,
     EXPORT_SYMBOL("jobs", jobs);
 
 #undef EXPORT_SYMBOL
+
+    /* [syntax] section - only if theme has syntax colors */
+    if (theme->has_syntax_colors) {
+        APPEND("\n[syntax]\n");
+
+        /* Helper macro to export RGB color as hex */
+#define EXPORT_SYNTAX_COLOR(name, field)                                       \
+    do {                                                                       \
+        if (theme->syntax_colors.field != 0) {                                 \
+            APPEND("%s = \"#%06x\"\n", name, theme->syntax_colors.field);      \
+        }                                                                      \
+    } while (0)
+
+        EXPORT_SYNTAX_COLOR("command_valid", command_valid);
+        EXPORT_SYNTAX_COLOR("command_invalid", command_invalid);
+        EXPORT_SYNTAX_COLOR("command_builtin", command_builtin);
+        EXPORT_SYNTAX_COLOR("command_alias", command_alias);
+        EXPORT_SYNTAX_COLOR("command_function", command_function);
+        EXPORT_SYNTAX_COLOR("keyword", keyword);
+        EXPORT_SYNTAX_COLOR("string", string);
+        EXPORT_SYNTAX_COLOR("string_escape", string_escape);
+        EXPORT_SYNTAX_COLOR("variable", variable);
+        EXPORT_SYNTAX_COLOR("variable_special", variable_special);
+        EXPORT_SYNTAX_COLOR("path_valid", path_valid);
+        EXPORT_SYNTAX_COLOR("path_invalid", path_invalid);
+        EXPORT_SYNTAX_COLOR("pipe", pipe);
+        EXPORT_SYNTAX_COLOR("redirect", redirect);
+        EXPORT_SYNTAX_COLOR("operator", operator_other);
+        EXPORT_SYNTAX_COLOR("assignment", assignment);
+        EXPORT_SYNTAX_COLOR("comment", comment);
+        EXPORT_SYNTAX_COLOR("number", number);
+        EXPORT_SYNTAX_COLOR("option", option);
+        EXPORT_SYNTAX_COLOR("glob", glob);
+        EXPORT_SYNTAX_COLOR("argument", argument);
+        EXPORT_SYNTAX_COLOR("error", error);
+        /* Here-documents and here-strings */
+        EXPORT_SYNTAX_COLOR("heredoc_op", heredoc_op);
+        EXPORT_SYNTAX_COLOR("heredoc_delim", heredoc_delim);
+        EXPORT_SYNTAX_COLOR("heredoc_content", heredoc_content);
+        EXPORT_SYNTAX_COLOR("herestring", herestring);
+        /* Process substitution */
+        EXPORT_SYNTAX_COLOR("procsub", procsub);
+        /* ANSI-C quoting */
+        EXPORT_SYNTAX_COLOR("string_ansic", string_ansic);
+        /* Arithmetic expansion */
+        EXPORT_SYNTAX_COLOR("arithmetic", arithmetic);
+
+#undef EXPORT_SYNTAX_COLOR
+
+        /* Export text attributes */
+        if (theme->syntax_colors.keyword_bold) {
+            APPEND("keyword_bold = true\n");
+        }
+        if (theme->syntax_colors.command_bold) {
+            APPEND("command_bold = true\n");
+        }
+        if (theme->syntax_colors.error_underline) {
+            APPEND("error_underline = true\n");
+        }
+        if (theme->syntax_colors.path_underline) {
+            APPEND("path_underline = true\n");
+        }
+        if (theme->syntax_colors.comment_dim) {
+            APPEND("comment_dim = true\n");
+        }
+    }
+
 #undef APPEND
 
     return pos;

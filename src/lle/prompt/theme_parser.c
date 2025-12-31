@@ -1087,6 +1087,80 @@ static lle_result_t apply_color(const lle_theme_value_t *value,
 }
 
 /**
+ * @brief Convert lle_color_t to uint32_t RGB format (0x00RRGGBB)
+ *
+ * Used for syntax highlighting colors which use RGB uint32_t format.
+ */
+static uint32_t color_to_rgb(const lle_color_t *color) {
+    if (!color) {
+        return 0;
+    }
+
+    switch (color->mode) {
+    case LLE_COLOR_MODE_TRUE:
+        return ((uint32_t)color->value.rgb.r << 16) |
+               ((uint32_t)color->value.rgb.g << 8) |
+               (uint32_t)color->value.rgb.b;
+
+    case LLE_COLOR_MODE_256: {
+        /* Convert 256-color palette to approximate RGB */
+        uint8_t idx = color->value.palette;
+        if (idx < 16) {
+            /* Basic 16 colors */
+            static const uint32_t basic[16] = {
+                0x000000, 0x800000, 0x008000, 0x808000,
+                0x000080, 0x800080, 0x008080, 0xC0C0C0,
+                0x808080, 0xFF0000, 0x00FF00, 0xFFFF00,
+                0x0000FF, 0xFF00FF, 0x00FFFF, 0xFFFFFF
+            };
+            return basic[idx];
+        } else if (idx < 232) {
+            /* 216-color cube (6x6x6) */
+            int i = idx - 16;
+            int r = (i / 36) * 51;
+            int g = ((i / 6) % 6) * 51;
+            int b = (i % 6) * 51;
+            return ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b;
+        } else {
+            /* Grayscale */
+            int gray = 8 + (idx - 232) * 10;
+            return ((uint32_t)gray << 16) | ((uint32_t)gray << 8) | (uint32_t)gray;
+        }
+    }
+
+    case LLE_COLOR_MODE_BASIC: {
+        /* Basic 8 ANSI colors */
+        static const uint32_t basic8[8] = {
+            0x000000, 0xAA0000, 0x00AA00, 0xAAAA00,
+            0x0000AA, 0xAA00AA, 0x00AAAA, 0xAAAAAA
+        };
+        if (color->value.basic < 8) {
+            return basic8[color->value.basic];
+        }
+        return 0xFFFFFF;
+    }
+
+    case LLE_COLOR_MODE_NONE:
+    default:
+        return 0;
+    }
+}
+
+/**
+ * @brief Apply a syntax color value (parse and convert to RGB uint32_t)
+ */
+static lle_result_t apply_syntax_color(const lle_theme_value_t *value,
+                                       uint32_t *rgb_out) {
+    lle_color_t color;
+    lle_result_t result = apply_color(value, &color);
+    if (result != LLE_SUCCESS) {
+        return result;
+    }
+    *rgb_out = color_to_rgb(&color);
+    return LLE_SUCCESS;
+}
+
+/**
  * @brief Theme builder callback - populates theme from parsed values
  */
 static lle_result_t theme_builder_callback(const char *section, const char *key,
@@ -1335,6 +1409,102 @@ static lle_result_t theme_builder_callback(const char *section, const char *key,
         /* Note: ASCII fallbacks are stored in the same symbol set when
          * the theme is used in ASCII mode. For now, we just ignore these
          * during parsing and let the theme loader handle mode selection. */
+        return LLE_SUCCESS;
+    }
+
+    /* [syntax] section - syntax highlighting colors */
+    if (strcmp(section, "syntax") == 0) {
+        uint32_t *target = NULL;
+        uint8_t *attr_target = NULL;
+
+        /* Map key to syntax color field */
+        if (strcmp(key, "command_valid") == 0)
+            target = &theme->syntax_colors.command_valid;
+        else if (strcmp(key, "command_invalid") == 0)
+            target = &theme->syntax_colors.command_invalid;
+        else if (strcmp(key, "command_builtin") == 0)
+            target = &theme->syntax_colors.command_builtin;
+        else if (strcmp(key, "command_alias") == 0)
+            target = &theme->syntax_colors.command_alias;
+        else if (strcmp(key, "command_function") == 0)
+            target = &theme->syntax_colors.command_function;
+        else if (strcmp(key, "keyword") == 0)
+            target = &theme->syntax_colors.keyword;
+        else if (strcmp(key, "string") == 0)
+            target = &theme->syntax_colors.string;
+        else if (strcmp(key, "string_escape") == 0)
+            target = &theme->syntax_colors.string_escape;
+        else if (strcmp(key, "variable") == 0)
+            target = &theme->syntax_colors.variable;
+        else if (strcmp(key, "variable_special") == 0)
+            target = &theme->syntax_colors.variable_special;
+        else if (strcmp(key, "path_valid") == 0)
+            target = &theme->syntax_colors.path_valid;
+        else if (strcmp(key, "path_invalid") == 0)
+            target = &theme->syntax_colors.path_invalid;
+        else if (strcmp(key, "pipe") == 0)
+            target = &theme->syntax_colors.pipe;
+        else if (strcmp(key, "redirect") == 0)
+            target = &theme->syntax_colors.redirect;
+        else if (strcmp(key, "operator") == 0)
+            target = &theme->syntax_colors.operator_other;
+        else if (strcmp(key, "assignment") == 0)
+            target = &theme->syntax_colors.assignment;
+        else if (strcmp(key, "comment") == 0)
+            target = &theme->syntax_colors.comment;
+        else if (strcmp(key, "number") == 0)
+            target = &theme->syntax_colors.number;
+        else if (strcmp(key, "option") == 0)
+            target = &theme->syntax_colors.option;
+        else if (strcmp(key, "glob") == 0)
+            target = &theme->syntax_colors.glob;
+        else if (strcmp(key, "argument") == 0)
+            target = &theme->syntax_colors.argument;
+        else if (strcmp(key, "error") == 0)
+            target = &theme->syntax_colors.error;
+        /* Here-documents and here-strings */
+        else if (strcmp(key, "heredoc_op") == 0)
+            target = &theme->syntax_colors.heredoc_op;
+        else if (strcmp(key, "heredoc_delim") == 0)
+            target = &theme->syntax_colors.heredoc_delim;
+        else if (strcmp(key, "heredoc_content") == 0)
+            target = &theme->syntax_colors.heredoc_content;
+        else if (strcmp(key, "herestring") == 0)
+            target = &theme->syntax_colors.herestring;
+        /* Process substitution */
+        else if (strcmp(key, "procsub") == 0)
+            target = &theme->syntax_colors.procsub;
+        /* ANSI-C quoting */
+        else if (strcmp(key, "string_ansic") == 0)
+            target = &theme->syntax_colors.string_ansic;
+        /* Arithmetic expansion */
+        else if (strcmp(key, "arithmetic") == 0)
+            target = &theme->syntax_colors.arithmetic;
+        /* Text attributes */
+        else if (strcmp(key, "keyword_bold") == 0)
+            attr_target = &theme->syntax_colors.keyword_bold;
+        else if (strcmp(key, "command_bold") == 0)
+            attr_target = &theme->syntax_colors.command_bold;
+        else if (strcmp(key, "error_underline") == 0)
+            attr_target = &theme->syntax_colors.error_underline;
+        else if (strcmp(key, "path_underline") == 0)
+            attr_target = &theme->syntax_colors.path_underline;
+        else if (strcmp(key, "comment_dim") == 0)
+            attr_target = &theme->syntax_colors.comment_dim;
+
+        if (target) {
+            lle_result_t result = apply_syntax_color(value, target);
+            if (result != LLE_SUCCESS) {
+                snprintf(ctx->error_msg, sizeof(ctx->error_msg),
+                         "Invalid syntax color value for '%s'", key);
+                ctx->error = result;
+                return result;
+            }
+            theme->has_syntax_colors = true;
+        } else if (attr_target && value->type == LLE_THEME_VALUE_BOOLEAN) {
+            *attr_target = value->data.boolean ? 1 : 0;
+            theme->has_syntax_colors = true;
+        }
         return LLE_SUCCESS;
     }
 

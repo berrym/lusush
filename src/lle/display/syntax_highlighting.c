@@ -68,6 +68,21 @@ static const lle_syntax_colors_t default_colors = {
     .glob = 0x00CB4B16,     /* Orange */
     .argument = 0x00839496, /* Base0 */
 
+    /* Here-documents and here-strings */
+    .heredoc_op = 0x00D33682,      /* Magenta (same as redirect) */
+    .heredoc_delim = 0x00B58900,   /* Yellow (same as string) */
+    .heredoc_content = 0x00B58900, /* Yellow (same as string) */
+    .herestring = 0x00B58900,      /* Yellow (same as string) */
+
+    /* Process substitution */
+    .procsub = 0x00D33682, /* Magenta */
+
+    /* ANSI-C quoting */
+    .string_ansic = 0x00B58900, /* Yellow (same as string) */
+
+    /* Arithmetic expansion */
+    .arithmetic = 0x002AA198, /* Cyan */
+
     /* Errors */
     .error = 0x00DC322F,    /* Red bg */
     .error_fg = 0x00FFFFFF, /* White fg */
@@ -426,21 +441,64 @@ int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
             continue;
         }
 
-        /* Variable */
+        /* Variable and $-prefixed constructs */
         if (c == '$') {
             pos++;
             if (pos < input_len) {
                 char next = input[pos];
                 lle_syntax_token_type_t vtype = LLE_TOKEN_VARIABLE;
 
+                /* ANSI-C quoting: $'...' */
+                if (next == '\'') {
+                    pos++; /* Skip opening quote */
+                    while (pos < input_len && input[pos] != '\'') {
+                        /* Handle escape sequences in ANSI-C strings */
+                        if (input[pos] == '\\' && pos + 1 < input_len) {
+                            pos++;
+                        }
+                        pos++;
+                    }
+                    if (pos < input_len)
+                        pos++; /* Skip closing quote */
+                    add_token(highlighter,
+                              pos <= input_len && input[pos - 1] == '\''
+                                  ? LLE_TOKEN_STRING_ANSIC
+                                  : LLE_TOKEN_UNCLOSED_STRING,
+                              token_start, pos);
+                    expect_command = false;
+                    continue;
+                }
+                /* Arithmetic expansion: $((...)) */
+                else if (next == '(' && pos + 1 < input_len &&
+                         input[pos + 1] == '(') {
+                    pos += 2; /* Skip (( */
+                    int depth = 1;
+                    while (pos < input_len && depth > 0) {
+                        if (pos + 1 < input_len && input[pos] == '(' &&
+                            input[pos + 1] == '(') {
+                            depth++;
+                            pos++;
+                        } else if (pos + 1 < input_len && input[pos] == ')' &&
+                                   input[pos + 1] == ')') {
+                            depth--;
+                            pos++;
+                        }
+                        pos++;
+                    }
+                    add_token(highlighter, LLE_TOKEN_ARITHMETIC, token_start,
+                              pos);
+                    expect_command = false;
+                    continue;
+                }
                 /* Special variables */
-                if (next == '?' || next == '#' || next == '@' || next == '*' ||
-                    next == '$' || next == '!' || next == '-' || next == '_' ||
-                    (next >= '0' && next <= '9')) {
+                else if (next == '?' || next == '#' || next == '@' ||
+                         next == '*' || next == '$' || next == '!' ||
+                         next == '-' || next == '_' ||
+                         (next >= '0' && next <= '9')) {
                     pos++;
                     vtype = LLE_TOKEN_VARIABLE_SPECIAL;
                 }
-                /* ${...} or $(...) */
+                /* ${...} or $(...) command substitution */
                 else if (next == '{' || next == '(') {
                     char close = (next == '{') ? '}' : ')';
                     int depth = 1;
@@ -502,11 +560,52 @@ int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
         }
 
         if (c == '>' || c == '<') {
+            /* Process substitution: >(...) or <(...) */
+            if (pos + 1 < input_len && input[pos + 1] == '(') {
+                lle_syntax_token_type_t pstype =
+                    (c == '<') ? LLE_TOKEN_PROCSUB_IN : LLE_TOKEN_PROCSUB_OUT;
+                pos += 2; /* Skip <( or >( */
+                int depth = 1;
+                while (pos < input_len && depth > 0) {
+                    if (input[pos] == '(')
+                        depth++;
+                    else if (input[pos] == ')')
+                        depth--;
+                    pos++;
+                }
+                add_token(highlighter, pstype, token_start, pos);
+                expect_command = false;
+                continue;
+            }
+
+            /* Here-string: <<< */
+            if (c == '<' && pos + 2 < input_len && input[pos + 1] == '<' &&
+                input[pos + 2] == '<') {
+                pos += 3; /* Skip <<< */
+                add_token(highlighter, LLE_TOKEN_HERESTRING, token_start, pos);
+                expect_command = false;
+                continue;
+            }
+
+            /* Here-document: << or <<- (with optional quoting of delimiter) */
+            if (c == '<' && pos + 1 < input_len && input[pos + 1] == '<' &&
+                (pos + 2 >= input_len || input[pos + 2] != '<')) {
+                pos += 2; /* Skip << */
+                /* Check for <<- (strip leading tabs) */
+                if (pos < input_len && input[pos] == '-') {
+                    pos++;
+                }
+                add_token(highlighter, LLE_TOKEN_HEREDOC_OP, token_start, pos);
+                /* Next token will be the delimiter (handled by word parsing) */
+                expect_command = false;
+                continue;
+            }
+
+            /* Regular redirect: >, >>, <, >&, <&, etc. */
             pos++;
-            /* Handle >>, <<, >&, <&, etc. */
             while (pos < input_len &&
-                   (input[pos] == '>' || input[pos] == '<' ||
-                    input[pos] == '&' || isdigit((unsigned char)input[pos]))) {
+                   (input[pos] == '>' || input[pos] == '&' ||
+                    isdigit((unsigned char)input[pos]))) {
                 pos++;
             }
             add_token(highlighter, LLE_TOKEN_REDIRECT, token_start, pos);
@@ -740,6 +839,32 @@ int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
             break;
         case LLE_TOKEN_ARGUMENT:
             tok->color = c->argument;
+            break;
+        /* Here-documents and here-strings */
+        case LLE_TOKEN_HEREDOC_OP:
+            tok->color = c->heredoc_op;
+            break;
+        case LLE_TOKEN_HEREDOC_DELIM:
+            tok->color = c->heredoc_delim;
+            break;
+        case LLE_TOKEN_HEREDOC_CONTENT:
+            tok->color = c->heredoc_content;
+            break;
+        case LLE_TOKEN_HERESTRING:
+            tok->color = c->herestring;
+            break;
+        /* Process substitution */
+        case LLE_TOKEN_PROCSUB_IN:
+        case LLE_TOKEN_PROCSUB_OUT:
+            tok->color = c->procsub;
+            break;
+        /* ANSI-C quoting */
+        case LLE_TOKEN_STRING_ANSIC:
+            tok->color = c->string_ansic;
+            break;
+        /* Arithmetic expansion */
+        case LLE_TOKEN_ARITHMETIC:
+            tok->color = c->arithmetic;
             break;
         case LLE_TOKEN_ERROR:
         case LLE_TOKEN_UNCLOSED_STRING:

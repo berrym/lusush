@@ -1,0 +1,279 @@
+# Lusush Line Editor (LLE) Theme Configuration
+#
+# Place this file at: ~/.config/lusush/themes/<name>.toml
+# Activate with: display lle theme set <name>
+#
+# Colors can be specified as:
+#   - Hex RGB: "#FF5500" or "#F50"
+#   - Named: "red", "green", "blue", "yellow", "magenta", "cyan", "white", "black"
+#   - 256-color palette: "color123"
+#
+# To see all available themes:
+#   display lle theme list
+#
+# To export the current theme:
+#   display lle theme export > mytheme.toml
+#
+# ==============================================================================
+# IMPLEMENTATION STATUS
+# ==============================================================================
+# Legend: [x] = fully working, [~] = parsed but not used, [ ] = not implemented
+#
+# LAYOUT:
+#   [x] ps1, ps2              - Main and continuation prompts
+#   [x] newline_before        - Blank lines before prompt
+#   [~] rps1                  - Right prompt (parsed, not displayed)
+#   [~] transient             - Transient prompt (parsed, widgets only)
+#   [~] enable_multiline      - Parsed but multiline is template-driven
+#   [~] compact_mode          - Parsed but never checked
+#   [~] newline_after         - Parsed but never used
+#
+# COLORS:
+#   [x] primary, secondary, success, warning, error, info
+#   [x] text, text_dim
+#   [x] git_clean, git_dirty, git_staged, git_branch
+#   [x] path_normal, path_home
+#   [x] status_ok, status_error
+#   [~] text_bright, border, background, highlight - Parsed, not used
+#   [~] path_root, path_separator - Parsed, not used
+#   [~] git_ahead, git_behind, git_untracked, status_running - Parsed, not used
+#
+# SYMBOLS:
+#   [x] prompt, prompt_root, continuation, separator_left, separator_right
+#   [~] All git symbols (branch, staged, unstaged, etc.) - Parsed, not used
+#   [~] directory, home, error, success, time, jobs - Parsed, not used
+#
+# SEGMENTS:
+#   [~] enabled array - Parsed but segment filtering not implemented
+#
+# SYNTAX HIGHLIGHTING:
+#   [x] All syntax colors are fully implemented
+
+# ==============================================================================
+# THEME IDENTITY
+# ==============================================================================
+
+[theme]
+name = "custom-example"
+description = "Example theme showing all customization options"
+author = "Your Name"
+version = "1.0.0"
+category = "modern"            # minimal, classic, modern, powerline, professional, creative
+inherits_from = "default"      # Optional: inherit unset values from another theme
+
+# ==============================================================================
+# PROMPT LAYOUT
+# ==============================================================================
+
+[layout]
+# Main prompt format (PS1)
+# Available segments: ${user}, ${host}, ${path}, ${git}, ${status}, ${jobs}, ${time}
+# Conditional syntax: ${?condition:content} - only show if condition is true
+# Example conditions: git (in repo), jobs (has bg jobs), status (non-zero exit)
+ps1 = "${path}${?git: ${git}}${?status: ${status}}${?jobs: [${jobs}]} $ "
+
+# Continuation prompt (PS2) - shown for multi-line input
+ps2 = "> "
+
+# Right-side prompt (RPS1) - shown on right edge of terminal
+# NOTE: Right prompts are not yet implemented in the display layer
+rps1 = "${time}"
+
+# Transient prompt - replaces old prompts after command execution
+# NOTE: Transient prompts are not yet implemented
+transient = "$ "
+
+# Layout options
+enable_right_prompt = false    # [~] Parsed but rprompt not displayed
+enable_transient = false       # [~] Partially implemented (widgets only)
+enable_multiline = false       # [~] Parsed but not used (multiline is template-driven)
+compact_mode = false           # [~] Parsed but not implemented
+newline_before = 0             # [x] Blank lines before prompt - WORKS
+newline_after = 0              # [~] Parsed but not implemented
+
+# ==============================================================================
+# SEMANTIC COLORS
+# ==============================================================================
+
+[colors]
+# Core accent colors
+primary = "#268BD2"            # Primary accent (solarized blue)
+secondary = "#2AA198"          # Secondary accent (solarized cyan)
+success = "#859900"            # Success indicator (solarized green)
+warning = "#B58900"            # Warning indicator (solarized yellow)
+error = "#DC322F"              # Error indicator (solarized red)
+info = "#6C71C4"               # Information (solarized violet)
+
+# Text colors
+text = "#839496"               # Normal text (solarized base0)
+text_dim = "#586E75"           # Dimmed text (solarized base01)
+text_bright = "#FDF6E3"        # [~] Bright text - parsed but not used
+
+# Structural colors - [~] All parsed but not used in rendering
+border = "#073642"             # Border/separator (solarized base02)
+background = "#002B36"         # Background (solarized base03)
+highlight = "#073642"          # Highlight (solarized base02)
+
+# Git-specific colors
+git_clean = "#859900"          # Clean repository
+git_dirty = "#DC322F"          # Dirty repository
+git_staged = "#B58900"         # Staged changes
+git_untracked = "#6C71C4"      # Untracked files
+git_branch = "#268BD2"         # Branch name
+git_ahead = "#859900"          # [~] Commits ahead - parsed but not used
+git_behind = "#DC322F"         # [~] Commits behind - parsed but not used
+
+# Path colors
+path_home = "#268BD2"          # Home directory
+path_root = "#DC322F"          # [~] Root directory - parsed but not used
+path_normal = "#839496"        # Normal path components
+path_separator = "#586E75"     # [~] Path separator - not even parsed
+
+# Status colors
+status_ok = "#859900"          # Success status (exit 0)
+status_error = "#DC322F"       # Error status (non-zero exit)
+status_running = "#B58900"     # [~] Running status - parsed but not used
+
+# ==============================================================================
+# SYMBOLS
+# ==============================================================================
+# NOTE: Most symbols below are parsed but NOT used in rendering.
+# Only prompt, prompt_root, continuation, and separators are functional.
+
+[symbols]
+# Prompt symbols - [x] These work
+prompt = "$"                   # Main prompt character
+prompt_root = "#"              # Root user prompt
+continuation = ">"             # PS2 continuation
+
+# Powerline separators (requires powerline/nerd fonts) - [x] These work
+separator_left = ""           # Left-pointing separator
+separator_right = ""          # Right-pointing separator
+
+# Git symbols - [~] All parsed but not used in rendering
+branch = ""                   # Branch icon (nerd font)
+staged = "+"                   # Staged changes
+unstaged = "!"                 # Unstaged changes
+untracked = "?"                # Untracked files
+ahead = ""                    # Commits ahead
+behind = ""                   # Commits behind
+stash = ""                    # Stashed changes
+conflict = ""                 # Merge conflict
+
+# Directory symbols - [~] Parsed but not used
+directory = ""                # Directory icon
+home = "~"                     # Home directory
+
+# Status symbols - [~] Parsed but not used
+error = ""                    # Error indicator
+success = ""                  # Success indicator
+
+# Other - [~] Parsed but not used
+time = ""                     # Time display
+jobs = ""                     # Background jobs
+
+# ==============================================================================
+# ASCII FALLBACK SYMBOLS
+# ==============================================================================
+# Used when terminal doesn't support Unicode
+
+[symbols_ascii]
+prompt = "$"
+prompt_root = "#"
+continuation = ">"
+separator_left = ""
+separator_right = ""
+branch = ""
+staged = "+"
+unstaged = "!"
+untracked = "?"
+ahead = "^"
+behind = "v"
+stash = "*"
+conflict = "X"
+directory = ""
+home = "~"
+error = "X"
+success = "ok"
+time = ""
+jobs = "&"
+
+# ==============================================================================
+# SYNTAX HIGHLIGHTING COLORS
+# ==============================================================================
+
+[syntax]
+# Commands
+command_valid = "#859900"      # Valid external command (green)
+command_invalid = "#DC322F"    # Invalid/not-found command (red)
+command_builtin = "#2AA198"    # Shell builtin (cd, echo, etc.) (cyan)
+command_alias = "#2AA198"      # Defined alias (cyan)
+command_function = "#268BD2"   # Shell function (blue)
+
+# Keywords
+keyword = "#CB4B16"            # Shell keywords (if, then, for, while, etc.) (orange)
+
+# Strings
+string = "#B58900"             # Quoted strings (yellow)
+string_escape = "#DC322F"      # Escape sequences in strings (red)
+string_ansic = "#B58900"       # ANSI-C quoting $'...' (yellow)
+
+# Variables
+variable = "#6C71C4"           # Variable reference $var, ${var} (violet)
+variable_special = "#D33682"   # Special variables $?, $#, $@, $$, $! (magenta)
+
+# Paths
+path_valid = "#859900"         # Valid file/directory path (green)
+path_invalid = "#DC322F"       # Non-existent path (red)
+
+# Operators
+pipe = "#268BD2"               # Pipe | (blue)
+redirect = "#D33682"           # Redirection >, <, >>, 2>, &> (magenta)
+operator = "#839496"           # Other operators &, ;, &&, || (base0)
+
+# Assignment
+assignment = "#6C71C4"         # Variable assignment VAR=value (violet)
+
+# Comments and misc
+comment = "#586E75"            # Comments # ... (dim)
+number = "#2AA198"             # Numeric literals (cyan)
+option = "#839496"             # Command options -v, --verbose (base0)
+glob = "#CB4B16"               # Glob patterns *, ?, [...] (orange)
+argument = "#839496"           # Generic arguments (base0)
+
+# Here-documents and here-strings
+heredoc_op = "#D33682"         # Heredoc operator << (magenta)
+heredoc_delim = "#B58900"      # Heredoc delimiter word (yellow)
+heredoc_content = "#B58900"    # Heredoc body content (yellow)
+herestring = "#B58900"         # Here-string <<< (yellow)
+
+# Process substitution
+procsub = "#D33682"            # Process substitution <() and >() (magenta)
+
+# Arithmetic expansion
+arithmetic = "#2AA198"         # Arithmetic $((...)) (cyan)
+
+# Errors
+error = "#DC322F"              # Syntax errors (red)
+
+# Text attributes (true/false)
+keyword_bold = true            # Bold keywords
+command_bold = true            # Bold valid commands
+error_underline = true         # Underline errors
+path_underline = true          # Underline paths
+comment_dim = true             # Dim comments
+
+# ==============================================================================
+# ENABLED SEGMENTS
+# ==============================================================================
+# List of segments to include in the prompt. Order matters.
+# NOTE: [~] This is parsed but segment filtering is NOT implemented.
+# Segments are controlled by their own is_enabled() callbacks, not this list.
+
+[segments]
+enabled = [
+    "path",
+    "git",
+    "status",
+    "jobs"
+]

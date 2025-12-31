@@ -82,6 +82,22 @@ typedef enum lle_syntax_token_type {
     LLE_TOKEN_GLOB,     /**< Glob pattern (*, ?, [...]) */
     LLE_TOKEN_ESCAPE,   /**< Escape sequence (\x) */
 
+    /* Here-documents and here-strings */
+    LLE_TOKEN_HEREDOC_OP,        /**< Heredoc operator (<<, <<-, <<') */
+    LLE_TOKEN_HEREDOC_DELIM,     /**< Heredoc delimiter word */
+    LLE_TOKEN_HEREDOC_CONTENT,   /**< Heredoc content (body) */
+    LLE_TOKEN_HERESTRING,        /**< Here-string (<<<) */
+
+    /* Process substitution */
+    LLE_TOKEN_PROCSUB_IN,        /**< Process substitution input <(...) */
+    LLE_TOKEN_PROCSUB_OUT,       /**< Process substitution output >(...) */
+
+    /* ANSI-C quoting */
+    LLE_TOKEN_STRING_ANSIC,      /**< ANSI-C quoted string $'...' */
+
+    /* Arithmetic expansion */
+    LLE_TOKEN_ARITHMETIC,        /**< Arithmetic expansion $((...)) */
+
     /* Errors */
     LLE_TOKEN_ERROR,             /**< Syntax error */
     LLE_TOKEN_UNCLOSED_STRING,   /**< Unclosed quote */
@@ -137,6 +153,21 @@ typedef struct lle_syntax_colors {
     uint32_t option;   /**< Options (typically white/default) */
     uint32_t glob;     /**< Glob patterns */
     uint32_t argument; /**< Generic arguments (default) */
+
+    /* Here-documents and here-strings */
+    uint32_t heredoc_op;      /**< Heredoc operator (<<) */
+    uint32_t heredoc_delim;   /**< Heredoc delimiter */
+    uint32_t heredoc_content; /**< Heredoc body content */
+    uint32_t herestring;      /**< Here-string (<<<word) */
+
+    /* Process substitution */
+    uint32_t procsub; /**< Process substitution <() and >() */
+
+    /* ANSI-C quoting */
+    uint32_t string_ansic; /**< ANSI-C string $'...' */
+
+    /* Arithmetic expansion */
+    uint32_t arithmetic; /**< Arithmetic $((...)) */
 
     /* Errors */
     uint32_t error;    /**< Syntax errors (typically red bg) */

@@ -20,6 +20,7 @@
 #define LLE_PROMPT_THEME_H
 
 #include "lle/error_handling.h"
+#include "lle/syntax_highlighting.h"
 
 #include <limits.h>
 #include <pthread.h>
@@ -275,6 +276,10 @@ typedef struct lle_theme {
     lle_color_scheme_t colors;               /**< Color scheme */
     lle_symbol_set_t symbols;                /**< Symbol set */
     lle_prompt_layout_t layout;              /**< Prompt layout */
+
+    /* Syntax highlighting colors (optional - overrides defaults) */
+    lle_syntax_colors_t syntax_colors;       /**< Syntax highlighting colors */
+    bool has_syntax_colors;                  /**< True if syntax colors defined in theme */
 
     /* Segment configuration */
     char enabled_segments[LLE_THEME_MAX_SEGMENTS][32];

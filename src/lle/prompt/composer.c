@@ -11,6 +11,7 @@
 
 #include "lle/prompt/composer.h"
 #include "lle/adaptive_terminal_integration.h"
+#include "lle/display_integration.h"
 #include "lle/lle_shell_event_hub.h"
 
 #include <stdio.h>
@@ -647,6 +648,19 @@ lle_result_t lle_composer_set_theme(lle_prompt_composer_t *composer,
     if (composer->cached_ps2_template) {
         lle_template_free(composer->cached_ps2_template);
         composer->cached_ps2_template = NULL;
+    }
+
+    /* Apply syntax colors from the new LLE theme */
+    lle_display_integration_t *integration =
+        lle_display_integration_get_global();
+    if (integration && integration->display_bridge &&
+        integration->display_bridge->command_layer) {
+        const lle_theme_t *active_theme =
+            lle_theme_registry_get_active(composer->themes);
+        if (active_theme && active_theme->has_syntax_colors) {
+            lle_apply_theme_syntax_colors(
+                active_theme, integration->display_bridge->command_layer);
+        }
     }
 
     return LLE_SUCCESS;
