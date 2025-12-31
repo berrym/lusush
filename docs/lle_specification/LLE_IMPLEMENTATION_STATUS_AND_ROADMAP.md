@@ -1,7 +1,7 @@
 # LLE Implementation Status and Roadmap
 
-**Last Updated**: 2025-12-31 (Session 88)  
-**Document Version**: 2.2  
+**Last Updated**: 2025-12-31 (Session 89)  
+**Document Version**: 2.3  
 **Purpose**: Accurate assessment of LLE implementation status, realistic next milestones, and long-term vision
 
 ---
@@ -182,7 +182,7 @@ Components added during implementation that weren't in the original specs:
 | **Watchdog** | ✅ 100% | SIGALRM-based deadlock detection (Session 80) |
 | **Defensive State Machine** | ✅ 100% | Guaranteed Ctrl+C/Ctrl+G exit paths from any state |
 
-### 2.7 Theme System Feature Status (Session 88 Audit)
+### 2.7 Theme System Feature Status (Session 88 Audit, Updated Session 89)
 
 Many theme features are **parsed from TOML but not used** in rendering. This section documents which features actually work vs. are spec'd but unimplemented.
 
@@ -192,11 +192,11 @@ Many theme features are **parsed from TOML but not used** in rendering. This sec
 |---------|--------|-------|
 | `ps1`, `ps2` | ✅ Working | Main and continuation prompts |
 | `newline_before` | ✅ Working | Blank lines before prompt |
+| `newline_after` | ✅ Working | Blank lines after prompt (Session 89) |
 | `rps1` (right prompt) | ⚠️ Parsed only | Rendered by composer but not displayed by display layer |
 | `transient` | ⚠️ Partial | Works in widgets only, not main prompt |
 | `enable_multiline` | ⚠️ Parsed only | Multiline is template-driven, flag ignored |
 | `compact_mode` | ⚠️ Parsed only | Never checked in rendering |
-| `newline_after` | ⚠️ Parsed only | Never used |
 
 #### Semantic Colors
 
@@ -205,7 +205,7 @@ Many theme features are **parsed from TOML but not used** in rendering. This sec
 | Core accent | primary, secondary, success, warning, error, info | - |
 | Text | text, text_dim | text_bright |
 | Structural | - | border, background, highlight |
-| Git | git_clean, git_dirty, git_staged, git_branch | git_ahead, git_behind, git_untracked |
+| Git | git_clean, git_dirty, git_staged, git_branch, git_ahead, git_behind, git_untracked (Session 89) | - |
 | Path | path_normal, path_home | path_root, path_separator (not even parsed) |
 | Status | status_ok, status_error | status_running |
 
@@ -215,8 +215,8 @@ Many theme features are **parsed from TOML but not used** in rendering. This sec
 |----------|---------|-------------------|
 | Prompt | prompt, prompt_root, continuation | - |
 | Separators | separator_left, separator_right | - |
-| Git | - | branch, staged, unstaged, untracked, ahead, behind, stash, conflict |
-| Other | - | directory, home, error, success, time, jobs |
+| Git | staged, unstaged, untracked, ahead, behind (Session 89) | branch, stash, conflict |
+| Other | error, jobs (Session 89) | directory, home, success, time |
 
 #### Other
 
@@ -370,6 +370,9 @@ Active issues are tracked in `docs/lle_implementation/tracking/KNOWN_ISSUES.md`.
 
 | Issue | Resolution | Session |
 |-------|------------|---------|
+| Theme symbols not wired | Changed segment render API to pass theme; wired prompt, git, jobs, status symbols | Session 89 |
+| Theme colors not wired | Git segment now uses git_ahead/behind/untracked colors with embedded ANSI codes | Session 89 |
+| newline_after not working | Implemented in composer after PS1 rendering | Session 89 |
 | Syntax highlighting incomplete | Added here-docs, here-strings, process substitution, ANSI-C quoting, arithmetic expansion; TOML theme color support | Session 88 |
 | Theme feature status unknown | Audited all theme features; documented working vs parsed-only in roadmap and examples/theme.toml | Session 88 |
 | exit_code/jobs template variables (Issue #22) | Wired `${status}` and `${jobs}` segments to shell state | Session 87 |
@@ -478,6 +481,7 @@ The original specifications remain as inspiration for what LLE could become, whi
 ---
 
 **Document History**:
+- v2.3 (2025-12-31): Session 89 - Wired theme symbols (prompt, git, jobs, status) and colors (git_ahead/behind/untracked); Implemented newline_after; Segment render API now includes theme parameter
 - v2.2 (2025-12-31): Session 88 - Syntax highlighting 60%→85% (shell constructs, TOML colors); Theme feature audit with working/parsed-only status
 - v2.1 (2025-12-31): Session 87 - exit_code/jobs template variable wiring complete
 - v2.0 (2025-12-30): Complete rewrite with accurate status assessment

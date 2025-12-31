@@ -11,6 +11,7 @@
 #include "lle/prompt/segment.h"
 
 #include "lle/adaptive_terminal_integration.h"
+#include "lle/prompt/theme.h"
 #include "lle/utf8_support.h"
 
 #include <pwd.h>
@@ -342,8 +343,10 @@ static bool segment_directory_is_visible(const lle_prompt_segment_t *self,
 
 static lle_result_t segment_directory_render(const lle_prompt_segment_t *self,
                                               const lle_prompt_context_t *ctx,
+                                              const lle_theme_t *theme,
                                               lle_segment_output_t *output) {
     (void)self;
+    (void)theme;
 
     const char *display = strlen(ctx->cwd_display) > 0 ?
                           ctx->cwd_display : ctx->cwd;
@@ -411,8 +414,10 @@ static bool segment_user_is_visible(const lle_prompt_segment_t *self,
 
 static lle_result_t segment_user_render(const lle_prompt_segment_t *self,
                                          const lle_prompt_context_t *ctx,
+                                         const lle_theme_t *theme,
                                          lle_segment_output_t *output) {
     (void)self;
+    (void)theme;
 
     snprintf(output->content, sizeof(output->content), "%s", ctx->username);
     output->content_len = strlen(output->content);
@@ -461,8 +466,10 @@ static bool segment_host_is_visible(const lle_prompt_segment_t *self,
 
 static lle_result_t segment_host_render(const lle_prompt_segment_t *self,
                                          const lle_prompt_context_t *ctx,
+                                         const lle_theme_t *theme,
                                          lle_segment_output_t *output) {
     (void)self;
+    (void)theme;
 
     snprintf(output->content, sizeof(output->content), "%s", ctx->hostname);
     output->content_len = strlen(output->content);
@@ -505,8 +512,10 @@ lle_prompt_segment_t *lle_segment_create_host(void) {
 
 static lle_result_t segment_time_render(const lle_prompt_segment_t *self,
                                          const lle_prompt_context_t *ctx,
+                                         const lle_theme_t *theme,
                                          lle_segment_output_t *output) {
     (void)self;
+    (void)theme;
 
     strftime(output->content, sizeof(output->content),
              "%H:%M:%S", &ctx->current_tm);
@@ -543,12 +552,21 @@ static bool segment_status_is_visible(const lle_prompt_segment_t *self,
 
 static lle_result_t segment_status_render(const lle_prompt_segment_t *self,
                                            const lle_prompt_context_t *ctx,
+                                           const lle_theme_t *theme,
                                            lle_segment_output_t *output) {
     (void)self;
 
     if (ctx->last_exit_code != 0) {
-        snprintf(output->content, sizeof(output->content),
-                 "%d", ctx->last_exit_code);
+        /* Use error symbol from theme if available */
+        const char *sym_error = (theme && theme->symbols.error[0]) ?
+                                theme->symbols.error : "";
+        if (sym_error[0]) {
+            snprintf(output->content, sizeof(output->content),
+                     "%s%d", sym_error, ctx->last_exit_code);
+        } else {
+            snprintf(output->content, sizeof(output->content),
+                     "%d", ctx->last_exit_code);
+        }
     } else {
         output->content[0] = '\0';
     }
@@ -587,12 +605,21 @@ static bool segment_jobs_is_visible(const lle_prompt_segment_t *self,
 
 static lle_result_t segment_jobs_render(const lle_prompt_segment_t *self,
                                          const lle_prompt_context_t *ctx,
+                                         const lle_theme_t *theme,
                                          lle_segment_output_t *output) {
     (void)self;
 
     if (ctx->background_job_count > 0) {
-        snprintf(output->content, sizeof(output->content),
-                 "%d", ctx->background_job_count);
+        /* Use jobs symbol from theme if available */
+        const char *sym_jobs = (theme && theme->symbols.jobs[0]) ?
+                               theme->symbols.jobs : "";
+        if (sym_jobs[0]) {
+            snprintf(output->content, sizeof(output->content),
+                     "%s%d", sym_jobs, ctx->background_job_count);
+        } else {
+            snprintf(output->content, sizeof(output->content),
+                     "%d", ctx->background_job_count);
+        }
     } else {
         output->content[0] = '\0';
     }
@@ -625,10 +652,19 @@ lle_prompt_segment_t *lle_segment_create_jobs(void) {
 
 static lle_result_t segment_symbol_render(const lle_prompt_segment_t *self,
                                            const lle_prompt_context_t *ctx,
+                                           const lle_theme_t *theme,
                                            lle_segment_output_t *output) {
     (void)self;
 
-    const char *symbol = ctx->is_root ? "#" : "$";
+    /* Use theme symbols if available, fall back to defaults */
+    const char *symbol;
+    if (ctx->is_root) {
+        symbol = (theme && theme->symbols.prompt_root[0]) ?
+                 theme->symbols.prompt_root : "#";
+    } else {
+        symbol = (theme && theme->symbols.prompt[0]) ?
+                 theme->symbols.prompt : "$";
+    }
     snprintf(output->content, sizeof(output->content), "%s", symbol);
     output->content_len = strlen(output->content);
     output->visual_width = output->content_len;
@@ -778,10 +814,67 @@ static void fetch_git_status(segment_git_state_t *state) {
     state->cache_valid = true;
 }
 
+/**
+ * @brief Helper to append colored text to buffer
+ *
+ * Appends text with optional ANSI color prefix and reset suffix.
+ *
+ * @param buf         Output buffer
+ * @param buf_size    Buffer size
+ * @param pos         Current position in buffer (updated)
+ * @param text        Text to append
+ * @param color       Color to use (NULL for no color)
+ * @param reset       Reset sequence (NULL to skip reset)
+ * @return Number of visible characters added (excluding ANSI codes)
+ */
+static size_t append_colored(char *buf, size_t buf_size, size_t *pos,
+                             const char *text, const lle_color_t *color,
+                             const char *reset) {
+    if (*pos >= buf_size - 1) return 0;
+    
+    size_t remaining = buf_size - *pos - 1;
+    size_t visible = 0;
+    
+    /* Add color code if provided */
+    if (color && color->mode != LLE_COLOR_MODE_NONE) {
+        char color_code[32];
+        lle_color_to_ansi(color, true, color_code, sizeof(color_code));
+        size_t code_len = strlen(color_code);
+        if (code_len < remaining) {
+            memcpy(buf + *pos, color_code, code_len);
+            *pos += code_len;
+            remaining -= code_len;
+        }
+    }
+    
+    /* Add text */
+    size_t text_len = strlen(text);
+    if (text_len < remaining) {
+        memcpy(buf + *pos, text, text_len);
+        *pos += text_len;
+        remaining -= text_len;
+        visible = lle_utf8_string_width(text, text_len);
+    }
+    
+    /* Add reset if color was used */
+    if (color && color->mode != LLE_COLOR_MODE_NONE && reset) {
+        size_t reset_len = strlen(reset);
+        if (reset_len < remaining) {
+            memcpy(buf + *pos, reset, reset_len);
+            *pos += reset_len;
+        }
+    }
+    
+    buf[*pos] = '\0';
+    return visible;
+}
+
 static lle_result_t segment_git_render(const lle_prompt_segment_t *self,
                                         const lle_prompt_context_t *ctx,
+                                        const lle_theme_t *theme,
                                         lle_segment_output_t *output) {
     segment_git_state_t *state = self->state;
+    static const char *reset = "\033[0m";
     
     if (!state) {
         output->is_empty = true;
@@ -802,47 +895,96 @@ static lle_result_t segment_git_render(const lle_prompt_segment_t *self,
         return LLE_SUCCESS;
     }
 
-    /* Build git status string */
-    char status_indicators[64] = {0};
+    /* Get symbols from theme or use defaults */
+    const char *sym_staged = (theme && theme->symbols.staged[0]) ?
+                             theme->symbols.staged : "+";
+    const char *sym_unstaged = (theme && theme->symbols.unstaged[0]) ?
+                               theme->symbols.unstaged : "*";
+    const char *sym_untracked = (theme && theme->symbols.untracked[0]) ?
+                                theme->symbols.untracked : "?";
+    const char *sym_ahead = (theme && theme->symbols.ahead[0]) ?
+                            theme->symbols.ahead : "↑";
+    const char *sym_behind = (theme && theme->symbols.behind[0]) ?
+                             theme->symbols.behind : "↓";
+
+    /* Get colors from theme (NULL if no theme or no specific color) */
+    const lle_color_t *color_staged = theme ? &theme->colors.git_staged : NULL;
+    const lle_color_t *color_unstaged = theme ? &theme->colors.git_dirty : NULL;
+    const lle_color_t *color_untracked = theme ? &theme->colors.git_untracked : NULL;
+    const lle_color_t *color_ahead = theme ? &theme->colors.git_ahead : NULL;
+    const lle_color_t *color_behind = theme ? &theme->colors.git_behind : NULL;
+
+    /* Build output with embedded colors */
     size_t pos = 0;
+    size_t visual_width = 0;
+    char *buf = output->content;
+    size_t buf_size = sizeof(output->content);
+
+    /* Opening paren and branch */
+    buf[pos++] = '(';
+    visual_width++;
+    
+    size_t branch_len = strlen(state->branch);
+    if (pos + branch_len < buf_size) {
+        memcpy(buf + pos, state->branch, branch_len);
+        pos += branch_len;
+        visual_width += lle_utf8_string_width(state->branch, branch_len);
+    }
+
+    /* Status indicators with colors */
+    bool has_status = (state->staged > 0 || state->unstaged > 0 || 
+                       state->untracked > 0);
+    if (has_status) {
+        buf[pos++] = ' ';
+        visual_width++;
+    }
 
     if (state->staged > 0) {
-        pos += snprintf(status_indicators + pos, sizeof(status_indicators) - pos,
-                        "+%d", state->staged);
+        char indicator[16];
+        snprintf(indicator, sizeof(indicator), "%s%d", sym_staged, state->staged);
+        visual_width += append_colored(buf, buf_size, &pos, indicator,
+                                       color_staged, reset);
     }
     if (state->unstaged > 0) {
-        pos += snprintf(status_indicators + pos, sizeof(status_indicators) - pos,
-                        "*%d", state->unstaged);
+        char indicator[16];
+        snprintf(indicator, sizeof(indicator), "%s%d", sym_unstaged, state->unstaged);
+        visual_width += append_colored(buf, buf_size, &pos, indicator,
+                                       color_unstaged, reset);
     }
     if (state->untracked > 0) {
-        pos += snprintf(status_indicators + pos, sizeof(status_indicators) - pos,
-                        "?%d", state->untracked);
+        char indicator[16];
+        snprintf(indicator, sizeof(indicator), "%s%d", sym_untracked, state->untracked);
+        visual_width += append_colored(buf, buf_size, &pos, indicator,
+                                       color_untracked, reset);
     }
 
-    char ahead_behind[32] = {0};
-    if (state->ahead > 0 && state->behind > 0) {
-        snprintf(ahead_behind, sizeof(ahead_behind), " ↑%d↓%d",
-                 state->ahead, state->behind);
-    } else if (state->ahead > 0) {
-        snprintf(ahead_behind, sizeof(ahead_behind), " ↑%d", state->ahead);
-    } else if (state->behind > 0) {
-        snprintf(ahead_behind, sizeof(ahead_behind), " ↓%d", state->behind);
+    /* Ahead/behind with colors */
+    if (state->ahead > 0 || state->behind > 0) {
+        buf[pos++] = ' ';
+        visual_width++;
+    }
+    if (state->ahead > 0) {
+        char indicator[16];
+        snprintf(indicator, sizeof(indicator), "%s%d", sym_ahead, state->ahead);
+        visual_width += append_colored(buf, buf_size, &pos, indicator,
+                                       color_ahead, reset);
+    }
+    if (state->behind > 0) {
+        char indicator[16];
+        snprintf(indicator, sizeof(indicator), "%s%d", sym_behind, state->behind);
+        visual_width += append_colored(buf, buf_size, &pos, indicator,
+                                       color_behind, reset);
     }
 
-    if (strlen(status_indicators) > 0 || strlen(ahead_behind) > 0) {
-        snprintf(output->content, sizeof(output->content),
-                 "(%s%s%s%s)",
-                 state->branch,
-                 strlen(status_indicators) > 0 ? " " : "",
-                 status_indicators,
-                 ahead_behind);
-    } else {
-        snprintf(output->content, sizeof(output->content),
-                 "(%s)", state->branch);
+    /* Closing paren */
+    if (pos < buf_size - 1) {
+        buf[pos++] = ')';
+        visual_width++;
     }
+    buf[pos] = '\0';
 
-    output->content_len = strlen(output->content);
-    output->visual_width = lle_utf8_string_width(output->content, output->content_len);
+    output->content_len = pos;
+    output->visual_width = visual_width;
     output->is_empty = false;
     output->needs_separator = true;
 

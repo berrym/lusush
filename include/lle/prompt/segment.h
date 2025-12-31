@@ -171,11 +171,13 @@ typedef bool (*lle_segment_is_visible_fn)(const struct lle_prompt_segment *self,
  *
  * @param self    Segment to render
  * @param ctx     Prompt context
+ * @param theme   Theme for symbols/colors (can be NULL for defaults)
  * @param output  Output structure to fill
  * @return LLE_SUCCESS or error code
  */
 typedef lle_result_t (*lle_segment_render_fn)(const struct lle_prompt_segment *self,
                                                const lle_prompt_context_t *ctx,
+                                               const struct lle_theme *theme,
                                                lle_segment_output_t *output);
 
 /**

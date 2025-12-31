@@ -22,26 +22,29 @@
 # LAYOUT:
 #   [x] ps1, ps2              - Main and continuation prompts
 #   [x] newline_before        - Blank lines before prompt
+#   [x] newline_after         - Blank lines after prompt (Session 89)
 #   [~] rps1                  - Right prompt (parsed, not displayed)
 #   [~] transient             - Transient prompt (parsed, widgets only)
 #   [~] enable_multiline      - Parsed but multiline is template-driven
 #   [~] compact_mode          - Parsed but never checked
-#   [~] newline_after         - Parsed but never used
 #
 # COLORS:
 #   [x] primary, secondary, success, warning, error, info
 #   [x] text, text_dim
 #   [x] git_clean, git_dirty, git_staged, git_branch
+#   [x] git_ahead, git_behind, git_untracked - Used in git segment (Session 89)
 #   [x] path_normal, path_home
 #   [x] status_ok, status_error
 #   [~] text_bright, border, background, highlight - Parsed, not used
-#   [~] path_root, path_separator - Parsed, not used
-#   [~] git_ahead, git_behind, git_untracked, status_running - Parsed, not used
+#   [~] path_root, path_separator, status_running - Parsed, not used
 #
 # SYMBOLS:
 #   [x] prompt, prompt_root, continuation, separator_left, separator_right
-#   [~] All git symbols (branch, staged, unstaged, etc.) - Parsed, not used
-#   [~] directory, home, error, success, time, jobs - Parsed, not used
+#   [x] staged, unstaged, untracked, ahead, behind - Git indicators (Session 89)
+#   [x] error - Status segment symbol (Session 89)
+#   [x] jobs - Jobs segment symbol (Session 89)
+#   [~] branch, stash, conflict - Git symbols parsed, not used
+#   [~] directory, home, success, time - Parsed, not used
 #
 # SEGMENTS:
 #   [~] enabled array - Parsed but segment filtering not implemented
@@ -88,8 +91,8 @@ enable_right_prompt = false    # [~] Parsed but rprompt not displayed
 enable_transient = false       # [~] Partially implemented (widgets only)
 enable_multiline = false       # [~] Parsed but not used (multiline is template-driven)
 compact_mode = false           # [~] Parsed but not implemented
-newline_before = 0             # [x] Blank lines before prompt - WORKS
-newline_after = 0              # [~] Parsed but not implemented
+newline_before = 0             # [x] Blank lines before prompt
+newline_after = 0              # [x] Blank lines after prompt (Session 89)
 
 # ==============================================================================
 # SEMANTIC COLORS

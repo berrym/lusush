@@ -163,6 +163,7 @@ static char *composer_get_segment(const char *segment_name,
     if (segment->render) {
         lle_result_t result = segment->render(segment,
                                                &composer->context,
+                                               ctx->theme,
                                                &output);
         if (result != LLE_SUCCESS || output.is_empty) {
             return NULL;
@@ -530,6 +531,16 @@ lle_result_t lle_composer_render(lle_prompt_composer_t *composer,
         }
     }
     output->ps1_len = strlen(output->ps1);
+
+    /* Append newlines after prompt if configured in theme */
+    if (theme && theme->layout.newline_after > 0) {
+        for (int i = 0; i < theme->layout.newline_after &&
+             output->ps1_len < sizeof(output->ps1) - 2; i++) {
+            output->ps1[output->ps1_len++] = '\n';
+        }
+        output->ps1[output->ps1_len] = '\0';
+    }
+
     output->ps1_visual_width = calculate_visual_width(output->ps1);
 
     /* Check for multiline */
