@@ -152,3 +152,22 @@ bool is_interactive_shell(void) {
  */
 
 /* Note: fuzzy_levenshtein_distance is provided by libfuzzy.a */
+
+/* ============================================================================
+ * Executor Functions (for job count in prompt context)
+ * ============================================================================
+ */
+
+#include "executor.h"
+
+/* Mock executor for tests - no jobs */
+executor_t *current_executor = NULL;
+
+void executor_update_job_status(executor_t *executor) {
+    (void)executor; /* No-op in tests */
+}
+
+int executor_count_jobs(executor_t *executor) {
+    (void)executor;
+    return 0; /* No jobs in tests */
+}

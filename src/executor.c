@@ -5472,6 +5472,23 @@ void executor_update_job_status(executor_t *executor) {
     }
 }
 
+// Count active jobs (running or stopped, not done)
+int executor_count_jobs(executor_t *executor) {
+    if (!executor) {
+        return 0;
+    }
+
+    int count = 0;
+    job_t *job = executor->jobs;
+    while (job) {
+        if (job->state == JOB_RUNNING || job->state == JOB_STOPPED) {
+            count++;
+        }
+        job = job->next;
+    }
+    return count;
+}
+
 // Execute command in background
 int executor_execute_background(executor_t *executor, node_t *command) {
     if (!executor || !command) {

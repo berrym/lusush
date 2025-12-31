@@ -45,9 +45,11 @@
 #include "display/autosuggestions_layer.h"
 #include "display/display_controller.h"
 #include "display/layer_events.h"
+#include "executor.h"
 #include "init.h"
 #include "lle/lle_shell_integration.h"
 #include "lle/prompt/composer.h"
+#include "lle/prompt/segment.h"
 #include "lusush_memory_pool.h"
 #include "prompt.h"
 #include "readline_integration.h"
@@ -1190,6 +1192,14 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
         lle_prompt_composer_t *composer = g_lle_integration->prompt_composer;
         lle_prompt_output_t output;
         memset(&output, 0, sizeof(output));
+        
+        // Update background job count from executor (Issue #22)
+        extern executor_t *current_executor;
+        if (current_executor) {
+            executor_update_job_status(current_executor);
+            int job_count = executor_count_jobs(current_executor);
+            lle_prompt_context_set_job_count(&composer->context, job_count);
+        }
         
         lle_result_t result = lle_composer_render(composer, &output);
         if (debug && strcmp(debug, "1") == 0) {

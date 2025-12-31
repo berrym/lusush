@@ -118,6 +118,7 @@ void executor_remove_job(executor_t *executor, int job_id);
 int executor_builtin_jobs(executor_t *executor, char **argv);
 int executor_builtin_fg(executor_t *executor, char **argv);
 int executor_builtin_bg(executor_t *executor, char **argv);
+int executor_count_jobs(executor_t *executor);
 
 // Function parameter management utilities
 function_param_t *create_function_param(const char *name,

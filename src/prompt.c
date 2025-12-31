@@ -2,9 +2,11 @@
 
 #include "config.h"
 #include "display_integration.h"
+#include "executor.h"
 #include "lle/async_worker.h"
 #include "lle/lle_shell_integration.h"
 #include "lle/prompt/composer.h"
+#include "lle/prompt/segment.h"
 #include "lusush.h"
 #include "symtable.h"
 #include "themes.h"
@@ -228,6 +230,14 @@ void build_prompt(void) {
         lle_prompt_composer_t *composer = g_lle_integration->prompt_composer;
         lle_prompt_output_t output;
         memset(&output, 0, sizeof(output));
+        
+        // Update background job count from executor (Issue #22)
+        extern executor_t *current_executor;
+        if (current_executor) {
+            executor_update_job_status(current_executor);
+            int job_count = executor_count_jobs(current_executor);
+            lle_prompt_context_set_job_count(&composer->context, job_count);
+        }
         
         lle_result_t result = lle_composer_render(composer, &output);
         if (debug && strcmp(debug, "1") == 0) {

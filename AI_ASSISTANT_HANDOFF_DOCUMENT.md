@@ -1,9 +1,68 @@
-# AI Assistant Handoff Document - Session 86
+# AI Assistant Handoff Document - Session 87
 
 **Date**: 2025-12-31  
-**Session Type**: Custom Completion Source API  
+**Session Type**: Wire exit_code and jobs Template Variables  
 **Status**: COMPLETE  
 **Branch**: `feature/lle`
+
+---
+
+## Session 87: Wire exit_code and jobs Template Variables (Issue #22)
+
+Connected LLE prompt template variables `${status}` (exit code) and `${jobs}` (background job count) to actual shell state. Previously these were dead code - the infrastructure existed but values were never updated.
+
+### Problem
+
+The LLE prompt template system had `${status}` and `${jobs}` segments defined, but:
+- `lle_prompt_context_t.last_exit_code` was only partially wired
+- `lle_prompt_context_t.background_job_count` was **never updated** - completely dead code
+
+Users couldn't display command exit status or background job indicators in their prompts.
+
+### Solution
+
+**Phase 1: Verified exit_code wiring (already complete)**
+- `lusush.c` calls `lle_fire_post_command(line, exit_status, duration)`
+- Event hub fires `POST_COMMAND` event with exit_code
+- `composer_on_post_command()` calls `lle_prompt_context_update()`
+- `segment_status_render()` reads `ctx->last_exit_code`
+
+**Phase 2: Wired jobs count (NEW)**
+1. Added `executor_count_jobs()` function to count active background jobs
+2. Added `lle_prompt_context_set_job_count()` setter function
+3. Before prompt render, call `executor_update_job_status()` then `executor_count_jobs()`
+4. Update prompt context with job count before `lle_composer_render()`
+
+### Files Modified
+
+- `include/executor.h` - Added `executor_count_jobs()` declaration
+- `src/executor.c` - Implemented `executor_count_jobs()` (counts RUNNING and STOPPED jobs)
+- `include/lle/prompt/segment.h` - Added `lle_prompt_context_set_job_count()` declaration
+- `src/lle/prompt/segment.c` - Implemented `lle_prompt_context_set_job_count()`
+- `src/prompt.c` - Update job count before `lle_composer_render()`
+- `src/display_integration.c` - Update job count before `lle_composer_render()`
+- `tests/lle/functional/display_test_stubs.c` - Added executor stubs for test linking
+
+### Theme Usage
+
+The "minimal" theme demonstrates these variables:
+
+```
+PS1:  ${?status:[${status}] }${symbol}    # Shows [1] if last command failed
+RPS1: ${time}${?jobs: [${jobs}]}          # Shows [2] if 2 background jobs
+```
+
+The `${?var:text}` syntax only shows text when the segment is visible (non-zero).
+
+### Testing
+
+- Build: All 60 targets compile successfully
+- Tests: 58/59 pass (1 pre-existing failure in Spec 12 Completion unrelated to this change)
+
+### Spec Coverage
+
+- **Spec 25** (Prompt Theme System): Template variable wiring
+- **Spec 26** (Shell Integration): Event-driven context updates
 
 ---
 

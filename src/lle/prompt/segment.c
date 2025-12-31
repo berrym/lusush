@@ -218,6 +218,13 @@ void lle_prompt_context_update(lle_prompt_context_t *ctx,
     localtime_r(&ctx->current_time, &ctx->current_tm);
 }
 
+void lle_prompt_context_set_job_count(lle_prompt_context_t *ctx, int job_count) {
+    if (!ctx) {
+        return;
+    }
+    ctx->background_job_count = job_count;
+}
+
 lle_result_t lle_prompt_context_refresh_directory(lle_prompt_context_t *ctx) {
     if (!ctx) {
         return LLE_ERROR_INVALID_PARAMETER;

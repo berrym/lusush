@@ -345,6 +345,14 @@ void lle_prompt_context_update(lle_prompt_context_t *ctx,
  */
 lle_result_t lle_prompt_context_refresh_directory(lle_prompt_context_t *ctx);
 
+/**
+ * @brief Set the background job count in the context
+ *
+ * @param ctx        Context to update
+ * @param job_count  Number of active background jobs
+ */
+void lle_prompt_context_set_job_count(lle_prompt_context_t *ctx, int job_count);
+
 /* ============================================================================
  * SEGMENT CREATION HELPERS
  * ============================================================================
