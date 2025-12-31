@@ -1,9 +1,55 @@
-# AI Assistant Handoff Document - Session 87
+# AI Assistant Handoff Document - Session 88
 
 **Date**: 2025-12-31  
-**Session Type**: Wire exit_code and jobs Template Variables  
+**Session Type**: Fix Minimal Theme Missing Status/Jobs Variables  
 **Status**: COMPLETE  
 **Branch**: `feature/lle`
+
+---
+
+## Session 88: Fix Minimal Theme Missing ${status} and ${jobs} Variables
+
+Fixed the "minimal" theme not displaying exit codes or job counts even though the template variable wiring was complete.
+
+### Problem
+
+After running `false`, the minimal theme prompt did not show the exit code:
+```
+$ false
+~/Lab/c/lusush $    # Expected: [1] $ or similar
+```
+
+### Root Cause
+
+The "minimal" theme's PS1 format did NOT include `${status}` or `${jobs}` variables:
+```c
+// theme.c:640
+"${directory} ${symbol} "  // No status or jobs!
+```
+
+The exit_code/jobs wiring from Session 87 was working correctly - the issue was simply that the minimal theme didn't use these variables.
+
+### Solution
+
+Updated the minimal theme's PS1 format to include conditional status and jobs indicators:
+```c
+"${directory}${?jobs: [${jobs}]}${?status: [${status}]} ${symbol} "
+```
+
+The `${?var:...}` conditional syntax only shows content when the segment is visible:
+- `${?jobs: [N]}` - shows only when background jobs exist
+- `${?status: [N]}` - shows only when exit code is non-zero
+
+The prompt remains visually clean during normal use but shows critical sysadmin info when needed.
+
+### Files Modified
+
+- `src/lle/prompt/theme.c` - Updated minimal theme PS1 format (line 640)
+
+### Testing
+
+- Build: All targets compile successfully
+- Tests: 58/59 pass (1 pre-existing stress test failure unrelated to this change)
 
 ---
 

@@ -638,7 +638,7 @@ lle_theme_t *lle_theme_create_minimal(void) {
 
     /* Layout */
     snprintf(theme->layout.ps1_format, sizeof(theme->layout.ps1_format),
-             "${directory} ${symbol} ");
+             "${directory}${?jobs: [${jobs}]}${?status: [${status}]} ${symbol} ");
     snprintf(theme->layout.ps2_format, sizeof(theme->layout.ps2_format),
              "> ");
     snprintf(theme->layout.transient_format, sizeof(theme->layout.transient_format),
