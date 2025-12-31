@@ -1,9 +1,42 @@
-# AI Assistant Handoff Document - Session 83
+# AI Assistant Handoff Document - Session 84
 
-**Date**: 2025-12-30  
-**Session Type**: macOS Build Verification, Memory Leak Fix, Watchdog Metrics  
+**Date**: 2025-12-31  
+**Session Type**: LLE Completion Path Expansion  
 **Status**: COMPLETE  
 **Branch**: `feature/lle`
+
+---
+
+## Session 84: Tilde and Variable Expansion for File Completion
+
+Added support for POSIX shell path expansion in LLE file completion.
+
+### Problem
+
+LLE completion didn't understand tilde (`~/`) or variable (`$HOME/`) expansion. Pressing TAB after `~/` did nothing because `opendir("~")` fails - there's no directory literally named `~`.
+
+### Solution
+
+Added path expansion helpers in `src/lle/completion/completion_sources.c`:
+
+1. **`lle_completion_expand_tilde()`**: Expands `~/` to `$HOME/` and `~user/` to that user's home directory
+2. **`lle_completion_expand_variable()`**: Expands `$VAR/` and `${VAR}/` to the variable's value
+3. **`lle_completion_expand_path()`**: Unified entry point for path expansion
+
+The file completion function now:
+1. Expands the prefix before calling `opendir()`
+2. Preserves the original unexpanded prefix in completion results
+
+So `~/Doc<TAB>` shows `~/Documents`, not `/Users/user/Documents`.
+
+### Files Modified
+
+- `src/lle/completion/completion_sources.c` - Added path expansion (199 lines)
+
+### Testing
+
+- All 59 tests pass
+- Manual testing: `~/`, `$HOME/`, `${HOME}/` all complete correctly
 
 ---
 

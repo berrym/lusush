@@ -27,7 +27,9 @@
 #include "alias.h"
 #include "builtins.h"
 #include "ht.h"
+#include <ctype.h>
 #include <dirent.h>
+#include <pwd.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -212,6 +214,167 @@ lle_result_t lle_completion_source_commands(lle_memory_pool_t *memory_pool,
 }
 
 // ============================================================================
+// PATH EXPANSION HELPERS FOR COMPLETION
+// ============================================================================
+
+/**
+ * Expand tilde (~) to home directory for completion
+ *
+ * Handles:
+ *   ~/path    -> /home/user/path
+ *   ~user/path -> /home/user/path (if user exists)
+ *
+ * @param path The path to expand
+ * @return Newly allocated expanded path, or NULL on error
+ */
+static char *lle_completion_expand_tilde(const char *path) {
+    if (!path || path[0] != '~') {
+        return path ? strdup(path) : NULL;
+    }
+
+    // Find the end of tilde expression (until '/' or end)
+    const char *slash = strchr(path, '/');
+    const char *rest = slash ? slash : "";
+    size_t tilde_len = slash ? (size_t)(slash - path) : strlen(path);
+
+    if (tilde_len == 1) {
+        // Simple ~ expansion to $HOME
+        const char *home = getenv("HOME");
+        if (!home) {
+            struct passwd *pw = getpwuid(getuid());
+            home = pw ? pw->pw_dir : NULL;
+        }
+        if (!home) {
+            return strdup(path); // Can't expand, return original
+        }
+
+        size_t result_len = strlen(home) + strlen(rest) + 1;
+        char *result = malloc(result_len);
+        if (result) {
+            snprintf(result, result_len, "%s%s", home, rest);
+        }
+        return result;
+    } else {
+        // ~user expansion
+        char *username = strndup(path + 1, tilde_len - 1);
+        if (!username) {
+            return strdup(path);
+        }
+
+        struct passwd *pw = getpwnam(username);
+        free(username);
+
+        if (!pw) {
+            return strdup(path); // User not found, return original
+        }
+
+        size_t result_len = strlen(pw->pw_dir) + strlen(rest) + 1;
+        char *result = malloc(result_len);
+        if (result) {
+            snprintf(result, result_len, "%s%s", pw->pw_dir, rest);
+        }
+        return result;
+    }
+}
+
+/**
+ * Expand a single environment variable for completion
+ *
+ * Handles:
+ *   $VAR/path -> /value/path
+ *   ${VAR}/path -> /value/path
+ *
+ * @param path The path to expand
+ * @return Newly allocated expanded path, or NULL on error
+ */
+static char *lle_completion_expand_variable(const char *path) {
+    if (!path || path[0] != '$') {
+        return path ? strdup(path) : NULL;
+    }
+
+    const char *var_start = path + 1;
+    const char *var_end = NULL;
+    const char *rest = NULL;
+    bool has_braces = false;
+
+    if (var_start[0] == '{') {
+        // ${VAR} format
+        has_braces = true;
+        var_start++;
+        var_end = strchr(var_start, '}');
+        if (!var_end) {
+            return strdup(path); // Unclosed brace, return original
+        }
+        rest = var_end + 1;
+    } else {
+        // $VAR format - variable name is alphanumeric + underscore
+        var_end = var_start;
+        while (*var_end && (isalnum((unsigned char)*var_end) || *var_end == '_')) {
+            var_end++;
+        }
+        rest = var_end;
+    }
+
+    if (var_end == var_start) {
+        return strdup(path); // Empty variable name
+    }
+
+    // Extract variable name
+    size_t var_len = var_end - var_start;
+    char *var_name = strndup(var_start, var_len);
+    if (!var_name) {
+        return strdup(path);
+    }
+
+    // Look up value
+    const char *value = getenv(var_name);
+    free(var_name);
+
+    if (!value) {
+        return strdup(path); // Variable not set, return original
+    }
+
+    // Build result
+    size_t result_len = strlen(value) + strlen(rest) + 1;
+    char *result = malloc(result_len);
+    if (result) {
+        snprintf(result, result_len, "%s%s", value, rest);
+    }
+    return result;
+}
+
+/**
+ * Expand path for completion (tilde and variables)
+ *
+ * @param path The path to expand
+ * @param original_prefix_len Output: length of the original unexpanded prefix
+ * @return Newly allocated expanded path, or NULL on error
+ */
+static char *lle_completion_expand_path(const char *path, size_t *original_prefix_len) {
+    if (!path) {
+        if (original_prefix_len) *original_prefix_len = 0;
+        return NULL;
+    }
+
+    if (original_prefix_len) {
+        *original_prefix_len = strlen(path);
+    }
+
+    // Try tilde expansion first
+    if (path[0] == '~') {
+        return lle_completion_expand_tilde(path);
+    }
+
+    // Try variable expansion
+    if (path[0] == '$') {
+        return lle_completion_expand_variable(path);
+    }
+
+    // No expansion needed
+    return strdup(path);
+}
+
+// ============================================================================
 // FILES AND DIRECTORIES SOURCE
 // ============================================================================
 
@@ -227,18 +390,35 @@ static lle_result_t lle_completion_source_files_internal(
         return LLE_ERROR_INVALID_PARAMETER;
     }
 
-    // Extract directory and filename parts
-    const char *last_slash = strrchr(prefix, '/');
+    // Expand tilde and variables in the prefix for directory access
+    size_t original_prefix_len = 0;
+    char *expanded_prefix = lle_completion_expand_path(prefix, &original_prefix_len);
+    if (!expanded_prefix) {
+        return LLE_ERROR_OUT_OF_MEMORY;
+    }
+
+    // Determine the original unexpanded directory prefix to preserve in results
+    // e.g., "~/" or "$HOME/" should be preserved in completion output
+    const char *original_dir_prefix = NULL;
+    size_t original_dir_prefix_len = 0;
+    const char *orig_last_slash = strrchr(prefix, '/');
+    if (orig_last_slash) {
+        original_dir_prefix_len = orig_last_slash - prefix + 1; // Include the slash
+        original_dir_prefix = prefix;
+    }
+
+    // Extract directory and filename parts from expanded path
+    const char *last_slash = strrchr(expanded_prefix, '/');
     const char *dir_path = ".";
-    const char *file_prefix = prefix;
+    const char *file_prefix = expanded_prefix;
 
     char *dir_copy = NULL;
     if (last_slash) {
-        size_t dir_len = last_slash - prefix;
+        size_t dir_len = last_slash - expanded_prefix;
         if (dir_len == 0) {
             dir_path = "/";
         } else {
-            dir_copy = strndup(prefix, dir_len);
+            dir_copy = strndup(expanded_prefix, dir_len);
             if (dir_copy) {
                 dir_path = dir_copy;
             }
@@ -252,6 +432,7 @@ static lle_result_t lle_completion_source_files_internal(
     DIR *d = opendir(dir_path);
     if (!d) {
         free(dir_copy);
+        free(expanded_prefix);
         return LLE_SUCCESS; // Directory doesn't exist, not an error
     }
 
@@ -305,9 +486,19 @@ static lle_result_t lle_completion_source_files_internal(
             continue;
         }
 
-        // Build completion text (include directory prefix if present)
+        // Build completion text preserving the original unexpanded prefix
+        // e.g., ~/Documents instead of /home/user/Documents
         char *completion_text = NULL;
-        if (last_slash && dir_copy) {
+        if (original_dir_prefix && original_dir_prefix_len > 0) {
+            // Use original unexpanded prefix (e.g., ~/, $HOME/)
+            size_t text_size = original_dir_prefix_len + strlen(entry->d_name) + 1;
+            completion_text = malloc(text_size);
+            if (completion_text) {
+                memcpy(completion_text, original_dir_prefix, original_dir_prefix_len);
+                strcpy(completion_text + original_dir_prefix_len, entry->d_name);
+            }
+        } else if (last_slash && dir_copy) {
+            // No expansion happened, use expanded dir_copy
             size_t text_size = strlen(dir_copy) + strlen(entry->d_name) + 2;
             completion_text = malloc(text_size);
             if (completion_text) {
@@ -335,6 +526,7 @@ static lle_result_t lle_completion_source_files_internal(
 
     closedir(d);
     free(dir_copy);
+    free(expanded_prefix);
 
     return final_result;
 }
