@@ -1,6 +1,6 @@
 # LLE Known Issues and Blockers
 
-**Date**: 2025-12-27 (Updated: Session 71 Audit)  
+**Date**: 2025-12-31 (Updated: Session 89)  
 **Status**: ✅ MAJOR BLOCKERS RESOLVED - Testing in progress  
 **Implementation Status**: Spec 25 (Prompt/Theme) VERIFIED, Spec 26 (Shell Integration) VERIFIED
 
@@ -370,54 +370,42 @@ display lle theme set my-theme
 
 ---
 
-### Issue #22: Template Variables exit_code/jobs Not Implemented
+### Issue #22: Template Variables exit_code/jobs Not Implemented ✅ FIXED
 **Severity**: MEDIUM  
 **Discovered**: 2025-12-21 (Session 54 - theme variable investigation)  
-**Status**: Dead code - flags exist but no implementation  
-**Component**: src/themes.c  
+**Fixed**: 2025-12-31 (Session 87)  
+**Status**: ✅ RESOLVED  
+**Component**: LLE prompt/segment system  
 
 **Description**:
-The `prompt_template_t` struct has `enable_exit_code` and `enable_job_count` boolean flags, and some themes set these to `true`, but:
-1. No template variables (`%?`, `%{exit_code}`, `%{jobs}`) are actually implemented
-2. No theme templates use these variables in their template strings
-3. The flags are set but never used to add variables to the template context
+The LLE prompt template system had `${status}` and `${jobs}` segments defined, but:
+- `lle_prompt_context_t.last_exit_code` was only partially wired
+- `lle_prompt_context_t.background_job_count` was never updated - completely dead code
 
-**Current State**:
-```c
-// In prompt_template_t:
-bool enable_exit_code;    // Set to true in dark, colorful themes
-bool enable_job_count;    // Set to true in colorful theme
+**Resolution (Session 87)**:
+1. Verified exit_code wiring was already complete via shell event system
+2. Added `executor_count_jobs()` function to count active background jobs
+3. Added `lle_prompt_context_set_job_count()` setter function
+4. Wired job count update before prompt rendering in `src/prompt.c` and `src/display_integration.c`
 
-// But NO code adds these variables:
-// Missing: template_add_variable(ctx, "exit_code", ..., NULL, false);
-// Missing: template_add_variable(ctx, "jobs", ..., NULL, false);
-
-// And NO templates use them:
-// No template contains "%?" or "%{exit_code}" or "%{jobs}"
+**Theme Usage**:
+The "minimal" theme demonstrates these variables:
+```
+PS1:  ${?status:[${status}] }${symbol}    # Shows [1] if last command failed
+RPS1: ${time}${?jobs: [${jobs}]}          # Shows [2] if 2 background jobs
 ```
 
-**Available Shell State** (could be used):
-- `last_exit_status` - global in `src/globals.c`
-- `executor->jobs` - linked list with `job_state_t` (RUNNING, STOPPED, DONE)
+The `${?var:text}` syntax only shows text when the segment is visible (non-zero).
 
-**Planned Variables** (from conventions in other shells):
-- `%?` or `%{exit_code}` - last command exit status (non-zero typically shown)
-- `%{jobs}` - count of background jobs
-- `%{running_jobs}` - count of running jobs
-- `%{stopped_jobs}` - count of stopped jobs
+**Files Modified**:
+- `include/executor.h` - Added `executor_count_jobs()` declaration
+- `src/executor.c` - Implemented `executor_count_jobs()`
+- `include/lle/prompt/segment.h` - Added `lle_prompt_context_set_job_count()` declaration
+- `src/lle/prompt/segment.c` - Implemented setter
+- `src/prompt.c` - Update job count before render
+- `src/display_integration.c` - Update job count before render
 
-**Why Not Fixed Now**:
-Given Issues #20 and #21 (theme system architectural problems), adding more features to a broken system is not the right approach. These variables should be added as part of the larger theme system redesign.
-
-**Real Fix Required**:
-1. First fix Issue #20 (respect user PS1/PS2)
-2. First fix Issue #21 (make themes user-extensible)
-3. Then implement these variables in the template context
-4. Update default themes to use them (for users who opt in)
-
-**Priority**: MEDIUM (dead code, but blocked by more fundamental issues)
-
-**Status**: DOCUMENTED - Blocked by Issues #20, #21
+**Status**: ✅ FIXED AND VERIFIED
 
 ---
 
