@@ -57,7 +57,7 @@ The `${?var:text}` syntax only shows text when the segment is visible (non-zero)
 ### Testing
 
 - Build: All 60 targets compile successfully
-- Tests: 58/59 pass (1 pre-existing failure in Spec 12 Completion unrelated to this change)
+- Tests: 59/59 pass (fixed Spec 12 compliance test for new CUSTOM completion type)
 
 ### Spec Coverage
 

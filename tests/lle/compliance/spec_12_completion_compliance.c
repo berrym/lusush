@@ -78,8 +78,8 @@ void test_completion_type_enum(void) {
     type = LLE_COMPLETION_TYPE_UNKNOWN;
     TEST_ASSERT(type == LLE_COMPLETION_TYPE_UNKNOWN, "UNKNOWN type exists");
 
-    /* Verify COUNT is correct */
-    TEST_ASSERT(LLE_COMPLETION_TYPE_COUNT == 8, "TYPE_COUNT is 8");
+    /* Verify COUNT is correct (8 base types + CUSTOM = 9) */
+    TEST_ASSERT(LLE_COMPLETION_TYPE_COUNT == 9, "TYPE_COUNT is 9");
 
     printf("[ PASS ] Completion type enumeration\n");
 }
