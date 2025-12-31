@@ -34,16 +34,17 @@
 #   [x] git_clean, git_dirty, git_staged, git_branch
 #   [x] git_ahead, git_behind, git_untracked - Used in git segment (Session 89)
 #   [x] path_normal, path_home
+#   [x] path_root - Used in directory segment when at / (Session 90)
 #   [x] status_ok, status_error
 #   [~] text_bright, border, background, highlight - Parsed, not used
-#   [~] path_root, path_separator, status_running - Parsed, not used
+#   [~] path_separator, status_running - Parsed, not used
 #
 # SYMBOLS:
 #   [x] prompt, prompt_root, continuation, separator_left, separator_right
 #   [x] staged, unstaged, untracked, ahead, behind - Git indicators (Session 89)
+#   [x] branch, stash, conflict - Git symbols (Session 90)
 #   [x] error - Status segment symbol (Session 89)
 #   [x] jobs - Jobs segment symbol (Session 89)
-#   [~] branch, stash, conflict - Git symbols parsed, not used
 #   [~] directory, home, success, time - Parsed, not used
 #
 # SEGMENTS:
@@ -123,12 +124,12 @@ git_dirty = "#DC322F"          # Dirty repository
 git_staged = "#B58900"         # Staged changes
 git_untracked = "#6C71C4"      # Untracked files
 git_branch = "#268BD2"         # Branch name
-git_ahead = "#859900"          # [~] Commits ahead - parsed but not used
-git_behind = "#DC322F"         # [~] Commits behind - parsed but not used
+git_ahead = "#859900"          # Commits ahead (Session 89)
+git_behind = "#DC322F"         # Commits behind (Session 89)
 
 # Path colors
 path_home = "#268BD2"          # Home directory
-path_root = "#DC322F"          # [~] Root directory - parsed but not used
+path_root = "#DC322F"          # Root directory / (Session 90)
 path_normal = "#839496"        # Normal path components
 path_separator = "#586E75"     # [~] Path separator - not even parsed
 
@@ -153,15 +154,15 @@ continuation = ">"             # PS2 continuation
 separator_left = ""           # Left-pointing separator
 separator_right = ""          # Right-pointing separator
 
-# Git symbols - [~] All parsed but not used in rendering
+# Git symbols - [x] All working (Session 89-90)
 branch = ""                   # Branch icon (nerd font)
 staged = "+"                   # Staged changes
 unstaged = "!"                 # Unstaged changes
 untracked = "?"                # Untracked files
 ahead = ""                    # Commits ahead
 behind = ""                   # Commits behind
-stash = ""                    # Stashed changes
-conflict = ""                 # Merge conflict
+stash = ""                    # Stashed changes (Session 90)
+conflict = ""                 # Merge conflict (Session 90)
 
 # Directory symbols - [~] Parsed but not used
 directory = ""                # Directory icon

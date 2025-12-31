@@ -1,9 +1,62 @@
-# AI Assistant Handoff Document - Session 89
+# AI Assistant Handoff Document - Session 90
 
 **Date**: 2025-12-31  
-**Session Type**: Theme System Wiring - Symbols and Colors  
+**Session Type**: Theme System Wiring - Remaining Symbols and Colors  
 **Status**: COMPLETE  
 **Branch**: `feature/lle`
+
+---
+
+## Session 90: Wire Remaining Git Symbols and path_root Color
+
+Continued the theme wiring work from Session 89 by connecting remaining unused symbols and colors.
+
+### Git Symbols Wired
+
+**New symbols in git segment**:
+
+| Symbol | Default | Usage |
+|--------|---------|-------|
+| `branch` | (empty) | Prefix before branch name |
+| `stash` | `≡` | Stash indicator with count |
+| `conflict` | `!` | Merge conflict indicator |
+
+**Implementation in `segment_git_render()`**:
+- Branch symbol prepended before branch name (if configured)
+- Stash indicator shown when `stash_count > 0`
+- Conflict indicator shown when `has_conflicts` is true (uses error color)
+
+### Git State Detection Added
+
+**New fields populated in `fetch_git_status()`**:
+- `stash_count` - via `git stash list | wc -l`
+- `has_conflicts` - via `git ls-files -u | head -1`
+
+**Pipe draining**: Added proper pipe draining before `pclose()` to prevent child processes from blocking on write. Fixed in:
+- `run_git_command()` - general git command helper
+- `conflict_fp` - conflict detection
+
+### path_root Color Wired
+
+**New context field**: Added `cwd_is_root` to `lle_prompt_context_t` to detect when CWD is `/`.
+
+**Directory segment enhancement**: When at filesystem root and `path_root` color is configured, the directory segment now applies that color to the `/` display.
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `src/lle/prompt/segment.c` | Stash/conflict detection, wire branch/stash/conflict symbols, wire path_root color, pipe draining |
+| `include/lle/prompt/segment.h` | Added `cwd_is_root` field to context |
+| `tests/lle/unit/test_segment_system.c` | Updated render calls with NULL theme parameter |
+| `tests/lle/compliance/spec_25_segment_compliance.c` | Updated render calls with NULL theme parameter |
+| `examples/theme.toml` | Updated status annotations |
+| `docs/lle_specification/LLE_IMPLEMENTATION_STATUS_AND_ROADMAP.md` | Updated to v2.4, Section 2.7 |
+
+### Testing
+
+- Main binary builds successfully
+- Test files updated for new render signature
 
 ---
 

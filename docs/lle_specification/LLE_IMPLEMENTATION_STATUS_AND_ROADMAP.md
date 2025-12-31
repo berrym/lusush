@@ -1,7 +1,7 @@
 # LLE Implementation Status and Roadmap
 
-**Last Updated**: 2025-12-31 (Session 89)  
-**Document Version**: 2.3  
+**Last Updated**: 2025-12-31 (Session 90)  
+**Document Version**: 2.4  
 **Purpose**: Accurate assessment of LLE implementation status, realistic next milestones, and long-term vision
 
 ---
@@ -182,7 +182,7 @@ Components added during implementation that weren't in the original specs:
 | **Watchdog** | ✅ 100% | SIGALRM-based deadlock detection (Session 80) |
 | **Defensive State Machine** | ✅ 100% | Guaranteed Ctrl+C/Ctrl+G exit paths from any state |
 
-### 2.7 Theme System Feature Status (Session 88 Audit, Updated Session 89)
+### 2.7 Theme System Feature Status (Session 88 Audit, Updated Session 90)
 
 Many theme features are **parsed from TOML but not used** in rendering. This section documents which features actually work vs. are spec'd but unimplemented.
 
@@ -206,7 +206,7 @@ Many theme features are **parsed from TOML but not used** in rendering. This sec
 | Text | text, text_dim | text_bright |
 | Structural | - | border, background, highlight |
 | Git | git_clean, git_dirty, git_staged, git_branch, git_ahead, git_behind, git_untracked (Session 89) | - |
-| Path | path_normal, path_home | path_root, path_separator (not even parsed) |
+| Path | path_normal, path_home, path_root (Session 90) | path_separator (not even parsed) |
 | Status | status_ok, status_error | status_running |
 
 #### Symbols
@@ -215,7 +215,7 @@ Many theme features are **parsed from TOML but not used** in rendering. This sec
 |----------|---------|-------------------|
 | Prompt | prompt, prompt_root, continuation | - |
 | Separators | separator_left, separator_right | - |
-| Git | staged, unstaged, untracked, ahead, behind (Session 89) | branch, stash, conflict |
+| Git | staged, unstaged, untracked, ahead, behind (Session 89), branch, stash, conflict (Session 90) | - |
 | Other | error, jobs (Session 89) | directory, home, success, time |
 
 #### Other

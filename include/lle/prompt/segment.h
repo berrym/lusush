@@ -107,6 +107,7 @@ typedef struct lle_prompt_context {
     char cwd_display[PATH_MAX];      /**< Display version (~ for home) */
     char home_dir[PATH_MAX];         /**< Home directory path */
     bool cwd_is_home;                /**< CWD is home directory */
+    bool cwd_is_root;                /**< CWD is root directory / */
     bool cwd_is_writable;            /**< CWD is writable */
     bool cwd_is_git_repo;            /**< CWD is in a git repo */
 

@@ -336,7 +336,7 @@ static void test_segment_callback_interface(void) {
     COMPLIANCE_ASSERT(dir->render != NULL, "render callback exists");
     lle_segment_output_t output;
     memset(&output, 0, sizeof(output));
-    lle_result_t result = dir->render(dir, &ctx, &output);
+    lle_result_t result = dir->render(dir, &ctx, NULL, &output);
     COMPLIANCE_ASSERT(result == LLE_SUCCESS, "render returns LLE_SUCCESS");
     COMPLIANCE_ASSERT(output.content_len > 0, "render produces content");
     COMPLIANCE_ASSERT(output.visual_width > 0, "render sets visual_width");
@@ -393,7 +393,7 @@ static void test_segment_output_specification(void) {
     TEST_START("directory segment output format");
     lle_prompt_segment_t *dir = lle_segment_create_directory();
     memset(&output, 0, sizeof(output));
-    dir->render(dir, &ctx, &output);
+    dir->render(dir, &ctx, NULL, &output);
     /* Per spec: directory uses ~ for home abbreviation */
     /* Content should be non-empty */
     COMPLIANCE_ASSERT(output.content_len > 0, "directory has content");
@@ -404,7 +404,7 @@ static void test_segment_output_specification(void) {
     TEST_START("user segment output format");
     lle_prompt_segment_t *user = lle_segment_create_user();
     memset(&output, 0, sizeof(output));
-    user->render(user, &ctx, &output);
+    user->render(user, &ctx, NULL, &output);
     COMPLIANCE_ASSERT(output.content_len > 0, "user has content");
     COMPLIANCE_ASSERT(strlen(output.content) == output.content_len,
                       "content_len matches strlen");
@@ -414,7 +414,7 @@ static void test_segment_output_specification(void) {
     TEST_START("symbol segment output format");
     lle_prompt_segment_t *symbol = lle_segment_create_symbol();
     memset(&output, 0, sizeof(output));
-    symbol->render(symbol, &ctx, &output);
+    symbol->render(symbol, &ctx, NULL, &output);
     /* Per spec: $ for user, # for root */
     if (ctx.is_root) {
         COMPLIANCE_ASSERT(strcmp(output.content, "#") == 0,
@@ -429,7 +429,7 @@ static void test_segment_output_specification(void) {
     TEST_START("time segment output format");
     lle_prompt_segment_t *time_seg = lle_segment_create_time();
     memset(&output, 0, sizeof(output));
-    time_seg->render(time_seg, &ctx, &output);
+    time_seg->render(time_seg, &ctx, NULL, &output);
     /* Per spec: HH:MM:SS format = 8 characters */
     COMPLIANCE_ASSERT(output.content_len == 8, "time is HH:MM:SS format");
     COMPLIANCE_ASSERT(output.content[2] == ':', "first colon at position 2");

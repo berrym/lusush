@@ -231,7 +231,7 @@ TEST(builtin_directory_segment) {
     lle_prompt_context_init(&ctx);
 
     lle_segment_output_t output = {0};
-    ASSERT_EQ(seg->render(seg, &ctx, &output), LLE_SUCCESS);
+    ASSERT_EQ(seg->render(seg, &ctx, NULL, &output), LLE_SUCCESS);
     ASSERT(!output.is_empty);
     ASSERT(strlen(output.content) > 0);
 
@@ -248,7 +248,7 @@ TEST(builtin_user_segment) {
     lle_prompt_context_init(&ctx);
 
     lle_segment_output_t output = {0};
-    ASSERT_EQ(seg->render(seg, &ctx, &output), LLE_SUCCESS);
+    ASSERT_EQ(seg->render(seg, &ctx, NULL, &output), LLE_SUCCESS);
     ASSERT_STR_EQ(output.content, ctx.username);
 
     lle_segment_free(seg);
@@ -264,7 +264,7 @@ TEST(builtin_host_segment) {
     lle_prompt_context_init(&ctx);
 
     lle_segment_output_t output = {0};
-    ASSERT_EQ(seg->render(seg, &ctx, &output), LLE_SUCCESS);
+    ASSERT_EQ(seg->render(seg, &ctx, NULL, &output), LLE_SUCCESS);
     ASSERT_STR_EQ(output.content, ctx.hostname);
 
     lle_segment_free(seg);
@@ -280,7 +280,7 @@ TEST(builtin_time_segment) {
     lle_prompt_context_init(&ctx);
 
     lle_segment_output_t output = {0};
-    ASSERT_EQ(seg->render(seg, &ctx, &output), LLE_SUCCESS);
+    ASSERT_EQ(seg->render(seg, &ctx, NULL, &output), LLE_SUCCESS);
     ASSERT(!output.is_empty);
     /* Time format: HH:MM:SS */
     ASSERT_EQ(strlen(output.content), 8);
@@ -317,7 +317,7 @@ TEST(builtin_status_segment_nonzero) {
     ASSERT(seg->is_visible(seg, &ctx));
 
     lle_segment_output_t output = {0};
-    ASSERT_EQ(seg->render(seg, &ctx, &output), LLE_SUCCESS);
+    ASSERT_EQ(seg->render(seg, &ctx, NULL, &output), LLE_SUCCESS);
     ASSERT_STR_EQ(output.content, "127");
 
     lle_segment_free(seg);
@@ -333,7 +333,7 @@ TEST(builtin_symbol_segment_user) {
     ctx.is_root = false;
 
     lle_segment_output_t output = {0};
-    ASSERT_EQ(seg->render(seg, &ctx, &output), LLE_SUCCESS);
+    ASSERT_EQ(seg->render(seg, &ctx, NULL, &output), LLE_SUCCESS);
     ASSERT_STR_EQ(output.content, "$");
 
     lle_segment_free(seg);
@@ -349,7 +349,7 @@ TEST(builtin_symbol_segment_root) {
     ctx.is_root = true;
 
     lle_segment_output_t output = {0};
-    ASSERT_EQ(seg->render(seg, &ctx, &output), LLE_SUCCESS);
+    ASSERT_EQ(seg->render(seg, &ctx, NULL, &output), LLE_SUCCESS);
     ASSERT_STR_EQ(output.content, "#");
 
     lle_segment_free(seg);
@@ -381,7 +381,7 @@ TEST(builtin_jobs_segment_some) {
     ASSERT(seg->is_visible(seg, &ctx));
 
     lle_segment_output_t output = {0};
-    ASSERT_EQ(seg->render(seg, &ctx, &output), LLE_SUCCESS);
+    ASSERT_EQ(seg->render(seg, &ctx, NULL, &output), LLE_SUCCESS);
     ASSERT_STR_EQ(output.content, "3");
 
     lle_segment_free(seg);

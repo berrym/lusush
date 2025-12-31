@@ -258,6 +258,9 @@ lle_result_t lle_prompt_context_refresh_directory(lle_prompt_context_t *ctx) {
         ctx->cwd_is_home = strcmp(ctx->cwd, ctx->home_dir) == 0;
     }
 
+    /* Check if at filesystem root */
+    ctx->cwd_is_root = (strcmp(ctx->cwd, "/") == 0);
+
     /* Check writability */
     ctx->cwd_is_writable = (access(ctx->cwd, W_OK) == 0);
 
@@ -346,21 +349,34 @@ static lle_result_t segment_directory_render(const lle_prompt_segment_t *self,
                                               const lle_theme_t *theme,
                                               lle_segment_output_t *output) {
     (void)self;
-    (void)theme;
 
     const char *display = strlen(ctx->cwd_display) > 0 ?
                           ctx->cwd_display : ctx->cwd;
 
-    /* Copy with truncation - output buffer is smaller than PATH_MAX */
-    size_t display_len = strlen(display);
-    size_t copy_len = (display_len < sizeof(output->content) - 1) ?
-                      display_len : sizeof(output->content) - 1;
-    memcpy(output->content, display, copy_len);
-    output->content[copy_len] = '\0';
+    /* Check if we should apply path_root color (when at filesystem root) */
+    if (theme && ctx->cwd_is_root &&
+        theme->colors.path_root.mode != LLE_COLOR_MODE_NONE) {
+        static const char *reset = "\033[0m";
+        char color_code[32];
+        lle_color_to_ansi(&theme->colors.path_root, true, color_code, sizeof(color_code));
 
-    output->content_len = copy_len;
-    output->visual_width = lle_utf8_string_width(output->content, copy_len);
-    output->is_empty = (copy_len == 0);
+        snprintf(output->content, sizeof(output->content), "%s%s%s",
+                 color_code, display, reset);
+        output->content_len = strlen(output->content);
+        output->visual_width = lle_utf8_string_width(display, strlen(display));
+    } else {
+        /* Standard path display */
+        size_t display_len = strlen(display);
+        size_t copy_len = (display_len < sizeof(output->content) - 1) ?
+                          display_len : sizeof(output->content) - 1;
+        memcpy(output->content, display, copy_len);
+        output->content[copy_len] = '\0';
+
+        output->content_len = copy_len;
+        output->visual_width = lle_utf8_string_width(output->content, copy_len);
+    }
+
+    output->is_empty = (output->content_len == 0);
     output->needs_separator = true;
 
     return LLE_SUCCESS;
@@ -698,6 +714,8 @@ typedef struct {
     int untracked;
     int ahead;
     int behind;
+    int stash_count;
+    bool has_conflicts;
     bool is_repo;
     bool cache_valid;
 } segment_git_state_t;
@@ -740,6 +758,10 @@ static int run_git_command(const char *args, char *output, size_t output_size) {
             output[0] = '\0';
         }
     }
+    
+    /* Drain any remaining output to prevent child from blocking */
+    char drain[128];
+    while (fgets(drain, sizeof(drain), fp)) {}
     
     return pclose(fp);
 }
@@ -809,6 +831,29 @@ static void fetch_git_status(segment_git_state_t *state) {
     } else {
         state->ahead = 0;
         state->behind = 0;
+    }
+    
+    /* Get stash count */
+    FILE *stash_fp = popen("git stash list 2>/dev/null | wc -l", "r");
+    if (stash_fp) {
+        char stash_buf[16];
+        if (fgets(stash_buf, sizeof(stash_buf), stash_fp)) {
+            state->stash_count = atoi(stash_buf);
+        }
+        pclose(stash_fp);
+    }
+    
+    /* Check for merge conflicts (unmerged files) */
+    state->has_conflicts = false;
+    FILE *conflict_fp = popen("git ls-files -u 2>/dev/null | head -1", "r");
+    if (conflict_fp) {
+        char conflict_buf[8];
+        if (fgets(conflict_buf, sizeof(conflict_buf), conflict_fp) && conflict_buf[0]) {
+            state->has_conflicts = true;
+        }
+        /* Drain any remaining output to prevent child from blocking */
+        while (fgets(conflict_buf, sizeof(conflict_buf), conflict_fp)) {}
+        pclose(conflict_fp);
     }
     
     state->cache_valid = true;
@@ -906,6 +951,12 @@ static lle_result_t segment_git_render(const lle_prompt_segment_t *self,
                             theme->symbols.ahead : "↑";
     const char *sym_behind = (theme && theme->symbols.behind[0]) ?
                              theme->symbols.behind : "↓";
+    const char *sym_branch = (theme && theme->symbols.branch[0]) ?
+                             theme->symbols.branch : "";
+    const char *sym_stash = (theme && theme->symbols.stash[0]) ?
+                            theme->symbols.stash : "≡";
+    const char *sym_conflict = (theme && theme->symbols.conflict[0]) ?
+                               theme->symbols.conflict : "!";
 
     /* Get colors from theme (NULL if no theme or no specific color) */
     const lle_color_t *color_staged = theme ? &theme->colors.git_staged : NULL;
@@ -923,6 +974,16 @@ static lle_result_t segment_git_render(const lle_prompt_segment_t *self,
     /* Opening paren and branch */
     buf[pos++] = '(';
     visual_width++;
+    
+    /* Add branch symbol if configured */
+    if (sym_branch[0]) {
+        size_t sym_len = strlen(sym_branch);
+        if (pos + sym_len < buf_size) {
+            memcpy(buf + pos, sym_branch, sym_len);
+            pos += sym_len;
+            visual_width += lle_utf8_string_width(sym_branch, sym_len);
+        }
+    }
     
     size_t branch_len = strlen(state->branch);
     if (pos + branch_len < buf_size) {
@@ -974,6 +1035,24 @@ static lle_result_t segment_git_render(const lle_prompt_segment_t *self,
         snprintf(indicator, sizeof(indicator), "%s%d", sym_behind, state->behind);
         visual_width += append_colored(buf, buf_size, &pos, indicator,
                                        color_behind, reset);
+    }
+
+    /* Stash indicator */
+    if (state->stash_count > 0) {
+        buf[pos++] = ' ';
+        visual_width++;
+        char indicator[16];
+        snprintf(indicator, sizeof(indicator), "%s%d", sym_stash, state->stash_count);
+        visual_width += append_colored(buf, buf_size, &pos, indicator, NULL, NULL);
+    }
+
+    /* Conflict indicator - use error color for prominence */
+    if (state->has_conflicts) {
+        buf[pos++] = ' ';
+        visual_width++;
+        const lle_color_t *color_conflict = theme ? &theme->colors.error : NULL;
+        visual_width += append_colored(buf, buf_size, &pos, sym_conflict,
+                                       color_conflict, reset);
     }
 
     /* Closing paren */
