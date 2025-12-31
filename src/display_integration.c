@@ -42,6 +42,7 @@
 
 #include "display_integration.h"
 #include "config.h"
+#include "lusush.h"
 #include "display/autosuggestions_layer.h"
 #include "display/display_controller.h"
 #include "display/layer_events.h"
@@ -1194,10 +1195,10 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
         memset(&output, 0, sizeof(output));
         
         // Update background job count from executor (Issue #22)
-        extern executor_t *current_executor;
-        if (current_executor) {
-            executor_update_job_status(current_executor);
-            int job_count = executor_count_jobs(current_executor);
+        executor_t *executor = get_global_executor();
+        if (executor) {
+            executor_update_job_status(executor);
+            int job_count = executor_count_jobs(executor);
             lle_prompt_context_set_job_count(&composer->context, job_count);
         }
         

@@ -171,3 +171,7 @@ int executor_count_jobs(executor_t *executor) {
     (void)executor;
     return 0; /* No jobs in tests */
 }
+
+executor_t *get_global_executor(void) {
+    return NULL; /* No executor in tests */
+}
