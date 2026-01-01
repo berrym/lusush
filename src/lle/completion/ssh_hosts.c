@@ -17,9 +17,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
+
+/* Forward declaration for portability (see ht_fnv1a.c) */
+int strncasecmp(const char *s1, const char *s2, size_t n);
 
 /* ============================================================================
  * CONSTANTS
@@ -177,7 +181,8 @@ int ssh_parse_config(const char *config_path, ssh_host_cache_t *cache) {
             if (!strchr(current_host.alias, '*') &&
                 !strchr(current_host.alias, '?')) {
                 strncpy(current_host.hostname, current_host.alias,
-                        MAX_HOSTNAME_LEN);
+                        MAX_HOSTNAME_LEN - 1);
+                current_host.hostname[MAX_HOSTNAME_LEN - 1] = '\0';
             }
 
             in_host_block = true;

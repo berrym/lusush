@@ -363,7 +363,7 @@ static lle_result_t segment_directory_render(const lle_prompt_segment_t *self,
         lle_color_to_ansi(&theme->colors.path_root, true, color_code,
                           sizeof(color_code));
 
-        snprintf(output->content, sizeof(output->content), "%s%s%s", color_code,
+        snprintf(output->content, sizeof(output->content), "%s%.470s%s", color_code,
                  display, reset);
         output->content_len = strlen(output->content);
         output->visual_width = lle_utf8_string_width(display, strlen(display));
@@ -1184,22 +1184,22 @@ static lle_result_t segment_git_render(const lle_prompt_segment_t *self,
     }
 
     if (state->staged > 0) {
-        char indicator[16];
-        snprintf(indicator, sizeof(indicator), "%s%d", sym_staged,
+        char indicator[32];
+        snprintf(indicator, sizeof(indicator), "%.15s%d", sym_staged,
                  state->staged);
         visual_width +=
             append_colored(buf, buf_size, &pos, indicator, color_staged, reset);
     }
     if (state->unstaged > 0) {
-        char indicator[16];
-        snprintf(indicator, sizeof(indicator), "%s%d", sym_unstaged,
+        char indicator[32];
+        snprintf(indicator, sizeof(indicator), "%.15s%d", sym_unstaged,
                  state->unstaged);
         visual_width += append_colored(buf, buf_size, &pos, indicator,
                                        color_unstaged, reset);
     }
     if (state->untracked > 0) {
-        char indicator[16];
-        snprintf(indicator, sizeof(indicator), "%s%d", sym_untracked,
+        char indicator[32];
+        snprintf(indicator, sizeof(indicator), "%.15s%d", sym_untracked,
                  state->untracked);
         visual_width += append_colored(buf, buf_size, &pos, indicator,
                                        color_untracked, reset);
@@ -1211,14 +1211,14 @@ static lle_result_t segment_git_render(const lle_prompt_segment_t *self,
         visual_width++;
     }
     if (state->ahead > 0) {
-        char indicator[16];
-        snprintf(indicator, sizeof(indicator), "%s%d", sym_ahead, state->ahead);
+        char indicator[32];
+        snprintf(indicator, sizeof(indicator), "%.15s%d", sym_ahead, state->ahead);
         visual_width +=
             append_colored(buf, buf_size, &pos, indicator, color_ahead, reset);
     }
     if (state->behind > 0) {
-        char indicator[16];
-        snprintf(indicator, sizeof(indicator), "%s%d", sym_behind,
+        char indicator[32];
+        snprintf(indicator, sizeof(indicator), "%.15s%d", sym_behind,
                  state->behind);
         visual_width +=
             append_colored(buf, buf_size, &pos, indicator, color_behind, reset);
@@ -1228,8 +1228,8 @@ static lle_result_t segment_git_render(const lle_prompt_segment_t *self,
     if (state->stash_count > 0) {
         buf[pos++] = ' ';
         visual_width++;
-        char indicator[16];
-        snprintf(indicator, sizeof(indicator), "%s%d", sym_stash,
+        char indicator[32];
+        snprintf(indicator, sizeof(indicator), "%.15s%d", sym_stash,
                  state->stash_count);
         visual_width +=
             append_colored(buf, buf_size, &pos, indicator, NULL, NULL);

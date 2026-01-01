@@ -295,11 +295,9 @@ static char *lle_completion_expand_variable(const char *path) {
     const char *var_start = path + 1;
     const char *var_end = NULL;
     const char *rest = NULL;
-    bool has_braces = false;
 
     if (var_start[0] == '{') {
         // ${VAR} format
-        has_braces = true;
         var_start++;
         var_end = strchr(var_start, '}');
         if (!var_end) {
