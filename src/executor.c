@@ -9,7 +9,6 @@
 #include "executor.h"
 
 #include "alias.h"
-#include "lle/lle_shell_event_hub.h"
 #include "arithmetic.h"
 #include "autocorrect.h"
 #include "builtins.h"
@@ -17,6 +16,7 @@
 #include "debug.h"
 #include "ht.h"
 #include "init.h"
+#include "lle/lle_shell_event_hub.h"
 #include "lusush.h"
 #include "node.h"
 #include "parser.h"
@@ -869,22 +869,23 @@ static int execute_command(executor_t *executor, node_t *command) {
             if (stat(argv[0], &st) == 0 && S_ISDIR(st.st_mode)) {
                 /**
                  * @brief Save old directory for event firing
-                 * 
+                 *
                  * Required by Spec 26 shell event hub to notify handlers
                  * of directory change with both old and new paths.
                  */
                 char *old_pwd = getcwd(NULL, 0);
-                
+
                 /* Auto-cd to the directory */
                 if (chdir(argv[0]) == 0) {
                     /* Successfully changed directory, update PWD */
                     char *new_pwd = getcwd(NULL, 0);
                     if (new_pwd) {
                         symtable_set_global("PWD", new_pwd);
-                        
+
                         /**
-                         * @brief Fire directory changed event for LLE shell integration
-                         * 
+                         * @brief Fire directory changed event for LLE shell
+                         * integration
+                         *
                          * This notifies the prompt composer which:
                          * - Refreshes context.cwd
                          * - Invalidates all segment caches
@@ -892,7 +893,7 @@ static int execute_command(executor_t *executor, node_t *command) {
                          * - Triggers async git status refresh
                          */
                         lle_fire_directory_changed(old_pwd, new_pwd);
-                        
+
                         free(new_pwd);
                     }
                     result = 0; /* Success */
@@ -901,7 +902,7 @@ static int execute_command(executor_t *executor, node_t *command) {
                     perror("cd");
                     result = 1;
                 }
-                
+
                 if (old_pwd) {
                     free(old_pwd);
                 }

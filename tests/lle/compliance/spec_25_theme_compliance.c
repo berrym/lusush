@@ -25,8 +25,8 @@
  * Date: 2025-12-26
  */
 
-#include "lle/prompt/theme.h"
 #include "lle/error_handling.h"
+#include "lle/prompt/theme.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -66,19 +66,15 @@ static void test_type_definitions(void) {
     printf("--------------------------\n");
 
     TEST_START("lle_color_mode_t enum defined");
-    COMPLIANCE_ASSERT(LLE_COLOR_MODE_NONE == 0,
-                      "LLE_COLOR_MODE_NONE is 0");
+    COMPLIANCE_ASSERT(LLE_COLOR_MODE_NONE == 0, "LLE_COLOR_MODE_NONE is 0");
     COMPLIANCE_ASSERT(LLE_COLOR_MODE_BASIC >= 0,
                       "LLE_COLOR_MODE_BASIC defined");
-    COMPLIANCE_ASSERT(LLE_COLOR_MODE_256 >= 0,
-                      "LLE_COLOR_MODE_256 defined");
-    COMPLIANCE_ASSERT(LLE_COLOR_MODE_TRUE >= 0,
-                      "LLE_COLOR_MODE_TRUE defined");
+    COMPLIANCE_ASSERT(LLE_COLOR_MODE_256 >= 0, "LLE_COLOR_MODE_256 defined");
+    COMPLIANCE_ASSERT(LLE_COLOR_MODE_TRUE >= 0, "LLE_COLOR_MODE_TRUE defined");
     TEST_PASS();
 
     TEST_START("lle_theme_capability_t flags defined");
-    COMPLIANCE_ASSERT(LLE_THEME_CAP_NONE == 0,
-                      "LLE_THEME_CAP_NONE is 0");
+    COMPLIANCE_ASSERT(LLE_THEME_CAP_NONE == 0, "LLE_THEME_CAP_NONE is 0");
     COMPLIANCE_ASSERT(LLE_THEME_CAP_256_COLOR > 0,
                       "LLE_THEME_CAP_256_COLOR defined");
     COMPLIANCE_ASSERT(LLE_THEME_CAP_TRUE_COLOR > 0,
@@ -182,21 +178,18 @@ static void test_theme_registry_api(void) {
                       "lle_theme_registry_init declared");
     lle_theme_registry_t registry;
     lle_result_t result = lle_theme_registry_init(&registry);
-    COMPLIANCE_ASSERT(result == LLE_SUCCESS,
-                      "init returns LLE_SUCCESS");
-    COMPLIANCE_ASSERT(registry.initialized == true,
-                      "registry is initialized");
+    COMPLIANCE_ASSERT(result == LLE_SUCCESS, "init returns LLE_SUCCESS");
+    COMPLIANCE_ASSERT(registry.initialized == true, "registry is initialized");
     TEST_PASS();
 
     TEST_START("lle_theme_registry_register function");
     COMPLIANCE_ASSERT(lle_theme_registry_register != NULL,
                       "lle_theme_registry_register declared");
-    lle_theme_t *theme = lle_theme_create("test", "Test", LLE_THEME_CATEGORY_CUSTOM);
+    lle_theme_t *theme =
+        lle_theme_create("test", "Test", LLE_THEME_CATEGORY_CUSTOM);
     result = lle_theme_registry_register(&registry, theme);
-    COMPLIANCE_ASSERT(result == LLE_SUCCESS,
-                      "register returns LLE_SUCCESS");
-    COMPLIANCE_ASSERT(registry.count == 1,
-                      "count incremented");
+    COMPLIANCE_ASSERT(result == LLE_SUCCESS, "register returns LLE_SUCCESS");
+    COMPLIANCE_ASSERT(registry.count == 1, "count incremented");
     TEST_PASS();
 
     TEST_START("lle_theme_registry_find function");
@@ -211,18 +204,15 @@ static void test_theme_registry_api(void) {
     COMPLIANCE_ASSERT(lle_theme_registry_set_active != NULL,
                       "lle_theme_registry_set_active declared");
     result = lle_theme_registry_set_active(&registry, "test");
-    COMPLIANCE_ASSERT(result == LLE_SUCCESS,
-                      "set_active returns LLE_SUCCESS");
-    COMPLIANCE_ASSERT(theme->is_active == true,
-                      "theme is active");
+    COMPLIANCE_ASSERT(result == LLE_SUCCESS, "set_active returns LLE_SUCCESS");
+    COMPLIANCE_ASSERT(theme->is_active == true, "theme is active");
     TEST_PASS();
 
     TEST_START("lle_theme_registry_get_active function");
     COMPLIANCE_ASSERT(lle_theme_registry_get_active != NULL,
                       "lle_theme_registry_get_active declared");
     lle_theme_t *active = lle_theme_registry_get_active(&registry);
-    COMPLIANCE_ASSERT(active == theme,
-                      "get_active returns active theme");
+    COMPLIANCE_ASSERT(active == theme, "get_active returns active theme");
     TEST_PASS();
 
     TEST_START("lle_theme_registry_list function");
@@ -253,13 +243,11 @@ static void test_theme_lifecycle_api(void) {
     printf("-----------------------------\n");
 
     TEST_START("lle_theme_create function");
-    COMPLIANCE_ASSERT(lle_theme_create != NULL,
-                      "lle_theme_create declared");
-    lle_theme_t *theme = lle_theme_create("mytest", "My Test",
-                                          LLE_THEME_CATEGORY_MODERN);
+    COMPLIANCE_ASSERT(lle_theme_create != NULL, "lle_theme_create declared");
+    lle_theme_t *theme =
+        lle_theme_create("mytest", "My Test", LLE_THEME_CATEGORY_MODERN);
     COMPLIANCE_ASSERT(theme != NULL, "create returns theme");
-    COMPLIANCE_ASSERT(strcmp(theme->name, "mytest") == 0,
-                      "name set correctly");
+    COMPLIANCE_ASSERT(strcmp(theme->name, "mytest") == 0, "name set correctly");
     COMPLIANCE_ASSERT(theme->category == LLE_THEME_CATEGORY_MODERN,
                       "category set correctly");
     COMPLIANCE_ASSERT(theme->source == LLE_THEME_SOURCE_RUNTIME,
@@ -267,8 +255,7 @@ static void test_theme_lifecycle_api(void) {
     TEST_PASS();
 
     TEST_START("lle_theme_free function");
-    COMPLIANCE_ASSERT(lle_theme_free != NULL,
-                      "lle_theme_free declared");
+    COMPLIANCE_ASSERT(lle_theme_free != NULL, "lle_theme_free declared");
     lle_theme_free(theme);
     TEST_PASS();
 
@@ -289,45 +276,35 @@ static void test_color_helper_api(void) {
     printf("--------------------------\n");
 
     TEST_START("lle_color_basic function");
-    COMPLIANCE_ASSERT(lle_color_basic != NULL,
-                      "lle_color_basic declared");
+    COMPLIANCE_ASSERT(lle_color_basic != NULL, "lle_color_basic declared");
     lle_color_t c = lle_color_basic(LLE_COLOR_RED);
-    COMPLIANCE_ASSERT(c.mode == LLE_COLOR_MODE_BASIC,
-                      "mode is BASIC");
-    COMPLIANCE_ASSERT(c.value.basic == LLE_COLOR_RED,
-                      "value is RED");
+    COMPLIANCE_ASSERT(c.mode == LLE_COLOR_MODE_BASIC, "mode is BASIC");
+    COMPLIANCE_ASSERT(c.value.basic == LLE_COLOR_RED, "value is RED");
     TEST_PASS();
 
     TEST_START("lle_color_256 function");
-    COMPLIANCE_ASSERT(lle_color_256 != NULL,
-                      "lle_color_256 declared");
+    COMPLIANCE_ASSERT(lle_color_256 != NULL, "lle_color_256 declared");
     c = lle_color_256(200);
-    COMPLIANCE_ASSERT(c.mode == LLE_COLOR_MODE_256,
-                      "mode is 256");
-    COMPLIANCE_ASSERT(c.value.palette == 200,
-                      "palette value correct");
+    COMPLIANCE_ASSERT(c.mode == LLE_COLOR_MODE_256, "mode is 256");
+    COMPLIANCE_ASSERT(c.value.palette == 200, "palette value correct");
     TEST_PASS();
 
     TEST_START("lle_color_rgb function");
-    COMPLIANCE_ASSERT(lle_color_rgb != NULL,
-                      "lle_color_rgb declared");
+    COMPLIANCE_ASSERT(lle_color_rgb != NULL, "lle_color_rgb declared");
     c = lle_color_rgb(100, 150, 200);
-    COMPLIANCE_ASSERT(c.mode == LLE_COLOR_MODE_TRUE,
-                      "mode is TRUE");
+    COMPLIANCE_ASSERT(c.mode == LLE_COLOR_MODE_TRUE, "mode is TRUE");
     COMPLIANCE_ASSERT(c.value.rgb.r == 100, "R value correct");
     COMPLIANCE_ASSERT(c.value.rgb.g == 150, "G value correct");
     COMPLIANCE_ASSERT(c.value.rgb.b == 200, "B value correct");
     TEST_PASS();
 
     TEST_START("lle_color_to_ansi function");
-    COMPLIANCE_ASSERT(lle_color_to_ansi != NULL,
-                      "lle_color_to_ansi declared");
+    COMPLIANCE_ASSERT(lle_color_to_ansi != NULL, "lle_color_to_ansi declared");
     char buf[64];
     c = lle_color_basic(LLE_COLOR_GREEN);
     size_t len = lle_color_to_ansi(&c, true, buf, sizeof(buf));
     COMPLIANCE_ASSERT(len > 0, "generates escape sequence");
-    COMPLIANCE_ASSERT(strstr(buf, "\033[") != NULL,
-                      "contains escape sequence");
+    COMPLIANCE_ASSERT(strstr(buf, "\033[") != NULL, "contains escape sequence");
     TEST_PASS();
 
     printf("  Phase 4 complete (4 tests)\n\n");
@@ -346,8 +323,7 @@ static void test_symbol_set_api(void) {
                       "lle_symbol_set_init_unicode declared");
     lle_symbol_set_t symbols;
     lle_symbol_set_init_unicode(&symbols);
-    COMPLIANCE_ASSERT(strlen(symbols.prompt) > 0,
-                      "prompt symbol set");
+    COMPLIANCE_ASSERT(strlen(symbols.prompt) > 0, "prompt symbol set");
     COMPLIANCE_ASSERT(strlen(symbols.prompt_root) > 0,
                       "prompt_root symbol set");
     TEST_PASS();
@@ -356,8 +332,7 @@ static void test_symbol_set_api(void) {
     COMPLIANCE_ASSERT(lle_symbol_set_init_ascii != NULL,
                       "lle_symbol_set_init_ascii declared");
     lle_symbol_set_init_ascii(&symbols);
-    COMPLIANCE_ASSERT(strlen(symbols.prompt) > 0,
-                      "prompt symbol set");
+    COMPLIANCE_ASSERT(strlen(symbols.prompt) > 0, "prompt symbol set");
     /* ASCII should use simple characters */
     COMPLIANCE_ASSERT(strcmp(symbols.prompt, "$") == 0,
                       "prompt is $ for ASCII");
@@ -379,8 +354,7 @@ static void test_builtin_themes(void) {
                       "lle_theme_create_minimal declared");
     lle_theme_t *t = lle_theme_create_minimal();
     COMPLIANCE_ASSERT(t != NULL, "creates theme");
-    COMPLIANCE_ASSERT(strcmp(t->name, "minimal") == 0,
-                      "name is 'minimal'");
+    COMPLIANCE_ASSERT(strcmp(t->name, "minimal") == 0, "name is 'minimal'");
     COMPLIANCE_ASSERT(t->source == LLE_THEME_SOURCE_BUILTIN,
                       "source is BUILTIN");
     COMPLIANCE_ASSERT(t->category == LLE_THEME_CATEGORY_MINIMAL,
@@ -393,8 +367,7 @@ static void test_builtin_themes(void) {
                       "lle_theme_create_default declared");
     t = lle_theme_create_default();
     COMPLIANCE_ASSERT(t != NULL, "creates theme");
-    COMPLIANCE_ASSERT(strcmp(t->name, "default") == 0,
-                      "name is 'default'");
+    COMPLIANCE_ASSERT(strcmp(t->name, "default") == 0, "name is 'default'");
     lle_theme_free(t);
     TEST_PASS();
 
@@ -403,8 +376,7 @@ static void test_builtin_themes(void) {
                       "lle_theme_create_classic declared");
     t = lle_theme_create_classic();
     COMPLIANCE_ASSERT(t != NULL, "creates theme");
-    COMPLIANCE_ASSERT(strcmp(t->name, "classic") == 0,
-                      "name is 'classic'");
+    COMPLIANCE_ASSERT(strcmp(t->name, "classic") == 0, "name is 'classic'");
     COMPLIANCE_ASSERT(t->category == LLE_THEME_CATEGORY_CLASSIC,
                       "category is CLASSIC");
     lle_theme_free(t);
@@ -415,8 +387,7 @@ static void test_builtin_themes(void) {
                       "lle_theme_create_powerline declared");
     t = lle_theme_create_powerline();
     COMPLIANCE_ASSERT(t != NULL, "creates theme");
-    COMPLIANCE_ASSERT(strcmp(t->name, "powerline") == 0,
-                      "name is 'powerline'");
+    COMPLIANCE_ASSERT(strcmp(t->name, "powerline") == 0, "name is 'powerline'");
     COMPLIANCE_ASSERT(t->category == LLE_THEME_CATEGORY_POWERLINE,
                       "category is POWERLINE");
     COMPLIANCE_ASSERT(t->capabilities & LLE_THEME_CAP_POWERLINE,
@@ -453,8 +424,7 @@ static void test_builtin_themes(void) {
     lle_theme_registry_init(&registry);
     size_t count = lle_theme_register_builtins(&registry);
     COMPLIANCE_ASSERT(count == 10, "registers 10 themes");
-    COMPLIANCE_ASSERT(registry.builtin_count == 10,
-                      "builtin_count is 10");
+    COMPLIANCE_ASSERT(registry.builtin_count == 10, "builtin_count is 10");
     /* Verify all registered */
     COMPLIANCE_ASSERT(lle_theme_registry_find(&registry, "minimal") != NULL,
                       "minimal registered");

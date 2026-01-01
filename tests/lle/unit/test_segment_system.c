@@ -4,8 +4,8 @@
  * Tests segment registry, prompt context, and built-in segments.
  */
 
-#include "lle/prompt/segment.h"
 #include "lle/error_handling.h"
+#include "lle/prompt/segment.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -97,7 +97,8 @@ TEST(registry_find_segment) {
     lle_prompt_segment_t *seg = lle_segment_create("findme", "Test", 0);
     lle_segment_registry_register(&registry, seg);
 
-    lle_prompt_segment_t *found = lle_segment_registry_find(&registry, "findme");
+    lle_prompt_segment_t *found =
+        lle_segment_registry_find(&registry, "findme");
     ASSERT(found != NULL);
     ASSERT_STR_EQ(found->name, "findme");
 
@@ -116,9 +117,10 @@ TEST(registry_duplicate_name_rejected) {
     lle_prompt_segment_t *seg2 = lle_segment_create("duplicate", "Second", 0);
 
     ASSERT_EQ(lle_segment_registry_register(&registry, seg1), LLE_SUCCESS);
-    ASSERT_EQ(lle_segment_registry_register(&registry, seg2), LLE_ERROR_INVALID_STATE);
+    ASSERT_EQ(lle_segment_registry_register(&registry, seg2),
+              LLE_ERROR_INVALID_STATE);
 
-    lle_segment_free(seg2);  /* Not registered, must free manually */
+    lle_segment_free(seg2); /* Not registered, must free manually */
     lle_segment_registry_cleanup(&registry);
     PASS();
 }
@@ -193,8 +195,8 @@ TEST(context_cwd_display_home) {
 /* ========================================================================== */
 
 TEST(segment_create) {
-    lle_prompt_segment_t *seg = lle_segment_create(
-        "test_seg", "A test segment", LLE_SEG_CAP_CACHEABLE);
+    lle_prompt_segment_t *seg =
+        lle_segment_create("test_seg", "A test segment", LLE_SEG_CAP_CACHEABLE);
 
     ASSERT(seg != NULL);
     ASSERT_STR_EQ(seg->name, "test_seg");
@@ -409,7 +411,7 @@ TEST(register_builtins) {
     lle_segment_registry_init(&registry);
 
     size_t count = lle_segment_register_builtins(&registry);
-    ASSERT(count >= 7);  /* At least 7 built-in segments */
+    ASSERT(count >= 7); /* At least 7 built-in segments */
     ASSERT_EQ(registry.count, count);
 
     /* Verify some key segments exist */
@@ -479,8 +481,8 @@ int main(void) {
     RUN_TEST(invalidate_all_caches);
 
     printf("\n===========================================\n");
-    printf("Test Results: %d passed, %d failed, %d total\n",
-           tests_passed, tests_failed, tests_passed + tests_failed);
+    printf("Test Results: %d passed, %d failed, %d total\n", tests_passed,
+           tests_failed, tests_passed + tests_failed);
     printf("===========================================\n");
 
     return tests_failed > 0 ? 1 : 0;

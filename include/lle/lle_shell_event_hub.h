@@ -74,8 +74,8 @@ typedef struct lle_directory_changed_event {
  * state for transient prompt display and command timing.
  */
 typedef struct lle_pre_command_event {
-    const char *command;  /**< Command about to be executed */
-    bool is_background;   /**< True if command will run in background (&) */
+    const char *command; /**< Command about to be executed */
+    bool is_background;  /**< True if command will run in background (&) */
 } lle_pre_command_event_t;
 
 /**
@@ -85,9 +85,9 @@ typedef struct lle_pre_command_event {
  * for prompt status display, history annotation, and timing segments.
  */
 typedef struct lle_post_command_event {
-    const char *command;    /**< Command that was executed */
-    int exit_code;          /**< Command exit code (0 = success) */
-    uint64_t duration_us;   /**< Execution duration in microseconds */
+    const char *command;  /**< Command that was executed */
+    int exit_code;        /**< Command exit code (0 = success) */
+    uint64_t duration_us; /**< Execution duration in microseconds */
 } lle_post_command_event_t;
 
 /* ============================================================================
@@ -133,26 +133,26 @@ typedef struct lle_shell_event_hub {
     /** Handler arrays indexed by event type */
     lle_shell_handler_entry_t handlers[LLE_SHELL_EVENT_TYPE_COUNT]
                                       [LLE_SHELL_EVENT_MAX_HANDLERS];
-    
+
     /** Number of registered handlers per event type */
     size_t handler_counts[LLE_SHELL_EVENT_TYPE_COUNT];
-    
+
     /** Current working directory (for change detection) */
     char current_dir[PATH_MAX];
-    
+
     /** Command start time for duration calculation */
     uint64_t command_start_time_us;
-    
+
     /** Current command being executed (for post-command event) */
     char current_command[4096];
-    
+
     /** Whether hub is initialized */
     bool initialized;
-    
+
     /* Statistics */
-    uint64_t events_fired;       /**< Total events fired */
-    uint64_t directory_changes;  /**< Directory change events */
-    uint64_t commands_executed;  /**< Commands executed (post-command count) */
+    uint64_t events_fired;      /**< Total events fired */
+    uint64_t directory_changes; /**< Directory change events */
+    uint64_t commands_executed; /**< Commands executed (post-command count) */
 } lle_shell_event_hub_t;
 
 /* ============================================================================
@@ -197,14 +197,13 @@ void lle_shell_event_hub_destroy(lle_shell_event_hub_t *hub);
  * @param handler    Callback function
  * @param user_data  Context pointer passed to callback
  * @param name       Handler name for debugging (may be NULL)
- * @return LLE_SUCCESS, LLE_ERROR_INVALID_PARAMETER, or LLE_ERROR_RESOURCE_EXHAUSTED
+ * @return LLE_SUCCESS, LLE_ERROR_INVALID_PARAMETER, or
+ * LLE_ERROR_RESOURCE_EXHAUSTED
  */
-lle_result_t lle_shell_event_hub_register(
-    lle_shell_event_hub_t *hub,
-    lle_shell_event_type_t event_type,
-    lle_shell_event_handler_t handler,
-    void *user_data,
-    const char *name);
+lle_result_t lle_shell_event_hub_register(lle_shell_event_hub_t *hub,
+                                          lle_shell_event_type_t event_type,
+                                          lle_shell_event_handler_t handler,
+                                          void *user_data, const char *name);
 
 /**
  * @brief Unregister an event handler by name
@@ -216,10 +215,9 @@ lle_result_t lle_shell_event_hub_register(
  * @param name       Handler name to remove
  * @return LLE_SUCCESS or LLE_ERROR_NOT_FOUND
  */
-lle_result_t lle_shell_event_hub_unregister(
-    lle_shell_event_hub_t *hub,
-    lle_shell_event_type_t event_type,
-    const char *name);
+lle_result_t lle_shell_event_hub_unregister(lle_shell_event_hub_t *hub,
+                                            lle_shell_event_type_t event_type,
+                                            const char *name);
 
 /* ============================================================================
  * EVENT FIRING (INTERNAL)
@@ -236,10 +234,9 @@ lle_result_t lle_shell_event_hub_unregister(
  * @param event_type Event type to fire
  * @param event_data Pointer to event data structure
  */
-void lle_shell_event_hub_fire(
-    lle_shell_event_hub_t *hub,
-    lle_shell_event_type_t event_type,
-    void *event_data);
+void lle_shell_event_hub_fire(lle_shell_event_hub_t *hub,
+                              lle_shell_event_type_t event_type,
+                              void *event_data);
 
 /* ============================================================================
  * CONVENIENCE EVENT FIRING FUNCTIONS

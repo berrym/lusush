@@ -5,25 +5,24 @@
 #include "display_integration.h"
 #include "errors.h"
 #include "executor.h"
-#include "posix_history.h"
 #include "ht.h"
 #include "input.h"
 #include "lle/adaptive_terminal_integration.h"
 #include "lle/completion/custom_source.h"
+#include "lle/completion/ssh_hosts.h"
 #include "lle/history.h"
-#include "lle/lle_shell_event_hub.h"
-#include "lle/lle_shell_integration.h"
-#include "lle/lle_watchdog.h"
-#include "lle/lle_safety.h"
 #include "lle/keybinding.h"
 #include "lle/keybinding_config.h"
 #include "lle/lle_editor.h"
+#include "lle/lle_safety.h"
+#include "lle/lle_shell_event_hub.h"
+#include "lle/lle_shell_integration.h"
+#include "lle/lle_watchdog.h"
+#include "lle/prompt/composer.h"
 #include "lle/prompt/theme.h"
 #include "lle/prompt/theme_loader.h"
-#include "lle/prompt/composer.h"
 #include "lusush.h"
 #include "lusush_memory_pool.h"
-#include "lle/completion/ssh_hosts.h"
 #include "posix_history.h"
 #include "signals.h"
 #include "symtable.h"
@@ -398,8 +397,9 @@ int bin_cd(int argc __attribute__((unused)),
     }
 
     /* Fire LLE shell event for directory change (Spec 26)
-     * This notifies registered handlers (prompt composer, autosuggestions, etc.)
-     * that the working directory has changed. previous_dir holds the old dir.
+     * This notifies registered handlers (prompt composer, autosuggestions,
+     * etc.) that the working directory has changed. previous_dir holds the old
+     * dir.
      */
     lle_fire_directory_changed(previous_dir, NULL);
 
@@ -449,13 +449,14 @@ int bin_pwd(int argc __attribute__((unused)),
  */
 int bin_history(int argc, char **argv) {
     char *output = NULL;
-    lle_result_t result = lle_history_bridge_handle_builtin(argc, argv, &output);
-    
+    lle_result_t result =
+        lle_history_bridge_handle_builtin(argc, argv, &output);
+
     if (output) {
         printf("%s", output);
         free(output);
     }
-    
+
     return (result == LLE_SUCCESS) ? 0 : 1;
 }
 
@@ -3197,8 +3198,7 @@ int bin_network(int argc, char **argv) {
         ssh_host_cache_t *cache = get_ssh_host_cache();
         printf("SSH Hosts Status:\n");
         printf("  Hosts cached: %zu\n", cache ? cache->count : 0);
-        printf("  Remote session: %s\n", 
-               getenv("SSH_CLIENT") ? "Yes" : "No");
+        printf("  Remote session: %s\n", getenv("SSH_CLIENT") ? "Yes" : "No");
         return 0;
     }
 
@@ -3913,23 +3913,28 @@ int bin_display(int argc, char **argv) {
                    "autosuggestions\n");
             printf("  syntax on|off           - Control syntax highlighting\n");
             printf("  transient on|off        - Control transient prompts\n");
-            printf("  newline-before on|off   - Control newline before prompt\n");
+            printf(
+                "  newline-before on|off   - Control newline before prompt\n");
             printf("  multiline on|off        - Control multiline editing\n");
             printf("  theme [list|set <name>] - Control LLE prompt theme\n");
             printf("\nReset Commands (recovery):\n");
-            printf("  reset            - Hard reset: destroy/recreate editor\n");
+            printf(
+                "  reset            - Hard reset: destroy/recreate editor\n");
             printf("  reset --soft     - Soft reset: abort current line\n");
-            printf("  reset --terminal - Nuclear reset: hard + terminal reset\n");
+            printf(
+                "  reset --terminal - Nuclear reset: hard + terminal reset\n");
             printf("\nInformation:\n");
             printf("  keybindings [cmd] - Keybinding management\n");
             printf("                      list    - Show active bindings\n");
             printf("                      reload  - Reload from config file\n");
             printf("                      actions - List all action names\n");
-            printf("  completions [cmd] - Custom completion source management\n");
+            printf(
+                "  completions [cmd] - Custom completion source management\n");
             printf("                      list    - Show all sources\n");
             printf("                      reload  - Reload from config file\n");
             printf("\nHistory:\n");
-            printf("  history-import   - Import history from ~/.lusush_history\n");
+            printf(
+                "  history-import   - Import history from ~/.lusush_history\n");
             printf("\nNote: Changes apply immediately. Use 'config save' to "
                    "persist.\n");
             return 0;
@@ -3945,15 +3950,18 @@ int bin_display(int argc, char **argv) {
             printf("LLE Status:\n");
             printf("  Line Editor: LLE (Lusush Line Editor)\n");
             printf("  History file: ~/.lusush_history\n");
-            printf("  Editor: %s\n", editor ? "initialized" : "not initialized");
+            printf("  Editor: %s\n",
+                   editor ? "initialized" : "not initialized");
 
             printf("\nLLE Features:\n");
             printf("  Multi-line editing: %s\n",
-                   config.lle_enable_multiline_editing ? "enabled" : "disabled");
+                   config.lle_enable_multiline_editing ? "enabled"
+                                                       : "disabled");
             printf("  History deduplication: %s\n",
                    config.lle_enable_deduplication ? "enabled" : "disabled");
             printf("  Forensic tracking: %s\n",
-                   config.lle_enable_forensic_tracking ? "enabled" : "disabled");
+                   config.lle_enable_forensic_tracking ? "enabled"
+                                                       : "disabled");
 
             if (editor && editor->history_system) {
                 size_t count = 0;
@@ -4018,34 +4026,43 @@ int bin_display(int argc, char **argv) {
             if (strcmp(kb_subcmd, "reload") == 0) {
                 /* Reload user keybindings from config file */
                 if (!editor || !editor->keybinding_manager) {
-                    fprintf(stderr, "display lle keybindings reload: LLE not active\n");
+                    fprintf(stderr,
+                            "display lle keybindings reload: LLE not active\n");
                     fprintf(stderr, "Run 'display lle enable' first\n");
                     return 1;
                 }
 
-                printf("Reloading keybindings from ~/.config/lusush/keybindings.toml...\n");
+                printf("Reloading keybindings from "
+                       "~/.config/lusush/keybindings.toml...\n");
                 lle_keybinding_load_result_t load_result;
                 lle_result_t result = lle_keybinding_reload_user_config(
                     editor->keybinding_manager, &load_result);
 
                 if (result == LLE_SUCCESS) {
-                    printf("Keybindings reloaded: %zu bindings applied, %zu errors\n",
-                           load_result.bindings_applied, load_result.errors_count);
+                    printf("Keybindings reloaded: %zu bindings applied, %zu "
+                           "errors\n",
+                           load_result.bindings_applied,
+                           load_result.errors_count);
                     if (load_result.errors_count > 0) {
                         printf("(Check stderr for error details)\n");
                     }
                     return 0;
                 } else if (result == LLE_ERROR_NOT_FOUND) {
-                    printf("No keybindings config file found at ~/.config/lusush/keybindings.toml\n");
+                    printf("No keybindings config file found at "
+                           "~/.config/lusush/keybindings.toml\n");
                     printf("Create this file to customize keybindings.\n");
                     printf("\nExample format:\n");
                     printf("  [bindings]\n");
-                    printf("  \"C-a\" = \"end-of-line\"      # Swap C-a and C-e\n");
+                    printf("  \"C-a\" = \"end-of-line\"      # Swap C-a and "
+                           "C-e\n");
                     printf("  \"C-e\" = \"beginning-of-line\"\n");
                     printf("  \"C-s\" = \"none\"             # Unbind a key\n");
                     return 0;
                 } else {
-                    fprintf(stderr, "display lle keybindings reload: Failed (error %d)\n", result);
+                    fprintf(
+                        stderr,
+                        "display lle keybindings reload: Failed (error %d)\n",
+                        result);
                     return 1;
                 }
 
@@ -4053,55 +4070,78 @@ int bin_display(int argc, char **argv) {
                 /* List all available action names */
                 printf("LLE Available Actions\n");
                 printf("=====================\n");
-                printf("\nThese action names can be used in ~/.config/lusush/keybindings.toml\n\n");
+                printf("\nThese action names can be used in "
+                       "~/.config/lusush/keybindings.toml\n\n");
 
                 const lle_action_registry_entry_t *entry;
                 size_t index = 0;
 
                 printf("Movement:\n");
-                while ((entry = lle_action_registry_get_by_index(index++)) != NULL) {
-                    if (strstr(entry->name, "beginning") || strstr(entry->name, "end") ||
-                        strstr(entry->name, "forward") || strstr(entry->name, "backward")) {
-                        printf("  %-30s  %s\n", entry->name, entry->description ? entry->description : "");
+                while ((entry = lle_action_registry_get_by_index(index++)) !=
+                       NULL) {
+                    if (strstr(entry->name, "beginning") ||
+                        strstr(entry->name, "end") ||
+                        strstr(entry->name, "forward") ||
+                        strstr(entry->name, "backward")) {
+                        printf("  %-30s  %s\n", entry->name,
+                               entry->description ? entry->description : "");
                     }
                 }
 
                 index = 0;
                 printf("\nEditing:\n");
-                while ((entry = lle_action_registry_get_by_index(index++)) != NULL) {
-                    if (strstr(entry->name, "delete") || strstr(entry->name, "kill") ||
-                        strstr(entry->name, "yank") || strstr(entry->name, "undo") ||
-                        strstr(entry->name, "redo") || strstr(entry->name, "transpose") ||
-                        strstr(entry->name, "case") || strstr(entry->name, "upcase") ||
-                        strstr(entry->name, "downcase") || strstr(entry->name, "capitalize")) {
-                        printf("  %-30s  %s\n", entry->name, entry->description ? entry->description : "");
+                while ((entry = lle_action_registry_get_by_index(index++)) !=
+                       NULL) {
+                    if (strstr(entry->name, "delete") ||
+                        strstr(entry->name, "kill") ||
+                        strstr(entry->name, "yank") ||
+                        strstr(entry->name, "undo") ||
+                        strstr(entry->name, "redo") ||
+                        strstr(entry->name, "transpose") ||
+                        strstr(entry->name, "case") ||
+                        strstr(entry->name, "upcase") ||
+                        strstr(entry->name, "downcase") ||
+                        strstr(entry->name, "capitalize")) {
+                        printf("  %-30s  %s\n", entry->name,
+                               entry->description ? entry->description : "");
                     }
                 }
 
                 index = 0;
                 printf("\nHistory:\n");
-                while ((entry = lle_action_registry_get_by_index(index++)) != NULL) {
-                    if (strstr(entry->name, "history") || strstr(entry->name, "search")) {
-                        printf("  %-30s  %s\n", entry->name, entry->description ? entry->description : "");
+                while ((entry = lle_action_registry_get_by_index(index++)) !=
+                       NULL) {
+                    if (strstr(entry->name, "history") ||
+                        strstr(entry->name, "search")) {
+                        printf("  %-30s  %s\n", entry->name,
+                               entry->description ? entry->description : "");
                     }
                 }
 
                 index = 0;
                 printf("\nCompletion:\n");
-                while ((entry = lle_action_registry_get_by_index(index++)) != NULL) {
+                while ((entry = lle_action_registry_get_by_index(index++)) !=
+                       NULL) {
                     if (strstr(entry->name, "complet")) {
-                        printf("  %-30s  %s\n", entry->name, entry->description ? entry->description : "");
+                        printf("  %-30s  %s\n", entry->name,
+                               entry->description ? entry->description : "");
                     }
                 }
 
                 index = 0;
                 printf("\nOther:\n");
-                while ((entry = lle_action_registry_get_by_index(index++)) != NULL) {
-                    if (strstr(entry->name, "accept") || strstr(entry->name, "abort") ||
-                        strstr(entry->name, "clear") || strstr(entry->name, "quoted") ||
-                        strstr(entry->name, "tab") || strstr(entry->name, "newline") ||
-                        strstr(entry->name, "eof") || strstr(entry->name, "none")) {
-                        printf("  %-30s  %s\n", entry->name, entry->description ? entry->description : "");
+                while ((entry = lle_action_registry_get_by_index(index++)) !=
+                       NULL) {
+                    if (strstr(entry->name, "accept") ||
+                        strstr(entry->name, "abort") ||
+                        strstr(entry->name, "clear") ||
+                        strstr(entry->name, "quoted") ||
+                        strstr(entry->name, "tab") ||
+                        strstr(entry->name, "newline") ||
+                        strstr(entry->name, "eof") ||
+                        strstr(entry->name, "none")) {
+                        printf("  %-30s  %s\n", entry->name,
+                               entry->description ? entry->description : "");
                     }
                 }
 
@@ -4110,19 +4150,23 @@ int bin_display(int argc, char **argv) {
 
                 return 0;
 
-            } else if (strcmp(kb_subcmd, "list") == 0 || strcmp(kb_subcmd, "help") == 0 ||
-                       kb_subcmd[0] == '-') {
-                /* Show help if --help or just 'list' with no bindings to show */
-                if (strcmp(kb_subcmd, "help") == 0 || strcmp(kb_subcmd, "--help") == 0) {
+            } else if (strcmp(kb_subcmd, "list") == 0 ||
+                       strcmp(kb_subcmd, "help") == 0 || kb_subcmd[0] == '-') {
+                /* Show help if --help or just 'list' with no bindings to show
+                 */
+                if (strcmp(kb_subcmd, "help") == 0 ||
+                    strcmp(kb_subcmd, "--help") == 0) {
                     printf("LLE Keybinding Commands\n");
                     printf("=======================\n\n");
                     printf("Usage: display lle keybindings [command]\n\n");
                     printf("Commands:\n");
                     printf("  list     - Show active keybindings (default)\n");
-                    printf("  reload   - Reload keybindings from config file\n");
+                    printf(
+                        "  reload   - Reload keybindings from config file\n");
                     printf("  actions  - List all available action names\n");
                     printf("  help     - Show this help message\n");
-                    printf("\nConfig file: ~/.config/lusush/keybindings.toml\n");
+                    printf(
+                        "\nConfig file: ~/.config/lusush/keybindings.toml\n");
                     printf("\nExample config:\n");
                     printf("  [bindings]\n");
                     printf("  \"C-a\" = \"end-of-line\"\n");
@@ -4292,10 +4336,13 @@ int bin_display(int argc, char **argv) {
 
             if (argc < 4) {
                 printf("Transient prompts: %s\n",
-                       config.display_transient_prompt ? "enabled" : "disabled");
+                       config.display_transient_prompt ? "enabled"
+                                                       : "disabled");
                 printf("Usage: display lle transient on|off\n");
-                printf("\nTransient prompts simplify previous prompts in scrollback,\n");
-                printf("reducing visual clutter from fancy multi-line prompts.\n");
+                printf("\nTransient prompts simplify previous prompts in "
+                       "scrollback,\n");
+                printf(
+                    "reducing visual clutter from fancy multi-line prompts.\n");
                 return 0;
             }
 
@@ -4304,7 +4351,8 @@ int bin_display(int argc, char **argv) {
                 config.display_transient_prompt = true;
                 /* Also update composer config if available */
                 if (g_lle_integration && g_lle_integration->prompt_composer) {
-                    g_lle_integration->prompt_composer->config.enable_transient = true;
+                    g_lle_integration->prompt_composer->config
+                        .enable_transient = true;
                 }
                 printf("Transient prompts enabled\n");
                 return 0;
@@ -4312,7 +4360,8 @@ int bin_display(int argc, char **argv) {
                 config.display_transient_prompt = false;
                 /* Also update composer config if available */
                 if (g_lle_integration && g_lle_integration->prompt_composer) {
-                    g_lle_integration->prompt_composer->config.enable_transient = false;
+                    g_lle_integration->prompt_composer->config
+                        .enable_transient = false;
                 }
                 printf("Transient prompts disabled\n");
                 return 0;
@@ -4330,9 +4379,11 @@ int bin_display(int argc, char **argv) {
 
             if (argc < 4) {
                 printf("Newline before prompt: %s\n",
-                       config.display_newline_before_prompt ? "enabled" : "disabled");
+                       config.display_newline_before_prompt ? "enabled"
+                                                            : "disabled");
                 printf("Usage: display lle newline-before on|off\n");
-                printf("\nPrints a blank line before each prompt for visual separation\n");
+                printf("\nPrints a blank line before each prompt for visual "
+                       "separation\n");
                 printf("between command output and the next prompt.\n");
                 return 0;
             }
@@ -4341,22 +4392,25 @@ int bin_display(int argc, char **argv) {
             if (strcmp(state, "on") == 0) {
                 config.display_newline_before_prompt = true;
                 if (g_lle_integration && g_lle_integration->prompt_composer) {
-                    g_lle_integration->prompt_composer->config.newline_before_prompt = true;
+                    g_lle_integration->prompt_composer->config
+                        .newline_before_prompt = true;
                 }
                 printf("Newline before prompt enabled\n");
                 return 0;
             } else if (strcmp(state, "off") == 0) {
                 config.display_newline_before_prompt = false;
                 if (g_lle_integration && g_lle_integration->prompt_composer) {
-                    g_lle_integration->prompt_composer->config.newline_before_prompt = false;
+                    g_lle_integration->prompt_composer->config
+                        .newline_before_prompt = false;
                 }
                 printf("Newline before prompt disabled\n");
                 return 0;
             } else {
-                fprintf(stderr,
-                        "display lle newline-before: Invalid option '%s' (use 'on' "
-                        "or 'off')\n",
-                        state);
+                fprintf(
+                    stderr,
+                    "display lle newline-before: Invalid option '%s' (use 'on' "
+                    "or 'off')\n",
+                    state);
                 return 1;
             }
 
@@ -4477,13 +4531,14 @@ int bin_display(int argc, char **argv) {
             if (lle_watchdog_get_stats(&wd_stats) == LLE_SUCCESS) {
                 printf("  Timer resets (pets): %u\n", wd_stats.total_pets);
                 printf("  Timeouts fired: %u\n", wd_stats.total_fires);
-                printf("  Successful recoveries: %u\n", wd_stats.total_recoveries);
+                printf("  Successful recoveries: %u\n",
+                       wd_stats.total_recoveries);
                 if (wd_stats.total_fires > 0) {
-                    double recovery_rate = (double)wd_stats.total_recoveries / 
+                    double recovery_rate = (double)wd_stats.total_recoveries /
                                            wd_stats.total_fires * 100.0;
                     printf("  Recovery rate: %.1f%%\n", recovery_rate);
                 }
-                printf("  Currently armed: %s\n", 
+                printf("  Currently armed: %s\n",
                        lle_watchdog_is_armed() ? "yes" : "no");
             } else {
                 printf("  Status: not initialized\n");
@@ -4493,15 +4548,17 @@ int bin_display(int argc, char **argv) {
             printf("\nSafety System (Panic Recovery):\n");
             printf("  %s\n", lle_safety_get_stats_summary());
             printf("  Init state: %s\n", lle_safety_get_init_state_summary());
-            printf("  Recovery mode: %s\n", 
+            printf("  Recovery mode: %s\n",
                    lle_safety_is_recovery_mode() ? "ACTIVE" : "inactive");
 
             /* Shell Event Hub Statistics */
             printf("\nShell Event Hub:\n");
             uint64_t events_fired = 0, dir_changes = 0, commands = 0;
             lle_safety_get_event_stats(&events_fired, &dir_changes, &commands);
-            printf("  Total events fired: %llu\n", (unsigned long long)events_fired);
-            printf("  Directory changes: %llu\n", (unsigned long long)dir_changes);
+            printf("  Total events fired: %llu\n",
+                   (unsigned long long)events_fired);
+            printf("  Directory changes: %llu\n",
+                   (unsigned long long)dir_changes);
             printf("  Commands executed: %llu\n", (unsigned long long)commands);
 
             return 0;
@@ -4513,9 +4570,8 @@ int bin_display(int argc, char **argv) {
              * - reset --terminal : Nuclear reset (hard + terminal reset)
              */
             if (!lle_is_active()) {
-                fprintf(stderr,
-                        "display lle reset: LLE shell integration not "
-                        "initialized\n");
+                fprintf(stderr, "display lle reset: LLE shell integration not "
+                                "initialized\n");
                 return 1;
             }
 
@@ -4535,8 +4591,8 @@ int bin_display(int argc, char **argv) {
                            "terminal reset)\n");
                     return 0;
                 } else {
-                    fprintf(stderr,
-                            "display lle reset: Unknown option '%s'\n", opt);
+                    fprintf(stderr, "display lle reset: Unknown option '%s'\n",
+                            opt);
                     fprintf(stderr, "Options: --soft, --terminal\n");
                     return 1;
                 }
@@ -4551,31 +4607,41 @@ int bin_display(int argc, char **argv) {
         } else if (strcmp(lle_cmd, "theme") == 0) {
             /* LLE prompt theme control */
             if (!g_lle_integration || !g_lle_integration->prompt_composer) {
-                fprintf(stderr, "display lle theme: LLE prompt system not initialized\n");
+                fprintf(
+                    stderr,
+                    "display lle theme: LLE prompt system not initialized\n");
                 fprintf(stderr, "Run 'display lle enable' first\n");
                 return 1;
             }
 
-            lle_theme_registry_t *themes = g_lle_integration->prompt_composer->themes;
+            lle_theme_registry_t *themes =
+                g_lle_integration->prompt_composer->themes;
             if (!themes) {
-                fprintf(stderr, "display lle theme: Theme registry not available\n");
+                fprintf(stderr,
+                        "display lle theme: Theme registry not available\n");
                 return 1;
             }
 
             /* No subcommand - show current theme and usage */
             if (argc < 4) {
-                const lle_theme_t *active = lle_theme_registry_get_active(themes);
+                const lle_theme_t *active =
+                    lle_theme_registry_get_active(themes);
                 printf("LLE Prompt Theme\n");
                 printf("  Current: %s\n", active ? active->name : "(none)");
                 if (active && active->description[0]) {
                     printf("  Description: %s\n", active->description);
                 }
                 printf("\nUsage:\n");
-                printf("  display lle theme list             - List available themes\n");
-                printf("  display lle theme set <name>       - Set active theme\n");
-                printf("  display lle theme reload           - Reload themes from files\n");
-                printf("  display lle theme export <name>    - Export theme to stdout\n");
-                printf("  display lle theme export <name> <file> - Export theme to file\n");
+                printf("  display lle theme list             - List available "
+                       "themes\n");
+                printf("  display lle theme set <name>       - Set active "
+                       "theme\n");
+                printf("  display lle theme reload           - Reload themes "
+                       "from files\n");
+                printf("  display lle theme export <name>    - Export theme to "
+                       "stdout\n");
+                printf("  display lle theme export <name> <file> - Export "
+                       "theme to file\n");
                 return 0;
             }
 
@@ -4584,31 +4650,40 @@ int bin_display(int argc, char **argv) {
             if (strcmp(theme_subcmd, "list") == 0) {
                 /* List all available themes */
                 printf("Available LLE Prompt Themes:\n\n");
-                const lle_theme_t *active = lle_theme_registry_get_active(themes);
-                
+                const lle_theme_t *active =
+                    lle_theme_registry_get_active(themes);
+
                 for (size_t i = 0; i < themes->count; i++) {
                     const lle_theme_t *t = themes->themes[i];
                     if (t) {
-                        const char *marker = (active && strcmp(active->name, t->name) == 0) ? "*" : " ";
+                        const char *marker =
+                            (active && strcmp(active->name, t->name) == 0)
+                                ? "*"
+                                : " ";
                         printf("  %s %-12s - %s\n", marker, t->name,
-                               t->description[0] ? t->description : "(no description)");
+                               t->description[0] ? t->description
+                                                 : "(no description)");
                     }
                 }
                 printf("\n  * = currently active\n");
-                printf("\nUse 'display lle theme set <name>' to change theme\n");
+                printf(
+                    "\nUse 'display lle theme set <name>' to change theme\n");
                 return 0;
 
             } else if (strcmp(theme_subcmd, "set") == 0) {
                 /* Set active theme */
                 if (argc < 5) {
-                    fprintf(stderr, "display lle theme set: Missing theme name\n");
+                    fprintf(stderr,
+                            "display lle theme set: Missing theme name\n");
                     fprintf(stderr, "Usage: display lle theme set <name>\n");
-                    fprintf(stderr, "Use 'display lle theme list' to see available themes\n");
+                    fprintf(stderr, "Use 'display lle theme list' to see "
+                                    "available themes\n");
                     return 1;
                 }
 
                 const char *theme_name = argv[4];
-                /* Use lle_composer_set_theme to properly clear cached templates */
+                /* Use lle_composer_set_theme to properly clear cached templates
+                 */
                 lle_result_t result = lle_composer_set_theme(
                     g_lle_integration->prompt_composer, theme_name);
 
@@ -4616,11 +4691,17 @@ int bin_display(int argc, char **argv) {
                     printf("LLE theme set to '%s'\n", theme_name);
                     return 0;
                 } else if (result == LLE_ERROR_NOT_FOUND) {
-                    fprintf(stderr, "display lle theme set: Theme '%s' not found\n", theme_name);
-                    fprintf(stderr, "Use 'display lle theme list' to see available themes\n");
+                    fprintf(stderr,
+                            "display lle theme set: Theme '%s' not found\n",
+                            theme_name);
+                    fprintf(stderr, "Use 'display lle theme list' to see "
+                                    "available themes\n");
                     return 1;
                 } else {
-                    fprintf(stderr, "display lle theme set: Failed to set theme (error %d)\n", result);
+                    fprintf(stderr,
+                            "display lle theme set: Failed to set theme (error "
+                            "%d)\n",
+                            result);
                     return 1;
                 }
 
@@ -4629,10 +4710,11 @@ int bin_display(int argc, char **argv) {
                 printf("Reloading themes from files...\n");
                 size_t loaded = lle_theme_reload_user_themes(themes);
                 printf("Loaded %zu new theme(s)\n", loaded);
-                
+
                 /* Show theme directories */
                 char user_dir[LLE_THEME_PATH_MAX];
-                if (lle_theme_get_user_dir(user_dir, sizeof(user_dir)) == LLE_SUCCESS) {
+                if (lle_theme_get_user_dir(user_dir, sizeof(user_dir)) ==
+                    LLE_SUCCESS) {
                     printf("User theme directory: %s\n", user_dir);
                 }
                 printf("System theme directory: %s\n", LLE_THEME_SYSTEM_DIR);
@@ -4641,38 +4723,51 @@ int bin_display(int argc, char **argv) {
             } else if (strcmp(theme_subcmd, "export") == 0) {
                 /* Export theme to TOML format */
                 if (argc < 5) {
-                    fprintf(stderr, "display lle theme export: Missing theme name\n");
-                    fprintf(stderr, "Usage: display lle theme export <name> [file]\n");
+                    fprintf(stderr,
+                            "display lle theme export: Missing theme name\n");
+                    fprintf(stderr,
+                            "Usage: display lle theme export <name> [file]\n");
                     return 1;
                 }
 
                 const char *theme_name = argv[4];
-                const lle_theme_t *theme = lle_theme_registry_find(themes, theme_name);
+                const lle_theme_t *theme =
+                    lle_theme_registry_find(themes, theme_name);
                 if (!theme) {
-                    fprintf(stderr, "display lle theme export: Theme '%s' not found\n", theme_name);
-                    fprintf(stderr, "Use 'display lle theme list' to see available themes\n");
+                    fprintf(stderr,
+                            "display lle theme export: Theme '%s' not found\n",
+                            theme_name);
+                    fprintf(stderr, "Use 'display lle theme list' to see "
+                                    "available themes\n");
                     return 1;
                 }
 
                 if (argc >= 6) {
                     /* Export to file */
                     const char *filepath = argv[5];
-                    lle_result_t result = lle_theme_export_to_file(theme, filepath);
+                    lle_result_t result =
+                        lle_theme_export_to_file(theme, filepath);
                     if (result == LLE_SUCCESS) {
-                        printf("Theme '%s' exported to '%s'\n", theme_name, filepath);
+                        printf("Theme '%s' exported to '%s'\n", theme_name,
+                               filepath);
                         return 0;
                     } else {
-                        fprintf(stderr, "display lle theme export: Failed to write file '%s'\n", filepath);
+                        fprintf(stderr,
+                                "display lle theme export: Failed to write "
+                                "file '%s'\n",
+                                filepath);
                         return 1;
                     }
                 } else {
                     /* Export to stdout */
                     char *buffer = malloc(LLE_THEME_FILE_MAX_SIZE);
                     if (!buffer) {
-                        fprintf(stderr, "display lle theme export: Out of memory\n");
+                        fprintf(stderr,
+                                "display lle theme export: Out of memory\n");
                         return 1;
                     }
-                    size_t len = lle_theme_export_to_toml(theme, buffer, LLE_THEME_FILE_MAX_SIZE);
+                    size_t len = lle_theme_export_to_toml(
+                        theme, buffer, LLE_THEME_FILE_MAX_SIZE);
                     if (len > 0) {
                         printf("%s", buffer);
                     }
@@ -4681,20 +4776,22 @@ int bin_display(int argc, char **argv) {
                 }
 
             } else {
-                fprintf(stderr, "display lle theme: Unknown subcommand '%s'\n", theme_subcmd);
-                fprintf(stderr, "Usage: display lle theme [list|set|reload|export]\n");
+                fprintf(stderr, "display lle theme: Unknown subcommand '%s'\n",
+                        theme_subcmd);
+                fprintf(stderr,
+                        "Usage: display lle theme [list|set|reload|export]\n");
                 return 1;
             }
 
         } else if (strcmp(lle_cmd, "completions") == 0) {
             /* LLE custom completion source management */
             const char *comp_subcmd = (argc >= 4) ? argv[3] : "list";
-            
+
             if (strcmp(comp_subcmd, "list") == 0) {
                 /* List all completion sources */
                 printf("LLE Completion Sources\n");
                 printf("======================\n\n");
-                
+
                 /* Built-in sources */
                 printf("Built-in Sources:\n");
                 size_t total = lle_completion_get_source_count();
@@ -4704,16 +4801,19 @@ int bin_display(int argc, char **argv) {
                         printf("  - %s\n", name ? name : "(unknown)");
                     }
                 }
-                
+
                 /* Custom sources */
                 size_t custom_count = lle_completion_get_custom_source_count();
                 if (custom_count > 0) {
                     printf("\nCustom Sources:\n");
                     for (size_t i = 0; i < custom_count; i++) {
-                        const char *name = lle_completion_get_custom_source_name(i);
-                        const char *desc = lle_completion_get_custom_source_description(i);
+                        const char *name =
+                            lle_completion_get_custom_source_name(i);
+                        const char *desc =
+                            lle_completion_get_custom_source_description(i);
                         if (desc) {
-                            printf("  - %s: %s\n", name ? name : "(unknown)", desc);
+                            printf("  - %s: %s\n", name ? name : "(unknown)",
+                                   desc);
                         } else {
                             printf("  - %s\n", name ? name : "(unknown)");
                         }
@@ -4721,37 +4821,42 @@ int bin_display(int argc, char **argv) {
                 } else {
                     printf("\nNo custom sources registered.\n");
                 }
-                
+
                 /* Config file info */
-                const lle_completion_config_t *cfg = lle_completion_get_config();
+                const lle_completion_config_t *cfg =
+                    lle_completion_get_config();
                 if (cfg && cfg->config_path) {
                     printf("\nConfig file: %s\n", cfg->config_path);
                     printf("Config sources: %zu\n", cfg->source_count);
                 } else {
                     printf("\nNo config file loaded.\n");
-                    printf("Create ~/.config/lusush/completions.toml to define custom sources.\n");
+                    printf("Create ~/.config/lusush/completions.toml to define "
+                           "custom sources.\n");
                 }
-                
+
                 return 0;
-                
+
             } else if (strcmp(comp_subcmd, "reload") == 0) {
                 /* Reload completion config */
                 printf("Reloading completion config...\n");
                 lle_result_t result = lle_completion_reload_config();
                 if (result == LLE_SUCCESS) {
-                    const lle_completion_config_t *cfg = lle_completion_get_config();
+                    const lle_completion_config_t *cfg =
+                        lle_completion_get_config();
                     if (cfg) {
-                        printf("Loaded %zu custom source(s)\n", cfg->source_count);
+                        printf("Loaded %zu custom source(s)\n",
+                               cfg->source_count);
                     } else {
                         printf("Config reloaded (no sources defined)\n");
                     }
                     return 0;
                 } else {
-                    fprintf(stderr, "Failed to reload config (error %d)\n", result);
+                    fprintf(stderr, "Failed to reload config (error %d)\n",
+                            result);
                     return 1;
                 }
-                
-            } else if (strcmp(comp_subcmd, "help") == 0 || 
+
+            } else if (strcmp(comp_subcmd, "help") == 0 ||
                        strcmp(comp_subcmd, "--help") == 0) {
                 printf("LLE Completion Source Commands\n");
                 printf("==============================\n\n");
@@ -4767,13 +4872,17 @@ int bin_display(int argc, char **argv) {
                 printf("  description = \"Git branch names\"\n");
                 printf("  applies_to = [\"git checkout\", \"git merge\"]\n");
                 printf("  argument = 2\n");
-                printf("  command = \"git branch --list 2>/dev/null | sed 's/^[* ]*//'\"\n");
+                printf("  command = \"git branch --list 2>/dev/null | sed "
+                       "'s/^[* ]*//'\"\n");
                 printf("  cache_seconds = 5\n");
                 return 0;
-                
+
             } else {
-                fprintf(stderr, "display lle completions: Unknown subcommand '%s'\n", comp_subcmd);
-                fprintf(stderr, "Usage: display lle completions [list|reload|help]\n");
+                fprintf(stderr,
+                        "display lle completions: Unknown subcommand '%s'\n",
+                        comp_subcmd);
+                fprintf(stderr,
+                        "Usage: display lle completions [list|reload|help]\n");
                 return 1;
             }
 

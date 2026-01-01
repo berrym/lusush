@@ -17,7 +17,7 @@
  *
  * Usage:
  *   lle_watchdog_init();           // At shell startup
- *   
+ *
  *   while (!done) {
  *       lle_watchdog_pet(0);       // Reset timer before blocking
  *       event = read_input();      // May block
@@ -27,7 +27,7 @@
  *       }
  *       process(event);
  *   }
- *   
+ *
  *   lle_watchdog_stop();           // On normal exit
  *   lle_watchdog_cleanup();        // At shell shutdown
  *
@@ -39,6 +39,7 @@
 #define LLE_WATCHDOG_H
 
 #include "lle/error_handling.h"
+
 #include <stdbool.h>
 
 /**
@@ -130,8 +131,8 @@ unsigned int lle_watchdog_get_timeout(void);
  * @brief Statistics for watchdog monitoring
  */
 typedef struct {
-    unsigned int total_pets;      /**< Total times watchdog was petted */
-    unsigned int total_fires;     /**< Total times watchdog fired */
+    unsigned int total_pets;       /**< Total times watchdog was petted */
+    unsigned int total_fires;      /**< Total times watchdog fired */
     unsigned int total_recoveries; /**< Total successful recoveries */
 } lle_watchdog_stats_t;
 

@@ -480,8 +480,8 @@ void lusush_pool_free(void *ptr) {
             // Do NOT call free() here as it would cause double-free.
             return;
         } else {
-            // Pool was never initialized - this memory came from malloc fallback.
-            // We must free it to avoid leaking.
+            // Pool was never initialized - this memory came from malloc
+            // fallback. We must free it to avoid leaking.
             free(ptr);
             return;
         }

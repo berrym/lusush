@@ -19,7 +19,7 @@
  *
  * static bool my_applicable(void *user_data,
  *                           const lle_completion_context_t *context) {
- *     return context->command_name && 
+ *     return context->command_name &&
  *            strcmp(context->command_name, "mycommand") == 0;
  * }
  *
@@ -150,8 +150,8 @@ typedef struct lle_custom_completion_source {
  * @note The source struct is copied; caller can free it after registration.
  * @note String fields (name, description) are duplicated internally.
  */
-lle_result_t lle_completion_register_source(
-    const lle_custom_completion_source_t *source);
+lle_result_t
+lle_completion_register_source(const lle_custom_completion_source_t *source);
 
 /**
  * @brief Unregister a custom completion source
@@ -230,16 +230,15 @@ bool lle_completion_source_exists(const char *name);
  *
  * @param result Result structure to add to
  * @param text Completion text
- * @param suffix Suffix to append (" " for space, "/" for dirs, NULL for default)
+ * @param suffix Suffix to append (" " for space, "/" for dirs, NULL for
+ * default)
  * @param description Optional description (can be NULL)
  * @param score Relevance score (0-1000, higher = better match)
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_completion_add_item(lle_completion_result_t *result,
-                                     const char *text,
-                                     const char *suffix,
-                                     const char *description,
-                                     int score);
+                                     const char *text, const char *suffix,
+                                     const char *description, int score);
 
 /**
  * @brief Add a completion item with specific type
@@ -255,8 +254,7 @@ lle_result_t lle_completion_add_item(lle_completion_result_t *result,
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_completion_add_typed_item(lle_completion_result_t *result,
-                                           const char *text,
-                                           const char *suffix,
+                                           const char *text, const char *suffix,
                                            const char *description,
                                            lle_completion_type_t type,
                                            int score);
@@ -273,19 +271,19 @@ lle_result_t lle_completion_add_typed_item(lle_completion_result_t *result,
  * These sources execute shell commands to generate completion candidates.
  */
 typedef struct lle_command_source_config {
-    char *name;                    /**< Source identifier (from TOML section name) */
-    char *description;             /**< Human-readable description */
-    char **applies_to;             /**< Array of "cmd [subcommand]" patterns */
-    size_t applies_to_count;       /**< Number of applies_to patterns */
-    int argument;                  /**< Argument position (0 = any position) */
-    char *command;                 /**< Shell command to execute for completions */
-    char *suffix;                  /**< Suffix to append after completion */
-    int cache_seconds;             /**< Cache TTL in seconds (0 = no cache) */
-    
+    char *name;              /**< Source identifier (from TOML section name) */
+    char *description;       /**< Human-readable description */
+    char **applies_to;       /**< Array of "cmd [subcommand]" patterns */
+    size_t applies_to_count; /**< Number of applies_to patterns */
+    int argument;            /**< Argument position (0 = any position) */
+    char *command;           /**< Shell command to execute for completions */
+    char *suffix;            /**< Suffix to append after completion */
+    int cache_seconds;       /**< Cache TTL in seconds (0 = no cache) */
+
     /* Runtime state (managed internally) */
-    char **cached_results;         /**< Cached completion results */
-    size_t cached_count;           /**< Number of cached results */
-    time_t cache_time;             /**< When cache was populated */
+    char **cached_results; /**< Cached completion results */
+    size_t cached_count;   /**< Number of cached results */
+    time_t cache_time;     /**< When cache was populated */
 } lle_command_source_config_t;
 
 /**
@@ -294,11 +292,11 @@ typedef struct lle_command_source_config {
  * Holds all sources loaded from the completions.toml config file.
  */
 typedef struct lle_completion_config {
-    lle_command_source_config_t *sources;  /**< Array of config sources */
-    size_t source_count;                   /**< Number of sources */
-    size_t source_capacity;                /**< Allocated capacity */
-    char *config_path;                     /**< Path to loaded config file */
-    time_t config_mtime;                   /**< Config file modification time */
+    lle_command_source_config_t *sources; /**< Array of config sources */
+    size_t source_count;                  /**< Number of sources */
+    size_t source_capacity;               /**< Allocated capacity */
+    char *config_path;                    /**< Path to loaded config file */
+    time_t config_mtime;                  /**< Config file modification time */
 } lle_completion_config_t;
 
 /* ============================================================================

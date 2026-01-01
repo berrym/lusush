@@ -161,17 +161,11 @@ bool lle_watchdog_check_and_clear(void) {
     return was_fired;
 }
 
-bool lle_watchdog_check(void) {
-    return atomic_load(&g_watchdog_fired);
-}
+bool lle_watchdog_check(void) { return atomic_load(&g_watchdog_fired); }
 
-bool lle_watchdog_is_armed(void) {
-    return atomic_load(&g_watchdog_armed);
-}
+bool lle_watchdog_is_armed(void) { return atomic_load(&g_watchdog_armed); }
 
-unsigned int lle_watchdog_get_timeout(void) {
-    return g_current_timeout;
-}
+unsigned int lle_watchdog_get_timeout(void) { return g_current_timeout; }
 
 lle_result_t lle_watchdog_get_stats(lle_watchdog_stats_t *stats) {
     if (!stats) {

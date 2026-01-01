@@ -51,7 +51,8 @@ char *rebuild_prompt(void) { return build_prompt(); }
 
 void lle_shell_update_prompt(void) { /* No-op in tests */ }
 
-/* Note: lusush_generate_prompt() is now in libdisplay.a via display_integration.c */
+/* Note: lusush_generate_prompt() is now in libdisplay.a via
+ * display_integration.c */
 
 char *format_git_prompt(void) { return NULL; /* No git info in tests */ }
 

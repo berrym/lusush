@@ -309,7 +309,8 @@ static char *lle_completion_expand_variable(const char *path) {
     } else {
         // $VAR format - variable name is alphanumeric + underscore
         var_end = var_start;
-        while (*var_end && (isalnum((unsigned char)*var_end) || *var_end == '_')) {
+        while (*var_end &&
+               (isalnum((unsigned char)*var_end) || *var_end == '_')) {
             var_end++;
         }
         rest = var_end;
@@ -350,9 +351,11 @@ static char *lle_completion_expand_variable(const char *path) {
  * @param original_prefix_len Output: length of the original unexpanded prefix
  * @return Newly allocated expanded path, or NULL on error
  */
-static char *lle_completion_expand_path(const char *path, size_t *original_prefix_len) {
+static char *lle_completion_expand_path(const char *path,
+                                        size_t *original_prefix_len) {
     if (!path) {
-        if (original_prefix_len) *original_prefix_len = 0;
+        if (original_prefix_len)
+            *original_prefix_len = 0;
         return NULL;
     }
 
@@ -392,7 +395,8 @@ static lle_result_t lle_completion_source_files_internal(
 
     // Expand tilde and variables in the prefix for directory access
     size_t original_prefix_len = 0;
-    char *expanded_prefix = lle_completion_expand_path(prefix, &original_prefix_len);
+    char *expanded_prefix =
+        lle_completion_expand_path(prefix, &original_prefix_len);
     if (!expanded_prefix) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
@@ -403,7 +407,8 @@ static lle_result_t lle_completion_source_files_internal(
     size_t original_dir_prefix_len = 0;
     const char *orig_last_slash = strrchr(prefix, '/');
     if (orig_last_slash) {
-        original_dir_prefix_len = orig_last_slash - prefix + 1; // Include the slash
+        original_dir_prefix_len =
+            orig_last_slash - prefix + 1; // Include the slash
         original_dir_prefix = prefix;
     }
 
@@ -491,11 +496,14 @@ static lle_result_t lle_completion_source_files_internal(
         char *completion_text = NULL;
         if (original_dir_prefix && original_dir_prefix_len > 0) {
             // Use original unexpanded prefix (e.g., ~/, $HOME/)
-            size_t text_size = original_dir_prefix_len + strlen(entry->d_name) + 1;
+            size_t text_size =
+                original_dir_prefix_len + strlen(entry->d_name) + 1;
             completion_text = malloc(text_size);
             if (completion_text) {
-                memcpy(completion_text, original_dir_prefix, original_dir_prefix_len);
-                strcpy(completion_text + original_dir_prefix_len, entry->d_name);
+                memcpy(completion_text, original_dir_prefix,
+                       original_dir_prefix_len);
+                strcpy(completion_text + original_dir_prefix_len,
+                       entry->d_name);
             }
         } else if (last_slash && dir_copy) {
             // No expansion happened, use expanded dir_copy
@@ -652,8 +660,8 @@ lle_result_t lle_completion_source_ssh_hosts(lle_memory_pool_t *memory_pool,
             /* Format: hostname or user@hostname */
             char completion[320];
             if (host->user[0]) {
-                snprintf(completion, sizeof(completion), "%s@%s", 
-                         host->user, host->hostname);
+                snprintf(completion, sizeof(completion), "%s@%s", host->user,
+                         host->hostname);
             } else {
                 snprintf(completion, sizeof(completion), "%s", host->hostname);
             }

@@ -66,17 +66,17 @@
 #include "lle/event_system.h"
 #include "lle/history.h"    /* History system for UP/DOWN navigation */
 #include "lle/keybinding.h" /* Keybinding manager for Group 1+ migration */
-#include "lle/keybinding_actions.h" /* Smart arrow navigation functions */
-#include "lle/keybinding_config.h"  /* User keybinding configuration */
-#include "lle/lle_editor.h"         /* Proper LLE editor architecture */
-#include "lle/lle_readline_state.h" /* State machine for input handling */
+#include "lle/keybinding_actions.h"    /* Smart arrow navigation functions */
+#include "lle/keybinding_config.h"     /* User keybinding configuration */
+#include "lle/lle_editor.h"            /* Proper LLE editor architecture */
+#include "lle/lle_readline_state.h"    /* State machine for input handling */
 #include "lle/lle_shell_integration.h" /* Spec 26: Shell integration */
 #include "lle/lle_watchdog.h" /* Watchdog timer for deadlock detection */
 #include "lle/memory_management.h"
 #include "lle/terminal_abstraction.h"
 #include "lle/unicode_compare.h" /* TR#29 compliant Unicode prefix matching */
-#include "lle/widget_hooks.h" /* Widget hooks for lifecycle events */
-#include "signals.h"          /* For SIGINT flag coordination with LLE */
+#include "lle/widget_hooks.h"    /* Widget hooks for lifecycle events */
+#include "signals.h"             /* For SIGINT flag coordination with LLE */
 
 /* Forward declarations for history action functions */
 lle_result_t lle_history_previous(lle_editor_t *editor);
@@ -995,7 +995,8 @@ static lle_result_t handle_backspace(lle_event_t *event, void *user_data) {
     }
 
     /* CRITICAL FIX: Clear completion menu on backspace */
-    /* Prevents stale menu state with indices pointing to deleted buffer positions */
+    /* Prevents stale menu state with indices pointing to deleted buffer
+     * positions */
     if (ctx->editor) {
         bool menu_cleared = false;
 
@@ -1010,7 +1011,8 @@ static lle_result_t handle_backspace(lle_event_t *event, void *user_data) {
             display_controller_t *dc = display_integration_get_controller();
             if (dc) {
                 display_controller_clear_completion_menu(dc);
-                /* Also clear autosuggestion to prevent conflict with stale menu */
+                /* Also clear autosuggestion to prevent conflict with stale menu
+                 */
                 display_controller_set_autosuggestion(dc, NULL);
             }
             /* Clear current suggestion in context */
@@ -1144,8 +1146,8 @@ static lle_result_t handle_enter(lle_event_t *event, void *user_data) {
         const char *home = getenv("HOME");
         if (home) {
             char history_path[1024];
-            snprintf(history_path, sizeof(history_path),
-                     "%s/.lusush_history", home);
+            snprintf(history_path, sizeof(history_path), "%s/.lusush_history",
+                     home);
             lle_history_save_to_file(ctx->editor->history_system, history_path);
         }
     }
@@ -1282,8 +1284,8 @@ lle_result_t lle_accept_line_context(readline_context_t *ctx) {
         const char *home = getenv("HOME");
         if (home) {
             char history_path[1024];
-            snprintf(history_path, sizeof(history_path),
-                     "%s/.lusush_history", home);
+            snprintf(history_path, sizeof(history_path), "%s/.lusush_history",
+                     home);
             lle_history_save_to_file(ctx->editor->history_system, history_path);
         }
     }
@@ -2647,9 +2649,10 @@ char *lle_readline(const char *prompt) {
              */
         }
 
-        /* Load user keybinding configuration from ~/.config/lusush/keybindings.toml
-         * This allows users to override default Emacs bindings with custom ones.
-         * Errors are logged but don't prevent shell from starting. */
+        /* Load user keybinding configuration from
+         * ~/.config/lusush/keybindings.toml This allows users to override
+         * default Emacs bindings with custom ones. Errors are logged but don't
+         * prevent shell from starting. */
         lle_keybinding_load_result_t load_result;
         lle_keybinding_load_user_config(keybinding_manager, &load_result);
         /* Note: We don't check load_result here - user config is optional.
@@ -2710,7 +2713,8 @@ char *lle_readline(const char *prompt) {
         .kill_buffer = kill_buffer,
         .kill_buffer_size = kill_buffer_size,
 
-        /* LLE Editor - proper architecture (Spec 26: prefer shell integration) */
+        /* LLE Editor - proper architecture (Spec 26: prefer shell integration)
+         */
         .editor = editor_to_use,
 
         /* Keybinding manager - Group 1+ migration */
@@ -2798,12 +2802,13 @@ char *lle_readline(const char *prompt) {
 
     while (!done) {
 
-        /* CRITICAL FIX: Reset suppress_autosuggestion at start of each iteration
-         * This flag is set during operations that temporarily suppress autosuggestion
-         * (e.g., Ctrl+G clearing, menu dismissal). Resetting here ensures the flag
-         * cannot stay stuck - it will be re-set if needed by the current operation.
-         * This prevents the bug where suppress_autosuggestion stays true forever
-         * if a handler sets it but doesn't reset it before returning.
+        /* CRITICAL FIX: Reset suppress_autosuggestion at start of each
+         * iteration This flag is set during operations that temporarily
+         * suppress autosuggestion (e.g., Ctrl+G clearing, menu dismissal).
+         * Resetting here ensures the flag cannot stay stuck - it will be re-set
+         * if needed by the current operation. This prevents the bug where
+         * suppress_autosuggestion stays true forever if a handler sets it but
+         * doesn't reset it before returning.
          */
         ctx.suppress_autosuggestion = false;
 
@@ -2861,8 +2866,7 @@ char *lle_readline(const char *prompt) {
          * This catches scenarios where event processing hangs.
          */
         if (lle_watchdog_check_and_clear()) {
-            fprintf(stderr,
-                    "\nlle: watchdog timeout - forcing recovery\n");
+            fprintf(stderr, "\nlle: watchdog timeout - forcing recovery\n");
             /* Attempt recovery: clear all subsystem state */
             if (ctx.editor && ctx.editor->completion_system) {
                 lle_completion_system_clear(ctx.editor->completion_system);
@@ -2900,9 +2904,9 @@ char *lle_readline(const char *prompt) {
 
         /* CRITICAL FIX: Re-check Ctrl+C after input read
          * SIGINT can arrive during the blocking read call. We check again here
-         * to catch Ctrl+C pressed during the read, ensuring responsive handling.
-         * This fixes the race window where Ctrl+C between the initial check and
-         * the read would be delayed until the next iteration.
+         * to catch Ctrl+C pressed during the read, ensuring responsive
+         * handling. This fixes the race window where Ctrl+C between the initial
+         * check and the read would be delayed until the next iteration.
          */
         if (check_and_clear_sigint_flag()) {
             write(STDOUT_FILENO, "^C\n", 3);
@@ -3329,7 +3333,7 @@ char *lle_readline(const char *prompt) {
     continuation_state_cleanup(&continuation_state);
     lle_event_system_destroy(event_system);
     lle_buffer_destroy(buffer);
-    
+
     /* Clear editor's buffer pointer to prevent double-free on shell exit.
      * The buffer was created per-readline call and assigned to the persistent
      * editor (g_lle_integration->editor). Now that we've destroyed it, we must
@@ -3340,7 +3344,7 @@ char *lle_readline(const char *prompt) {
             editor_to_use->cursor_manager->buffer = NULL;
         }
     }
-    
+
     lle_terminal_abstraction_destroy(term);
 
     /* WATCHDOG: Stop watchdog on normal exit */

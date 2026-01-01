@@ -219,8 +219,7 @@ int main(void) {
 
     /* Editor structure - verify type exists */
     lle_editor_t *editor_ptr = NULL;
-    COMPLIANCE_ASSERT(editor_ptr == NULL,
-                      "lle_editor_t structure defined");
+    COMPLIANCE_ASSERT(editor_ptr == NULL, "lle_editor_t structure defined");
 
     /* Editor lifecycle */
     COMPLIANCE_ASSERT(lle_editor_create != NULL, "lle_editor_create declared");

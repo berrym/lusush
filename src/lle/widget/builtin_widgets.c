@@ -21,6 +21,7 @@
  * - e.g., "forward-char", "backward-word", "kill-line"
  */
 
+#include "display/display_controller.h"
 #include "lle/buffer_management.h"
 #include "lle/error_handling.h"
 #include "lle/keybinding_actions.h"
@@ -29,7 +30,6 @@
 #include "lle/prompt/composer.h"
 #include "lle/widget_hooks.h"
 #include "lle/widget_system.h"
-#include "display/display_controller.h"
 
 /* ============================================================================
  * MOVEMENT WIDGETS
@@ -532,9 +532,9 @@ lle_result_t lle_register_builtin_widgets(lle_widget_registry_t *registry) {
         return result;
 
     /* Transient prompt widget (Spec 25 Section 12) */
-    result = lle_widget_register(registry, "transient-prompt",
-                                 widget_transient_prompt, LLE_WIDGET_BUILTIN,
-                                 NULL);
+    result =
+        lle_widget_register(registry, "transient-prompt",
+                            widget_transient_prompt, LLE_WIDGET_BUILTIN, NULL);
     if (result != LLE_SUCCESS)
         return result;
 

@@ -109,8 +109,7 @@ void lle_safety_mark_failure(lle_result_t error);
  * @param dir_changes     Output: directory change count (or NULL)
  * @param commands        Output: commands executed (or NULL)
  */
-void lle_safety_get_event_stats(uint64_t *events_fired,
-                                uint64_t *dir_changes,
+void lle_safety_get_event_stats(uint64_t *events_fired, uint64_t *dir_changes,
                                 uint64_t *commands);
 
 #ifdef __cplusplus

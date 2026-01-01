@@ -256,8 +256,8 @@ bool autocorrect_prompt_user(const correction_results_t *results,
     bool term_modified = false;
     if (tcgetattr(STDIN_FILENO, &orig_term) == 0) {
         cooked_term = orig_term;
-        cooked_term.c_iflag |= ICRNL;  /* Translate CR to NL */
-        cooked_term.c_lflag |= (ICANON | ECHO);  /* Canonical mode with echo */
+        cooked_term.c_iflag |= ICRNL;           /* Translate CR to NL */
+        cooked_term.c_lflag |= (ICANON | ECHO); /* Canonical mode with echo */
         if (tcsetattr(STDIN_FILENO, TCSANOW, &cooked_term) == 0) {
             term_modified = true;
         }

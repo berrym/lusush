@@ -21,6 +21,7 @@
 #define LLE_READLINE_STATE_H
 
 #include "lle/error_handling.h"
+
 #include <stdbool.h>
 
 /**
@@ -108,7 +109,8 @@ static inline bool lle_readline_state_is_normal(lle_readline_state_t state) {
  * @param state State to check
  * @return true if text input is accepted
  */
-static inline bool lle_readline_state_accepts_input(lle_readline_state_t state) {
+static inline bool
+lle_readline_state_accepts_input(lle_readline_state_t state) {
     switch (state) {
     case LLE_READLINE_STATE_EDITING:
     case LLE_READLINE_STATE_COMPLETION:

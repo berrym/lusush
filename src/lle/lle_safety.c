@@ -16,8 +16,8 @@
  */
 
 #include "lle/lle_safety.h"
-#include "lle/lle_shell_integration.h"
 #include "lle/lle_shell_event_hub.h"
+#include "lle/lle_shell_integration.h"
 
 #include <stdio.h>
 
@@ -75,8 +75,7 @@ const char *lle_safety_get_stats_summary(void) {
     snprintf(summary, sizeof(summary),
              "errors:%u ctrl_g:%u recovery:%s "
              "readline_calls:%lu hard_resets:%lu nuclear_resets:%lu",
-             integ->error_count,
-             integ->ctrl_g_count,
+             integ->error_count, integ->ctrl_g_count,
              integ->recovery_mode ? "active" : "inactive",
              (unsigned long)integ->total_readline_calls,
              (unsigned long)integ->hard_reset_count,
@@ -147,21 +146,26 @@ void lle_safety_mark_failure(lle_result_t error) {
  * @param dir_changes     Output: directory change count (NULL to skip)
  * @param commands        Output: commands executed (NULL to skip)
  */
-void lle_safety_get_event_stats(uint64_t *events_fired,
-                                uint64_t *dir_changes,
+void lle_safety_get_event_stats(uint64_t *events_fired, uint64_t *dir_changes,
                                 uint64_t *commands) {
     if (!g_lle_integration || !g_lle_integration->event_hub) {
-        if (events_fired) *events_fired = 0;
-        if (dir_changes) *dir_changes = 0;
-        if (commands) *commands = 0;
+        if (events_fired)
+            *events_fired = 0;
+        if (dir_changes)
+            *dir_changes = 0;
+        if (commands)
+            *commands = 0;
         return;
     }
 
     lle_shell_event_hub_t *hub = g_lle_integration->event_hub;
 
-    if (events_fired) *events_fired = hub->events_fired;
-    if (dir_changes) *dir_changes = hub->directory_changes;
-    if (commands) *commands = hub->commands_executed;
+    if (events_fired)
+        *events_fired = hub->events_fired;
+    if (dir_changes)
+        *dir_changes = hub->directory_changes;
+    if (commands)
+        *commands = hub->commands_executed;
 }
 
 /* ============================================================================

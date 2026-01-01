@@ -7,7 +7,7 @@
  * - Timeout detection and recovery
  * - Effectiveness metrics under stress conditions
  *
- * These tests verify that the watchdog is effective at detecting 
+ * These tests verify that the watchdog is effective at detecting
  * and recovering from hang scenarios.
  *
  * Note: Safety system tests are separate because they require the full
@@ -16,8 +16,8 @@
 
 #define _POSIX_C_SOURCE 200809L
 
-#include "lle/lle_watchdog.h"
 #include "lle/error_handling.h"
+#include "lle/lle_watchdog.h"
 
 #include <signal.h>
 #include <stdio.h>
@@ -215,8 +215,8 @@ void test_watchdog_timeout(void) {
     /* Check stats */
     lle_watchdog_stats_t stats;
     lle_watchdog_get_stats(&stats);
-    printf("  Stats: pets=%u, fires=%u, recoveries=%u\n",
-           stats.total_pets, stats.total_fires, stats.total_recoveries);
+    printf("  Stats: pets=%u, fires=%u, recoveries=%u\n", stats.total_pets,
+           stats.total_fires, stats.total_recoveries);
 
     if (stats.total_fires < 1) {
         FAIL("Fire count should be at least 1");
@@ -273,13 +273,15 @@ void test_watchdog_rapid_pet(void) {
     }
 
     uint64_t elapsed_ms = (get_nanos() - start) / 1000000;
-    printf("  Completed 100 events in %llu ms\n", (unsigned long long)elapsed_ms);
+    printf("  Completed 100 events in %llu ms\n",
+           (unsigned long long)elapsed_ms);
 
     /* Verify no timeouts occurred */
     lle_watchdog_stats_t stats_after;
     lle_watchdog_get_stats(&stats_after);
 
-    printf("  Pets during test: %u\n", stats_after.total_pets - stats_before.total_pets);
+    printf("  Pets during test: %u\n",
+           stats_after.total_pets - stats_before.total_pets);
     printf("  Fires during test: %u\n", stats_after.total_fires - fires_before);
 
     if (stats_after.total_fires > fires_before) {
@@ -307,7 +309,8 @@ void test_watchdog_effectiveness(void) {
         return;
     }
 
-    printf("Running effectiveness test (5 simulated freeze/recovery cycles)...\n");
+    printf(
+        "Running effectiveness test (5 simulated freeze/recovery cycles)...\n");
 
     int successful_recoveries = 0;
     int total_freezes = 5;
@@ -334,7 +337,7 @@ void test_watchdog_effectiveness(void) {
     printf("\nResults:\n");
     printf("  Total simulated freezes: %d\n", total_freezes);
     printf("  Successful detections: %d\n", successful_recoveries);
-    printf("  Detection rate: %.1f%%\n", 
+    printf("  Detection rate: %.1f%%\n",
            (double)successful_recoveries / total_freezes * 100.0);
 
     lle_watchdog_stats_t stats;
@@ -345,7 +348,8 @@ void test_watchdog_effectiveness(void) {
     printf("  Total recoveries: %u\n", stats.total_recoveries);
 
     if (stats.total_fires > 0) {
-        double recovery_rate = (double)stats.total_recoveries / stats.total_fires * 100.0;
+        double recovery_rate =
+            (double)stats.total_recoveries / stats.total_fires * 100.0;
         printf("  Overall recovery rate: %.1f%%\n", recovery_rate);
     }
 
@@ -366,7 +370,8 @@ void test_watchdog_effectiveness(void) {
 void test_signal_safety(void) {
     TEST("Signal Handler Safety (Multiple Inits)");
 
-    printf("Testing multiple init/cleanup cycles for signal handler safety...\n");
+    printf(
+        "Testing multiple init/cleanup cycles for signal handler safety...\n");
 
     for (int i = 0; i < 10; i++) {
         lle_watchdog_cleanup();
@@ -383,7 +388,8 @@ void test_signal_safety(void) {
 
         if (!lle_watchdog_is_armed()) {
             char msg[64];
-            snprintf(msg, sizeof(msg), "Not armed after pet on cycle %d", i + 1);
+            snprintf(msg, sizeof(msg), "Not armed after pet on cycle %d",
+                     i + 1);
             FAIL(msg);
             return;
         }
@@ -409,12 +415,18 @@ void test_signal_safety(void) {
 
 int main(void) {
     printf("\n");
-    printf("#################################################################\n");
-    printf("#                                                               #\n");
-    printf("#        LLE Watchdog & Safety System Stress Tests              #\n");
-    printf("#              Freeze Detection Effectiveness                   #\n");
-    printf("#                                                               #\n");
-    printf("#################################################################\n");
+    printf(
+        "#################################################################\n");
+    printf(
+        "#                                                               #\n");
+    printf(
+        "#        LLE Watchdog & Safety System Stress Tests              #\n");
+    printf(
+        "#              Freeze Detection Effectiveness                   #\n");
+    printf(
+        "#                                                               #\n");
+    printf(
+        "#################################################################\n");
 
     /* Run all tests */
     test_watchdog_init();
@@ -426,13 +438,16 @@ int main(void) {
 
     /* Summary */
     printf("\n");
-    printf("=================================================================\n");
+    printf(
+        "=================================================================\n");
     printf("  Watchdog Stress Test Summary\n");
-    printf("=================================================================\n");
+    printf(
+        "=================================================================\n");
     printf("  Tests run:    %d\n", tests_run);
     printf("  Tests passed: %d\n", tests_passed);
     printf("  Tests failed: %d\n", tests_failed);
-    printf("=================================================================\n");
+    printf(
+        "=================================================================\n");
 
     if (tests_failed > 0) {
         printf("\n  WATCHDOG TESTS FAILED\n");

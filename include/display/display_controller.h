@@ -56,10 +56,10 @@
 
 /* Symbol compatibility mode for display rendering */
 typedef enum {
-    SYMBOL_MODE_UNICODE = 0,     /**< Full Unicode symbols */
-    SYMBOL_MODE_ASCII = 1,       /**< ASCII-only fallback */
-    SYMBOL_MODE_NERD_FONT = 2,   /**< Nerd Font enhanced symbols */
-    SYMBOL_MODE_AUTO = 3         /**< Auto-detect terminal capability */
+    SYMBOL_MODE_UNICODE = 0,   /**< Full Unicode symbols */
+    SYMBOL_MODE_ASCII = 1,     /**< ASCII-only fallback */
+    SYMBOL_MODE_NERD_FONT = 2, /**< Nerd Font enhanced symbols */
+    SYMBOL_MODE_AUTO = 3       /**< Auto-detect terminal capability */
 } symbol_compatibility_t;
 
 #define THEME_NAME_MAX 64
@@ -964,9 +964,11 @@ void dc_finalize_input(void);
  *
  * @param prompt_lines    Output: number of lines the prompt occupies (1+)
  * @param total_lines     Output: total display lines including command
- * @param command_col     Output: column where command starts on last prompt line
+ * @param command_col     Output: column where command starts on last prompt
+ * line
  */
-void dc_get_prompt_metrics(int *prompt_lines, int *total_lines, int *command_col);
+void dc_get_prompt_metrics(int *prompt_lines, int *total_lines,
+                           int *command_col);
 
 /**
  * @brief Apply transient prompt replacement through display system

@@ -18,6 +18,7 @@ This session completed the removal of GNU readline support, making LLE (Lusush L
 **Result**: 
 - ~5,200+ lines of legacy code removed
 - 7 source files deleted
+- Applied clang-format to all 343 C source files (60 files reformatted)
 - 7 header files deleted  
 - LLE is now the only line editing system
 - All 58 unit tests passing

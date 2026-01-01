@@ -50,7 +50,8 @@ typedef struct fc_options {
 
 /* ============================================================================
  * Helper Functions
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * @brief Get the LLE history core from the global editor
@@ -326,7 +327,8 @@ static bool parse_range(lle_history_core_t *history, const char *first_str,
 
 /* ============================================================================
  * fc Command Implementations
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * @brief List history entries with fc formatting
@@ -428,7 +430,8 @@ static int fc_edit(lle_history_core_t *history, fc_options_t *opts) {
     }
 
     /* Determine editor to use */
-    char *editor_cmd = opts->editor ? strdup(opts->editor) : get_default_editor();
+    char *editor_cmd =
+        opts->editor ? strdup(opts->editor) : get_default_editor();
     if (!editor_cmd) {
         unlink(temp_filename);
         free(temp_filename);
@@ -566,7 +569,8 @@ static int fc_substitute(lle_history_core_t *history, fc_options_t *opts) {
 
 /* ============================================================================
  * Main fc Command Entry Point
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * @brief Print fc command usage information

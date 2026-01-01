@@ -116,8 +116,8 @@ int main(int argc, char **argv) {
         if (g_lle_integration) {
             struct timespec ts;
             clock_gettime(CLOCK_MONOTONIC, &ts);
-            cmd_start_us = (uint64_t)ts.tv_sec * 1000000ULL +
-                           (uint64_t)ts.tv_nsec / 1000;
+            cmd_start_us =
+                (uint64_t)ts.tv_sec * 1000000ULL + (uint64_t)ts.tv_nsec / 1000;
             bool is_bg = is_background_command(shell_opts.command_string);
             lle_fire_pre_command(shell_opts.command_string, is_bg);
         }
@@ -131,8 +131,8 @@ int main(int argc, char **argv) {
         if (g_lle_integration) {
             struct timespec ts;
             clock_gettime(CLOCK_MONOTONIC, &ts);
-            uint64_t cmd_end_us = (uint64_t)ts.tv_sec * 1000000ULL +
-                                  (uint64_t)ts.tv_nsec / 1000;
+            uint64_t cmd_end_us =
+                (uint64_t)ts.tv_sec * 1000000ULL + (uint64_t)ts.tv_nsec / 1000;
             lle_fire_post_command(shell_opts.command_string, exit_status,
                                   cmd_end_us - cmd_start_us);
         }
@@ -181,14 +181,15 @@ int main(int argc, char **argv) {
          * @brief Fire pre-command event for LLE shell integration (Spec 26)
          *
          * Records command start time and notifies handlers before execution.
-         * Detects background commands (ending with &) to set is_background flag.
+         * Detects background commands (ending with &) to set is_background
+         * flag.
          */
         uint64_t cmd_start_us = 0;
         if (g_lle_integration) {
             struct timespec ts;
             clock_gettime(CLOCK_MONOTONIC, &ts);
-            cmd_start_us = (uint64_t)ts.tv_sec * 1000000ULL +
-                           (uint64_t)ts.tv_nsec / 1000;
+            cmd_start_us =
+                (uint64_t)ts.tv_sec * 1000000ULL + (uint64_t)ts.tv_nsec / 1000;
             bool is_bg = is_background_command(line);
             lle_fire_pre_command(line, is_bg);
         }
@@ -204,8 +205,8 @@ int main(int argc, char **argv) {
         if (g_lle_integration) {
             struct timespec ts;
             clock_gettime(CLOCK_MONOTONIC, &ts);
-            uint64_t cmd_end_us = (uint64_t)ts.tv_sec * 1000000ULL +
-                                  (uint64_t)ts.tv_nsec / 1000;
+            uint64_t cmd_end_us =
+                (uint64_t)ts.tv_sec * 1000000ULL + (uint64_t)ts.tv_nsec / 1000;
             lle_fire_post_command(line, exit_status, cmd_end_us - cmd_start_us);
         }
 

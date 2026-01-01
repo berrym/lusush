@@ -35,8 +35,8 @@ static void *lle_async_worker_thread(void *arg);
  * @return Result code
  */
 static lle_result_t lle_async_get_git_status(const char *cwd,
-                                              uint32_t timeout_ms,
-                                              lle_git_status_data_t *status);
+                                             uint32_t timeout_ms,
+                                             lle_git_status_data_t *status);
 
 /* ============================================================================
  * WORKER LIFECYCLE
@@ -187,9 +187,7 @@ lle_async_request_t *lle_async_request_create(lle_async_request_type_t type) {
     return req;
 }
 
-void lle_async_request_free(lle_async_request_t *request) {
-    free(request);
-}
+void lle_async_request_free(lle_async_request_t *request) { free(request); }
 
 lle_result_t lle_async_worker_submit(lle_async_worker_t *worker,
                                      lle_async_request_t *request) {
@@ -415,9 +413,10 @@ static bool run_git_command(const char *cmd, char *output, size_t output_size) {
  * @return LLE_ERROR_SYSTEM_CALL if directory operations fail
  */
 static lle_result_t lle_async_get_git_status(const char *cwd,
-                                              uint32_t timeout_ms,
-                                              lle_git_status_data_t *status) {
-    (void)timeout_ms; /* Timeout not implemented - git commands have their own */
+                                             uint32_t timeout_ms,
+                                             lle_git_status_data_t *status) {
+    (void)
+        timeout_ms; /* Timeout not implemented - git commands have their own */
 
     if (!cwd || !status) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -451,8 +450,8 @@ static lle_result_t lle_async_get_git_status(const char *cwd,
     } else {
         /* Might be detached HEAD */
         status->is_detached = true;
-        run_git_command("git rev-parse --short HEAD 2>/dev/null", status->commit,
-                        sizeof(status->commit));
+        run_git_command("git rev-parse --short HEAD 2>/dev/null",
+                        status->commit, sizeof(status->commit));
     }
 
     /* Check for detached HEAD explicitly */
@@ -466,8 +465,8 @@ static lle_result_t lle_async_get_git_status(const char *cwd,
 
     /* Get short commit hash */
     if (status->commit[0] == '\0') {
-        run_git_command("git rev-parse --short HEAD 2>/dev/null", status->commit,
-                        sizeof(status->commit));
+        run_git_command("git rev-parse --short HEAD 2>/dev/null",
+                        status->commit, sizeof(status->commit));
     }
 
     /* Check for staged changes */

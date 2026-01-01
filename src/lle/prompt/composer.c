@@ -45,11 +45,14 @@ static void get_terminal_color_capabilities(bool *has_256, bool *has_true) {
          * Note: The optimized detection returns a cached result that is
          * managed by the detection system - do NOT destroy it. */
         lle_terminal_detection_result_t *detection = NULL;
-        lle_result_t result = lle_detect_terminal_capabilities_optimized(&detection);
+        lle_result_t result =
+            lle_detect_terminal_capabilities_optimized(&detection);
 
         if (result == LLE_SUCCESS && detection) {
-            g_terminal_color_caps.has_256_color = detection->supports_256_colors;
-            g_terminal_color_caps.has_true_color = detection->supports_truecolor;
+            g_terminal_color_caps.has_256_color =
+                detection->supports_256_colors;
+            g_terminal_color_caps.has_true_color =
+                detection->supports_truecolor;
         } else {
             /* Default to 256 colors if detection fails */
             g_terminal_color_caps.has_256_color = true;
@@ -58,8 +61,10 @@ static void get_terminal_color_capabilities(bool *has_256, bool *has_true) {
         g_terminal_color_caps.initialized = true;
     }
 
-    if (has_256) *has_256 = g_terminal_color_caps.has_256_color;
-    if (has_true) *has_true = g_terminal_color_caps.has_true_color;
+    if (has_256)
+        *has_256 = g_terminal_color_caps.has_256_color;
+    if (has_true)
+        *has_true = g_terminal_color_caps.has_true_color;
 }
 
 /* ============================================================================
@@ -87,7 +92,7 @@ typedef struct composer_callback_ctx {
  * @return Pointer to the color, or NULL if no mapping exists
  */
 static const lle_color_t *get_segment_color(const lle_theme_t *theme,
-                                             const char *segment_name) {
+                                            const char *segment_name) {
     if (!theme || !segment_name) {
         return NULL;
     }
@@ -132,8 +137,7 @@ static const lle_color_t *get_segment_color(const lle_theme_t *theme,
  * @return Rendered content (caller must free) or NULL
  */
 static char *composer_get_segment(const char *segment_name,
-                                   const char *property,
-                                   void *user_data) {
+                                  const char *property, void *user_data) {
     composer_callback_ctx_t *ctx = user_data;
     if (!ctx || !ctx->composer || !segment_name) {
         return NULL;
@@ -142,8 +146,8 @@ static char *composer_get_segment(const char *segment_name,
     lle_prompt_composer_t *composer = ctx->composer;
 
     /* Find segment in registry */
-    lle_prompt_segment_t *segment = lle_segment_registry_find(
-        composer->segments, segment_name);
+    lle_prompt_segment_t *segment =
+        lle_segment_registry_find(composer->segments, segment_name);
     if (!segment) {
         return NULL;
     }
@@ -162,10 +166,8 @@ static char *composer_get_segment(const char *segment_name,
     memset(&output, 0, sizeof(output));
 
     if (segment->render) {
-        lle_result_t result = segment->render(segment,
-                                               &composer->context,
-                                               ctx->theme,
-                                               &output);
+        lle_result_t result =
+            segment->render(segment, &composer->context, ctx->theme, &output);
         if (result != LLE_SUCCESS || output.is_empty) {
             return NULL;
         }
@@ -179,9 +181,8 @@ static char *composer_get_segment(const char *segment_name,
             get_terminal_color_capabilities(&has_256_color, &has_true_color);
 
             /* Downgrade color to match terminal capabilities */
-            lle_color_t adapted_color = lle_color_downgrade(color,
-                                                             has_true_color,
-                                                             has_256_color);
+            lle_color_t adapted_color =
+                lle_color_downgrade(color, has_true_color, has_256_color);
 
             /* Wrap content with color escape sequences */
             char color_start[LLE_COLOR_CODE_MAX];
@@ -195,8 +196,8 @@ static char *composer_get_segment(const char *segment_name,
                                strlen(color_reset) + 1;
             char *colored = malloc(total_len);
             if (colored) {
-                snprintf(colored, total_len, "%s%s%s",
-                         color_start, output.content, color_reset);
+                snprintf(colored, total_len, "%s%s%s", color_start,
+                         output.content, color_reset);
                 return colored;
             }
         }
@@ -215,9 +216,8 @@ static char *composer_get_segment(const char *segment_name,
  * @param user_data     Composer callback context
  * @return true if visible, false otherwise
  */
-static bool composer_is_visible(const char *segment_name,
-                                 const char *property,
-                                 void *user_data) {
+static bool composer_is_visible(const char *segment_name, const char *property,
+                                void *user_data) {
     composer_callback_ctx_t *ctx = user_data;
     if (!ctx || !ctx->composer || !segment_name) {
         return false;
@@ -226,8 +226,8 @@ static bool composer_is_visible(const char *segment_name,
     lle_prompt_composer_t *composer = ctx->composer;
 
     /* Find segment in registry */
-    lle_prompt_segment_t *segment = lle_segment_registry_find(
-        composer->segments, segment_name);
+    lle_prompt_segment_t *segment =
+        lle_segment_registry_find(composer->segments, segment_name);
     if (!segment) {
         return false;
     }
@@ -260,8 +260,7 @@ static bool composer_is_visible(const char *segment_name,
  * @param user_data   Composer callback context
  * @return ANSI color code string (static buffer) or empty string
  */
-static const char *composer_get_color(const char *color_name,
-                                       void *user_data) {
+static const char *composer_get_color(const char *color_name, void *user_data) {
     composer_callback_ctx_t *ctx = user_data;
     if (!ctx || !ctx->theme || !color_name) {
         return "";
@@ -316,9 +315,8 @@ static const char *composer_get_color(const char *color_name,
     get_terminal_color_capabilities(&has_256_color, &has_true_color);
 
     /* Downgrade color to match terminal capabilities */
-    lle_color_t adapted_color = lle_color_downgrade(color,
-                                                     has_true_color,
-                                                     has_256_color);
+    lle_color_t adapted_color =
+        lle_color_downgrade(color, has_true_color, has_256_color);
 
     /* Convert color to ANSI escape sequence (foreground) */
     lle_color_to_ansi(&adapted_color, true, ansi_buf, sizeof(ansi_buf));
@@ -331,8 +329,8 @@ static const char *composer_get_color(const char *color_name,
  */
 
 lle_result_t lle_composer_init(lle_prompt_composer_t *composer,
-                                lle_segment_registry_t *segments,
-                                lle_theme_registry_t *themes) {
+                               lle_segment_registry_t *segments,
+                               lle_theme_registry_t *themes) {
     if (!composer) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -349,7 +347,8 @@ lle_result_t lle_composer_init(lle_prompt_composer_t *composer,
 
     /* Default configuration */
     composer->config.enable_right_prompt = false;
-    composer->config.enable_transient = true; /* Transient prompts enabled by default */
+    composer->config.enable_transient =
+        true; /* Transient prompts enabled by default */
     composer->config.respect_user_ps1 = false;
     composer->config.use_external_prompt = false;
 
@@ -384,7 +383,7 @@ void lle_composer_cleanup(lle_prompt_composer_t *composer) {
 }
 
 lle_result_t lle_composer_configure(lle_prompt_composer_t *composer,
-                                     const lle_composer_config_t *config) {
+                                    const lle_composer_config_t *config) {
     if (!composer || !config) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -398,8 +397,8 @@ lle_result_t lle_composer_configure(lle_prompt_composer_t *composer,
  * ============================================================================
  */
 
-lle_template_render_ctx_t lle_composer_create_render_ctx(
-    lle_prompt_composer_t *composer) {
+lle_template_render_ctx_t
+lle_composer_create_render_ctx(lle_prompt_composer_t *composer) {
     static composer_callback_ctx_t callback_ctx;
     lle_template_render_ctx_t render_ctx;
 
@@ -475,7 +474,7 @@ static size_t calculate_visual_width(const char *str) {
 }
 
 lle_result_t lle_composer_render(lle_prompt_composer_t *composer,
-                                  lle_prompt_output_t *output) {
+                                 lle_prompt_output_t *output) {
     if (!composer || !output || !composer->initialized) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -507,25 +506,22 @@ lle_result_t lle_composer_render(lle_prompt_composer_t *composer,
     }
 
     /* Create render context */
-    lle_template_render_ctx_t render_ctx = lle_composer_create_render_ctx(composer);
+    lle_template_render_ctx_t render_ctx =
+        lle_composer_create_render_ctx(composer);
 
     /* Render PS1 */
     lle_result_t result;
-    
+
     /* Prepend newline for visual separation if enabled */
     if (composer->config.newline_before_prompt) {
         output->ps1[0] = '\n';
-        result = lle_template_evaluate(left_format,
-                                       &render_ctx,
-                                       output->ps1 + 1,
-                                       sizeof(output->ps1) - 1);
+        result = lle_template_evaluate(
+            left_format, &render_ctx, output->ps1 + 1, sizeof(output->ps1) - 1);
         if (result != LLE_SUCCESS) {
             snprintf(output->ps1, sizeof(output->ps1), "\n$ ");
         }
     } else {
-        result = lle_template_evaluate(left_format,
-                                       &render_ctx,
-                                       output->ps1,
+        result = lle_template_evaluate(left_format, &render_ctx, output->ps1,
                                        sizeof(output->ps1));
         if (result != LLE_SUCCESS) {
             snprintf(output->ps1, sizeof(output->ps1), "$ ");
@@ -536,7 +532,8 @@ lle_result_t lle_composer_render(lle_prompt_composer_t *composer,
     /* Append newlines after prompt if configured in theme */
     if (theme && theme->layout.newline_after > 0) {
         for (int i = 0; i < theme->layout.newline_after &&
-             output->ps1_len < sizeof(output->ps1) - 2; i++) {
+                        output->ps1_len < sizeof(output->ps1) - 2;
+             i++) {
             output->ps1[output->ps1_len++] = '\n';
         }
         output->ps1[output->ps1_len] = '\0';
@@ -548,10 +545,8 @@ lle_result_t lle_composer_render(lle_prompt_composer_t *composer,
     output->is_multiline = (strchr(output->ps1, '\n') != NULL);
 
     /* Render PS2 */
-    result = lle_template_evaluate(ps2_format,
-                                    &render_ctx,
-                                    output->ps2,
-                                    sizeof(output->ps2));
+    result = lle_template_evaluate(ps2_format, &render_ctx, output->ps2,
+                                   sizeof(output->ps2));
     if (result != LLE_SUCCESS) {
         snprintf(output->ps2, sizeof(output->ps2), "> ");
     }
@@ -560,14 +555,14 @@ lle_result_t lle_composer_render(lle_prompt_composer_t *composer,
 
     /* Render RPROMPT if enabled */
     if (composer->config.enable_right_prompt && strlen(right_format) > 0) {
-        result = lle_template_evaluate(right_format,
-                                        &render_ctx,
-                                        output->rprompt,
-                                        sizeof(output->rprompt));
+        result =
+            lle_template_evaluate(right_format, &render_ctx, output->rprompt,
+                                  sizeof(output->rprompt));
         if (result == LLE_SUCCESS && strlen(output->rprompt) > 0) {
             output->has_rprompt = true;
             output->rprompt_len = strlen(output->rprompt);
-            output->rprompt_visual_width = calculate_visual_width(output->rprompt);
+            output->rprompt_visual_width =
+                calculate_visual_width(output->rprompt);
         }
     }
 
@@ -577,9 +572,8 @@ lle_result_t lle_composer_render(lle_prompt_composer_t *composer,
 }
 
 lle_result_t lle_composer_render_template(lle_prompt_composer_t *composer,
-                                           const char *template_str,
-                                           char *output,
-                                           size_t output_size) {
+                                          const char *template_str,
+                                          char *output, size_t output_size) {
     if (!composer || !template_str || !output || output_size == 0) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -588,14 +582,15 @@ lle_result_t lle_composer_render_template(lle_prompt_composer_t *composer,
         return LLE_ERROR_NOT_INITIALIZED;
     }
 
-    lle_template_render_ctx_t render_ctx = lle_composer_create_render_ctx(composer);
+    lle_template_render_ctx_t render_ctx =
+        lle_composer_create_render_ctx(composer);
 
-    return lle_template_evaluate(template_str, &render_ctx, output, output_size);
+    return lle_template_evaluate(template_str, &render_ctx, output,
+                                 output_size);
 }
 
 lle_result_t lle_composer_update_context(lle_prompt_composer_t *composer,
-                                          int exit_code,
-                                          uint64_t duration_ms) {
+                                         int exit_code, uint64_t duration_ms) {
     if (!composer) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -609,7 +604,8 @@ lle_result_t lle_composer_refresh_directory(lle_prompt_composer_t *composer) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
 
-    lle_result_t result = lle_prompt_context_refresh_directory(&composer->context);
+    lle_result_t result =
+        lle_prompt_context_refresh_directory(&composer->context);
 
     /* Invalidate caches on directory change */
     if (result == LLE_SUCCESS && composer->segments) {
@@ -633,7 +629,7 @@ void lle_composer_invalidate_caches(lle_prompt_composer_t *composer) {
  */
 
 lle_result_t lle_composer_set_theme(lle_prompt_composer_t *composer,
-                                     const char *theme_name) {
+                                    const char *theme_name) {
     if (!composer || !theme_name) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -642,8 +638,8 @@ lle_result_t lle_composer_set_theme(lle_prompt_composer_t *composer,
         return LLE_ERROR_NOT_INITIALIZED;
     }
 
-    lle_result_t result = lle_theme_registry_set_active(composer->themes,
-                                                         theme_name);
+    lle_result_t result =
+        lle_theme_registry_set_active(composer->themes, theme_name);
     if (result != LLE_SUCCESS) {
         return result;
     }
@@ -679,7 +675,8 @@ lle_result_t lle_composer_set_theme(lle_prompt_composer_t *composer,
     return LLE_SUCCESS;
 }
 
-const lle_theme_t *lle_composer_get_theme(const lle_prompt_composer_t *composer) {
+const lle_theme_t *
+lle_composer_get_theme(const lle_prompt_composer_t *composer) {
     if (!composer || !composer->themes) {
         return NULL;
     }
@@ -689,7 +686,7 @@ const lle_theme_t *lle_composer_get_theme(const lle_prompt_composer_t *composer)
 
 /* ============================================================================
  * Shell Event Integration (Spec 26)
- * 
+ *
  * This section implements the Issue #16 fix: when the directory changes,
  * we invalidate all segment caches so stale git info doesn't persist.
  * ============================================================================
@@ -780,7 +777,8 @@ static void composer_on_post_command(void *event_data, void *user_data) {
 
     /* Update context with command results */
     uint64_t duration_ms = event->duration_us / 1000;
-    lle_prompt_context_update(&composer->context, event->exit_code, duration_ms);
+    lle_prompt_context_update(&composer->context, event->exit_code,
+                              duration_ms);
 
     /* Clear current command state */
     composer->current_command = NULL;
@@ -797,9 +795,9 @@ static void composer_on_post_command(void *event_data, void *user_data) {
     composer->event_triggered_refreshes++;
 }
 
-lle_result_t lle_composer_register_shell_events(
-    lle_prompt_composer_t *composer,
-    struct lle_shell_event_hub *event_hub) {
+lle_result_t
+lle_composer_register_shell_events(lle_prompt_composer_t *composer,
+                                   struct lle_shell_event_hub *event_hub) {
     if (!composer) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -823,11 +821,8 @@ lle_result_t lle_composer_register_shell_events(
 
     /* Register directory change handler (Issue #16 fix) */
     result = lle_shell_event_hub_register(
-        event_hub,
-        LLE_SHELL_EVENT_DIRECTORY_CHANGED,
-        composer_on_directory_changed,
-        composer,
-        "prompt_composer_dir");
+        event_hub, LLE_SHELL_EVENT_DIRECTORY_CHANGED,
+        composer_on_directory_changed, composer, "prompt_composer_dir");
 
     if (result != LLE_SUCCESS) {
         return result;
@@ -835,36 +830,29 @@ lle_result_t lle_composer_register_shell_events(
 
     /* Register pre-command handler (transient prompt support) */
     result = lle_shell_event_hub_register(
-        event_hub,
-        LLE_SHELL_EVENT_PRE_COMMAND,
-        composer_on_pre_command,
-        composer,
-        "prompt_composer_pre");
+        event_hub, LLE_SHELL_EVENT_PRE_COMMAND, composer_on_pre_command,
+        composer, "prompt_composer_pre");
 
     if (result != LLE_SUCCESS) {
         /* Rollback directory handler */
         lle_shell_event_hub_unregister(event_hub,
-                                        LLE_SHELL_EVENT_DIRECTORY_CHANGED,
-                                        "prompt_composer_dir");
+                                       LLE_SHELL_EVENT_DIRECTORY_CHANGED,
+                                       "prompt_composer_dir");
         return result;
     }
 
     /* Register post-command handler (exit code, duration) */
     result = lle_shell_event_hub_register(
-        event_hub,
-        LLE_SHELL_EVENT_POST_COMMAND,
-        composer_on_post_command,
-        composer,
-        "prompt_composer_post");
+        event_hub, LLE_SHELL_EVENT_POST_COMMAND, composer_on_post_command,
+        composer, "prompt_composer_post");
 
     if (result != LLE_SUCCESS) {
         /* Rollback previous handlers */
         lle_shell_event_hub_unregister(event_hub,
-                                        LLE_SHELL_EVENT_DIRECTORY_CHANGED,
-                                        "prompt_composer_dir");
-        lle_shell_event_hub_unregister(event_hub,
-                                        LLE_SHELL_EVENT_PRE_COMMAND,
-                                        "prompt_composer_pre");
+                                       LLE_SHELL_EVENT_DIRECTORY_CHANGED,
+                                       "prompt_composer_dir");
+        lle_shell_event_hub_unregister(event_hub, LLE_SHELL_EVENT_PRE_COMMAND,
+                                       "prompt_composer_pre");
         return result;
     }
 
@@ -875,8 +863,8 @@ lle_result_t lle_composer_register_shell_events(
     return LLE_SUCCESS;
 }
 
-lle_result_t lle_composer_unregister_shell_events(
-    lle_prompt_composer_t *composer) {
+lle_result_t
+lle_composer_unregister_shell_events(lle_prompt_composer_t *composer) {
     if (!composer) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -889,15 +877,12 @@ lle_result_t lle_composer_unregister_shell_events(
     lle_shell_event_hub_t *hub = composer->shell_event_hub;
 
     /* Unregister all handlers */
-    lle_shell_event_hub_unregister(hub,
-                                    LLE_SHELL_EVENT_DIRECTORY_CHANGED,
-                                    "prompt_composer_dir");
-    lle_shell_event_hub_unregister(hub,
-                                    LLE_SHELL_EVENT_PRE_COMMAND,
-                                    "prompt_composer_pre");
-    lle_shell_event_hub_unregister(hub,
-                                    LLE_SHELL_EVENT_POST_COMMAND,
-                                    "prompt_composer_post");
+    lle_shell_event_hub_unregister(hub, LLE_SHELL_EVENT_DIRECTORY_CHANGED,
+                                   "prompt_composer_dir");
+    lle_shell_event_hub_unregister(hub, LLE_SHELL_EVENT_PRE_COMMAND,
+                                   "prompt_composer_pre");
+    lle_shell_event_hub_unregister(hub, LLE_SHELL_EVENT_POST_COMMAND,
+                                   "prompt_composer_post");
 
     composer->shell_event_hub = NULL;
     composer->events_registered = false;

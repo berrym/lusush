@@ -181,10 +181,12 @@ typedef struct {
     bool debug_mode;
 
     // Display system settings - v1.3.0: Layered display is now exclusive
-    bool display_syntax_highlighting;    // Enable syntax highlighting
-    bool display_autosuggestions;        // Enable autosuggestions
-    bool display_transient_prompt;       // Enable transient prompts (Spec 25 Section 12)
-    bool display_newline_before_prompt;  // Print newline before prompt (visual separation)
+    bool display_syntax_highlighting; // Enable syntax highlighting
+    bool display_autosuggestions;     // Enable autosuggestions
+    bool display_transient_prompt; // Enable transient prompts (Spec 25 Section
+                                   // 12)
+    bool display_newline_before_prompt;  // Print newline before prompt (visual
+                                         // separation)
     bool display_performance_monitoring; // Enable performance monitoring
     int display_optimization_level;      // Optimization level (0-4)
 

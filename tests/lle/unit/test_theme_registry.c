@@ -8,8 +8,8 @@
  * color helpers, and built-in themes.
  */
 
-#include "lle/prompt/theme.h"
 #include "lle/error_handling.h"
+#include "lle/prompt/theme.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,25 +22,24 @@
 static int tests_run = 0;
 static int tests_passed = 0;
 
-#define TEST(name) \
-    static void test_##name(void)
+#define TEST(name) static void test_##name(void)
 
-#define RUN_TEST(name) \
-    do { \
-        tests_run++; \
-        printf("  [%d] %s... ", tests_run, #name); \
-        test_##name(); \
-        tests_passed++; \
-        printf("PASS\n"); \
+#define RUN_TEST(name)                                                         \
+    do {                                                                       \
+        tests_run++;                                                           \
+        printf("  [%d] %s... ", tests_run, #name);                             \
+        test_##name();                                                         \
+        tests_passed++;                                                        \
+        printf("PASS\n");                                                      \
     } while (0)
 
-#define ASSERT(cond) \
-    do { \
-        if (!(cond)) { \
-            printf("FAIL\n    Assertion failed: %s\n    at %s:%d\n", \
-                   #cond, __FILE__, __LINE__); \
-            exit(1); \
-        } \
+#define ASSERT(cond)                                                           \
+    do {                                                                       \
+        if (!(cond)) {                                                         \
+            printf("FAIL\n    Assertion failed: %s\n    at %s:%d\n", #cond,    \
+                   __FILE__, __LINE__);                                        \
+            exit(1);                                                           \
+        }                                                                      \
     } while (0)
 
 #define ASSERT_EQ(a, b) ASSERT((a) == (b))
@@ -56,13 +55,13 @@ static int tests_passed = 0;
 TEST(registry_init) {
     lle_theme_registry_t registry;
     lle_result_t result = lle_theme_registry_init(&registry);
-    
+
     ASSERT_EQ(result, LLE_SUCCESS);
     ASSERT(registry.initialized);
     ASSERT_EQ(registry.count, 0);
     ASSERT_NULL(registry.active_theme);
     ASSERT_STR_EQ(registry.default_theme_name, "minimal");
-    
+
     lle_theme_registry_cleanup(&registry);
 }
 
@@ -74,77 +73,77 @@ TEST(registry_init_null) {
 TEST(registry_register_theme) {
     lle_theme_registry_t registry;
     lle_theme_registry_init(&registry);
-    
-    lle_theme_t *theme = lle_theme_create("test", "Test theme",
-                                          LLE_THEME_CATEGORY_CUSTOM);
+
+    lle_theme_t *theme =
+        lle_theme_create("test", "Test theme", LLE_THEME_CATEGORY_CUSTOM);
     ASSERT_NOT_NULL(theme);
-    
+
     lle_result_t result = lle_theme_registry_register(&registry, theme);
     ASSERT_EQ(result, LLE_SUCCESS);
     ASSERT_EQ(registry.count, 1);
-    
+
     lle_theme_registry_cleanup(&registry);
 }
 
 TEST(registry_register_duplicate) {
     lle_theme_registry_t registry;
     lle_theme_registry_init(&registry);
-    
-    lle_theme_t *theme1 = lle_theme_create("test", "Test 1",
-                                           LLE_THEME_CATEGORY_CUSTOM);
-    lle_theme_t *theme2 = lle_theme_create("test", "Test 2",
-                                           LLE_THEME_CATEGORY_CUSTOM);
-    
+
+    lle_theme_t *theme1 =
+        lle_theme_create("test", "Test 1", LLE_THEME_CATEGORY_CUSTOM);
+    lle_theme_t *theme2 =
+        lle_theme_create("test", "Test 2", LLE_THEME_CATEGORY_CUSTOM);
+
     lle_result_t result1 = lle_theme_registry_register(&registry, theme1);
     ASSERT_EQ(result1, LLE_SUCCESS);
-    
+
     lle_result_t result2 = lle_theme_registry_register(&registry, theme2);
-    ASSERT_EQ(result2, LLE_ERROR_INVALID_STATE);  /* Duplicate */
-    
+    ASSERT_EQ(result2, LLE_ERROR_INVALID_STATE); /* Duplicate */
+
     /* Free theme2 since it wasn't registered */
     lle_theme_free(theme2);
-    
+
     lle_theme_registry_cleanup(&registry);
 }
 
 TEST(registry_find_theme) {
     lle_theme_registry_t registry;
     lle_theme_registry_init(&registry);
-    
-    lle_theme_t *theme = lle_theme_create("findme", "Find me",
-                                          LLE_THEME_CATEGORY_CUSTOM);
+
+    lle_theme_t *theme =
+        lle_theme_create("findme", "Find me", LLE_THEME_CATEGORY_CUSTOM);
     lle_theme_registry_register(&registry, theme);
-    
+
     lle_theme_t *found = lle_theme_registry_find(&registry, "findme");
     ASSERT_NOT_NULL(found);
     ASSERT_EQ(found, theme);
     ASSERT_STR_EQ(found->name, "findme");
-    
+
     lle_theme_t *not_found = lle_theme_registry_find(&registry, "nonexistent");
     ASSERT_NULL(not_found);
-    
+
     lle_theme_registry_cleanup(&registry);
 }
 
 TEST(registry_set_active) {
     lle_theme_registry_t registry;
     lle_theme_registry_init(&registry);
-    
-    lle_theme_t *theme1 = lle_theme_create("theme1", "Theme 1",
-                                           LLE_THEME_CATEGORY_MINIMAL);
-    lle_theme_t *theme2 = lle_theme_create("theme2", "Theme 2",
-                                           LLE_THEME_CATEGORY_MODERN);
-    
+
+    lle_theme_t *theme1 =
+        lle_theme_create("theme1", "Theme 1", LLE_THEME_CATEGORY_MINIMAL);
+    lle_theme_t *theme2 =
+        lle_theme_create("theme2", "Theme 2", LLE_THEME_CATEGORY_MODERN);
+
     lle_theme_registry_register(&registry, theme1);
     lle_theme_registry_register(&registry, theme2);
-    
+
     /* Set first theme active */
     lle_result_t result = lle_theme_registry_set_active(&registry, "theme1");
     ASSERT_EQ(result, LLE_SUCCESS);
     ASSERT(theme1->is_active);
     ASSERT(!theme2->is_active);
     ASSERT_STR_EQ(registry.active_theme_name, "theme1");
-    
+
     /* Switch to second theme */
     result = lle_theme_registry_set_active(&registry, "theme2");
     ASSERT_EQ(result, LLE_SUCCESS);
@@ -152,61 +151,64 @@ TEST(registry_set_active) {
     ASSERT(theme2->is_active);
     ASSERT_STR_EQ(registry.active_theme_name, "theme2");
     ASSERT_EQ(registry.total_switches, 2);
-    
+
     lle_theme_registry_cleanup(&registry);
 }
 
 TEST(registry_set_active_not_found) {
     lle_theme_registry_t registry;
     lle_theme_registry_init(&registry);
-    
-    lle_result_t result = lle_theme_registry_set_active(&registry, "nonexistent");
+
+    lle_result_t result =
+        lle_theme_registry_set_active(&registry, "nonexistent");
     ASSERT_EQ(result, LLE_ERROR_NOT_FOUND);
-    
+
     lle_theme_registry_cleanup(&registry);
 }
 
 TEST(registry_get_active) {
     lle_theme_registry_t registry;
     lle_theme_registry_init(&registry);
-    
+
     /* No active theme initially */
     lle_theme_t *active = lle_theme_registry_get_active(&registry);
     ASSERT_NULL(active);
-    
+
     /* Register and activate */
-    lle_theme_t *theme = lle_theme_create("active", "Active theme",
-                                          LLE_THEME_CATEGORY_CUSTOM);
+    lle_theme_t *theme =
+        lle_theme_create("active", "Active theme", LLE_THEME_CATEGORY_CUSTOM);
     lle_theme_registry_register(&registry, theme);
     lle_theme_registry_set_active(&registry, "active");
-    
+
     active = lle_theme_registry_get_active(&registry);
     ASSERT_NOT_NULL(active);
     ASSERT_EQ(active, theme);
-    
+
     lle_theme_registry_cleanup(&registry);
 }
 
 TEST(registry_list) {
     lle_theme_registry_t registry;
     lle_theme_registry_init(&registry);
-    
-    lle_theme_t *t1 = lle_theme_create("alpha", "A", LLE_THEME_CATEGORY_MINIMAL);
+
+    lle_theme_t *t1 =
+        lle_theme_create("alpha", "A", LLE_THEME_CATEGORY_MINIMAL);
     lle_theme_t *t2 = lle_theme_create("beta", "B", LLE_THEME_CATEGORY_MODERN);
-    lle_theme_t *t3 = lle_theme_create("gamma", "C", LLE_THEME_CATEGORY_CLASSIC);
-    
+    lle_theme_t *t3 =
+        lle_theme_create("gamma", "C", LLE_THEME_CATEGORY_CLASSIC);
+
     lle_theme_registry_register(&registry, t1);
     lle_theme_registry_register(&registry, t2);
     lle_theme_registry_register(&registry, t3);
-    
+
     const char *names[10];
     size_t count = lle_theme_registry_list(&registry, names, 10);
-    
+
     ASSERT_EQ(count, 3);
     ASSERT_STR_EQ(names[0], "alpha");
     ASSERT_STR_EQ(names[1], "beta");
     ASSERT_STR_EQ(names[2], "gamma");
-    
+
     lle_theme_registry_cleanup(&registry);
 }
 
@@ -215,27 +217,27 @@ TEST(registry_list) {
 /* ========================================================================== */
 
 TEST(theme_create) {
-    lle_theme_t *theme = lle_theme_create("mytest", "My test theme",
-                                          LLE_THEME_CATEGORY_CUSTOM);
+    lle_theme_t *theme =
+        lle_theme_create("mytest", "My test theme", LLE_THEME_CATEGORY_CUSTOM);
     ASSERT_NOT_NULL(theme);
     ASSERT_STR_EQ(theme->name, "mytest");
     ASSERT_STR_EQ(theme->description, "My test theme");
     ASSERT_EQ(theme->category, LLE_THEME_CATEGORY_CUSTOM);
     ASSERT_EQ(theme->source, LLE_THEME_SOURCE_RUNTIME);
     ASSERT(!theme->is_active);
-    
+
     lle_theme_free(theme);
 }
 
 TEST(theme_create_empty_name) {
-    lle_theme_t *theme = lle_theme_create("", "Empty name", 
-                                          LLE_THEME_CATEGORY_CUSTOM);
+    lle_theme_t *theme =
+        lle_theme_create("", "Empty name", LLE_THEME_CATEGORY_CUSTOM);
     ASSERT_NULL(theme);
 }
 
 TEST(theme_create_null_name) {
-    lle_theme_t *theme = lle_theme_create(NULL, "Null name",
-                                          LLE_THEME_CATEGORY_CUSTOM);
+    lle_theme_t *theme =
+        lle_theme_create(NULL, "Null name", LLE_THEME_CATEGORY_CUSTOM);
     ASSERT_NULL(theme);
 }
 
@@ -246,21 +248,21 @@ TEST(theme_create_null_name) {
 TEST(theme_inheritance_basic) {
     lle_theme_registry_t registry;
     lle_theme_registry_init(&registry);
-    
+
     /* Create parent theme with colors */
-    lle_theme_t *parent = lle_theme_create("parent", "Parent theme",
-                                           LLE_THEME_CATEGORY_MODERN);
+    lle_theme_t *parent =
+        lle_theme_create("parent", "Parent theme", LLE_THEME_CATEGORY_MODERN);
     parent->colors.primary = lle_color_basic(LLE_COLOR_BLUE);
     parent->colors.error = lle_color_basic(LLE_COLOR_RED);
     snprintf(parent->symbols.prompt, sizeof(parent->symbols.prompt), ">");
     snprintf(parent->layout.ps1_format, sizeof(parent->layout.ps1_format),
              "${directory} $ ");
-    
+
     lle_theme_registry_register(&registry, parent);
-    
+
     /* Create child theme that inherits */
-    lle_theme_t *child = lle_theme_create("child", "Child theme",
-                                          LLE_THEME_CATEGORY_CUSTOM);
+    lle_theme_t *child =
+        lle_theme_create("child", "Child theme", LLE_THEME_CATEGORY_CUSTOM);
     snprintf(child->inherits_from, sizeof(child->inherits_from), "parent");
     /* Child overrides error color */
     child->colors.error = lle_color_basic(LLE_COLOR_MAGENTA);
@@ -268,10 +270,10 @@ TEST(theme_inheritance_basic) {
     child->layout.ps1_format[0] = '\0';
     /* Clear child's prompt symbol so it inherits */
     child->symbols.prompt[0] = '\0';
-    
+
     lle_result_t result = lle_theme_registry_register(&registry, child);
     ASSERT_EQ(result, LLE_SUCCESS);
-    
+
     /* Verify inheritance */
     ASSERT_EQ(child->parent, parent);
     /* Primary inherited from parent (child had MODE_NONE) */
@@ -283,21 +285,21 @@ TEST(theme_inheritance_basic) {
     ASSERT_STR_EQ(child->symbols.prompt, ">");
     /* Layout inherited (was cleared) */
     ASSERT_STR_EQ(child->layout.ps1_format, "${directory} $ ");
-    
+
     lle_theme_registry_cleanup(&registry);
 }
 
 TEST(theme_inheritance_not_found) {
     lle_theme_registry_t registry;
     lle_theme_registry_init(&registry);
-    
-    lle_theme_t *child = lle_theme_create("orphan", "Orphan theme",
-                                          LLE_THEME_CATEGORY_CUSTOM);
+
+    lle_theme_t *child =
+        lle_theme_create("orphan", "Orphan theme", LLE_THEME_CATEGORY_CUSTOM);
     snprintf(child->inherits_from, sizeof(child->inherits_from), "nonexistent");
-    
+
     lle_result_t result = lle_theme_registry_register(&registry, child);
     ASSERT_EQ(result, LLE_ERROR_NOT_FOUND);
-    
+
     lle_theme_free(child);
     lle_theme_registry_cleanup(&registry);
 }
@@ -308,7 +310,7 @@ TEST(theme_inheritance_not_found) {
 
 TEST(color_basic) {
     lle_color_t c = lle_color_basic(LLE_COLOR_GREEN);
-    
+
     ASSERT_EQ(c.mode, LLE_COLOR_MODE_BASIC);
     ASSERT_EQ(c.value.basic, LLE_COLOR_GREEN);
     ASSERT(!c.bold);
@@ -317,14 +319,14 @@ TEST(color_basic) {
 
 TEST(color_256) {
     lle_color_t c = lle_color_256(128);
-    
+
     ASSERT_EQ(c.mode, LLE_COLOR_MODE_256);
     ASSERT_EQ(c.value.palette, 128);
 }
 
 TEST(color_rgb) {
     lle_color_t c = lle_color_rgb(255, 128, 64);
-    
+
     ASSERT_EQ(c.mode, LLE_COLOR_MODE_TRUE);
     ASSERT_EQ(c.value.rgb.r, 255);
     ASSERT_EQ(c.value.rgb.g, 128);
@@ -334,7 +336,7 @@ TEST(color_rgb) {
 TEST(color_to_ansi_basic) {
     lle_color_t c = lle_color_basic(LLE_COLOR_RED);
     char buf[32];
-    
+
     size_t len = lle_color_to_ansi(&c, true, buf, sizeof(buf));
     ASSERT(len > 0);
     ASSERT_STR_EQ(buf, "\033[31m");
@@ -343,7 +345,7 @@ TEST(color_to_ansi_basic) {
 TEST(color_to_ansi_256) {
     lle_color_t c = lle_color_256(200);
     char buf[32];
-    
+
     size_t len = lle_color_to_ansi(&c, true, buf, sizeof(buf));
     ASSERT(len > 0);
     ASSERT_STR_EQ(buf, "\033[38;5;200m");
@@ -352,7 +354,7 @@ TEST(color_to_ansi_256) {
 TEST(color_to_ansi_rgb) {
     lle_color_t c = lle_color_rgb(100, 150, 200);
     char buf[64];
-    
+
     size_t len = lle_color_to_ansi(&c, true, buf, sizeof(buf));
     ASSERT(len > 0);
     ASSERT_STR_EQ(buf, "\033[38;2;100;150;200m");
@@ -361,7 +363,7 @@ TEST(color_to_ansi_rgb) {
 TEST(color_to_ansi_background) {
     lle_color_t c = lle_color_basic(LLE_COLOR_BLUE);
     char buf[32];
-    
+
     size_t len = lle_color_to_ansi(&c, false, buf, sizeof(buf));
     ASSERT(len > 0);
     ASSERT_STR_EQ(buf, "\033[44m");
@@ -374,7 +376,7 @@ TEST(color_to_ansi_background) {
 TEST(symbol_set_unicode) {
     lle_symbol_set_t symbols;
     lle_symbol_set_init_unicode(&symbols);
-    
+
     ASSERT_STR_EQ(symbols.prompt, "$");
     ASSERT_STR_EQ(symbols.prompt_root, "#");
     ASSERT_STR_EQ(symbols.ahead, "↑");
@@ -386,7 +388,7 @@ TEST(symbol_set_unicode) {
 TEST(symbol_set_ascii) {
     lle_symbol_set_t symbols;
     lle_symbol_set_init_ascii(&symbols);
-    
+
     ASSERT_STR_EQ(symbols.prompt, "$");
     ASSERT_STR_EQ(symbols.prompt_root, "#");
     ASSERT_STR_EQ(symbols.ahead, "^");
@@ -460,12 +462,12 @@ TEST(builtin_two_line) {
 TEST(register_builtins) {
     lle_theme_registry_t registry;
     lle_theme_registry_init(&registry);
-    
+
     size_t count = lle_theme_register_builtins(&registry);
     ASSERT_EQ(count, 10);
     ASSERT_EQ(registry.count, 10);
     ASSERT_EQ(registry.builtin_count, 10);
-    
+
     /* Verify all themes registered */
     ASSERT_NOT_NULL(lle_theme_registry_find(&registry, "minimal"));
     ASSERT_NOT_NULL(lle_theme_registry_find(&registry, "default"));
@@ -477,12 +479,12 @@ TEST(register_builtins) {
     ASSERT_NOT_NULL(lle_theme_registry_find(&registry, "dark"));
     ASSERT_NOT_NULL(lle_theme_registry_find(&registry, "light"));
     ASSERT_NOT_NULL(lle_theme_registry_find(&registry, "colorful"));
-    
+
     /* Minimal is set as active */
     lle_theme_t *active = lle_theme_registry_get_active(&registry);
     ASSERT_NOT_NULL(active);
     ASSERT_STR_EQ(active->name, "minimal");
-    
+
     lle_theme_registry_cleanup(&registry);
 }
 

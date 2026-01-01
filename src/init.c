@@ -342,8 +342,9 @@ int init(int argc, char **argv, FILE **in) {
         // Enable job control by default for interactive shells (POSIX behavior)
         // This allows background jobs (cmd &) to be tracked and managed
         shell_opts.job_control = true;
-        
-        // Initialize display integration system config first (needed for debug flags)
+
+        // Initialize display integration system config first (needed for debug
+        // flags)
         display_integration_config_t display_config;
         display_integration_create_default_config(&display_config);
 
@@ -396,7 +397,8 @@ int init(int argc, char **argv, FILE **in) {
             atexit(lusush_pool_shutdown);
 
             if (display_config.debug_mode || getenv("LUSUSH_MEMORY_DEBUG")) {
-                fprintf(stderr, "Memory pool system initialized successfully\n");
+                fprintf(stderr,
+                        "Memory pool system initialized successfully\n");
             }
         }
 
@@ -406,7 +408,8 @@ int init(int argc, char **argv, FILE **in) {
          */
         lle_result_t lle_result = lle_shell_integration_init();
         if (lle_result != LLE_SUCCESS) {
-            fprintf(stderr, "Warning: Failed to initialize LLE: %d\n", lle_result);
+            fprintf(stderr, "Warning: Failed to initialize LLE: %d\n",
+                    lle_result);
         }
 
         // Initialize display integration ONLY in interactive mode
@@ -539,7 +542,8 @@ int init(int argc, char **argv, FILE **in) {
 
     // Register cleanup for display integration
     // Note: atexit handlers run in REVERSE order of registration
-    // LLE cleanup is handled by lle_shell_integration_shutdown (registered in init)
+    // LLE cleanup is handled by lle_shell_integration_shutdown (registered in
+    // init)
     if (IS_INTERACTIVE_SHELL) {
         atexit(display_integration_cleanup);
     }

@@ -30,9 +30,9 @@
  *     lle_async_worker_start(worker);
  *
  *     // Submit async request
- *     lle_async_request_t *req = lle_async_request_create(LLE_ASYNC_GIT_STATUS);
- *     strncpy(req->cwd, "/path/to/repo", sizeof(req->cwd) - 1);
- *     lle_async_worker_submit(worker, req);
+ *     lle_async_request_t *req =
+ * lle_async_request_create(LLE_ASYNC_GIT_STATUS); strncpy(req->cwd,
+ * "/path/to/repo", sizeof(req->cwd) - 1); lle_async_worker_submit(worker, req);
  *
  *     // Later: shutdown
  *     lle_async_worker_shutdown(worker);
@@ -87,17 +87,17 @@ typedef enum lle_async_request_type {
  * Git status data returned from async worker
  */
 typedef struct lle_git_status_data {
-    bool is_git_repo;                      /**< Is this a git repository? */
-    char branch[LLE_ASYNC_BRANCH_MAX];     /**< Current branch name */
-    char commit[LLE_ASYNC_COMMIT_MAX];     /**< Short commit hash */
-    bool has_staged;                       /**< Has staged changes */
-    bool has_unstaged;                     /**< Has unstaged changes */
-    bool has_untracked;                    /**< Has untracked files */
-    int ahead;                             /**< Commits ahead of upstream */
-    int behind;                            /**< Commits behind upstream */
-    bool is_detached;                      /**< HEAD is detached */
-    bool is_merging;                       /**< Merge in progress */
-    bool is_rebasing;                      /**< Rebase in progress */
+    bool is_git_repo;                  /**< Is this a git repository? */
+    char branch[LLE_ASYNC_BRANCH_MAX]; /**< Current branch name */
+    char commit[LLE_ASYNC_COMMIT_MAX]; /**< Short commit hash */
+    bool has_staged;                   /**< Has staged changes */
+    bool has_unstaged;                 /**< Has unstaged changes */
+    bool has_untracked;                /**< Has untracked files */
+    int ahead;                         /**< Commits ahead of upstream */
+    int behind;                        /**< Commits behind upstream */
+    bool is_detached;                  /**< HEAD is detached */
+    bool is_merging;                   /**< Merge in progress */
+    bool is_rebasing;                  /**< Rebase in progress */
 } lle_git_status_data_t;
 
 /**
@@ -111,8 +111,8 @@ typedef struct lle_async_worker lle_async_worker_t;
  * Async response structure
  */
 typedef struct lle_async_response {
-    uint64_t id;          /**< Matching request ID */
-    lle_result_t result;  /**< Success or error code */
+    uint64_t id;         /**< Matching request ID */
+    lle_result_t result; /**< Success or error code */
 
     union {
         lle_git_status_data_t git_status; /**< Git status data */
@@ -137,11 +137,11 @@ typedef void (*lle_async_completion_fn)(const lle_async_response_t *response,
  * Async request structure
  */
 typedef struct lle_async_request {
-    uint64_t id;                    /**< Unique request ID (assigned by worker) */
-    lle_async_request_type_t type;  /**< Request type */
-    char cwd[PATH_MAX];             /**< Working directory for the request */
-    uint32_t timeout_ms;            /**< Timeout in milliseconds */
-    void *user_data;                /**< Custom data for custom requests */
+    uint64_t id; /**< Unique request ID (assigned by worker) */
+    lle_async_request_type_t type; /**< Request type */
+    char cwd[PATH_MAX];            /**< Working directory for the request */
+    uint32_t timeout_ms;           /**< Timeout in milliseconds */
+    void *user_data;               /**< Custom data for custom requests */
 
     struct lle_async_request *next; /**< Queue linkage (internal use) */
 } lle_async_request_t;
@@ -150,9 +150,9 @@ typedef struct lle_async_request {
  * Async worker thread structure
  */
 typedef struct lle_async_worker {
-    pthread_t thread;              /**< Worker thread */
-    pthread_mutex_t queue_mutex;   /**< Queue mutex */
-    pthread_cond_t queue_cond;     /**< Queue condition variable */
+    pthread_t thread;            /**< Worker thread */
+    pthread_mutex_t queue_mutex; /**< Queue mutex */
+    pthread_cond_t queue_cond;   /**< Queue condition variable */
 
     /* Request queue */
     lle_async_request_t *queue_head; /**< Queue head */
@@ -160,18 +160,18 @@ typedef struct lle_async_worker {
     size_t queue_size;               /**< Current queue size */
 
     /* State */
-    bool running;             /**< Worker is running */
-    bool shutdown_requested;  /**< Shutdown has been requested */
+    bool running;            /**< Worker is running */
+    bool shutdown_requested; /**< Shutdown has been requested */
 
     /* Completion callback */
     lle_async_completion_fn on_complete; /**< Completion callback */
     void *callback_user_data;            /**< Callback user data */
 
     /* Statistics */
-    uint64_t total_requests;   /**< Total requests submitted */
-    uint64_t total_completed;  /**< Total requests completed */
-    uint64_t total_timeouts;   /**< Total requests timed out */
-    uint64_t next_request_id;  /**< Next request ID to assign */
+    uint64_t total_requests;  /**< Total requests submitted */
+    uint64_t total_completed; /**< Total requests completed */
+    uint64_t total_timeouts;  /**< Total requests timed out */
+    uint64_t next_request_id; /**< Next request ID to assign */
 } lle_async_worker_t;
 
 /* ============================================================================
@@ -278,7 +278,8 @@ void lle_async_request_free(lle_async_request_t *request);
  * @param request Request to submit (must not be NULL, ownership transferred)
  * @return LLE_SUCCESS on success
  * @return LLE_ERROR_INVALID_PARAMETER if worker or request is NULL
- * @return LLE_ERROR_INVALID_STATE if worker is not running or shutdown requested
+ * @return LLE_ERROR_INVALID_STATE if worker is not running or shutdown
+ * requested
  * @return LLE_ERROR_RESOURCE_EXHAUSTED if queue is full
  */
 lle_result_t lle_async_worker_submit(lle_async_worker_t *worker,

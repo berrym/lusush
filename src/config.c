@@ -373,11 +373,11 @@ static config_option_t config_options[] = {
     // needed
     // display.system_mode and display.layered_display options removed
     {"display.syntax_highlighting", CONFIG_TYPE_BOOL, CONFIG_SECTION_DISPLAY,
-     &config.display_syntax_highlighting,
-     "Enable syntax highlighting", config_validate_bool, NULL},
+     &config.display_syntax_highlighting, "Enable syntax highlighting",
+     config_validate_bool, NULL},
     {"display.autosuggestions", CONFIG_TYPE_BOOL, CONFIG_SECTION_DISPLAY,
-     &config.display_autosuggestions,
-     "Enable Fish-style autosuggestions", config_validate_bool, NULL},
+     &config.display_autosuggestions, "Enable Fish-style autosuggestions",
+     config_validate_bool, NULL},
     {"display.transient_prompt", CONFIG_TYPE_BOOL, CONFIG_SECTION_DISPLAY,
      &config.display_transient_prompt,
      "Enable transient prompts (simplify previous prompts in scrollback)",
@@ -1511,8 +1511,10 @@ void config_set_defaults(void) {
     // needed
     config.display_syntax_highlighting = true;
     config.display_autosuggestions = true;
-    config.display_transient_prompt = true;  // Transient prompts enabled by default (Spec 25 Section 12)
-    config.display_newline_before_prompt = true;  // Visual separation before prompt (default on)
+    config.display_transient_prompt =
+        true; // Transient prompts enabled by default (Spec 25 Section 12)
+    config.display_newline_before_prompt =
+        true; // Visual separation before prompt (default on)
     config.display_performance_monitoring = false;
     config.display_optimization_level = 0;
 

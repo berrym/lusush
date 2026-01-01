@@ -15,10 +15,10 @@
 #include "lle/syntax_highlighting.h"
 #include <ctype.h>
 #include <stdio.h>
-#include <time.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 /* Include lusush headers for command/alias/builtin checks */
@@ -59,7 +59,7 @@ static const lle_syntax_colors_t default_colors = {
     .operator_other = 0x00839496, /* Base0 (default fg) */
 
     /* Assignment */
-    .assignment = 0x006C71C4,     /* Violet (same as variable) */
+    .assignment = 0x006C71C4, /* Violet (same as variable) */
 
     /* Other */
     .comment = 0x00586E75,  /* Base01 (dim) */
@@ -131,8 +131,8 @@ static const char *shell_keywords[] = {
     "coproc", "!",     "{",     "}",    "[[",   "]]",     NULL};
 
 /* Keywords that END blocks - these don't expect a command after them */
-static const char *block_ending_keywords[] = {"fi", "done", "esac", "}", "]]",
-                                              NULL};
+static const char *block_ending_keywords[] = {"fi", "done", "esac",
+                                              "}",  "]]",   NULL};
 
 static bool is_shell_keyword(const char *word, size_t len) {
     for (int i = 0; shell_keywords[i]; i++) {
@@ -192,28 +192,31 @@ static bool is_glob_char(char c) { return c == '*' || c == '?' || c == '['; }
  * alphanumeric or underscore, then '='
  */
 static bool is_assignment(const char *word, size_t len) {
-    if (len < 2) return false;  /* Minimum: "x=" */
-    
+    if (len < 2)
+        return false; /* Minimum: "x=" */
+
     /* Find the '=' */
     const char *eq = memchr(word, '=', len);
-    if (!eq) return false;
-    
+    if (!eq)
+        return false;
+
     /* Variable name must be before the '=' */
     size_t name_len = eq - word;
-    if (name_len == 0) return false;
-    
+    if (name_len == 0)
+        return false;
+
     /* First char must be letter or underscore */
     if (!isalpha((unsigned char)word[0]) && word[0] != '_') {
         return false;
     }
-    
+
     /* Rest must be alphanumeric or underscore */
     for (size_t i = 1; i < name_len; i++) {
         if (!isalnum((unsigned char)word[i]) && word[i] != '_') {
             return false;
         }
     }
-    
+
     return true;
 }
 
@@ -603,9 +606,8 @@ int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
 
             /* Regular redirect: >, >>, <, >&, <&, etc. */
             pos++;
-            while (pos < input_len &&
-                   (input[pos] == '>' || input[pos] == '&' ||
-                    isdigit((unsigned char)input[pos]))) {
+            while (pos < input_len && (input[pos] == '>' || input[pos] == '&' ||
+                                       isdigit((unsigned char)input[pos]))) {
                 pos++;
             }
             add_token(highlighter, LLE_TOKEN_REDIRECT, token_start, pos);
@@ -684,7 +686,8 @@ int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
                     type = LLE_TOKEN_KEYWORD;
                     /* Block-ending keywords (done, fi, esac, etc.) don't expect
                        a command after them. Block-starting keywords do. */
-                    if (is_block_ending_keyword(input + token_start, word_len)) {
+                    if (is_block_ending_keyword(input + token_start,
+                                                word_len)) {
                         expect_command = false;
                     } else {
                         expect_command = true;

@@ -5,8 +5,8 @@
  * conditionals, and color application.
  */
 
-#include "lle/prompt/template.h"
 #include "lle/error_handling.h"
+#include "lle/prompt/template.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -67,11 +67,11 @@ typedef struct {
     const char *user;
 } mock_context_t;
 
-static char *mock_get_segment(const char *segment_name,
-                               const char *property,
-                               void *user_data) {
+static char *mock_get_segment(const char *segment_name, const char *property,
+                              void *user_data) {
     mock_context_t *ctx = user_data;
-    if (!ctx) return NULL;
+    if (!ctx)
+        return NULL;
 
     if (strcmp(segment_name, "directory") == 0) {
         if (!property) {
@@ -95,11 +95,11 @@ static char *mock_get_segment(const char *segment_name,
     return NULL;
 }
 
-static bool mock_is_visible(const char *segment_name,
-                             const char *property,
-                             void *user_data) {
+static bool mock_is_visible(const char *segment_name, const char *property,
+                            void *user_data) {
     mock_context_t *ctx = user_data;
-    if (!ctx) return false;
+    if (!ctx)
+        return false;
 
     if (strcmp(segment_name, "directory") == 0) {
         return ctx->directory != NULL;
@@ -119,11 +119,11 @@ static const char *mock_get_color(const char *color_name, void *user_data) {
     (void)user_data;
 
     if (strcmp(color_name, "primary") == 0) {
-        return "\033[1;34m";  /* Bold blue */
+        return "\033[1;34m"; /* Bold blue */
     } else if (strcmp(color_name, "success") == 0) {
-        return "\033[1;32m";  /* Bold green */
+        return "\033[1;32m"; /* Bold green */
     } else if (strcmp(color_name, "error") == 0) {
-        return "\033[1;31m";  /* Bold red */
+        return "\033[1;31m"; /* Bold red */
     }
 
     return "";
@@ -165,8 +165,8 @@ TEST(token_property_creation) {
 }
 
 TEST(token_conditional_creation) {
-    lle_template_token_t *token = lle_template_token_conditional(
-        "git", NULL, "yes", "no");
+    lle_template_token_t *token =
+        lle_template_token_conditional("git", NULL, "yes", "no");
     ASSERT(token != NULL);
     ASSERT_EQ(token->type, LLE_TOKEN_CONDITIONAL);
     ASSERT_STR_EQ(token->data.conditional.condition_segment, "git");
@@ -217,7 +217,7 @@ TEST(parse_empty_template) {
     ASSERT_EQ(result, LLE_SUCCESS);
     ASSERT(parsed != NULL);
     ASSERT(parsed->valid);
-    ASSERT_EQ(parsed->token_count, 1);  /* Just end token */
+    ASSERT_EQ(parsed->token_count, 1); /* Just end token */
     lle_template_free(parsed);
     PASS();
 }
@@ -228,7 +228,7 @@ TEST(parse_literal_only) {
     ASSERT_EQ(result, LLE_SUCCESS);
     ASSERT(parsed != NULL);
     ASSERT(parsed->valid);
-    ASSERT_EQ(parsed->token_count, 2);  /* literal + end */
+    ASSERT_EQ(parsed->token_count, 2); /* literal + end */
     ASSERT_EQ(parsed->head->type, LLE_TOKEN_LITERAL);
     ASSERT_STR_EQ(parsed->head->data.literal.text, "hello world");
     lle_template_free(parsed);
@@ -240,7 +240,7 @@ TEST(parse_segment_reference) {
     lle_result_t result = lle_template_parse("${directory}", &parsed);
     ASSERT_EQ(result, LLE_SUCCESS);
     ASSERT(parsed != NULL);
-    ASSERT_EQ(parsed->token_count, 2);  /* segment + end */
+    ASSERT_EQ(parsed->token_count, 2); /* segment + end */
     ASSERT_EQ(parsed->head->type, LLE_TOKEN_SEGMENT);
     ASSERT_STR_EQ(parsed->head->data.segment.segment_name, "directory");
     lle_template_free(parsed);
@@ -274,7 +274,8 @@ TEST(parse_conditional) {
 
 TEST(parse_conditional_with_property) {
     lle_parsed_template_t *parsed = NULL;
-    lle_result_t result = lle_template_parse("${?git.branch:has branch:}", &parsed);
+    lle_result_t result =
+        lle_template_parse("${?git.branch:has branch:}", &parsed);
     ASSERT_EQ(result, LLE_SUCCESS);
     ASSERT(parsed != NULL);
     ASSERT_EQ(parsed->head->type, LLE_TOKEN_CONDITIONAL);
@@ -301,7 +302,7 @@ TEST(parse_newline_escape) {
     lle_result_t result = lle_template_parse("line1\\nline2", &parsed);
     ASSERT_EQ(result, LLE_SUCCESS);
     ASSERT(parsed != NULL);
-    ASSERT_EQ(parsed->token_count, 4);  /* literal + newline + literal + end */
+    ASSERT_EQ(parsed->token_count, 4); /* literal + newline + literal + end */
     ASSERT_EQ(parsed->head->type, LLE_TOKEN_LITERAL);
     ASSERT_EQ(parsed->head->next->type, LLE_TOKEN_NEWLINE);
     ASSERT_EQ(parsed->head->next->next->type, LLE_TOKEN_LITERAL);
@@ -322,8 +323,8 @@ TEST(parse_escaped_dollar) {
 
 TEST(parse_mixed_template) {
     lle_parsed_template_t *parsed = NULL;
-    lle_result_t result = lle_template_parse(
-        "${directory} ${?git:${git} :}> ", &parsed);
+    lle_result_t result =
+        lle_template_parse("${directory} ${?git:${git} :}> ", &parsed);
     ASSERT_EQ(result, LLE_SUCCESS);
     ASSERT(parsed != NULL);
     ASSERT(parsed->valid);
@@ -353,16 +354,14 @@ TEST(validate_unclosed_brace) {
 
 TEST(render_literal_only) {
     mock_context_t ctx = {0};
-    lle_template_render_ctx_t render_ctx = {
-        .get_segment = mock_get_segment,
-        .is_visible = mock_is_visible,
-        .get_color = mock_get_color,
-        .user_data = &ctx
-    };
+    lle_template_render_ctx_t render_ctx = {.get_segment = mock_get_segment,
+                                            .is_visible = mock_is_visible,
+                                            .get_color = mock_get_color,
+                                            .user_data = &ctx};
 
     char output[256];
     lle_result_t result = lle_template_evaluate("hello world", &render_ctx,
-                                                 output, sizeof(output));
+                                                output, sizeof(output));
     ASSERT_EQ(result, LLE_SUCCESS);
     ASSERT_STR_EQ(output, "hello world");
     PASS();
@@ -372,16 +371,14 @@ TEST(render_segment) {
     mock_context_t ctx = {
         .directory = "/home/user",
     };
-    lle_template_render_ctx_t render_ctx = {
-        .get_segment = mock_get_segment,
-        .is_visible = mock_is_visible,
-        .get_color = mock_get_color,
-        .user_data = &ctx
-    };
+    lle_template_render_ctx_t render_ctx = {.get_segment = mock_get_segment,
+                                            .is_visible = mock_is_visible,
+                                            .get_color = mock_get_color,
+                                            .user_data = &ctx};
 
     char output[256];
     lle_result_t result = lle_template_evaluate("${directory}", &render_ctx,
-                                                 output, sizeof(output));
+                                                output, sizeof(output));
     ASSERT_EQ(result, LLE_SUCCESS);
     ASSERT_STR_EQ(output, "/home/user");
     PASS();
@@ -392,16 +389,14 @@ TEST(render_property) {
         .git_branch = "main",
         .git_visible = true,
     };
-    lle_template_render_ctx_t render_ctx = {
-        .get_segment = mock_get_segment,
-        .is_visible = mock_is_visible,
-        .get_color = mock_get_color,
-        .user_data = &ctx
-    };
+    lle_template_render_ctx_t render_ctx = {.get_segment = mock_get_segment,
+                                            .is_visible = mock_is_visible,
+                                            .get_color = mock_get_color,
+                                            .user_data = &ctx};
 
     char output[256];
     lle_result_t result = lle_template_evaluate("${git.branch}", &render_ctx,
-                                                 output, sizeof(output));
+                                                output, sizeof(output));
     ASSERT_EQ(result, LLE_SUCCESS);
     ASSERT_STR_EQ(output, "main");
     PASS();
@@ -412,16 +407,14 @@ TEST(render_conditional_true) {
         .git_branch = "main",
         .git_visible = true,
     };
-    lle_template_render_ctx_t render_ctx = {
-        .get_segment = mock_get_segment,
-        .is_visible = mock_is_visible,
-        .get_color = mock_get_color,
-        .user_data = &ctx
-    };
+    lle_template_render_ctx_t render_ctx = {.get_segment = mock_get_segment,
+                                            .is_visible = mock_is_visible,
+                                            .get_color = mock_get_color,
+                                            .user_data = &ctx};
 
     char output[256];
-    lle_result_t result = lle_template_evaluate("${?git:in git:not git}",
-                                                 &render_ctx, output, sizeof(output));
+    lle_result_t result = lle_template_evaluate(
+        "${?git:in git:not git}", &render_ctx, output, sizeof(output));
     ASSERT_EQ(result, LLE_SUCCESS);
     ASSERT_STR_EQ(output, "in git");
     PASS();
@@ -431,16 +424,14 @@ TEST(render_conditional_false) {
     mock_context_t ctx = {
         .git_visible = false,
     };
-    lle_template_render_ctx_t render_ctx = {
-        .get_segment = mock_get_segment,
-        .is_visible = mock_is_visible,
-        .get_color = mock_get_color,
-        .user_data = &ctx
-    };
+    lle_template_render_ctx_t render_ctx = {.get_segment = mock_get_segment,
+                                            .is_visible = mock_is_visible,
+                                            .get_color = mock_get_color,
+                                            .user_data = &ctx};
 
     char output[256];
-    lle_result_t result = lle_template_evaluate("${?git:in git:not git}",
-                                                 &render_ctx, output, sizeof(output));
+    lle_result_t result = lle_template_evaluate(
+        "${?git:in git:not git}", &render_ctx, output, sizeof(output));
     ASSERT_EQ(result, LLE_SUCCESS);
     ASSERT_STR_EQ(output, "not git");
     PASS();
@@ -448,36 +439,32 @@ TEST(render_conditional_false) {
 
 TEST(render_color_application) {
     mock_context_t ctx = {0};
-    lle_template_render_ctx_t render_ctx = {
-        .get_segment = mock_get_segment,
-        .is_visible = mock_is_visible,
-        .get_color = mock_get_color,
-        .user_data = &ctx
-    };
+    lle_template_render_ctx_t render_ctx = {.get_segment = mock_get_segment,
+                                            .is_visible = mock_is_visible,
+                                            .get_color = mock_get_color,
+                                            .user_data = &ctx};
 
     char output[256];
-    lle_result_t result = lle_template_evaluate("${primary:hello}",
-                                                 &render_ctx, output, sizeof(output));
+    lle_result_t result = lle_template_evaluate("${primary:hello}", &render_ctx,
+                                                output, sizeof(output));
     ASSERT_EQ(result, LLE_SUCCESS);
     /* Should contain color code, text, and reset */
-    ASSERT(strstr(output, "\033[1;34m") != NULL);  /* Blue */
+    ASSERT(strstr(output, "\033[1;34m") != NULL); /* Blue */
     ASSERT(strstr(output, "hello") != NULL);
-    ASSERT(strstr(output, "\033[0m") != NULL);  /* Reset */
+    ASSERT(strstr(output, "\033[0m") != NULL); /* Reset */
     PASS();
 }
 
 TEST(render_newline) {
     mock_context_t ctx = {0};
-    lle_template_render_ctx_t render_ctx = {
-        .get_segment = mock_get_segment,
-        .is_visible = mock_is_visible,
-        .get_color = mock_get_color,
-        .user_data = &ctx
-    };
+    lle_template_render_ctx_t render_ctx = {.get_segment = mock_get_segment,
+                                            .is_visible = mock_is_visible,
+                                            .get_color = mock_get_color,
+                                            .user_data = &ctx};
 
     char output[256];
-    lle_result_t result = lle_template_evaluate("line1\\nline2",
-                                                 &render_ctx, output, sizeof(output));
+    lle_result_t result = lle_template_evaluate("line1\\nline2", &render_ctx,
+                                                output, sizeof(output));
     ASSERT_EQ(result, LLE_SUCCESS);
     ASSERT_STR_EQ(output, "line1\nline2");
     PASS();
@@ -490,18 +477,16 @@ TEST(render_complex_template) {
         .git_visible = true,
         .user = "alice",
     };
-    lle_template_render_ctx_t render_ctx = {
-        .get_segment = mock_get_segment,
-        .is_visible = mock_is_visible,
-        .get_color = mock_get_color,
-        .user_data = &ctx
-    };
+    lle_template_render_ctx_t render_ctx = {.get_segment = mock_get_segment,
+                                            .is_visible = mock_is_visible,
+                                            .get_color = mock_get_color,
+                                            .user_data = &ctx};
 
     /* Test with separate segments - conditional values are literal strings */
     char output[512];
-    lle_result_t result = lle_template_evaluate(
-        "${user}@host:${directory} ${git}$ ",
-        &render_ctx, output, sizeof(output));
+    lle_result_t result =
+        lle_template_evaluate("${user}@host:${directory} ${git}$ ", &render_ctx,
+                              output, sizeof(output));
     ASSERT_EQ(result, LLE_SUCCESS);
     ASSERT(strstr(output, "alice") != NULL);
     ASSERT(strstr(output, "~/project") != NULL);
@@ -511,19 +496,17 @@ TEST(render_complex_template) {
 }
 
 TEST(render_missing_segment) {
-    mock_context_t ctx = {0};  /* No segments set */
-    lle_template_render_ctx_t render_ctx = {
-        .get_segment = mock_get_segment,
-        .is_visible = mock_is_visible,
-        .get_color = mock_get_color,
-        .user_data = &ctx
-    };
+    mock_context_t ctx = {0}; /* No segments set */
+    lle_template_render_ctx_t render_ctx = {.get_segment = mock_get_segment,
+                                            .is_visible = mock_is_visible,
+                                            .get_color = mock_get_color,
+                                            .user_data = &ctx};
 
     char output[256];
-    lle_result_t result = lle_template_evaluate("${nonexistent}",
-                                                 &render_ctx, output, sizeof(output));
+    lle_result_t result = lle_template_evaluate("${nonexistent}", &render_ctx,
+                                                output, sizeof(output));
     ASSERT_EQ(result, LLE_SUCCESS);
-    ASSERT_STR_EQ(output, "");  /* Missing segment renders as empty */
+    ASSERT_STR_EQ(output, ""); /* Missing segment renders as empty */
     PASS();
 }
 
@@ -571,8 +554,8 @@ int main(void) {
     RUN_TEST(render_missing_segment);
 
     printf("\n===========================================\n");
-    printf("Test Results: %d passed, %d failed, %d total\n",
-           tests_passed, tests_failed, tests_passed + tests_failed);
+    printf("Test Results: %d passed, %d failed, %d total\n", tests_passed,
+           tests_failed, tests_passed + tests_failed);
     printf("===========================================\n");
 
     return tests_failed > 0 ? 1 : 0;

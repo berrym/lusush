@@ -3,24 +3,25 @@
  * @brief LLE Shell Integration - Implementation
  *
  * Implements the centralized LLE initialization and lifecycle management.
- * Provides shell-level LLE init, three-tier reset hierarchy, and error tracking.
+ * Provides shell-level LLE init, three-tier reset hierarchy, and error
+ * tracking.
  *
  * Specification: docs/lle_specification/26_initialization_system_complete.md
  * Date: 2025-01-16
  */
 
 #include "lle/lle_shell_integration.h"
-#include "lle/lle_shell_event_hub.h"
+#include "config.h"
+#include "executor.h"
+#include "lle/history.h"
 #include "lle/lle_editor.h"
 #include "lle/lle_readline.h"
+#include "lle/lle_shell_event_hub.h"
 #include "lle/lle_watchdog.h"
-#include "lle/history.h"
 #include "lle/prompt/composer.h"
 #include "lle/prompt/segment.h"
 #include "lle/prompt/theme.h"
 #include "lle/prompt/theme_loader.h"
-#include "config.h"
-#include "executor.h"
 #include "lusush.h"
 #include "lusush_memory_pool.h"
 #include "symtable.h"
@@ -56,7 +57,8 @@ static bool atexit_registered = false;
 static void lle_shell_integration_atexit_handler(void);
 static lle_result_t create_and_configure_editor(lle_shell_integration_t *integ);
 static void destroy_editor(lle_shell_integration_t *integ);
-static lle_result_t create_and_configure_prompt_composer(lle_shell_integration_t *integ);
+static lle_result_t
+create_and_configure_prompt_composer(lle_shell_integration_t *integ);
 static void destroy_prompt_composer(lle_shell_integration_t *integ);
 
 /* ============================================================================
@@ -188,7 +190,8 @@ lle_result_t lle_shell_integration_init(void) {
     }
     integ->init_state.editor_initialized = true;
 
-    /* Step 5: Initialize history (already done in create_and_configure_editor) */
+    /* Step 5: Initialize history (already done in create_and_configure_editor)
+     */
     integ->init_state.history_initialized = true;
 
     /* Step 6: Create and configure prompt composer (Spec 25) */
@@ -236,8 +239,8 @@ void lle_shell_integration_shutdown(void) {
         const char *home = getenv("HOME");
         if (home) {
             char history_path[1024];
-            snprintf(history_path, sizeof(history_path),
-                     "%s/.lusush_history", home);
+            snprintf(history_path, sizeof(history_path), "%s/.lusush_history",
+                     home);
             lle_history_save_to_file(integ->editor->history_system,
                                      history_path);
         }
@@ -267,7 +270,7 @@ void lle_shell_integration_shutdown(void) {
 
 /**
  * @brief Atexit handler for automatic cleanup
- * 
+ *
  * Uses static flag to ensure shutdown only runs once, preventing
  * double-free issues if shutdown is called from multiple paths.
  */
@@ -297,7 +300,8 @@ bool lle_is_active(void) {
 /**
  * @brief Create and configure the LLE editor instance
  */
-static lle_result_t create_and_configure_editor(lle_shell_integration_t *integ) {
+static lle_result_t
+create_and_configure_editor(lle_shell_integration_t *integ) {
     if (!integ) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -320,18 +324,18 @@ static lle_result_t create_and_configure_editor(lle_shell_integration_t *integ) 
         const char *home = getenv("HOME");
         if (home) {
             char history_path[1024];
-            snprintf(history_path, sizeof(history_path),
-                     "%s/.lusush_history", home);
+            snprintf(history_path, sizeof(history_path), "%s/.lusush_history",
+                     home);
             lle_history_load_from_file(integ->editor->history_system,
                                        history_path);
         }
 
         /* Initialize the history bridge for builtin commands
          * This connects the LLE history core to the shell's history builtin */
-        lle_result_t bridge_result = lle_history_bridge_init(
-            integ->editor->history_system,
-            NULL,  /* No POSIX manager - LLE-only now */
-            integ->editor->lle_pool);
+        lle_result_t bridge_result =
+            lle_history_bridge_init(integ->editor->history_system,
+                                    NULL, /* No POSIX manager - LLE-only now */
+                                    integ->editor->lle_pool);
         if (bridge_result != LLE_SUCCESS) {
             /* Non-fatal - history builtin won't work but shell continues */
         }
@@ -370,7 +374,8 @@ static bool g_registries_initialized = false;
  * Initializes the prompt composer and registers it with the shell event hub
  * for automatic cache invalidation on directory changes and command events.
  */
-static lle_result_t create_and_configure_prompt_composer(lle_shell_integration_t *integ) {
+static lle_result_t
+create_and_configure_prompt_composer(lle_shell_integration_t *integ) {
     if (!integ || !integ->event_hub) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -415,9 +420,8 @@ static lle_result_t create_and_configure_prompt_composer(lle_shell_integration_t
     }
 
     /* Initialize the composer with segment and theme registries */
-    result = lle_composer_init(integ->prompt_composer, 
-                                &g_segment_registry, 
-                                &g_theme_registry);
+    result = lle_composer_init(integ->prompt_composer, &g_segment_registry,
+                               &g_theme_registry);
     if (result != LLE_SUCCESS) {
         free(integ->prompt_composer);
         integ->prompt_composer = NULL;
@@ -425,13 +429,15 @@ static lle_result_t create_and_configure_prompt_composer(lle_shell_integration_t
     }
 
     /* Sync composer config with global config settings */
-    integ->prompt_composer->config.enable_transient = config.display_transient_prompt;
-    integ->prompt_composer->config.newline_before_prompt = config.display_newline_before_prompt;
+    integ->prompt_composer->config.enable_transient =
+        config.display_transient_prompt;
+    integ->prompt_composer->config.newline_before_prompt =
+        config.display_newline_before_prompt;
 
     /* Register with shell event hub for automatic updates
      * This is the key Spec 25 <-> Spec 26 integration point */
     result = lle_composer_register_shell_events(integ->prompt_composer,
-                                                 integ->event_hub);
+                                                integ->event_hub);
     if (result != LLE_SUCCESS) {
         lle_composer_cleanup(integ->prompt_composer);
         free(integ->prompt_composer);
@@ -506,8 +512,8 @@ void lle_hard_reset(void) {
         const char *home = getenv("HOME");
         if (home) {
             char history_path[1024];
-            snprintf(history_path, sizeof(history_path),
-                     "%s/.lusush_history", home);
+            snprintf(history_path, sizeof(history_path), "%s/.lusush_history",
+                     home);
             lle_history_save_to_file(integ->editor->history_system,
                                      history_path);
         }
@@ -630,7 +636,8 @@ void lle_record_ctrl_g(void) {
     uint64_t now = get_timestamp_us();
 
     /* Check if this Ctrl+G is within the panic window */
-    if (now - g_lle_integration->last_ctrl_g_time_us < LLE_CTRL_G_PANIC_WINDOW_US) {
+    if (now - g_lle_integration->last_ctrl_g_time_us <
+        LLE_CTRL_G_PANIC_WINDOW_US) {
         g_lle_integration->ctrl_g_count++;
     } else {
         /* Reset counter - too much time passed */
@@ -680,7 +687,8 @@ char *lusush_readline_with_prompt(const char *prompt) {
 
     /* If prompt is NULL, retrieve from PS1 (primary prompt)
      * This is the standard behavior - input.c passes NULL to let
-     * the prompt system generate the themed prompt via lle_shell_update_prompt()
+     * the prompt system generate the themed prompt via
+     * lle_shell_update_prompt()
      */
     const char *effective_prompt = prompt;
     if (!effective_prompt) {

@@ -1108,11 +1108,9 @@ static uint32_t color_to_rgb(const lle_color_t *color) {
         if (idx < 16) {
             /* Basic 16 colors */
             static const uint32_t basic[16] = {
-                0x000000, 0x800000, 0x008000, 0x808000,
-                0x000080, 0x800080, 0x008080, 0xC0C0C0,
-                0x808080, 0xFF0000, 0x00FF00, 0xFFFF00,
-                0x0000FF, 0xFF00FF, 0x00FFFF, 0xFFFFFF
-            };
+                0x000000, 0x800000, 0x008000, 0x808000, 0x000080, 0x800080,
+                0x008080, 0xC0C0C0, 0x808080, 0xFF0000, 0x00FF00, 0xFFFF00,
+                0x0000FF, 0xFF00FF, 0x00FFFF, 0xFFFFFF};
             return basic[idx];
         } else if (idx < 232) {
             /* 216-color cube (6x6x6) */
@@ -1124,16 +1122,16 @@ static uint32_t color_to_rgb(const lle_color_t *color) {
         } else {
             /* Grayscale */
             int gray = 8 + (idx - 232) * 10;
-            return ((uint32_t)gray << 16) | ((uint32_t)gray << 8) | (uint32_t)gray;
+            return ((uint32_t)gray << 16) | ((uint32_t)gray << 8) |
+                   (uint32_t)gray;
         }
     }
 
     case LLE_COLOR_MODE_BASIC: {
         /* Basic 8 ANSI colors */
-        static const uint32_t basic8[8] = {
-            0x000000, 0xAA0000, 0x00AA00, 0xAAAA00,
-            0x0000AA, 0xAA00AA, 0x00AAAA, 0xAAAAAA
-        };
+        static const uint32_t basic8[8] = {0x000000, 0xAA0000, 0x00AA00,
+                                           0xAAAA00, 0x0000AA, 0xAA00AA,
+                                           0x00AAAA, 0xAAAAAA};
         if (color->value.basic < 8) {
             return basic8[color->value.basic];
         }
@@ -1191,8 +1189,8 @@ static lle_result_t theme_builder_callback(const char *section, const char *key,
             theme->category = parse_category(value->data.string);
         } else if (strcmp(key, "inherits_from") == 0 &&
                    value->type == LLE_THEME_VALUE_STRING) {
-            snprintf(theme->inherits_from, sizeof(theme->inherits_from), "%.63s",
-                     value->data.string);
+            snprintf(theme->inherits_from, sizeof(theme->inherits_from),
+                     "%.63s", value->data.string);
         }
         return LLE_SUCCESS;
     }

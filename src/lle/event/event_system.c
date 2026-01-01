@@ -545,15 +545,15 @@ lle_result_t lle_event_system_get_stats(lle_event_system_t *system,
  * invalidate cached data that depends on the current directory.
  */
 lle_result_t lle_event_fire_directory_changed(lle_event_system_t *system,
-                                               const char *old_dir,
-                                               const char *new_dir) {
+                                              const char *old_dir,
+                                              const char *new_dir) {
     if (!system || !new_dir) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
 
     lle_event_t *event = NULL;
-    lle_result_t result = lle_event_create(system, LLE_EVENT_DIRECTORY_CHANGED,
-                                            NULL, 0, &event);
+    lle_result_t result =
+        lle_event_create(system, LLE_EVENT_DIRECTORY_CHANGED, NULL, 0, &event);
     if (result != LLE_SUCCESS) {
         return result;
     }
@@ -565,16 +565,18 @@ lle_result_t lle_event_fire_directory_changed(lle_event_system_t *system,
     if (old_dir) {
         strncpy(event->event_data.shell.old_directory, old_dir,
                 sizeof(event->event_data.shell.old_directory) - 1);
-        event->event_data.shell.old_directory[
-            sizeof(event->event_data.shell.old_directory) - 1] = '\0';
+        event->event_data.shell
+            .old_directory[sizeof(event->event_data.shell.old_directory) - 1] =
+            '\0';
     } else {
         event->event_data.shell.old_directory[0] = '\0';
     }
 
     strncpy(event->event_data.shell.new_directory, new_dir,
             sizeof(event->event_data.shell.new_directory) - 1);
-    event->event_data.shell.new_directory[
-        sizeof(event->event_data.shell.new_directory) - 1] = '\0';
+    event->event_data.shell
+        .new_directory[sizeof(event->event_data.shell.new_directory) - 1] =
+        '\0';
 
     /* Enqueue and dispatch immediately for prompt responsiveness */
     result = lle_event_enqueue(system, event);
@@ -593,14 +595,14 @@ lle_result_t lle_event_fire_directory_changed(lle_event_system_t *system,
  * the current prompt position for transient prompt replacement.
  */
 lle_result_t lle_event_fire_pre_command(lle_event_system_t *system,
-                                         const char *command) {
+                                        const char *command) {
     if (!system) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
 
     lle_event_t *event = NULL;
-    lle_result_t result = lle_event_create(system, LLE_EVENT_PRE_COMMAND,
-                                            NULL, 0, &event);
+    lle_result_t result =
+        lle_event_create(system, LLE_EVENT_PRE_COMMAND, NULL, 0, &event);
     if (result != LLE_SUCCESS) {
         return result;
     }
@@ -611,8 +613,8 @@ lle_result_t lle_event_fire_pre_command(lle_event_system_t *system,
     if (command) {
         strncpy(event->event_data.shell.command, command,
                 sizeof(event->event_data.shell.command) - 1);
-        event->event_data.shell.command[
-            sizeof(event->event_data.shell.command) - 1] = '\0';
+        event->event_data.shell
+            .command[sizeof(event->event_data.shell.command) - 1] = '\0';
     } else {
         event->event_data.shell.command[0] = '\0';
     }
@@ -633,16 +635,15 @@ lle_result_t lle_event_fire_pre_command(lle_event_system_t *system,
  * Used for prompt status display and history enrichment.
  */
 lle_result_t lle_event_fire_post_command(lle_event_system_t *system,
-                                          const char *command,
-                                          int exit_code,
-                                          uint64_t duration_us) {
+                                         const char *command, int exit_code,
+                                         uint64_t duration_us) {
     if (!system) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
 
     lle_event_t *event = NULL;
-    lle_result_t result = lle_event_create(system, LLE_EVENT_POST_COMMAND,
-                                            NULL, 0, &event);
+    lle_result_t result =
+        lle_event_create(system, LLE_EVENT_POST_COMMAND, NULL, 0, &event);
     if (result != LLE_SUCCESS) {
         return result;
     }
@@ -653,8 +654,8 @@ lle_result_t lle_event_fire_post_command(lle_event_system_t *system,
     if (command) {
         strncpy(event->event_data.shell.command, command,
                 sizeof(event->event_data.shell.command) - 1);
-        event->event_data.shell.command[
-            sizeof(event->event_data.shell.command) - 1] = '\0';
+        event->event_data.shell
+            .command[sizeof(event->event_data.shell.command) - 1] = '\0';
     } else {
         event->event_data.shell.command[0] = '\0';
     }
@@ -683,8 +684,8 @@ lle_result_t lle_event_fire_prompt_display(lle_event_system_t *system) {
     }
 
     lle_event_t *event = NULL;
-    lle_result_t result = lle_event_create(system, LLE_EVENT_PROMPT_DISPLAY,
-                                            NULL, 0, &event);
+    lle_result_t result =
+        lle_event_create(system, LLE_EVENT_PROMPT_DISPLAY, NULL, 0, &event);
     if (result != LLE_SUCCESS) {
         return result;
     }

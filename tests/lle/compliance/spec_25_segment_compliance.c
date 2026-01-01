@@ -24,8 +24,8 @@
  * Date: 2025-12-26
  */
 
-#include "lle/prompt/segment.h"
 #include "lle/error_handling.h"
+#include "lle/prompt/segment.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -65,18 +65,15 @@ static void test_segment_type_definitions(void) {
     printf("----------------------------------\n");
 
     TEST_START("lle_segment_capability_t enum defined");
-    COMPLIANCE_ASSERT(LLE_SEG_CAP_NONE == 0,
-                      "LLE_SEG_CAP_NONE defined as 0");
-    COMPLIANCE_ASSERT(LLE_SEG_CAP_ASYNC >= 0,
-                      "LLE_SEG_CAP_ASYNC defined");
+    COMPLIANCE_ASSERT(LLE_SEG_CAP_NONE == 0, "LLE_SEG_CAP_NONE defined as 0");
+    COMPLIANCE_ASSERT(LLE_SEG_CAP_ASYNC >= 0, "LLE_SEG_CAP_ASYNC defined");
     COMPLIANCE_ASSERT(LLE_SEG_CAP_CACHEABLE >= 0,
                       "LLE_SEG_CAP_CACHEABLE defined");
     COMPLIANCE_ASSERT(LLE_SEG_CAP_EXPENSIVE >= 0,
                       "LLE_SEG_CAP_EXPENSIVE defined");
     COMPLIANCE_ASSERT(LLE_SEG_CAP_THEME_AWARE >= 0,
                       "LLE_SEG_CAP_THEME_AWARE defined");
-    COMPLIANCE_ASSERT(LLE_SEG_CAP_DYNAMIC >= 0,
-                      "LLE_SEG_CAP_DYNAMIC defined");
+    COMPLIANCE_ASSERT(LLE_SEG_CAP_DYNAMIC >= 0, "LLE_SEG_CAP_DYNAMIC defined");
     COMPLIANCE_ASSERT(LLE_SEG_CAP_OPTIONAL >= 0,
                       "LLE_SEG_CAP_OPTIONAL defined");
     COMPLIANCE_ASSERT(LLE_SEG_CAP_PROPERTIES >= 0,
@@ -142,7 +139,8 @@ static void test_segment_registry_api(void) {
     TEST_START("lle_segment_registry_find function");
     COMPLIANCE_ASSERT(lle_segment_registry_find != NULL,
                       "lle_segment_registry_find declared");
-    lle_prompt_segment_t *found = lle_segment_registry_find(&registry, "directory");
+    lle_prompt_segment_t *found =
+        lle_segment_registry_find(&registry, "directory");
     COMPLIANCE_ASSERT(found != NULL, "find returns registered segment");
     COMPLIANCE_ASSERT(found == seg, "find returns same pointer");
     TEST_PASS();
@@ -190,10 +188,8 @@ static void test_prompt_context_api(void) {
     COMPLIANCE_ASSERT(lle_prompt_context_update != NULL,
                       "lle_prompt_context_update declared");
     lle_prompt_context_update(&ctx, 42, 1000);
-    COMPLIANCE_ASSERT(ctx.last_exit_code == 42,
-                      "exit code updated");
-    COMPLIANCE_ASSERT(ctx.last_cmd_duration_ms == 1000,
-                      "duration updated");
+    COMPLIANCE_ASSERT(ctx.last_exit_code == 42, "exit code updated");
+    COMPLIANCE_ASSERT(ctx.last_cmd_duration_ms == 1000, "duration updated");
     TEST_PASS();
 
     TEST_START("lle_prompt_context_refresh_directory function");
@@ -218,8 +214,8 @@ static void test_segment_lifecycle_api(void) {
     TEST_START("lle_segment_create function");
     COMPLIANCE_ASSERT(lle_segment_create != NULL,
                       "lle_segment_create declared");
-    lle_prompt_segment_t *seg = lle_segment_create("test", "Test segment",
-                                                    LLE_SEG_CAP_NONE);
+    lle_prompt_segment_t *seg =
+        lle_segment_create("test", "Test segment", LLE_SEG_CAP_NONE);
     COMPLIANCE_ASSERT(seg != NULL, "lle_segment_create returns segment");
     COMPLIANCE_ASSERT(strcmp(seg->name, "test") == 0, "name set correctly");
     COMPLIANCE_ASSERT(seg->capabilities == LLE_SEG_CAP_NONE,
@@ -227,8 +223,7 @@ static void test_segment_lifecycle_api(void) {
     TEST_PASS();
 
     TEST_START("lle_segment_free function");
-    COMPLIANCE_ASSERT(lle_segment_free != NULL,
-                      "lle_segment_free declared");
+    COMPLIANCE_ASSERT(lle_segment_free != NULL, "lle_segment_free declared");
     lle_segment_free(seg);
     /* No crash = success */
     TEST_PASS();
@@ -358,7 +353,8 @@ static void test_segment_callback_interface(void) {
 
     TEST_START("segment get_property callback");
     lle_prompt_segment_t *git = lle_segment_create_git();
-    COMPLIANCE_ASSERT(git->get_property != NULL, "get_property callback exists");
+    COMPLIANCE_ASSERT(git->get_property != NULL,
+                      "get_property callback exists");
     /* Property access without state returns NULL */
     const char *branch = git->get_property(git, "branch");
     /* NULL is acceptable when not in git repo */

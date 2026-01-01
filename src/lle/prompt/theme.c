@@ -60,7 +60,7 @@ void lle_theme_registry_cleanup(lle_theme_registry_t *registry) {
  * @brief Register a theme with the registry
  */
 lle_result_t lle_theme_registry_register(lle_theme_registry_t *registry,
-                                          lle_theme_t *theme) {
+                                         lle_theme_t *theme) {
     if (!registry || !theme || !registry->initialized) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -76,7 +76,7 @@ lle_result_t lle_theme_registry_register(lle_theme_registry_t *registry,
     /* Check for duplicate name */
     for (size_t i = 0; i < registry->count; i++) {
         if (strcmp(registry->themes[i]->name, theme->name) == 0) {
-            return LLE_ERROR_INVALID_STATE;  /* Duplicate */
+            return LLE_ERROR_INVALID_STATE; /* Duplicate */
         }
     }
 
@@ -106,7 +106,7 @@ lle_result_t lle_theme_registry_register(lle_theme_registry_t *registry,
  * @brief Find a theme by name
  */
 lle_theme_t *lle_theme_registry_find(const lle_theme_registry_t *registry,
-                                      const char *name) {
+                                     const char *name) {
     if (!registry || !name || !registry->initialized) {
         return NULL;
     }
@@ -124,7 +124,7 @@ lle_theme_t *lle_theme_registry_find(const lle_theme_registry_t *registry,
  * @brief Set the active theme
  */
 lle_result_t lle_theme_registry_set_active(lle_theme_registry_t *registry,
-                                            const char *name) {
+                                           const char *name) {
     if (!registry || !name || !registry->initialized) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -152,7 +152,8 @@ lle_result_t lle_theme_registry_set_active(lle_theme_registry_t *registry,
 /**
  * @brief Get the currently active theme
  */
-lle_theme_t *lle_theme_registry_get_active(const lle_theme_registry_t *registry) {
+lle_theme_t *
+lle_theme_registry_get_active(const lle_theme_registry_t *registry) {
     if (!registry || !registry->initialized) {
         return NULL;
     }
@@ -163,15 +164,14 @@ lle_theme_t *lle_theme_registry_get_active(const lle_theme_registry_t *registry)
  * @brief Get all registered theme names
  */
 size_t lle_theme_registry_list(const lle_theme_registry_t *registry,
-                                const char **names,
-                                size_t max_names) {
+                               const char **names, size_t max_names) {
     if (!registry || !registry->initialized) {
         return 0;
     }
 
     if (names && max_names > 0) {
-        size_t count = (registry->count < max_names) ?
-                       registry->count : max_names;
+        size_t count =
+            (registry->count < max_names) ? registry->count : max_names;
         for (size_t i = 0; i < count; i++) {
             names[i] = registry->themes[i]->name;
         }
@@ -188,9 +188,8 @@ size_t lle_theme_registry_list(const lle_theme_registry_t *registry,
 /**
  * @brief Create a new theme
  */
-lle_theme_t *lle_theme_create(const char *name,
-                               const char *description,
-                               lle_theme_category_t category) {
+lle_theme_t *lle_theme_create(const char *name, const char *description,
+                              lle_theme_category_t category) {
     if (!name || strlen(name) == 0) {
         return NULL;
     }
@@ -202,7 +201,8 @@ lle_theme_t *lle_theme_create(const char *name,
 
     snprintf(theme->name, sizeof(theme->name), "%s", name);
     if (description) {
-        snprintf(theme->description, sizeof(theme->description), "%s", description);
+        snprintf(theme->description, sizeof(theme->description), "%s",
+                 description);
     }
     theme->category = category;
     theme->source = LLE_THEME_SOURCE_RUNTIME;
@@ -216,25 +216,24 @@ lle_theme_t *lle_theme_create(const char *name,
 /**
  * @brief Free a theme
  */
-void lle_theme_free(lle_theme_t *theme) {
-    free(theme);
-}
+void lle_theme_free(lle_theme_t *theme) { free(theme); }
 
 /**
  * @brief Resolve theme inheritance
  */
 lle_result_t lle_theme_resolve_inheritance(lle_theme_registry_t *registry,
-                                            lle_theme_t *theme) {
+                                           lle_theme_t *theme) {
     if (!registry || !theme) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
 
     if (strlen(theme->inherits_from) == 0) {
-        return LLE_SUCCESS;  /* No inheritance */
+        return LLE_SUCCESS; /* No inheritance */
     }
 
     /* Find parent theme */
-    lle_theme_t *parent = lle_theme_registry_find(registry, theme->inherits_from);
+    lle_theme_t *parent =
+        lle_theme_registry_find(registry, theme->inherits_from);
     if (!parent) {
         return LLE_ERROR_NOT_FOUND;
     }
@@ -243,7 +242,7 @@ lle_result_t lle_theme_resolve_inheritance(lle_theme_registry_t *registry,
     lle_theme_t *ancestor = parent;
     for (int depth = 0; depth < 10 && ancestor; depth++) {
         if (strcmp(ancestor->name, theme->name) == 0) {
-            return LLE_ERROR_INVALID_STATE;  /* Cycle detected */
+            return LLE_ERROR_INVALID_STATE; /* Cycle detected */
         }
         ancestor = ancestor->parent;
     }
@@ -255,9 +254,9 @@ lle_result_t lle_theme_resolve_inheritance(lle_theme_registry_t *registry,
     lle_color_scheme_t *child = &theme->colors;
     const lle_color_scheme_t *par = &parent->colors;
 
-#define INHERIT_COLOR(field) \
-    if (child->field.mode == LLE_COLOR_MODE_NONE) { \
-        child->field = par->field; \
+#define INHERIT_COLOR(field)                                                   \
+    if (child->field.mode == LLE_COLOR_MODE_NONE) {                            \
+        child->field = par->field;                                             \
     }
 
     INHERIT_COLOR(primary);
@@ -290,10 +289,10 @@ lle_result_t lle_theme_resolve_inheritance(lle_theme_registry_t *registry,
 #undef INHERIT_COLOR
 
     /* Inherit symbols if empty */
-#define INHERIT_SYMBOL(field) \
-    if (strlen(theme->symbols.field) == 0) { \
-        memcpy(theme->symbols.field, parent->symbols.field, \
-               sizeof(theme->symbols.field)); \
+#define INHERIT_SYMBOL(field)                                                  \
+    if (strlen(theme->symbols.field) == 0) {                                   \
+        memcpy(theme->symbols.field, parent->symbols.field,                    \
+               sizeof(theme->symbols.field));                                  \
     }
 
     INHERIT_SYMBOL(prompt);
@@ -382,10 +381,8 @@ lle_color_t lle_color_rgb(uint8_t r, uint8_t g, uint8_t b) {
 /**
  * @brief Generate ANSI escape sequence for a color
  */
-size_t lle_color_to_ansi(const lle_color_t *color,
-                          bool foreground,
-                          char *output,
-                          size_t output_size) {
+size_t lle_color_to_ansi(const lle_color_t *color, bool foreground,
+                         char *output, size_t output_size) {
     if (!color || !output || output_size == 0) {
         return 0;
     }
@@ -399,7 +396,8 @@ size_t lle_color_to_ansi(const lle_color_t *color,
         return 0;
 
     case LLE_COLOR_MODE_BASIC:
-        len = snprintf(output, output_size, "\033[%dm", base + color->value.basic);
+        len = snprintf(output, output_size, "\033[%dm",
+                       base + color->value.basic);
         break;
 
     case LLE_COLOR_MODE_256:
@@ -409,10 +407,8 @@ size_t lle_color_to_ansi(const lle_color_t *color,
 
     case LLE_COLOR_MODE_TRUE:
         len = snprintf(output, output_size, "\033[%d;2;%d;%d;%dm",
-                       foreground ? 38 : 48,
-                       color->value.rgb.r,
-                       color->value.rgb.g,
-                       color->value.rgb.b);
+                       foreground ? 38 : 48, color->value.rgb.r,
+                       color->value.rgb.g, color->value.rgb.b);
         break;
     }
 
@@ -449,9 +445,8 @@ size_t lle_color_to_ansi(const lle_color_t *color,
  *
  * Converts truecolor to 256-color or basic ANSI as needed.
  */
-lle_color_t lle_color_downgrade(const lle_color_t *color,
-                                 bool has_truecolor,
-                                 bool has_256color) {
+lle_color_t lle_color_downgrade(const lle_color_t *color, bool has_truecolor,
+                                bool has_256color) {
     if (!color) {
         lle_color_t none = {0};
         return none;
@@ -462,7 +457,7 @@ lle_color_t lle_color_downgrade(const lle_color_t *color,
         return *color;
     }
     if (color->mode == LLE_COLOR_MODE_BASIC) {
-        return *color;  /* Basic colors always supported */
+        return *color; /* Basic colors always supported */
     }
     if (color->mode == LLE_COLOR_MODE_256 && has_256color) {
         return *color;
@@ -499,9 +494,12 @@ lle_color_t lle_color_downgrade(const lle_color_t *color,
             int bright = (r > 127 || g > 127 || b > 127) ? 1 : 0;
             int basic = 0;
 
-            if (r > 127) basic |= 1;  /* Red bit */
-            if (g > 127) basic |= 2;  /* Green bit */
-            if (b > 127) basic |= 4;  /* Blue bit */
+            if (r > 127)
+                basic |= 1; /* Red bit */
+            if (g > 127)
+                basic |= 2; /* Green bit */
+            if (b > 127)
+                basic |= 4; /* Blue bit */
 
             result.mode = LLE_COLOR_MODE_BASIC;
             result.value.basic = (uint8_t)basic;
@@ -528,16 +526,19 @@ lle_color_t lle_color_downgrade(const lle_color_t *color,
             int b = cube_idx % 6;
 
             int basic = 0;
-            if (r >= 3) basic |= 1;
-            if (g >= 3) basic |= 2;
-            if (b >= 3) basic |= 4;
+            if (r >= 3)
+                basic |= 1;
+            if (g >= 3)
+                basic |= 2;
+            if (b >= 3)
+                basic |= 4;
 
             result.mode = LLE_COLOR_MODE_BASIC;
             result.value.basic = (uint8_t)basic;
             result.bold = (r >= 4 || g >= 4 || b >= 4);
         } else {
             /* Grayscale 232-255 */
-            int gray = idx - 232;  /* 0-23 */
+            int gray = idx - 232; /* 0-23 */
             if (gray < 8) {
                 result.mode = LLE_COLOR_MODE_BASIC;
                 result.value.basic = LLE_COLOR_BLACK;
@@ -623,26 +624,27 @@ void lle_symbol_set_init_ascii(lle_symbol_set_t *symbols) {
  * @brief Create the minimal theme
  */
 lle_theme_t *lle_theme_create_minimal(void) {
-    lle_theme_t *theme = lle_theme_create("minimal",
-                                          "Minimal prompt with directory only",
-                                          LLE_THEME_CATEGORY_MINIMAL);
+    lle_theme_t *theme =
+        lle_theme_create("minimal", "Minimal prompt with directory only",
+                         LLE_THEME_CATEGORY_MINIMAL);
     if (!theme) {
         return NULL;
     }
 
     theme->source = LLE_THEME_SOURCE_BUILTIN;
-    theme->capabilities = LLE_THEME_CAP_ASCII_FALLBACK | LLE_THEME_CAP_INHERITABLE;
+    theme->capabilities =
+        LLE_THEME_CAP_ASCII_FALLBACK | LLE_THEME_CAP_INHERITABLE;
 
     /* Colors */
     theme->colors.path_normal = lle_color_basic(LLE_COLOR_BLUE);
 
     /* Layout */
-    snprintf(theme->layout.ps1_format, sizeof(theme->layout.ps1_format),
-             "${directory}${?jobs: [${jobs}]}${?status: [${status}]} ${symbol} ");
-    snprintf(theme->layout.ps2_format, sizeof(theme->layout.ps2_format),
-             "> ");
-    snprintf(theme->layout.transient_format, sizeof(theme->layout.transient_format),
-             "${symbol} ");
+    snprintf(
+        theme->layout.ps1_format, sizeof(theme->layout.ps1_format),
+        "${directory}${?jobs: [${jobs}]}${?status: [${status}]} ${symbol} ");
+    snprintf(theme->layout.ps2_format, sizeof(theme->layout.ps2_format), "> ");
+    snprintf(theme->layout.transient_format,
+             sizeof(theme->layout.transient_format), "${symbol} ");
     theme->layout.enable_transient = true;
 
     return theme;
@@ -652,8 +654,7 @@ lle_theme_t *lle_theme_create_minimal(void) {
  * @brief Create the default theme
  */
 lle_theme_t *lle_theme_create_default(void) {
-    lle_theme_t *theme = lle_theme_create("default",
-                                          "Default lusush theme",
+    lle_theme_t *theme = lle_theme_create("default", "Default lusush theme",
                                           LLE_THEME_CATEGORY_MODERN);
     if (!theme) {
         return NULL;
@@ -673,10 +674,9 @@ lle_theme_t *lle_theme_create_default(void) {
     /* Layout */
     snprintf(theme->layout.ps1_format, sizeof(theme->layout.ps1_format),
              "${user}@${host}:${directory}${?git: (${git})} ${symbol} ");
-    snprintf(theme->layout.ps2_format, sizeof(theme->layout.ps2_format),
-             "> ");
-    snprintf(theme->layout.transient_format, sizeof(theme->layout.transient_format),
-             "${symbol} ");
+    snprintf(theme->layout.ps2_format, sizeof(theme->layout.ps2_format), "> ");
+    snprintf(theme->layout.transient_format,
+             sizeof(theme->layout.transient_format), "${symbol} ");
     theme->layout.enable_transient = true;
 
     return theme;
@@ -686,15 +686,15 @@ lle_theme_t *lle_theme_create_default(void) {
  * @brief Create the classic theme (bash-like)
  */
 lle_theme_t *lle_theme_create_classic(void) {
-    lle_theme_t *theme = lle_theme_create("classic",
-                                          "Classic bash-style prompt",
-                                          LLE_THEME_CATEGORY_CLASSIC);
+    lle_theme_t *theme = lle_theme_create(
+        "classic", "Classic bash-style prompt", LLE_THEME_CATEGORY_CLASSIC);
     if (!theme) {
         return NULL;
     }
 
     theme->source = LLE_THEME_SOURCE_BUILTIN;
-    theme->capabilities = LLE_THEME_CAP_ASCII_FALLBACK | LLE_THEME_CAP_INHERITABLE;
+    theme->capabilities =
+        LLE_THEME_CAP_ASCII_FALLBACK | LLE_THEME_CAP_INHERITABLE;
 
     /* ASCII-only symbols */
     lle_symbol_set_init_ascii(&theme->symbols);
@@ -702,10 +702,9 @@ lle_theme_t *lle_theme_create_classic(void) {
     /* Layout */
     snprintf(theme->layout.ps1_format, sizeof(theme->layout.ps1_format),
              "[${user}@${host} ${directory}]${symbol} ");
-    snprintf(theme->layout.ps2_format, sizeof(theme->layout.ps2_format),
-             "> ");
-    snprintf(theme->layout.transient_format, sizeof(theme->layout.transient_format),
-             "${symbol} ");
+    snprintf(theme->layout.ps2_format, sizeof(theme->layout.ps2_format), "> ");
+    snprintf(theme->layout.transient_format,
+             sizeof(theme->layout.transient_format), "${symbol} ");
     theme->layout.enable_transient = true;
 
     return theme;
@@ -726,33 +725,36 @@ lle_theme_t *lle_theme_create_classic(void) {
  *   U+E0B1  - Left-pointing thin arrow
  */
 lle_theme_t *lle_theme_create_powerline(void) {
-    lle_theme_t *theme = lle_theme_create("powerline",
-                                          "Powerline-style prompt (requires patched font)",
-                                          LLE_THEME_CATEGORY_POWERLINE);
+    lle_theme_t *theme = lle_theme_create(
+        "powerline", "Powerline-style prompt (requires patched font)",
+        LLE_THEME_CATEGORY_POWERLINE);
     if (!theme) {
         return NULL;
     }
 
     theme->source = LLE_THEME_SOURCE_BUILTIN;
     theme->capabilities = LLE_THEME_CAP_UNICODE | LLE_THEME_CAP_POWERLINE |
-                          LLE_THEME_CAP_TRANSIENT | LLE_THEME_CAP_ASYNC_SEGMENTS;
+                          LLE_THEME_CAP_TRANSIENT |
+                          LLE_THEME_CAP_ASYNC_SEGMENTS;
 
     /* Colors - using 256-color for better powerline appearance */
-    theme->colors.primary = lle_color_256(39);       /* Bright blue */
-    theme->colors.secondary = lle_color_256(245);    /* Gray for separators */
-    theme->colors.path_normal = lle_color_256(33);   /* Blue */
-    theme->colors.git_branch = lle_color_256(135);   /* Purple */
-    theme->colors.git_dirty = lle_color_256(214);    /* Orange/Yellow */
-    theme->colors.git_clean = lle_color_256(82);     /* Green */
-    theme->colors.error = lle_color_256(196);        /* Red */
-    theme->colors.text = lle_color_256(255);         /* White text */
-    theme->colors.text_dim = lle_color_256(250);     /* Light gray */
+    theme->colors.primary = lle_color_256(39);     /* Bright blue */
+    theme->colors.secondary = lle_color_256(245);  /* Gray for separators */
+    theme->colors.path_normal = lle_color_256(33); /* Blue */
+    theme->colors.git_branch = lle_color_256(135); /* Purple */
+    theme->colors.git_dirty = lle_color_256(214);  /* Orange/Yellow */
+    theme->colors.git_clean = lle_color_256(82);   /* Green */
+    theme->colors.error = lle_color_256(196);      /* Red */
+    theme->colors.text = lle_color_256(255);       /* White text */
+    theme->colors.text_dim = lle_color_256(250);   /* Light gray */
 
     /* Powerline symbols - Private Use Area characters from powerline fonts */
-    snprintf(theme->symbols.separator_left, sizeof(theme->symbols.separator_left),
-             "\xee\x82\xb0");  /* U+E0B0  */
-    snprintf(theme->symbols.separator_right, sizeof(theme->symbols.separator_right),
-             "\xee\x82\xb2");  /* U+E0B2  */
+    snprintf(theme->symbols.separator_left,
+             sizeof(theme->symbols.separator_left),
+             "\xee\x82\xb0"); /* U+E0B0  */
+    snprintf(theme->symbols.separator_right,
+             sizeof(theme->symbols.separator_right),
+             "\xee\x82\xb2"); /* U+E0B2  */
 
     /* Use chevron for prompt symbol */
     snprintf(theme->symbols.prompt, sizeof(theme->symbols.prompt), "❯");
@@ -760,11 +762,12 @@ lle_theme_t *lle_theme_create_powerline(void) {
     /* Powerline-style layout - separators between colored segments
      * Without background colors, we use the arrows as visual dividers */
     snprintf(theme->layout.ps1_format, sizeof(theme->layout.ps1_format),
-             "${user} \xee\x82\xb1 ${directory}${?git: \xee\x82\xb1 ${git}} ${symbol} ");
-    snprintf(theme->layout.ps2_format, sizeof(theme->layout.ps2_format),
-             "\xee\x82\xb1 ");  /* U+E0B1 thin arrow for continuation */
-    snprintf(theme->layout.transient_format, sizeof(theme->layout.transient_format),
+             "${user} \xee\x82\xb1 ${directory}${?git: \xee\x82\xb1 ${git}} "
              "${symbol} ");
+    snprintf(theme->layout.ps2_format, sizeof(theme->layout.ps2_format),
+             "\xee\x82\xb1 "); /* U+E0B1 thin arrow for continuation */
+    snprintf(theme->layout.transient_format,
+             sizeof(theme->layout.transient_format), "${symbol} ");
     theme->layout.enable_transient = true;
 
     return theme;
@@ -774,16 +777,17 @@ lle_theme_t *lle_theme_create_powerline(void) {
  * @brief Create the informative theme
  */
 lle_theme_t *lle_theme_create_informative(void) {
-    lle_theme_t *theme = lle_theme_create("informative",
-                                          "Detailed information prompt",
-                                          LLE_THEME_CATEGORY_MODERN);
+    lle_theme_t *theme =
+        lle_theme_create("informative", "Detailed information prompt",
+                         LLE_THEME_CATEGORY_MODERN);
     if (!theme) {
         return NULL;
     }
 
     theme->source = LLE_THEME_SOURCE_BUILTIN;
     theme->capabilities = LLE_THEME_CAP_UNICODE | LLE_THEME_CAP_MULTILINE |
-                          LLE_THEME_CAP_RIGHT_PROMPT | LLE_THEME_CAP_ASYNC_SEGMENTS;
+                          LLE_THEME_CAP_RIGHT_PROMPT |
+                          LLE_THEME_CAP_ASYNC_SEGMENTS;
 
     /* Colors */
     theme->colors.primary = lle_color_basic(LLE_COLOR_CYAN);
@@ -799,8 +803,8 @@ lle_theme_t *lle_theme_create_informative(void) {
              "... ");
     snprintf(theme->layout.rps1_format, sizeof(theme->layout.rps1_format),
              "${time}${?jobs: [${jobs}]}");
-    snprintf(theme->layout.transient_format, sizeof(theme->layout.transient_format),
-             "${symbol} ");
+    snprintf(theme->layout.transient_format,
+             sizeof(theme->layout.transient_format), "${symbol} ");
     theme->layout.enable_right_prompt = true;
     theme->layout.enable_multiline = true;
     theme->layout.enable_transient = true;
@@ -812,9 +816,9 @@ lle_theme_t *lle_theme_create_informative(void) {
  * @brief Create the two-line theme
  */
 lle_theme_t *lle_theme_create_two_line(void) {
-    lle_theme_t *theme = lle_theme_create("two-line",
-                                          "Two-line prompt with box drawing",
-                                          LLE_THEME_CATEGORY_MODERN);
+    lle_theme_t *theme =
+        lle_theme_create("two-line", "Two-line prompt with box drawing",
+                         LLE_THEME_CATEGORY_MODERN);
     if (!theme) {
         return NULL;
     }
@@ -833,8 +837,8 @@ lle_theme_t *lle_theme_create_two_line(void) {
              "└─${symbol} ");
     snprintf(theme->layout.ps2_format, sizeof(theme->layout.ps2_format),
              "   > ");
-    snprintf(theme->layout.transient_format, sizeof(theme->layout.transient_format),
-             "${symbol} ");
+    snprintf(theme->layout.transient_format,
+             sizeof(theme->layout.transient_format), "${symbol} ");
     theme->layout.enable_multiline = true;
     theme->layout.enable_transient = true;
 
@@ -847,15 +851,16 @@ lle_theme_t *lle_theme_create_two_line(void) {
  * Professional theme for business environments with 256-color support.
  */
 lle_theme_t *lle_theme_create_corporate(void) {
-    lle_theme_t *theme = lle_theme_create("corporate",
-                                          "Professional theme for business environments",
-                                          LLE_THEME_CATEGORY_CLASSIC);
+    lle_theme_t *theme = lle_theme_create(
+        "corporate", "Professional theme for business environments",
+        LLE_THEME_CATEGORY_CLASSIC);
     if (!theme) {
         return NULL;
     }
 
     theme->source = LLE_THEME_SOURCE_BUILTIN;
-    theme->capabilities = LLE_THEME_CAP_ASCII_FALLBACK | LLE_THEME_CAP_INHERITABLE;
+    theme->capabilities =
+        LLE_THEME_CAP_ASCII_FALLBACK | LLE_THEME_CAP_INHERITABLE;
 
     /* Professional blues and grays using 256-color palette */
     theme->colors.primary = lle_color_256(24);      /* Dark blue */
@@ -878,12 +883,11 @@ lle_theme_t *lle_theme_create_corporate(void) {
     /* Professional layout */
     snprintf(theme->layout.ps1_format, sizeof(theme->layout.ps1_format),
              "[${user}@${host}] ${directory}${?git: (${git})} ${symbol} ");
-    snprintf(theme->layout.ps2_format, sizeof(theme->layout.ps2_format),
-             "> ");
+    snprintf(theme->layout.ps2_format, sizeof(theme->layout.ps2_format), "> ");
     snprintf(theme->layout.rps1_format, sizeof(theme->layout.rps1_format),
              "${time}");
-    snprintf(theme->layout.transient_format, sizeof(theme->layout.transient_format),
-             "${symbol} ");
+    snprintf(theme->layout.transient_format,
+             sizeof(theme->layout.transient_format), "${symbol} ");
     theme->layout.enable_right_prompt = true;
     theme->layout.enable_transient = true;
 
@@ -896,9 +900,9 @@ lle_theme_t *lle_theme_create_corporate(void) {
  * Modern dark theme with bright accent colors and two-line layout.
  */
 lle_theme_t *lle_theme_create_dark(void) {
-    lle_theme_t *theme = lle_theme_create("dark",
-                                          "Modern dark theme with bright accents",
-                                          LLE_THEME_CATEGORY_MODERN);
+    lle_theme_t *theme =
+        lle_theme_create("dark", "Modern dark theme with bright accents",
+                         LLE_THEME_CATEGORY_MODERN);
     if (!theme) {
         return NULL;
     }
@@ -933,8 +937,8 @@ lle_theme_t *lle_theme_create_dark(void) {
              "└─> ");
     snprintf(theme->layout.rps1_format, sizeof(theme->layout.rps1_format),
              "${time}");
-    snprintf(theme->layout.transient_format, sizeof(theme->layout.transient_format),
-             "${symbol} ");
+    snprintf(theme->layout.transient_format,
+             sizeof(theme->layout.transient_format), "${symbol} ");
     theme->layout.enable_right_prompt = true;
     theme->layout.enable_multiline = true;
     theme->layout.enable_transient = true;
@@ -948,15 +952,16 @@ lle_theme_t *lle_theme_create_dark(void) {
  * Clean light theme with dark colors for excellent readability.
  */
 lle_theme_t *lle_theme_create_light(void) {
-    lle_theme_t *theme = lle_theme_create("light",
-                                          "Clean light theme with excellent readability",
-                                          LLE_THEME_CATEGORY_MINIMAL);
+    lle_theme_t *theme = lle_theme_create(
+        "light", "Clean light theme with excellent readability",
+        LLE_THEME_CATEGORY_MINIMAL);
     if (!theme) {
         return NULL;
     }
 
     theme->source = LLE_THEME_SOURCE_BUILTIN;
-    theme->capabilities = LLE_THEME_CAP_ASCII_FALLBACK | LLE_THEME_CAP_INHERITABLE;
+    theme->capabilities =
+        LLE_THEME_CAP_ASCII_FALLBACK | LLE_THEME_CAP_INHERITABLE;
 
     /* Dark colors on light background using 256-color palette */
     theme->colors.primary = lle_color_256(21);      /* Dark blue */
@@ -979,10 +984,9 @@ lle_theme_t *lle_theme_create_light(void) {
     /* Clean simple layout */
     snprintf(theme->layout.ps1_format, sizeof(theme->layout.ps1_format),
              "${user}@${host}:${directory}${?git: (${git})} ${symbol} ");
-    snprintf(theme->layout.ps2_format, sizeof(theme->layout.ps2_format),
-             "> ");
-    snprintf(theme->layout.transient_format, sizeof(theme->layout.transient_format),
-             "${symbol} ");
+    snprintf(theme->layout.ps2_format, sizeof(theme->layout.ps2_format), "> ");
+    snprintf(theme->layout.transient_format,
+             sizeof(theme->layout.transient_format), "${symbol} ");
     theme->layout.enable_transient = true;
 
     return theme;
@@ -994,9 +998,9 @@ lle_theme_t *lle_theme_create_light(void) {
  * Vibrant colorful theme for creative workflows.
  */
 lle_theme_t *lle_theme_create_colorful(void) {
-    lle_theme_t *theme = lle_theme_create("colorful",
-                                          "Vibrant theme for creative workflows",
-                                          LLE_THEME_CATEGORY_MODERN);
+    lle_theme_t *theme =
+        lle_theme_create("colorful", "Vibrant theme for creative workflows",
+                         LLE_THEME_CATEGORY_MODERN);
     if (!theme) {
         return NULL;
     }
@@ -1006,22 +1010,22 @@ lle_theme_t *lle_theme_create_colorful(void) {
                           LLE_THEME_CAP_INHERITABLE;
 
     /* Vibrant rainbow colors using 256-color palette */
-    theme->colors.primary = lle_color_256(201);     /* Magenta */
-    theme->colors.secondary = lle_color_256(45);    /* Cyan */
-    theme->colors.success = lle_color_256(118);     /* Lime */
-    theme->colors.warning = lle_color_256(220);     /* Gold */
-    theme->colors.error = lle_color_256(196);       /* Red */
-    theme->colors.info = lle_color_256(75);         /* Sky blue */
-    theme->colors.text = lle_color_256(255);        /* White */
-    theme->colors.text_dim = lle_color_256(245);    /* Gray */
-    theme->colors.highlight = lle_color_256(226);   /* Yellow */
-    theme->colors.git_clean = lle_color_256(118);   /* Lime */
-    theme->colors.git_dirty = lle_color_256(220);   /* Gold */
-    theme->colors.git_staged = lle_color_256(46);   /* Green */
-    theme->colors.git_branch = lle_color_256(201);  /* Magenta */
-    theme->colors.path_home = lle_color_256(45);    /* Cyan */
-    theme->colors.path_root = lle_color_256(196);   /* Red */
-    theme->colors.path_normal = lle_color_256(75);  /* Sky blue */
+    theme->colors.primary = lle_color_256(201);    /* Magenta */
+    theme->colors.secondary = lle_color_256(45);   /* Cyan */
+    theme->colors.success = lle_color_256(118);    /* Lime */
+    theme->colors.warning = lle_color_256(220);    /* Gold */
+    theme->colors.error = lle_color_256(196);      /* Red */
+    theme->colors.info = lle_color_256(75);        /* Sky blue */
+    theme->colors.text = lle_color_256(255);       /* White */
+    theme->colors.text_dim = lle_color_256(245);   /* Gray */
+    theme->colors.highlight = lle_color_256(226);  /* Yellow */
+    theme->colors.git_clean = lle_color_256(118);  /* Lime */
+    theme->colors.git_dirty = lle_color_256(220);  /* Gold */
+    theme->colors.git_staged = lle_color_256(46);  /* Green */
+    theme->colors.git_branch = lle_color_256(201); /* Magenta */
+    theme->colors.path_home = lle_color_256(45);   /* Cyan */
+    theme->colors.path_root = lle_color_256(196);  /* Red */
+    theme->colors.path_normal = lle_color_256(75); /* Sky blue */
 
     /* Colorful symbols: ● user@host directory (git) ➜ */
     snprintf(theme->symbols.prompt, sizeof(theme->symbols.prompt), "➜");
@@ -1030,12 +1034,11 @@ lle_theme_t *lle_theme_create_colorful(void) {
     /* Creative layout with symbols */
     snprintf(theme->layout.ps1_format, sizeof(theme->layout.ps1_format),
              "● ${user}@${host} ${directory}${?git: (${git})} ➜ ");
-    snprintf(theme->layout.ps2_format, sizeof(theme->layout.ps2_format),
-             "▶ ");
+    snprintf(theme->layout.ps2_format, sizeof(theme->layout.ps2_format), "▶ ");
     snprintf(theme->layout.rps1_format, sizeof(theme->layout.rps1_format),
              "⏰ ${time}");
-    snprintf(theme->layout.transient_format, sizeof(theme->layout.transient_format),
-             "➜ ");
+    snprintf(theme->layout.transient_format,
+             sizeof(theme->layout.transient_format), "➜ ");
     theme->layout.enable_right_prompt = true;
     theme->layout.enable_transient = true;
 

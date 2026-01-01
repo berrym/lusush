@@ -40,19 +40,19 @@ extern "C" {
  */
 
 /** @brief Maximum template string length */
-#define LLE_TEMPLATE_MAX           1024
+#define LLE_TEMPLATE_MAX 1024
 
 /** @brief Maximum token text length */
-#define LLE_TEMPLATE_TOKEN_MAX     256
+#define LLE_TEMPLATE_TOKEN_MAX 256
 
 /** @brief Maximum segment name length */
-#define LLE_TEMPLATE_SEGMENT_MAX   32
+#define LLE_TEMPLATE_SEGMENT_MAX 32
 
 /** @brief Maximum property name length */
-#define LLE_TEMPLATE_PROPERTY_MAX  32
+#define LLE_TEMPLATE_PROPERTY_MAX 32
 
 /** @brief Maximum literal text length */
-#define LLE_TEMPLATE_LITERAL_MAX   256
+#define LLE_TEMPLATE_LITERAL_MAX 256
 
 /* ============================================================================
  * TYPE DEFINITIONS
@@ -63,13 +63,13 @@ extern "C" {
  * @brief Template token types
  */
 typedef enum lle_template_token_type {
-    LLE_TOKEN_LITERAL,           /**< Plain text */
-    LLE_TOKEN_SEGMENT,           /**< ${segment} */
-    LLE_TOKEN_PROPERTY,          /**< ${segment.property} */
-    LLE_TOKEN_CONDITIONAL,       /**< ${?condition:true:false} */
-    LLE_TOKEN_COLOR,             /**< ${color:text} */
-    LLE_TOKEN_NEWLINE,           /**< \n */
-    LLE_TOKEN_END                /**< End of template */
+    LLE_TOKEN_LITERAL,     /**< Plain text */
+    LLE_TOKEN_SEGMENT,     /**< ${segment} */
+    LLE_TOKEN_PROPERTY,    /**< ${segment.property} */
+    LLE_TOKEN_CONDITIONAL, /**< ${?condition:true:false} */
+    LLE_TOKEN_COLOR,       /**< ${color:text} */
+    LLE_TOKEN_NEWLINE,     /**< \n */
+    LLE_TOKEN_END          /**< End of template */
 } lle_template_token_type_t;
 
 /**
@@ -78,7 +78,7 @@ typedef enum lle_template_token_type {
  * Tokens form a linked list representing the parsed template structure.
  */
 typedef struct lle_template_token {
-    lle_template_token_type_t type;  /**< Token type */
+    lle_template_token_type_t type; /**< Token type */
 
     /** @brief Token data union based on type */
     union {
@@ -111,7 +111,7 @@ typedef struct lle_template_token {
         } color;
     } data;
 
-    struct lle_template_token *next;  /**< Next token in list */
+    struct lle_template_token *next; /**< Next token in list */
 } lle_template_token_t;
 
 /**
@@ -120,11 +120,11 @@ typedef struct lle_template_token {
  * Contains a linked list of tokens representing the parsed template.
  */
 typedef struct lle_parsed_template {
-    lle_template_token_t *head;           /**< First token */
-    lle_template_token_t *tail;           /**< Last token */
-    size_t token_count;                   /**< Number of tokens */
-    char original[LLE_TEMPLATE_MAX];      /**< Original template string */
-    bool valid;                           /**< Parse succeeded */
+    lle_template_token_t *head;      /**< First token */
+    lle_template_token_t *tail;      /**< Last token */
+    size_t token_count;              /**< Number of tokens */
+    char original[LLE_TEMPLATE_MAX]; /**< Original template string */
+    bool valid;                      /**< Parse succeeded */
 } lle_parsed_template_t;
 
 /* Forward declarations for render context */
@@ -143,8 +143,8 @@ struct lle_theme;
  * @return Rendered content (caller must free) or NULL
  */
 typedef char *(*lle_template_segment_provider_t)(const char *segment_name,
-                                                  const char *property,
-                                                  void *user_data);
+                                                 const char *property,
+                                                 void *user_data);
 
 /**
  * @brief Segment visibility check callback
@@ -157,8 +157,8 @@ typedef char *(*lle_template_segment_provider_t)(const char *segment_name,
  * @return true if segment/property is visible, false otherwise
  */
 typedef bool (*lle_template_segment_visible_t)(const char *segment_name,
-                                                const char *property,
-                                                void *user_data);
+                                               const char *property,
+                                               void *user_data);
 
 /**
  * @brief Color provider callback
@@ -170,7 +170,7 @@ typedef bool (*lle_template_segment_visible_t)(const char *segment_name,
  * @return ANSI color code string (static, do not free) or empty string
  */
 typedef const char *(*lle_template_color_provider_t)(const char *color_name,
-                                                      void *user_data);
+                                                     void *user_data);
 
 /**
  * @brief Template render context
@@ -179,10 +179,10 @@ typedef const char *(*lle_template_color_provider_t)(const char *color_name,
  * and color lookup during template evaluation.
  */
 typedef struct lle_template_render_ctx {
-    lle_template_segment_provider_t get_segment;  /**< Segment provider */
-    lle_template_segment_visible_t is_visible;    /**< Visibility checker */
-    lle_template_color_provider_t get_color;      /**< Color provider */
-    void *user_data;                              /**< User context */
+    lle_template_segment_provider_t get_segment; /**< Segment provider */
+    lle_template_segment_visible_t is_visible;   /**< Visibility checker */
+    lle_template_color_provider_t get_color;     /**< Color provider */
+    void *user_data;                             /**< User context */
 } lle_template_render_ctx_t;
 
 /* ============================================================================
@@ -198,7 +198,7 @@ typedef struct lle_template_render_ctx {
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_template_parse(const char *template_str,
-                                 lle_parsed_template_t **parsed);
+                                lle_parsed_template_t **parsed);
 
 /**
  * @brief Free a parsed template and all its tokens
@@ -230,9 +230,8 @@ bool lle_template_validate(const char *template_str);
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_template_render(const lle_parsed_template_t *tmpl,
-                                  const lle_template_render_ctx_t *render_ctx,
-                                  char *output,
-                                  size_t output_size);
+                                 const lle_template_render_ctx_t *render_ctx,
+                                 char *output, size_t output_size);
 
 /**
  * @brief Parse and render a template in one call
@@ -246,9 +245,8 @@ lle_result_t lle_template_render(const lle_parsed_template_t *tmpl,
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_template_evaluate(const char *template_str,
-                                    const lle_template_render_ctx_t *render_ctx,
-                                    char *output,
-                                    size_t output_size);
+                                   const lle_template_render_ctx_t *render_ctx,
+                                   char *output, size_t output_size);
 
 /* ============================================================================
  * TOKEN CREATION HELPERS (INTERNAL)
@@ -280,7 +278,7 @@ lle_template_token_t *lle_template_token_segment(const char *name);
  * @return New token or NULL on error
  */
 lle_template_token_t *lle_template_token_property(const char *segment,
-                                                   const char *property);
+                                                  const char *property);
 
 /**
  * @brief Create a conditional token
@@ -292,9 +290,9 @@ lle_template_token_t *lle_template_token_property(const char *segment,
  * @return New token or NULL on error
  */
 lle_template_token_t *lle_template_token_conditional(const char *segment,
-                                                      const char *property,
-                                                      const char *true_val,
-                                                      const char *false_val);
+                                                     const char *property,
+                                                     const char *true_val,
+                                                     const char *false_val);
 
 /**
  * @brief Create a color token
@@ -304,7 +302,7 @@ lle_template_token_t *lle_template_token_conditional(const char *segment,
  * @return New token or NULL on error
  */
 lle_template_token_t *lle_template_token_color(const char *color,
-                                                const char *text);
+                                               const char *text);
 
 /**
  * @brief Create a newline token

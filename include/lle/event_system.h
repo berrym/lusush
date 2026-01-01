@@ -271,10 +271,11 @@ typedef struct {
  */
 typedef struct {
     char old_directory[4096]; /* Previous working directory */
-    char new_directory[4096]; /* New working directory (for DIRECTORY_CHANGED) */
-    char command[4096];       /* Command being executed (for PRE/POST_COMMAND) */
-    int exit_code;            /* Command exit code (for POST_COMMAND) */
-    uint64_t duration_us;     /* Command duration in microseconds */
+    char
+        new_directory[4096]; /* New working directory (for DIRECTORY_CHANGED) */
+    char command[4096];      /* Command being executed (for PRE/POST_COMMAND) */
+    int exit_code;           /* Command exit code (for POST_COMMAND) */
+    uint64_t duration_us;    /* Command duration in microseconds */
 } lle_shell_event_data_t;
 
 /*
@@ -1028,7 +1029,8 @@ lle_result_t lle_event_timer_get_stats(lle_event_system_t *system,
  * Fire a directory changed event
  *
  * Called when the shell's working directory changes (e.g., via cd builtin).
- * This triggers cache invalidation for directory-dependent data like git status.
+ * This triggers cache invalidation for directory-dependent data like git
+ * status.
  *
  * @param system      Event system
  * @param old_dir     Previous working directory (may be NULL)
@@ -1036,8 +1038,8 @@ lle_result_t lle_event_timer_get_stats(lle_event_system_t *system,
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_event_fire_directory_changed(lle_event_system_t *system,
-                                               const char *old_dir,
-                                               const char *new_dir);
+                                              const char *old_dir,
+                                              const char *new_dir);
 
 /**
  * Fire a pre-command event
@@ -1050,7 +1052,7 @@ lle_result_t lle_event_fire_directory_changed(lle_event_system_t *system,
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_event_fire_pre_command(lle_event_system_t *system,
-                                         const char *command);
+                                        const char *command);
 
 /**
  * Fire a post-command event
@@ -1065,9 +1067,8 @@ lle_result_t lle_event_fire_pre_command(lle_event_system_t *system,
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_event_fire_post_command(lle_event_system_t *system,
-                                          const char *command,
-                                          int exit_code,
-                                          uint64_t duration_us);
+                                         const char *command, int exit_code,
+                                         uint64_t duration_us);
 
 /**
  * Fire a prompt display event

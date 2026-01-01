@@ -56,13 +56,13 @@ extern "C" {
  * function pointers (e.g., lle_forward_char).
  */
 typedef struct lle_action_registry_entry {
-    const char *name;           /**< GNU Readline action name */
-    lle_action_type_t type;     /**< Action type (SIMPLE or CONTEXT) */
+    const char *name;       /**< GNU Readline action name */
+    lle_action_type_t type; /**< Action type (SIMPLE or CONTEXT) */
     union {
-        lle_action_simple_t simple;    /**< Simple action function */
-        lle_action_context_t context;  /**< Context-aware action function */
+        lle_action_simple_t simple;   /**< Simple action function */
+        lle_action_context_t context; /**< Context-aware action function */
     } func;
-    const char *description;    /**< Human-readable description */
+    const char *description; /**< Human-readable description */
 } lle_action_registry_entry_t;
 
 /* ============================================================================
@@ -74,14 +74,14 @@ typedef struct lle_action_registry_entry {
  * @brief Result of loading user keybindings
  */
 typedef struct lle_keybinding_load_result {
-    lle_result_t status;                            /**< Overall status */
-    char filepath[LLE_KEYBINDING_CONFIG_PATH_MAX];  /**< File that was loaded */
+    lle_result_t status;                           /**< Overall status */
+    char filepath[LLE_KEYBINDING_CONFIG_PATH_MAX]; /**< File that was loaded */
     size_t bindings_applied;    /**< Number of bindings successfully applied */
     size_t bindings_overridden; /**< Number of defaults overridden */
-    size_t errors_count;        /**< Number of errors (invalid entries skipped) */
-    char error_msg[256];        /**< Error message if failed */
-    size_t error_line;          /**< Error line number */
-    size_t error_column;        /**< Error column number */
+    size_t errors_count; /**< Number of errors (invalid entries skipped) */
+    char error_msg[256]; /**< Error message if failed */
+    size_t error_line;   /**< Error line number */
+    size_t error_column; /**< Error column number */
 } lle_keybinding_load_result_t;
 
 /* ============================================================================
@@ -107,7 +107,8 @@ const lle_action_registry_entry_t *lle_action_registry_lookup(const char *name);
  *
  * @note The returned array is terminated by an entry with name == NULL
  */
-const lle_action_registry_entry_t *lle_action_registry_get_all(size_t *count_out);
+const lle_action_registry_entry_t *
+lle_action_registry_get_all(size_t *count_out);
 
 /**
  * @brief Get the number of registered actions
@@ -124,7 +125,8 @@ size_t lle_action_registry_count(void);
  *
  * @note Use with lle_action_registry_count() to iterate all actions
  */
-const lle_action_registry_entry_t *lle_action_registry_get_by_index(size_t index);
+const lle_action_registry_entry_t *
+lle_action_registry_get_by_index(size_t index);
 
 /* ============================================================================
  * CONFIG FILE API
@@ -143,7 +145,7 @@ const lle_action_registry_entry_t *lle_action_registry_get_by_index(size_t index
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_keybinding_get_user_config_path(char *buffer,
-                                                  size_t buffer_size);
+                                                 size_t buffer_size);
 
 /**
  * @brief Load user keybinding configuration
@@ -157,8 +159,9 @@ lle_result_t lle_keybinding_get_user_config_path(char *buffer,
  *
  * @note LLE_ERROR_NOT_FOUND is not an error - user config is optional
  */
-lle_result_t lle_keybinding_load_user_config(lle_keybinding_manager_t *manager,
-                                              lle_keybinding_load_result_t *result);
+lle_result_t
+lle_keybinding_load_user_config(lle_keybinding_manager_t *manager,
+                                lle_keybinding_load_result_t *result);
 
 /**
  * @brief Load keybindings from a specific file
@@ -171,9 +174,10 @@ lle_result_t lle_keybinding_load_user_config(lle_keybinding_manager_t *manager,
  * @param result Output: load result with statistics
  * @return LLE_SUCCESS or error code
  */
-lle_result_t lle_keybinding_load_from_file(lle_keybinding_manager_t *manager,
-                                            const char *filepath,
-                                            lle_keybinding_load_result_t *result);
+lle_result_t
+lle_keybinding_load_from_file(lle_keybinding_manager_t *manager,
+                              const char *filepath,
+                              lle_keybinding_load_result_t *result);
 
 /**
  * @brief Load keybindings from a string
@@ -186,9 +190,10 @@ lle_result_t lle_keybinding_load_from_file(lle_keybinding_manager_t *manager,
  * @param result Output: load result with statistics
  * @return LLE_SUCCESS or error code
  */
-lle_result_t lle_keybinding_load_from_string(lle_keybinding_manager_t *manager,
-                                              const char *content,
-                                              lle_keybinding_load_result_t *result);
+lle_result_t
+lle_keybinding_load_from_string(lle_keybinding_manager_t *manager,
+                                const char *content,
+                                lle_keybinding_load_result_t *result);
 
 /**
  * @brief Reload user keybinding configuration
@@ -202,8 +207,9 @@ lle_result_t lle_keybinding_load_from_string(lle_keybinding_manager_t *manager,
  *
  * @note This does NOT reset to defaults first - only applies user overrides
  */
-lle_result_t lle_keybinding_reload_user_config(lle_keybinding_manager_t *manager,
-                                                lle_keybinding_load_result_t *result);
+lle_result_t
+lle_keybinding_reload_user_config(lle_keybinding_manager_t *manager,
+                                  lle_keybinding_load_result_t *result);
 
 #ifdef __cplusplus
 }

@@ -1701,7 +1701,8 @@ build_continuation_prompts(composition_engine_t *engine,
     strncpy(prompts[0], primary_prompt, prompt_size - 1);
     prompts[0][prompt_size - 1] = '\0';
 
-    /* Lines 1+: Simple fallback (context-aware prompts via display_controller) */
+    /* Lines 1+: Simple fallback (context-aware prompts via display_controller)
+     */
     for (size_t i = 1; i < line_count; i++) {
         strncpy(prompts[i], "> ", prompt_size - 1);
         prompts[i][prompt_size - 1] = '\0';

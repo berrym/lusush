@@ -41,10 +41,10 @@ extern "C" {
  */
 
 /** @brief Maximum rendered prompt length */
-#define LLE_PROMPT_OUTPUT_MAX      4096
+#define LLE_PROMPT_OUTPUT_MAX 4096
 
 /** @brief Maximum right prompt length */
-#define LLE_RPROMPT_OUTPUT_MAX     1024
+#define LLE_RPROMPT_OUTPUT_MAX 1024
 
 /* ============================================================================
  * TYPE DEFINITIONS
@@ -55,11 +55,12 @@ extern "C" {
  * @brief Prompt composer configuration
  */
 typedef struct lle_composer_config {
-    bool enable_right_prompt;     /**< Render right prompt (RPROMPT) */
-    bool enable_transient;        /**< Use transient prompt for history */
-    bool newline_before_prompt;   /**< Print newline before prompt for visual separation */
-    bool respect_user_ps1;        /**< Don't overwrite user PS1/PS2 */
-    bool use_external_prompt;     /**< Defer to external prompt program */
+    bool enable_right_prompt;      /**< Render right prompt (RPROMPT) */
+    bool enable_transient;         /**< Use transient prompt for history */
+    bool newline_before_prompt;    /**< Print newline before prompt for visual
+                                      separation */
+    bool respect_user_ps1;         /**< Don't overwrite user PS1/PS2 */
+    bool use_external_prompt;      /**< Defer to external prompt program */
     char external_prompt_cmd[256]; /**< External prompt command */
 } lle_composer_config_t;
 
@@ -75,21 +76,21 @@ typedef struct lle_composer_config {
  * This enables automatic cache invalidation and context updates.
  */
 typedef struct lle_prompt_composer {
-    lle_segment_registry_t *segments;  /**< Segment registry */
-    lle_theme_registry_t *themes;      /**< Theme registry */
-    lle_prompt_context_t context;      /**< Current prompt context */
-    lle_composer_config_t config;      /**< Composer configuration */
-    bool initialized;                  /**< Composer is initialized */
+    lle_segment_registry_t *segments; /**< Segment registry */
+    lle_theme_registry_t *themes;     /**< Theme registry */
+    lle_prompt_context_t context;     /**< Current prompt context */
+    lle_composer_config_t config;     /**< Composer configuration */
+    bool initialized;                 /**< Composer is initialized */
 
     /** @brief Shell event hub integration (Spec 26) */
     struct lle_shell_event_hub *shell_event_hub; /**< Shell event hub ref */
-    bool events_registered;            /**< Event handlers registered */
-    bool needs_regeneration;           /**< Prompt needs to be re-rendered */
+    bool events_registered;  /**< Event handlers registered */
+    bool needs_regeneration; /**< Prompt needs to be re-rendered */
 
     /** @brief Transient prompt state (Spec 25 Section 12) */
-    lle_transient_state_t transient;   /**< Transient prompt tracking */
-    const char *current_command;       /**< Command being executed */
-    bool current_command_is_bg;        /**< Command is background */
+    lle_transient_state_t transient; /**< Transient prompt tracking */
+    const char *current_command;     /**< Command being executed */
+    bool current_command_is_bg;      /**< Command is background */
 
     /** @brief Cached parsed templates */
     lle_parsed_template_t *cached_left_template;
@@ -110,20 +111,20 @@ typedef struct lle_prompt_composer {
  * @brief Rendered prompt output
  */
 typedef struct lle_prompt_output {
-    char ps1[LLE_PROMPT_OUTPUT_MAX];       /**< Primary prompt (PS1) */
-    size_t ps1_len;                        /**< PS1 length in bytes */
-    size_t ps1_visual_width;               /**< PS1 visual width */
+    char ps1[LLE_PROMPT_OUTPUT_MAX]; /**< Primary prompt (PS1) */
+    size_t ps1_len;                  /**< PS1 length in bytes */
+    size_t ps1_visual_width;         /**< PS1 visual width */
 
-    char ps2[LLE_PROMPT_OUTPUT_MAX];       /**< Continuation prompt (PS2) */
-    size_t ps2_len;                        /**< PS2 length in bytes */
-    size_t ps2_visual_width;               /**< PS2 visual width */
+    char ps2[LLE_PROMPT_OUTPUT_MAX]; /**< Continuation prompt (PS2) */
+    size_t ps2_len;                  /**< PS2 length in bytes */
+    size_t ps2_visual_width;         /**< PS2 visual width */
 
-    char rprompt[LLE_RPROMPT_OUTPUT_MAX];  /**< Right prompt */
-    size_t rprompt_len;                    /**< RPROMPT length in bytes */
-    size_t rprompt_visual_width;           /**< RPROMPT visual width */
+    char rprompt[LLE_RPROMPT_OUTPUT_MAX]; /**< Right prompt */
+    size_t rprompt_len;                   /**< RPROMPT length in bytes */
+    size_t rprompt_visual_width;          /**< RPROMPT visual width */
 
-    bool has_rprompt;                      /**< Right prompt is set */
-    bool is_multiline;                     /**< PS1 contains newlines */
+    bool has_rprompt;  /**< Right prompt is set */
+    bool is_multiline; /**< PS1 contains newlines */
 } lle_prompt_output_t;
 
 /* ============================================================================
@@ -140,8 +141,8 @@ typedef struct lle_prompt_output {
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_composer_init(lle_prompt_composer_t *composer,
-                                lle_segment_registry_t *segments,
-                                lle_theme_registry_t *themes);
+                               lle_segment_registry_t *segments,
+                               lle_theme_registry_t *themes);
 
 /**
  * @brief Cleanup the prompt composer
@@ -158,7 +159,7 @@ void lle_composer_cleanup(lle_prompt_composer_t *composer);
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_composer_configure(lle_prompt_composer_t *composer,
-                                     const lle_composer_config_t *config);
+                                    const lle_composer_config_t *config);
 
 /* ============================================================================
  * PROMPT RENDERING API
@@ -176,7 +177,7 @@ lle_result_t lle_composer_configure(lle_prompt_composer_t *composer,
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_composer_render(lle_prompt_composer_t *composer,
-                                  lle_prompt_output_t *output);
+                                 lle_prompt_output_t *output);
 
 /**
  * @brief Render a single template string
@@ -190,9 +191,8 @@ lle_result_t lle_composer_render(lle_prompt_composer_t *composer,
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_composer_render_template(lle_prompt_composer_t *composer,
-                                           const char *template_str,
-                                           char *output,
-                                           size_t output_size);
+                                          const char *template_str,
+                                          char *output, size_t output_size);
 
 /**
  * @brief Update the prompt context
@@ -205,8 +205,7 @@ lle_result_t lle_composer_render_template(lle_prompt_composer_t *composer,
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_composer_update_context(lle_prompt_composer_t *composer,
-                                          int exit_code,
-                                          uint64_t duration_ms);
+                                         int exit_code, uint64_t duration_ms);
 
 /**
  * @brief Refresh directory information in context
@@ -240,7 +239,7 @@ void lle_composer_invalidate_caches(lle_prompt_composer_t *composer);
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_composer_set_theme(lle_prompt_composer_t *composer,
-                                     const char *theme_name);
+                                    const char *theme_name);
 
 /**
  * @brief Get the current active theme
@@ -248,7 +247,8 @@ lle_result_t lle_composer_set_theme(lle_prompt_composer_t *composer,
  * @param composer  Prompt composer
  * @return Pointer to active theme or NULL
  */
-const lle_theme_t *lle_composer_get_theme(const lle_prompt_composer_t *composer);
+const lle_theme_t *
+lle_composer_get_theme(const lle_prompt_composer_t *composer);
 
 /* ============================================================================
  * SHELL EVENT INTEGRATION API (Spec 26)
@@ -269,9 +269,9 @@ const lle_theme_t *lle_composer_get_theme(const lle_prompt_composer_t *composer)
  * @param event_hub  Shell event hub from Spec 26
  * @return LLE_SUCCESS or error code
  */
-lle_result_t lle_composer_register_shell_events(
-    lle_prompt_composer_t *composer,
-    struct lle_shell_event_hub *event_hub);
+lle_result_t
+lle_composer_register_shell_events(lle_prompt_composer_t *composer,
+                                   struct lle_shell_event_hub *event_hub);
 
 /**
  * @brief Unregister prompt composer from shell event hub
@@ -282,8 +282,8 @@ lle_result_t lle_composer_register_shell_events(
  * @param composer  Prompt composer
  * @return LLE_SUCCESS or error code
  */
-lle_result_t lle_composer_unregister_shell_events(
-    lle_prompt_composer_t *composer);
+lle_result_t
+lle_composer_unregister_shell_events(lle_prompt_composer_t *composer);
 
 /**
  * @brief Check if prompt needs regeneration
@@ -316,8 +316,8 @@ void lle_composer_clear_regeneration_flag(lle_prompt_composer_t *composer);
  * @param composer  Prompt composer
  * @return Render context with callbacks configured
  */
-lle_template_render_ctx_t lle_composer_create_render_ctx(
-    lle_prompt_composer_t *composer);
+lle_template_render_ctx_t
+lle_composer_create_render_ctx(lle_prompt_composer_t *composer);
 
 #ifdef __cplusplus
 }

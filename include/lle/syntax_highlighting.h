@@ -46,7 +46,8 @@ typedef enum lle_syntax_token_type {
                           done, case, esac) */
 
     /* Assignment */
-    LLE_TOKEN_ASSIGNMENT, /**< Variable assignment (VAR=value, export VAR=val) */
+    LLE_TOKEN_ASSIGNMENT, /**< Variable assignment (VAR=value, export VAR=val)
+                           */
 
     /* Literals */
     LLE_TOKEN_STRING_SINGLE,   /**< Single-quoted string */
@@ -83,20 +84,20 @@ typedef enum lle_syntax_token_type {
     LLE_TOKEN_ESCAPE,   /**< Escape sequence (\x) */
 
     /* Here-documents and here-strings */
-    LLE_TOKEN_HEREDOC_OP,        /**< Heredoc operator (<<, <<-, <<') */
-    LLE_TOKEN_HEREDOC_DELIM,     /**< Heredoc delimiter word */
-    LLE_TOKEN_HEREDOC_CONTENT,   /**< Heredoc content (body) */
-    LLE_TOKEN_HERESTRING,        /**< Here-string (<<<) */
+    LLE_TOKEN_HEREDOC_OP,      /**< Heredoc operator (<<, <<-, <<') */
+    LLE_TOKEN_HEREDOC_DELIM,   /**< Heredoc delimiter word */
+    LLE_TOKEN_HEREDOC_CONTENT, /**< Heredoc content (body) */
+    LLE_TOKEN_HERESTRING,      /**< Here-string (<<<) */
 
     /* Process substitution */
-    LLE_TOKEN_PROCSUB_IN,        /**< Process substitution input <(...) */
-    LLE_TOKEN_PROCSUB_OUT,       /**< Process substitution output >(...) */
+    LLE_TOKEN_PROCSUB_IN,  /**< Process substitution input <(...) */
+    LLE_TOKEN_PROCSUB_OUT, /**< Process substitution output >(...) */
 
     /* ANSI-C quoting */
-    LLE_TOKEN_STRING_ANSIC,      /**< ANSI-C quoted string $'...' */
+    LLE_TOKEN_STRING_ANSIC, /**< ANSI-C quoted string $'...' */
 
     /* Arithmetic expansion */
-    LLE_TOKEN_ARITHMETIC,        /**< Arithmetic expansion $((...)) */
+    LLE_TOKEN_ARITHMETIC, /**< Arithmetic expansion $((...)) */
 
     /* Errors */
     LLE_TOKEN_ERROR,             /**< Syntax error */

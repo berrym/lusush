@@ -24,10 +24,9 @@
  * Must match order of lle_widget_hook_type_t enum in widget_hooks.h
  */
 static const char *HOOK_NAMES[LLE_HOOK_COUNT] = {
-    "line-init",       "line-accepted",   "line-finish",
-    "buffer-modified", "pre-command",     "post-command",
-    "completion-start", "completion-end", "history-search",
-    "terminal-resize"};
+    "line-init",      "line-accepted",  "line-finish",      "buffer-modified",
+    "pre-command",    "post-command",   "completion-start", "completion-end",
+    "history-search", "terminal-resize"};
 
 /* ============================================================================
  * HOOKS MANAGER LIFECYCLE

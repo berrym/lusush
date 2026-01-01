@@ -14,11 +14,11 @@
  * 6. Error Handling - Invalid inputs, edge cases
  */
 
+#include "lle/error_handling.h"
 #include "lle/prompt/composer.h"
 #include "lle/prompt/segment.h"
 #include "lle/prompt/template.h"
 #include "lle/prompt/theme.h"
-#include "lle/error_handling.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,25 +32,24 @@ static int tests_run = 0;
 static int tests_passed = 0;
 static int current_phase = 0;
 
-#define TEST(name) \
-    static void test_##name(void)
+#define TEST(name) static void test_##name(void)
 
-#define RUN_TEST(name) \
-    do { \
-        tests_run++; \
-        printf("    [%d] %s... ", tests_run, #name); \
-        test_##name(); \
-        tests_passed++; \
-        printf("PASS\n"); \
+#define RUN_TEST(name)                                                         \
+    do {                                                                       \
+        tests_run++;                                                           \
+        printf("    [%d] %s... ", tests_run, #name);                           \
+        test_##name();                                                         \
+        tests_passed++;                                                        \
+        printf("PASS\n");                                                      \
     } while (0)
 
-#define ASSERT(cond) \
-    do { \
-        if (!(cond)) { \
-            printf("FAIL\n      Assertion failed: %s\n      at %s:%d\n", \
-                   #cond, __FILE__, __LINE__); \
-            exit(1); \
-        } \
+#define ASSERT(cond)                                                           \
+    do {                                                                       \
+        if (!(cond)) {                                                         \
+            printf("FAIL\n      Assertion failed: %s\n      at %s:%d\n",       \
+                   #cond, __FILE__, __LINE__);                                 \
+            exit(1);                                                           \
+        }                                                                      \
     } while (0)
 
 #define ASSERT_EQ(a, b) ASSERT((a) == (b))
@@ -61,10 +60,10 @@ static int current_phase = 0;
 #define ASSERT_TRUE(a) ASSERT((a))
 #define ASSERT_FALSE(a) ASSERT(!(a))
 
-#define BEGIN_PHASE(num, name) \
-    do { \
-        current_phase = num; \
-        printf("\n  Phase %d: %s\n", num, name); \
+#define BEGIN_PHASE(num, name)                                                 \
+    do {                                                                       \
+        current_phase = num;                                                   \
+        printf("\n  Phase %d: %s\n", num, name);                               \
     } while (0)
 
 /* ========================================================================== */
@@ -137,12 +136,10 @@ TEST(spec25_composer_cleanup_releases_resources) {
 TEST(spec25_composer_configure_sets_options) {
     setup_full_composer();
 
-    lle_composer_config_t config = {
-        .enable_right_prompt = true,
-        .enable_transient = true,
-        .respect_user_ps1 = true,
-        .use_external_prompt = false
-    };
+    lle_composer_config_t config = {.enable_right_prompt = true,
+                                    .enable_transient = true,
+                                    .respect_user_ps1 = true,
+                                    .use_external_prompt = false};
 
     lle_result_t result = lle_composer_configure(&g_composer, &config);
     ASSERT_EQ(result, LLE_SUCCESS);
@@ -174,8 +171,8 @@ TEST(spec25_composer_renders_segment_tokens) {
     setup_full_composer();
 
     char output[256];
-    lle_result_t result = lle_composer_render_template(
-        &g_composer, "${user}", output, sizeof(output));
+    lle_result_t result = lle_composer_render_template(&g_composer, "${user}",
+                                                       output, sizeof(output));
 
     ASSERT_EQ(result, LLE_SUCCESS);
     ASSERT(strlen(output) > 0);
@@ -261,8 +258,8 @@ TEST(spec25_composer_uses_active_theme) {
 TEST(spec25_composer_theme_switching) {
     setup_full_composer();
 
-    const char *themes[] = {"minimal", "default", "classic", "powerline",
-                            "informative", "two-line"};
+    const char *themes[] = {"minimal",   "default",     "classic",
+                            "powerline", "informative", "two-line"};
     size_t count = sizeof(themes) / sizeof(themes[0]);
 
     for (size_t i = 0; i < count; i++) {
@@ -542,8 +539,8 @@ int main(void) {
     RUN_TEST(spec25_composer_handles_null_invalidate);
     RUN_TEST(spec25_composer_render_ctx_null_safe);
 
-    printf("\n=== Compliance Results: %d/%d tests passed ===\n",
-           tests_passed, tests_run);
+    printf("\n=== Compliance Results: %d/%d tests passed ===\n", tests_passed,
+           tests_run);
 
     if (tests_passed == tests_run) {
         printf("=== Spec 25 Composer Implementation: COMPLIANT ===\n");

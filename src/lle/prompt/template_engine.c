@@ -29,8 +29,9 @@ lle_template_token_t *lle_template_token_literal(const char *text, size_t len) {
     }
 
     token->type = LLE_TOKEN_LITERAL;
-    size_t copy_len = (len < LLE_TEMPLATE_LITERAL_MAX - 1) ?
-                      len : LLE_TEMPLATE_LITERAL_MAX - 1;
+    size_t copy_len = (len < LLE_TEMPLATE_LITERAL_MAX - 1)
+                          ? len
+                          : LLE_TEMPLATE_LITERAL_MAX - 1;
     memcpy(token->data.literal.text, text, copy_len);
     token->data.literal.text[copy_len] = '\0';
     token->data.literal.length = copy_len;
@@ -57,7 +58,7 @@ lle_template_token_t *lle_template_token_segment(const char *name) {
 }
 
 lle_template_token_t *lle_template_token_property(const char *segment,
-                                                   const char *property) {
+                                                  const char *property) {
     if (!segment || !property) {
         return NULL;
     }
@@ -78,9 +79,9 @@ lle_template_token_t *lle_template_token_property(const char *segment,
 }
 
 lle_template_token_t *lle_template_token_conditional(const char *segment,
-                                                      const char *property,
-                                                      const char *true_val,
-                                                      const char *false_val) {
+                                                     const char *property,
+                                                     const char *true_val,
+                                                     const char *false_val) {
     if (!segment) {
         return NULL;
     }
@@ -96,8 +97,8 @@ lle_template_token_t *lle_template_token_conditional(const char *segment,
 
     if (property && strlen(property) > 0) {
         snprintf(token->data.conditional.condition_property,
-                 sizeof(token->data.conditional.condition_property),
-                 "%s", property);
+                 sizeof(token->data.conditional.condition_property), "%s",
+                 property);
         token->data.conditional.check_property = true;
     } else {
         token->data.conditional.condition_property[0] = '\0';
@@ -118,7 +119,7 @@ lle_template_token_t *lle_template_token_conditional(const char *segment,
 }
 
 lle_template_token_t *lle_template_token_color(const char *color,
-                                                const char *text) {
+                                               const char *text) {
     if (!color || !text) {
         return NULL;
     }
@@ -129,10 +130,10 @@ lle_template_token_t *lle_template_token_color(const char *color,
     }
 
     token->type = LLE_TOKEN_COLOR;
-    snprintf(token->data.color.color_name,
-             sizeof(token->data.color.color_name), "%s", color);
-    snprintf(token->data.color.text,
-             sizeof(token->data.color.text), "%s", text);
+    snprintf(token->data.color.color_name, sizeof(token->data.color.color_name),
+             "%s", color);
+    snprintf(token->data.color.text, sizeof(token->data.color.text), "%s",
+             text);
 
     return token;
 }
@@ -157,9 +158,7 @@ lle_template_token_t *lle_template_token_end(void) {
     return token;
 }
 
-void lle_template_token_free(lle_template_token_t *token) {
-    free(token);
-}
+void lle_template_token_free(lle_template_token_t *token) { free(token); }
 
 /* ========================================================================== */
 /* Template Helpers                                                           */
@@ -250,9 +249,8 @@ static lle_template_token_t *parse_conditional(const char *content) {
         false_val[false_len] = '\0';
     }
 
-    return lle_template_token_conditional(segment,
-                                          strlen(property) > 0 ? property : NULL,
-                                          true_val, false_val);
+    return lle_template_token_conditional(
+        segment, strlen(property) > 0 ? property : NULL, true_val, false_val);
 }
 
 /**
@@ -310,7 +308,7 @@ static lle_template_token_t *parse_segment_or_property(const char *content) {
 /* ========================================================================== */
 
 lle_result_t lle_template_parse(const char *template_str,
-                                 lle_parsed_template_t **parsed) {
+                                lle_parsed_template_t **parsed) {
     if (!template_str || !parsed) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -482,9 +480,8 @@ bool lle_template_validate(const char *template_str) {
 /* ========================================================================== */
 
 lle_result_t lle_template_render(const lle_parsed_template_t *tmpl,
-                                  const lle_template_render_ctx_t *render_ctx,
-                                  char *output,
-                                  size_t output_size) {
+                                 const lle_template_render_ctx_t *render_ctx,
+                                 char *output, size_t output_size) {
     if (!tmpl || !render_ctx || !output || output_size == 0) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -498,154 +495,152 @@ lle_result_t lle_template_render(const lle_parsed_template_t *tmpl,
 
     while (token && token->type != LLE_TOKEN_END && pos < output_size - 1) {
         switch (token->type) {
-            case LLE_TOKEN_LITERAL:
-                /* Copy literal text */
-                {
+        case LLE_TOKEN_LITERAL:
+            /* Copy literal text */
+            {
+                size_t avail = output_size - pos - 1;
+                size_t copy_len = token->data.literal.length;
+                if (copy_len > avail) {
+                    copy_len = avail;
+                }
+                memcpy(output + pos, token->data.literal.text, copy_len);
+                pos += copy_len;
+            }
+            break;
+
+        case LLE_TOKEN_NEWLINE:
+            if (pos < output_size - 1) {
+                output[pos++] = '\n';
+            }
+            break;
+
+        case LLE_TOKEN_SEGMENT:
+            /* Render segment */
+            if (render_ctx->get_segment) {
+                char *content =
+                    render_ctx->get_segment(token->data.segment.segment_name,
+                                            NULL, render_ctx->user_data);
+                if (content) {
+                    size_t len = strlen(content);
                     size_t avail = output_size - pos - 1;
-                    size_t copy_len = token->data.literal.length;
-                    if (copy_len > avail) {
-                        copy_len = avail;
+                    if (len > avail) {
+                        len = avail;
                     }
-                    memcpy(output + pos, token->data.literal.text, copy_len);
-                    pos += copy_len;
+                    memcpy(output + pos, content, len);
+                    pos += len;
+                    free(content);
                 }
-                break;
+            }
+            break;
 
-            case LLE_TOKEN_NEWLINE:
-                if (pos < output_size - 1) {
-                    output[pos++] = '\n';
+        case LLE_TOKEN_PROPERTY:
+            /* Render segment property */
+            if (render_ctx->get_segment) {
+                char *content = render_ctx->get_segment(
+                    token->data.segment.segment_name,
+                    token->data.segment.property_name, render_ctx->user_data);
+                if (content) {
+                    size_t len = strlen(content);
+                    size_t avail = output_size - pos - 1;
+                    if (len > avail) {
+                        len = avail;
+                    }
+                    memcpy(output + pos, content, len);
+                    pos += len;
+                    free(content);
                 }
-                break;
+            }
+            break;
 
-            case LLE_TOKEN_SEGMENT:
-                /* Render segment */
-                if (render_ctx->get_segment) {
-                    char *content = render_ctx->get_segment(
-                        token->data.segment.segment_name,
-                        NULL,
+        case LLE_TOKEN_CONDITIONAL:
+            /* Evaluate conditional */
+            {
+                bool condition_met = false;
+
+                if (render_ctx->is_visible) {
+                    const char *prop =
+                        token->data.conditional.check_property
+                            ? token->data.conditional.condition_property
+                            : NULL;
+                    condition_met = render_ctx->is_visible(
+                        token->data.conditional.condition_segment, prop,
                         render_ctx->user_data);
-                    if (content) {
-                        size_t len = strlen(content);
-                        size_t avail = output_size - pos - 1;
-                        if (len > avail) {
-                            len = avail;
-                        }
-                        memcpy(output + pos, content, len);
-                        pos += len;
-                        free(content);
-                    }
                 }
-                break;
 
-            case LLE_TOKEN_PROPERTY:
-                /* Render segment property */
-                if (render_ctx->get_segment) {
-                    char *content = render_ctx->get_segment(
-                        token->data.segment.segment_name,
-                        token->data.segment.property_name,
-                        render_ctx->user_data);
-                    if (content) {
-                        size_t len = strlen(content);
-                        size_t avail = output_size - pos - 1;
-                        if (len > avail) {
-                            len = avail;
-                        }
-                        memcpy(output + pos, content, len);
-                        pos += len;
-                        free(content);
-                    }
-                }
-                break;
+                const char *branch = condition_met
+                                         ? token->data.conditional.true_value
+                                         : token->data.conditional.false_value;
 
-            case LLE_TOKEN_CONDITIONAL:
-                /* Evaluate conditional */
-                {
-                    bool condition_met = false;
-
-                    if (render_ctx->is_visible) {
-                        const char *prop = token->data.conditional.check_property ?
-                            token->data.conditional.condition_property : NULL;
-                        condition_met = render_ctx->is_visible(
-                            token->data.conditional.condition_segment,
-                            prop,
-                            render_ctx->user_data);
-                    }
-
-                    const char *branch = condition_met ?
-                        token->data.conditional.true_value :
-                        token->data.conditional.false_value;
-
-                    if (branch && strlen(branch) > 0) {
-                        /* Recursively evaluate the branch content to expand
-                         * nested segment references like ${git} inside
-                         * conditionals like ${?git: (${git})} */
-                        size_t avail = output_size - pos - 1;
-                        char *temp = malloc(avail + 1);
-                        if (temp) {
-                            lle_result_t eval_result = lle_template_evaluate(
-                                branch, render_ctx, temp, avail + 1);
-                            if (eval_result == LLE_SUCCESS) {
-                                size_t len = strlen(temp);
-                                memcpy(output + pos, temp, len);
-                                pos += len;
-                            } else {
-                                /* Fallback: copy branch literally */
-                                size_t len = strlen(branch);
-                                if (len > avail) {
-                                    len = avail;
-                                }
-                                memcpy(output + pos, branch, len);
-                                pos += len;
+                if (branch && strlen(branch) > 0) {
+                    /* Recursively evaluate the branch content to expand
+                     * nested segment references like ${git} inside
+                     * conditionals like ${?git: (${git})} */
+                    size_t avail = output_size - pos - 1;
+                    char *temp = malloc(avail + 1);
+                    if (temp) {
+                        lle_result_t eval_result = lle_template_evaluate(
+                            branch, render_ctx, temp, avail + 1);
+                        if (eval_result == LLE_SUCCESS) {
+                            size_t len = strlen(temp);
+                            memcpy(output + pos, temp, len);
+                            pos += len;
+                        } else {
+                            /* Fallback: copy branch literally */
+                            size_t len = strlen(branch);
+                            if (len > avail) {
+                                len = avail;
                             }
-                            free(temp);
+                            memcpy(output + pos, branch, len);
+                            pos += len;
                         }
+                        free(temp);
                     }
                 }
-                break;
+            }
+            break;
 
-            case LLE_TOKEN_COLOR:
-                /* Apply color to text */
-                {
-                    const char *color_code = "";
-                    if (render_ctx->get_color) {
-                        color_code = render_ctx->get_color(
-                            token->data.color.color_name,
-                            render_ctx->user_data);
-                        if (!color_code) {
-                            color_code = "";
-                        }
-                    }
-
-                    /* Add color code */
-                    size_t color_len = strlen(color_code);
-                    if (color_len > 0 && pos + color_len < output_size - 1) {
-                        memcpy(output + pos, color_code, color_len);
-                        pos += color_len;
-                    }
-
-                    /* Add text */
-                    size_t text_len = strlen(token->data.color.text);
-                    size_t avail = output_size - pos - 1;
-                    if (text_len > avail) {
-                        text_len = avail;
-                    }
-                    memcpy(output + pos, token->data.color.text, text_len);
-                    pos += text_len;
-
-                    /* Add reset if color was applied */
-                    if (color_len > 0) {
-                        const char *reset = "\033[0m";
-                        size_t reset_len = strlen(reset);
-                        if (pos + reset_len < output_size - 1) {
-                            memcpy(output + pos, reset, reset_len);
-                            pos += reset_len;
-                        }
+        case LLE_TOKEN_COLOR:
+            /* Apply color to text */
+            {
+                const char *color_code = "";
+                if (render_ctx->get_color) {
+                    color_code = render_ctx->get_color(
+                        token->data.color.color_name, render_ctx->user_data);
+                    if (!color_code) {
+                        color_code = "";
                     }
                 }
-                break;
 
-            default:
-                break;
+                /* Add color code */
+                size_t color_len = strlen(color_code);
+                if (color_len > 0 && pos + color_len < output_size - 1) {
+                    memcpy(output + pos, color_code, color_len);
+                    pos += color_len;
+                }
+
+                /* Add text */
+                size_t text_len = strlen(token->data.color.text);
+                size_t avail = output_size - pos - 1;
+                if (text_len > avail) {
+                    text_len = avail;
+                }
+                memcpy(output + pos, token->data.color.text, text_len);
+                pos += text_len;
+
+                /* Add reset if color was applied */
+                if (color_len > 0) {
+                    const char *reset = "\033[0m";
+                    size_t reset_len = strlen(reset);
+                    if (pos + reset_len < output_size - 1) {
+                        memcpy(output + pos, reset, reset_len);
+                        pos += reset_len;
+                    }
+                }
+            }
+            break;
+
+        default:
+            break;
         }
 
         token = token->next;
@@ -656,9 +651,8 @@ lle_result_t lle_template_render(const lle_parsed_template_t *tmpl,
 }
 
 lle_result_t lle_template_evaluate(const char *template_str,
-                                    const lle_template_render_ctx_t *render_ctx,
-                                    char *output,
-                                    size_t output_size) {
+                                   const lle_template_render_ctx_t *render_ctx,
+                                   char *output, size_t output_size) {
     if (!template_str || !render_ctx || !output || output_size == 0) {
         return LLE_ERROR_INVALID_PARAMETER;
     }

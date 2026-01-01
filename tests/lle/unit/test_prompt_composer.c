@@ -6,11 +6,11 @@
  * registry through the prompt composer.
  */
 
+#include "lle/error_handling.h"
 #include "lle/prompt/composer.h"
 #include "lle/prompt/segment.h"
 #include "lle/prompt/template.h"
 #include "lle/prompt/theme.h"
-#include "lle/error_handling.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,25 +23,24 @@
 static int tests_run = 0;
 static int tests_passed = 0;
 
-#define TEST(name) \
-    static void test_##name(void)
+#define TEST(name) static void test_##name(void)
 
-#define RUN_TEST(name) \
-    do { \
-        tests_run++; \
-        printf("  [%d] %s... ", tests_run, #name); \
-        test_##name(); \
-        tests_passed++; \
-        printf("PASS\n"); \
+#define RUN_TEST(name)                                                         \
+    do {                                                                       \
+        tests_run++;                                                           \
+        printf("  [%d] %s... ", tests_run, #name);                             \
+        test_##name();                                                         \
+        tests_passed++;                                                        \
+        printf("PASS\n");                                                      \
     } while (0)
 
-#define ASSERT(cond) \
-    do { \
-        if (!(cond)) { \
-            printf("FAIL\n    Assertion failed: %s\n    at %s:%d\n", \
-                   #cond, __FILE__, __LINE__); \
-            exit(1); \
-        } \
+#define ASSERT(cond)                                                           \
+    do {                                                                       \
+        if (!(cond)) {                                                         \
+            printf("FAIL\n    Assertion failed: %s\n    at %s:%d\n", #cond,    \
+                   __FILE__, __LINE__);                                        \
+            exit(1);                                                           \
+        }                                                                      \
     } while (0)
 
 #define ASSERT_EQ(a, b) ASSERT((a) == (b))
@@ -118,12 +117,10 @@ TEST(composer_cleanup_null) {
 TEST(composer_configure) {
     setup_composer();
 
-    lle_composer_config_t config = {
-        .enable_right_prompt = true,
-        .enable_transient = true,
-        .respect_user_ps1 = false,
-        .use_external_prompt = false
-    };
+    lle_composer_config_t config = {.enable_right_prompt = true,
+                                    .enable_transient = true,
+                                    .respect_user_ps1 = false,
+                                    .use_external_prompt = false};
 
     lle_result_t result = lle_composer_configure(&g_composer, &config);
     ASSERT_EQ(result, LLE_SUCCESS);
@@ -188,8 +185,8 @@ TEST(composer_render_template_with_segment) {
     setup_composer();
 
     char output[256];
-    lle_result_t result = lle_composer_render_template(
-        &g_composer, "${user}", output, sizeof(output));
+    lle_result_t result = lle_composer_render_template(&g_composer, "${user}",
+                                                       output, sizeof(output));
 
     ASSERT_EQ(result, LLE_SUCCESS);
     ASSERT(strlen(output) > 0);
@@ -373,8 +370,8 @@ TEST(composer_full_prompt_render) {
 TEST(composer_multiple_themes) {
     setup_composer();
 
-    const char *themes[] = {"minimal", "default", "classic", "powerline",
-                            "informative", "two-line"};
+    const char *themes[] = {"minimal",   "default",     "classic",
+                            "powerline", "informative", "two-line"};
     size_t num_themes = sizeof(themes) / sizeof(themes[0]);
 
     for (size_t i = 0; i < num_themes; i++) {

@@ -175,7 +175,8 @@ void lle_readline_state_reset(struct readline_context *ctx) {
     ctx->previous_state = LLE_READLINE_STATE_IDLE;
 }
 
-lle_readline_state_t lle_readline_state_get(const struct readline_context *ctx) {
+lle_readline_state_t
+lle_readline_state_get(const struct readline_context *ctx) {
     if (!ctx) {
         return LLE_READLINE_STATE_ERROR;
     }

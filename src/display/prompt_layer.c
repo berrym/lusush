@@ -107,7 +107,8 @@ static const char *get_active_theme_name(void) {
 static bool is_theme_available(void) {
     return (g_lle_integration && g_lle_integration->prompt_composer &&
             g_lle_integration->prompt_composer->themes &&
-            lle_theme_registry_get_active(g_lle_integration->prompt_composer->themes) != NULL);
+            lle_theme_registry_get_active(
+                g_lle_integration->prompt_composer->themes) != NULL);
 }
 
 /**
@@ -478,8 +479,7 @@ static prompt_layer_error_t render_prompt_content(prompt_layer_t *layer) {
     // Use raw_content directly - it's already been rendered by the appropriate
     // prompt system (Spec 25 composer or legacy theme system)
     // Do NOT re-render here as that would override Spec 25 prompts with legacy
-    strncpy(rendered_buffer, layer->raw_content,
-            sizeof(rendered_buffer) - 1);
+    strncpy(rendered_buffer, layer->raw_content, sizeof(rendered_buffer) - 1);
     rendered_buffer[sizeof(rendered_buffer) - 1] = '\0';
     DEBUG_PRINT("Using raw content as prompt");
 

@@ -42,7 +42,6 @@
 
 #include "display_integration.h"
 #include "config.h"
-#include "lusush.h"
 #include "display/autosuggestions_layer.h"
 #include "display/display_controller.h"
 #include "display/layer_events.h"
@@ -52,6 +51,7 @@
 #include "lle/prompt/composer.h"
 #include "lle/prompt/segment.h"
 #include "lle/prompt/theme.h"
+#include "lusush.h"
 #include "lusush_memory_pool.h"
 #include "symtable.h"
 
@@ -102,7 +102,7 @@ static char *display_generate_prompt(void) {
         lle_prompt_composer_t *composer = g_lle_integration->prompt_composer;
         lle_prompt_output_t output;
         memset(&output, 0, sizeof(output));
-        
+
         lle_result_t result = lle_composer_render(composer, &output);
         if (result == LLE_SUCCESS && output.ps1_len > 0) {
             return lusush_pool_strdup(output.ps1);
@@ -113,9 +113,7 @@ static char *display_generate_prompt(void) {
 }
 
 /* Generate prompt using LLE prompt composer */
-char *lusush_generate_prompt(void) {
-    return display_generate_prompt();
-}
+char *lusush_generate_prompt(void) { return display_generate_prompt(); }
 
 /* Helper to get active theme name from LLE */
 static const char *get_active_theme_name(void) {
@@ -1208,18 +1206,19 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
     bool theme_result = false;
     const char *theme_name = "default";
     const char *debug = getenv("LUSUSH_PROMPT_DEBUG");
-    
+
     if (debug && strcmp(debug, "1") == 0) {
         fprintf(stderr, "[DI] g_lle=%p composer=%p\n",
-                (void*)g_lle_integration,
-                g_lle_integration ? (void*)g_lle_integration->prompt_composer : NULL);
+                (void *)g_lle_integration,
+                g_lle_integration ? (void *)g_lle_integration->prompt_composer
+                                  : NULL);
     }
-    
+
     if (g_lle_integration && g_lle_integration->prompt_composer) {
         lle_prompt_composer_t *composer = g_lle_integration->prompt_composer;
         lle_prompt_output_t output;
         memset(&output, 0, sizeof(output));
-        
+
         // Update background job count from executor (Issue #22)
         executor_t *executor = get_global_executor();
         if (executor) {
@@ -1227,27 +1226,30 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
             int job_count = executor_count_jobs(executor);
             lle_prompt_context_set_job_count(&composer->context, job_count);
         }
-        
+
         lle_result_t result = lle_composer_render(composer, &output);
         if (debug && strcmp(debug, "1") == 0) {
-            fprintf(stderr, "[DI] Spec25 render: result=%d ps1='%s'\n", result, output.ps1);
+            fprintf(stderr, "[DI] Spec25 render: result=%d ps1='%s'\n", result,
+                    output.ps1);
         }
         if (result == LLE_SUCCESS && output.ps1_len > 0) {
-            /* Spec 25 prompt is ready - return directly, bypass display controller
-             * The display controller would transform/cache this incorrectly */
+            /* Spec 25 prompt is ready - return directly, bypass display
+             * controller The display controller would transform/cache this
+             * incorrectly */
             *enhanced_prompt = lusush_pool_strdup(output.ps1);
             lusush_pool_free(base_prompt);
             lle_composer_clear_regeneration_flag(composer);
-            
+
             gettimeofday(&end_time, NULL);
             uint64_t operation_time_ns =
-                ((uint64_t)(end_time.tv_sec - start_time.tv_sec)) * 1000000000ULL +
+                ((uint64_t)(end_time.tv_sec - start_time.tv_sec)) *
+                    1000000000ULL +
                 ((uint64_t)(end_time.tv_usec - start_time.tv_usec)) * 1000ULL;
             display_integration_record_display_timing(operation_time_ns);
-            
+
             return (*enhanced_prompt != NULL);
         }
-        
+
         // LLE mode but render failed - use minimal failsafe, do NOT use legacy
         *enhanced_prompt = lusush_pool_strdup((getuid() > 0) ? "$ " : "# ");
         lusush_pool_free(base_prompt);

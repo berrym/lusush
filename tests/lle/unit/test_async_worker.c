@@ -165,8 +165,7 @@ TEST(worker_double_start_fails) {
     lle_async_worker_start(worker);
 
     lle_result_t result = lle_async_worker_start(worker);
-    ASSERT_EQ(result, LLE_ERROR_INVALID_PARAMETER,
-              "Double start should fail");
+    ASSERT_EQ(result, LLE_ERROR_INVALID_PARAMETER, "Double start should fail");
 
     lle_async_worker_shutdown(worker);
     lle_async_worker_wait(worker);
@@ -291,7 +290,7 @@ TEST(git_status_detects_repo) {
     /* Use parent of build directory (should be the git repo) */
     char cwd[PATH_MAX];
     getcwd(cwd, sizeof(cwd));
-    
+
     /* If we're in builddir, go up one level to the repo root */
     char *builddir = strstr(cwd, "/builddir");
     if (builddir) {
@@ -330,7 +329,7 @@ TEST(git_status_non_repo) {
 
     lle_async_worker_submit(worker, req);
     bool received = wait_for_response(10000);
-    
+
     if (!received) {
         /* Timeout - force shutdown and skip assertions */
         lle_async_worker_shutdown(worker);
