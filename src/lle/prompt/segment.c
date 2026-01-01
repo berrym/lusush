@@ -11,9 +11,11 @@
 #include "lle/prompt/segment.h"
 
 #include "lle/adaptive_terminal_integration.h"
+#include "lle/async_worker.h"
 #include "lle/prompt/theme.h"
 #include "lle/utf8_support.h"
 
+#include <pthread.h>
 #include <pwd.h>
 #include <stdlib.h>
 #include <string.h>
@@ -707,7 +709,20 @@ lle_prompt_segment_t *lle_segment_create_symbol(void) {
 /* Built-in Segment: Git                                                      */
 /* ========================================================================== */
 
+/**
+ * @brief Git segment state with async support
+ *
+ * The git segment uses an async worker to fetch git status in the background,
+ * preventing prompt rendering from blocking on slow git operations.
+ *
+ * Async flow:
+ * 1. On render, if cache invalid, queue async request (if not pending)
+ * 2. Return cached/stale data immediately for non-blocking render
+ * 3. When async completes, callback updates state and invalidates prompt
+ * 4. Next render uses fresh data
+ */
 typedef struct {
+    /* Git status data */
     char branch[256];
     int staged;
     int unstaged;
@@ -718,15 +733,68 @@ typedef struct {
     bool has_conflicts;
     bool is_repo;
     bool cache_valid;
+    
+    /* Async worker state */
+    lle_async_worker_t *async_worker;
+    pthread_mutex_t async_mutex;
+    bool async_pending;           /**< Async request in flight */
+    char async_cwd[PATH_MAX];     /**< CWD for pending request */
+    bool async_initialized;       /**< Async system initialized */
 } segment_git_state_t;
+
+/* Forward declaration for async callback */
+static void segment_git_async_callback(const lle_async_response_t *response,
+                                       void *user_data);
 
 static lle_result_t segment_git_init(lle_prompt_segment_t *self) {
     segment_git_state_t *state = calloc(1, sizeof(*state));
     if (!state) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
+    
+    /* Initialize mutex for async state protection */
+    if (pthread_mutex_init(&state->async_mutex, NULL) != 0) {
+        free(state);
+        return LLE_ERROR_SYSTEM_CALL;
+    }
+    
+    /* Initialize async worker for background git status fetching */
+    lle_result_t result = lle_async_worker_init(&state->async_worker,
+                                                 segment_git_async_callback,
+                                                 self);
+    if (result == LLE_SUCCESS) {
+        result = lle_async_worker_start(state->async_worker);
+        if (result == LLE_SUCCESS) {
+            state->async_initialized = true;
+        } else {
+            lle_async_worker_destroy(state->async_worker);
+            state->async_worker = NULL;
+        }
+    }
+    
+    /* Async init failure is non-fatal - fall back to sync git */
     self->state = state;
     return LLE_SUCCESS;
+}
+
+static void segment_git_cleanup(lle_prompt_segment_t *self) {
+    segment_git_state_t *state = self->state;
+    if (!state) {
+        return;
+    }
+    
+    /* Shutdown async worker if running */
+    if (state->async_initialized && state->async_worker) {
+        lle_async_worker_shutdown(state->async_worker);
+        lle_async_worker_wait(state->async_worker);
+        lle_async_worker_destroy(state->async_worker);
+        state->async_worker = NULL;
+        state->async_initialized = false;
+    }
+    
+    pthread_mutex_destroy(&state->async_mutex);
+    
+    /* Note: state itself is freed by lle_segment_free() */
 }
 
 static bool segment_git_is_visible(const lle_prompt_segment_t *self,
@@ -860,6 +928,104 @@ static void fetch_git_status(segment_git_state_t *state) {
 }
 
 /**
+ * @brief Async completion callback for git status
+ *
+ * Called from the async worker thread when git status fetch completes.
+ * Updates the segment state with fresh data thread-safely.
+ */
+static void segment_git_async_callback(const lle_async_response_t *response,
+                                       void *user_data) {
+    lle_prompt_segment_t *self = (lle_prompt_segment_t *)user_data;
+    if (!self || !self->state) {
+        return;
+    }
+    
+    segment_git_state_t *state = self->state;
+    
+    pthread_mutex_lock(&state->async_mutex);
+    
+    if (response->result == LLE_SUCCESS) {
+        const lle_git_status_data_t *git = &response->data.git_status;
+        
+        /* Update state from async response */
+        state->is_repo = git->is_git_repo;
+        
+        if (git->is_git_repo) {
+            snprintf(state->branch, sizeof(state->branch), "%s", git->branch);
+            state->staged = git->has_staged ? 1 : 0;
+            state->unstaged = git->has_unstaged ? 1 : 0;
+            state->untracked = git->has_untracked ? 1 : 0;
+            state->ahead = git->ahead;
+            state->behind = git->behind;
+            /* Note: stash_count and has_conflicts not in async response,
+             * these would require extending lle_git_status_data_t */
+            state->cache_valid = true;
+        } else {
+            state->branch[0] = '\0';
+            state->staged = 0;
+            state->unstaged = 0;
+            state->untracked = 0;
+            state->ahead = 0;
+            state->behind = 0;
+            state->cache_valid = true;
+        }
+    }
+    
+    state->async_pending = false;
+    pthread_mutex_unlock(&state->async_mutex);
+    
+    /* Note: Prompt will show updated data on next render cycle */
+}
+
+/**
+ * @brief Queue an async git status fetch
+ *
+ * Non-blocking - queues request and returns immediately.
+ * If async is not available or queue fails, returns false.
+ */
+static bool queue_async_git_fetch(segment_git_state_t *state) {
+    if (!state || !state->async_initialized || !state->async_worker) {
+        return false;
+    }
+    
+    if (!lle_async_worker_is_running(state->async_worker)) {
+        return false;
+    }
+    
+    char cwd[PATH_MAX];
+    if (getcwd(cwd, sizeof(cwd)) == NULL) {
+        return false;
+    }
+    
+    pthread_mutex_lock(&state->async_mutex);
+    
+    /* Don't queue if already pending for same directory */
+    if (state->async_pending && strcmp(state->async_cwd, cwd) == 0) {
+        pthread_mutex_unlock(&state->async_mutex);
+        return true;  /* Already queued */
+    }
+    
+    lle_async_request_t *req = lle_async_request_create(LLE_ASYNC_GIT_STATUS);
+    if (!req) {
+        pthread_mutex_unlock(&state->async_mutex);
+        return false;
+    }
+    
+    snprintf(req->cwd, sizeof(req->cwd), "%s", cwd);
+    
+    if (lle_async_worker_submit(state->async_worker, req) == LLE_SUCCESS) {
+        state->async_pending = true;
+        snprintf(state->async_cwd, sizeof(state->async_cwd), "%s", cwd);
+        pthread_mutex_unlock(&state->async_mutex);
+        return true;
+    }
+    
+    lle_async_request_free(req);
+    pthread_mutex_unlock(&state->async_mutex);
+    return false;
+}
+
+/**
  * @brief Helper to append colored text to buffer
  *
  * Appends text with optional ANSI color prefix and reset suffix.
@@ -928,9 +1094,23 @@ static lle_result_t segment_git_render(const lle_prompt_segment_t *self,
         return LLE_SUCCESS;
     }
     
-    /* Fetch git status if cache invalid or not in repo */
+    /* Fetch git status if cache invalid */
     if (!state->cache_valid) {
-        fetch_git_status(state);
+        /* Try async first for non-blocking operation */
+        if (state->async_initialized) {
+            /* Queue async request - will update on next render */
+            queue_async_git_fetch(state);
+            
+            /* If we have no cached data at all, do one sync fetch
+             * to avoid showing empty git segment on first prompt */
+            if (!state->is_repo && !state->branch[0]) {
+                fetch_git_status(state);
+            }
+            /* Otherwise, render with stale cached data while async runs */
+        } else {
+            /* No async available - do sync fetch */
+            fetch_git_status(state);
+        }
     }
 
     if (!state->is_repo) {
@@ -1099,6 +1279,7 @@ lle_prompt_segment_t *lle_segment_create_git(void) {
     if (!seg) return NULL;
 
     seg->init = segment_git_init;
+    seg->cleanup = segment_git_cleanup;
     seg->is_visible = segment_git_is_visible;
     seg->render = segment_git_render;
     seg->get_property = segment_git_get_property;

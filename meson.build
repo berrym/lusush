@@ -579,9 +579,10 @@ if lle_sources.length() > 0
   # Prompt Composer Unit Tests (Spec 25 - Template/Segment/Theme Integration)
   # Tests the integration layer that connects template engine, segments, and themes
   test_prompt_composer = executable('test_prompt_composer',
-                                    'tests/lle/unit/test_prompt_composer.c',
+                                    ['tests/lle/unit/test_prompt_composer.c',
+                                     'tests/lle/functional/display_test_stubs.c'],
                                     include_directories: inc,
-                                    dependencies: [lle_dep, readline_link_dep])
+                                    dependencies: [lle_dep, display_dep, readline_link_dep])
 
   test('LLE Prompt Composer', test_prompt_composer,
        suite: 'lle-unit',
@@ -844,9 +845,10 @@ endif
   # Validates compliance with Spec 25 prompt composer requirements
   if fs.exists('tests/lle/compliance/spec_25_composer_compliance.c')
     test_spec25_composer_compliance = executable('spec_25_composer_compliance',
-                                        'tests/lle/compliance/spec_25_composer_compliance.c',
+                                        ['tests/lle/compliance/spec_25_composer_compliance.c',
+                                         'tests/lle/functional/display_test_stubs.c'],
                                         include_directories: inc,
-                                        dependencies: [lle_dep])
+                                        dependencies: [lle_dep, display_dep])
     test('Spec 25 Prompt Composer Compliance', test_spec25_composer_compliance,
          suite: 'lle-compliance',
          timeout: 60)

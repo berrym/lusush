@@ -370,6 +370,8 @@ Active issues are tracked in `docs/lle_implementation/tracking/KNOWN_ISSUES.md`.
 
 | Issue | Resolution | Session |
 |-------|------------|---------|
+| Git segment blocking on slow repos | Added async worker to git segment for non-blocking status fetching | Session 90 |
+| prompt.c code organization | Reorganized with clear LLE/legacy sections; marked legacy code for future removal | Session 90 |
 | Theme symbols not wired | Changed segment render API to pass theme; wired prompt, git, jobs, status symbols | Session 89 |
 | Theme colors not wired | Git segment now uses git_ahead/behind/untracked colors with embedded ANSI codes | Session 89 |
 | newline_after not working | Implemented in composer after PS1 rendering | Session 89 |
@@ -481,6 +483,7 @@ The original specifications remain as inspiration for what LLE could become, whi
 ---
 
 **Document History**:
+- v2.4 (2025-12-31): Session 90 - Git segment now uses async worker for non-blocking status fetching; src/prompt.c reorganized with clear LLE/legacy sections; Legacy code marked for future removal
 - v2.3 (2025-12-31): Session 89 - Wired theme symbols (prompt, git, jobs, status) and colors (git_ahead/behind/untracked); Implemented newline_after; Segment render API now includes theme parameter
 - v2.2 (2025-12-31): Session 88 - Syntax highlighting 60%→85% (shell constructs, TOML colors); Theme feature audit with working/parsed-only status
 - v2.1 (2025-12-31): Session 87 - exit_code/jobs template variable wiring complete

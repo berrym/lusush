@@ -1,13 +1,17 @@
 # AI Assistant Handoff Document - Session 90
 
 **Date**: 2025-12-31  
-**Session Type**: Theme System Wiring - Remaining Symbols and Colors  
+**Session Type**: Theme Wiring, Async Git, and prompt.c Migration  
 **Status**: COMPLETE  
 **Branch**: `feature/lle`
 
 ---
 
-## Session 90: Wire Remaining Git Symbols and path_root Color
+## Session 90: Theme Wiring, Async Git, and prompt.c Migration
+
+This session completed theme symbol wiring from Session 89, then added async git support to the LLE segment system and reorganized prompt.c for eventual readline removal.
+
+### Part 1: Wire Remaining Git Symbols and path_root Color
 
 Continued the theme wiring work from Session 89 by connecting remaining unused symbols and colors.
 
@@ -57,6 +61,58 @@ Continued the theme wiring work from Session 89 by connecting remaining unused s
 
 - Main binary builds successfully
 - Test files updated for new render signature
+
+### Part 2: Async Git in LLE Segment System
+
+Ported async git functionality from the legacy `prompt.c` to the LLE segment system.
+
+**Problem**: The LLE git segment used blocking `popen()` calls in `fetch_git_status()`, causing prompt lag on slow repos.
+
+**Solution**: Integrated the `lle_async_worker_t` infrastructure into the git segment.
+
+**Implementation**:
+1. Extended `segment_git_state_t` with async worker state (worker, mutex, pending flag)
+2. Added `segment_git_init()` - initializes async worker on segment creation
+3. Added `segment_git_cleanup()` - shuts down async worker on segment destruction
+4. Added `segment_git_async_callback()` - updates state when async fetch completes
+5. Added `queue_async_git_fetch()` - queues non-blocking git status request
+6. Modified `segment_git_render()` - uses async when available, falls back to sync
+
+**Async behavior**:
+- First render: Does sync fetch to show data immediately
+- Subsequent renders: Queues async request, shows cached/stale data while fetching
+- Async completion: Updates state, next render shows fresh data
+
+**Files modified**:
+- `src/lle/prompt/segment.c` - Added async worker integration to git segment
+
+### Part 3: prompt.c Reorganization
+
+Reorganized `src/prompt.c` to clearly separate LLE and legacy code paths, preparing for eventual readline/theme system removal.
+
+**Changes**:
+1. Added clear section headers marking legacy code:
+   - `LEGACY PROMPT CACHING SYSTEM` - cache used only by legacy themes
+   - `LEGACY GIT STATUS SYSTEM` - git functions used only by `themes.c`
+   - `LEGACY PROMPT CACHING API` - cache API functions
+   - `LEGACY ASYNC GIT STATUS SYSTEM` - async git for legacy themes
+2. Reorganized `build_prompt()` with clear sections:
+   - `LLE PATH` - Uses Spec 25 prompt composer (preferred)
+   - `LEGACY PATH` - Theme system for readline mode
+3. Added comments noting code will be removed with readline
+
+**Why not remove legacy code**:
+- `themes.c` still calls `update_git_info()` and `format_git_prompt()`
+- These are only used in legacy readline mode
+- Will be removed when readline support is removed
+
+### Files Modified (Part 2 & 3)
+
+| File | Changes |
+|------|---------|
+| `src/lle/prompt/segment.c` | Async worker integration in git segment |
+| `src/prompt.c` | Reorganized with clear LLE/legacy sections |
+| `docs/lle_specification/LLE_IMPLEMENTATION_STATUS_AND_ROADMAP.md` | Updated to v2.4 |
 
 ---
 

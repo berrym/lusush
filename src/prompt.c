@@ -22,7 +22,14 @@
 #include <time.h>
 #include <unistd.h>
 
-// Prompt Caching System
+/* ============================================================================
+ * LEGACY PROMPT CACHING SYSTEM
+ * 
+ * This cache is only used by the legacy theme system (readline mode).
+ * The LLE prompt system uses its own event-driven regeneration in composer.c.
+ * This code will be removed when the legacy readline/theme system is removed.
+ * ============================================================================ */
+
 static char cached_prompt[512] = {0};
 static char cached_working_dir[256] = {0};
 static char cached_theme_name[32] = {0};
@@ -31,6 +38,14 @@ static time_t cache_time = 0;
 static bool cache_valid = false;
 static const int CACHE_VALIDITY_SECONDS = 5; // Cache valid for 5 seconds
 static const int GIT_CACHE_SECONDS = 10;     // Git status cached for 10 seconds
+
+/* ============================================================================
+ * LEGACY GIT STATUS SYSTEM
+ * 
+ * These git functions are used by the legacy theme system (themes.c).
+ * The LLE prompt system uses its own async git implementation in segment.c.
+ * This code will be removed when the legacy readline/theme system is removed.
+ * ============================================================================ */
 
 // Git status information
 typedef struct {
@@ -210,14 +225,13 @@ void format_git_prompt(char *git_prompt, size_t size) {
 
 /**
  * build_prompt:
- *      Builds the user's prompt, either a fancy colored one with
- *      the current working directory or a plain '% or # '.
+ *      Main prompt generation entry point.
+ *      Routes to LLE composer (preferred) or legacy theme system.
  *
- *      If config.use_theme_prompt is false, this function returns early
- *      without modifying PS1/PS2, allowing user customization to be respected.
+ *      If config.use_theme_prompt is false, respects user's PS1/PS2.
  */
 void build_prompt(void) {
-    // Debug: check state
+    /* Debug output for troubleshooting */
     const char *debug = getenv("LUSUSH_PROMPT_DEBUG");
     if (debug && strcmp(debug, "1") == 0) {
         fprintf(stderr, "[PROMPT] use_lle=%d g_lle_integration=%p prompt_composer=%p\n",
@@ -225,7 +239,9 @@ void build_prompt(void) {
                 g_lle_integration ? (void*)g_lle_integration->prompt_composer : NULL);
     }
     
-    // Use Spec 25 prompt composer when LLE is active
+    /* ========================================================================
+     * LLE PATH: Use Spec 25 prompt composer (preferred)
+     * ======================================================================== */
     if (config.use_lle && g_lle_integration && g_lle_integration->prompt_composer) {
         lle_prompt_composer_t *composer = g_lle_integration->prompt_composer;
         lle_prompt_output_t output;
@@ -250,17 +266,19 @@ void build_prompt(void) {
             lle_composer_clear_regeneration_flag(composer);
             return;
         }
-        // LLE mode but render failed - use minimal failsafe prompts
-        // Do NOT fall through to legacy theme system
+        /* LLE render failed - use minimal fallback, don't fall through to legacy */
         symtable_set_global("PS1", (getuid() > 0) ? "$ " : "# ");
         symtable_set_global("PS2", "> ");
         return;
     }
 
-    // Check if theme system is disabled - respect user PS1/PS2
+    /* ========================================================================
+     * LEGACY PATH: Theme system for readline mode
+     * This entire section will be removed when readline support is removed.
+     * ======================================================================== */
+
+    /* Check if theme system is disabled - respect user PS1/PS2 */
     if (!config.use_theme_prompt) {
-        // User has disabled theme prompts - don't overwrite PS1/PS2
-        // If PS1 is not set at all, provide a minimal default
         const char *current_ps1 = symtable_get_global("PS1");
         if (!current_ps1 || current_ps1[0] == '\0') {
             symtable_set_global("PS1", (getuid() > 0) ? "$ " : "# ");
@@ -272,9 +290,9 @@ void build_prompt(void) {
         return;
     }
 
-    char prompt[(MAXLINE * 2) + 1] = {'\0'}; // prompt string
+    char prompt[(MAXLINE * 2) + 1] = {'\0'};
 
-    // Enhanced Performance Monitoring: Start timing for prompt generation
+    /* Performance timing for legacy path */
     struct timeval start_time, end_time;
     gettimeofday(&start_time, NULL);
 
@@ -376,12 +394,15 @@ void rebuild_prompt(void) {
     build_prompt();
 }
 
-// ============================================================================
-// INTELLIGENT PROMPT CACHING SYSTEM
-// ============================================================================
+/* ============================================================================
+ * LEGACY PROMPT CACHING API
+ * 
+ * These functions are used by the legacy theme system.
+ * LLE mode uses lle_composer_needs_regeneration() instead.
+ * ============================================================================ */
 
 /**
- * Initialize the prompt caching system.
+ * Initialize the prompt caching system (legacy).
  */
 bool prompt_cache_init(void) {
     cache_valid = false;
@@ -430,12 +451,16 @@ void prompt_cache_set(const lusush_prompt_cache_t *entry) {
  */
 void prompt_cache_invalidate(void) { cache_valid = false; }
 
-// ============================================================================
-// ASYNC GIT STATUS SYSTEM
-// ============================================================================
+/* ============================================================================
+ * LEGACY ASYNC GIT STATUS SYSTEM
+ * 
+ * This async system is used by the legacy theme system to avoid blocking.
+ * The LLE prompt system has its own async git in segment.c.
+ * This code will be removed when the legacy readline/theme system is removed.
+ * ============================================================================ */
 
 /**
- * Callback when async git status completes.
+ * Callback when async git status completes (legacy).
  * Updates the cached git_info with fresh data.
  */
 static void git_async_completion(const lle_async_response_t *response,
