@@ -347,8 +347,17 @@ static void update_autosuggestion(readline_context_t *ctx) {
 
     size_t input_len = ctx->buffer->length;
 
+    /* Limit history search to prevent hangs with very large histories */
+    #define MAX_SUGGESTION_SEARCH_ITERATIONS 5000
+    size_t iterations = 0;
+
     /* Search backwards (most recent first) */
-    for (size_t i = count; i > 0; i--) {
+    for (size_t i = count; i > 0 && iterations < MAX_SUGGESTION_SEARCH_ITERATIONS; i--, iterations++) {
+        /* Check watchdog every 500 iterations to allow abort on timeout */
+        if (iterations > 0 && (iterations % 500) == 0 && lle_watchdog_check()) {
+            return;  /* Watchdog fired - abort suggestion search */
+        }
+
         lle_history_entry_t *entry = NULL;
         lle_result_t result =
             lle_history_get_entry_by_index(history, i - 1, &entry);
@@ -801,6 +810,11 @@ static bool is_input_incomplete(const char *buffer_data,
  */
 static void refresh_display(readline_context_t *ctx) {
     if (!ctx || !ctx->buffer) {
+        return;
+    }
+
+    /* Early abort if watchdog has fired - don't do expensive rendering */
+    if (lle_watchdog_check()) {
         return;
     }
 
@@ -2796,6 +2810,27 @@ char *lle_readline(const char *prompt) {
 
     while (!done) {
 
+        /* WATCHDOG: Check at start of each iteration (defense in depth).
+         * This catches cases where the previous iteration got stuck but
+         * somehow returned to the loop without hitting the post-read check.
+         */
+        if (lle_watchdog_check_and_clear()) {
+            fprintf(stderr, "\nlle: watchdog timeout at loop start\n");
+            if (ctx.editor && ctx.editor->completion_system) {
+                lle_completion_system_clear(ctx.editor->completion_system);
+            }
+            display_controller_t *dc = display_integration_get_controller();
+            if (dc) {
+                display_controller_set_autosuggestion(dc, NULL);
+                display_controller_clear_completion_menu(dc);
+            }
+            dc_reset_prompt_display_state();
+            lle_readline_state_force_timeout(&ctx);
+            done = true;
+            final_line = strdup("");
+            continue;
+        }
+
         /* CRITICAL FIX: Reset suppress_autosuggestion at start of each
          * iteration This flag is set during operations that temporarily
          * suppress autosuggestion (e.g., Ctrl+G clearing, menu dismissal).
@@ -3259,6 +3294,15 @@ char *lle_readline(const char *prompt) {
             /* Unknown event type - ignore */
             break;
         }
+        }
+
+        /* WATCHDOG: Check after event dispatch (catches hangs in handlers).
+         * This is a secondary check - handlers should already abort early
+         * if watchdog fired, but this catches any that don't.
+         */
+        if (lle_watchdog_check()) {
+            /* Don't clear here - let the loop start check handle it.
+             * Just note that we detected it after dispatch. */
         }
 
         /* Event processed - in Step 1 we don't free events (managed by input

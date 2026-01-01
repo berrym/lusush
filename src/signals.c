@@ -52,8 +52,8 @@ static void sigint_handler(int signo) {
         // Set the flag so the main loop knows this was SIGINT, not EOF
         sigint_received_during_readline = 1;
         // Print newline to move past current input
-        printf("\n");
-        fflush(stdout);
+        // NOTE: Using write() instead of printf/fflush for async-signal-safety
+        write(STDOUT_FILENO, "\n", 1);
     }
 }
 

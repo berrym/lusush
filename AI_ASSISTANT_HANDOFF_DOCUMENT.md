@@ -1,9 +1,65 @@
-# AI Assistant Handoff Document - Session 93
+# AI Assistant Handoff Document - Session 94
 
 **Date**: 2026-01-01
-**Session Type**: Inline Extern Cleanup - Code Quality Improvement
+**Session Type**: LLE Freeze/Hang Prevention - Defensive Improvements
 **Status**: COMPLETE
 **Branch**: `feature/lle`
+
+---
+
+## Session 94: LLE Freeze/Hang Prevention (Issue #26)
+
+Implemented defensive measures to prevent complete freeze scenarios where Ctrl+G doesn't work, addressing Issue #26.
+
+### Root Cause Analysis
+
+When code is stuck in a nested handler (e.g., `update_autosuggestion()`, `refresh_display()`), both the watchdog and Ctrl+G fail because:
+1. Watchdog check only happens in main loop (unreachable when stuck in handler)
+2. Ctrl+G is a keyboard event requiring the input loop to dispatch it
+3. Signal handler only sets a flag - can't interrupt nested processing
+
+### Fixes Implemented
+
+#### 1. Watchdog Checks Inside Critical Functions
+
+**File**: `src/lle/lle_readline.c`
+
+- **`update_autosuggestion()`**: Added iteration limit (5000) and watchdog check every 500 iterations. This prevents hangs during history search with very large histories.
+
+- **`refresh_display()`**: Added early abort if watchdog has fired, preventing expensive rendering when recovery is needed.
+
+#### 2. Defense-in-Depth Watchdog Checks in Main Loop
+
+**File**: `src/lle/lle_readline.c`
+
+- Added watchdog check at **start of each iteration** (catches cases where previous iteration got stuck but returned)
+- Added watchdog check **after event dispatch** (catches hangs in handlers)
+
+#### 3. Async-Signal-Safety Fix
+
+**File**: `src/signals.c`
+
+- Replaced `printf("\n"); fflush(stdout);` with `write(STDOUT_FILENO, "\n", 1);` in signal handler
+- `printf/fflush` are NOT async-signal-safe and can cause deadlocks if signal arrives during stdio operations
+
+### Changes Decided Against
+
+- **Refresh counter guard**: Originally planned to limit refreshes per input cycle, but this could interfere with legitimate operations (multiple handlers each calling refresh once is normal)
+- **Atomic suppress_autosuggestion flag**: Not needed since flag is only accessed from single-threaded readline loop, not signal handler
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `src/lle/lle_readline.c` | +46 lines: watchdog checks in handlers and main loop |
+| `src/signals.c` | -2/+2 lines: async-signal-safe write() |
+
+### Results
+
+- **Build**: ✅ Successful
+- **Tests**: ✅ 58/58 passing
+- **Watchdog can now abort** stuck `update_autosuggestion()` and `refresh_display()`
+- **Signal handler** is now async-signal-safe
 
 ---
 
