@@ -52,14 +52,11 @@ inc = include_directories('include',
 
 src = ['src/builtins/alias.c',
        'src/builtins/builtins.c',
-       'src/builtins/history.c',
        'src/builtins/fc.c',
-       'src/builtins/enhanced_history.c',
        'src/posix_history.c',
        'src/arithmetic.c',
        'src/autocorrect.c',
        'src/libfuzzy/fuzzy_match.c',
-       'src/completion.c',
        'src/config.c',
        'src/lusush_memory_pool.c',
        'src/debug/debug_core.c',
@@ -97,9 +94,6 @@ src = ['src/builtins/alias.c',
        'src/opts.c',
        'src/parser.c',
        'src/posix_opts.c',
-       'src/network.c',
-       'src/prompt.c',
-       'src/themes.c',
        'src/signals.c',
        'src/strings.c',
        'src/symtable.c',
@@ -115,38 +109,8 @@ if host_machine.system() == 'darwin'
   add_project_arguments('-D_DARWIN_C_SOURCE', language: 'c')
 endif
 
-# Readline support option
-readline_support = get_option('readline_support')
-
-# Find readline dependency (optional based on build option)
-if readline_support
-  readline_dep = dependency('readline', required: true)
-  add_project_arguments('-DHAVE_READLINE=1', language: 'c')
-  # Add readline_integration.c only when readline is enabled
-  src += 'src/readline_integration.c'
-  message('GNU Readline support: ENABLED')
-
-  # Some Linux distros (Fedora, RHEL) have readline.pc that defines -D_XOPEN_SOURCE=600,
-  # which conflicts with our project-wide -D_XOPEN_SOURCE=700. On Linux, we strip compile_args
-  # to prevent redefinition warnings. On macOS, readline's compile_args (-I... -D_DARWIN_C_SOURCE)
-  # don't conflict, so we keep them to get the Homebrew include path.
-  if host_machine.system() == 'linux'
-    readline_compile_dep = readline_dep.partial_dependency(includes: true)
-    readline_link_dep = readline_dep.partial_dependency(includes: true, link_args: true)
-  else
-    # macOS and other platforms: keep full compile_args (includes -I path)
-    readline_compile_dep = readline_dep.partial_dependency(compile_args: true, includes: true)
-    readline_link_dep = readline_dep.partial_dependency(compile_args: true, includes: true, link_args: true)
-  endif
-else
-  readline_dep = dependency('', required: false)
-  readline_compile_dep = readline_dep
-  readline_link_dep = readline_dep
-  add_project_arguments('-DHAVE_READLINE=0', language: 'c')
-  # Add stub implementations when readline is disabled
-  src += 'src/readline_stubs.c'
-  message('GNU Readline support: DISABLED (LLE-only build)')
-endif
+# LLE is the sole line editor - no GNU readline dependency
+message('Line Editor: LLE (Lusush Line Editor)')
 
 # Find ncurses dependency (required by LLE terminal capabilities)
 ncurses_dep = dependency('ncurses', required: true)
@@ -189,11 +153,11 @@ if lle_sources.length() > 0
                            sources: lle_sources,
                            include_directories: inc,
                            c_args: lle_c_args,
-                           dependencies: [readline_compile_dep, ncurses_compile_dep, fuzzy_dep])
+                           dependencies: [ncurses_compile_dep, fuzzy_dep])
 
   lle_dep = declare_dependency(link_with: lle_lib,
                                include_directories: include_directories('include/lle'),
-                               dependencies: [ncurses_link_dep, readline_link_dep])
+                               dependencies: [ncurses_link_dep])
 else
   # LLE not yet implemented, create empty dependency
   message('LLE: No modules implemented yet (zero source files)')
@@ -203,9 +167,9 @@ endif
 # ============================================================================
 # Display System Library (for LLE tests that need display system symbols)
 # ============================================================================
-# LLE display_bridge.c and theme_integration.c call functions from the main
-# display system (command_layer, prompt_layer, layer_events). Tests that link
-# only against liblle.a need this library to resolve those symbols.
+# LLE display_bridge.c calls functions from the main display system
+# (command_layer, prompt_layer, layer_events). Tests that link only against
+# liblle.a need this library to resolve those symbols.
 #
 # This is a MINIMAL library containing only the core display layer components.
 # It does NOT include config.c or other shell subsystems to avoid pulling in
@@ -223,7 +187,6 @@ display_sources = [
   'src/display/screen_buffer_menu.c',
   'src/display/autosuggestions_layer.c',
   'src/display_integration.c',
-  'src/themes.c',
   'src/globals.c',
   'src/strings.c',
   'src/errors.c',
@@ -232,19 +195,19 @@ display_sources = [
 display_lib = static_library('display',
                              sources: display_sources,
                              include_directories: inc,
-                             dependencies: [readline_compile_dep, ncurses_compile_dep])
+                             dependencies: [ncurses_compile_dep])
 
 display_dep = declare_dependency(link_with: display_lib,
                                  include_directories: inc,
-                                 dependencies: [ncurses_link_dep, readline_link_dep])
+                                 dependencies: [ncurses_link_dep])
 
-# Build lusush executable (with or without LLE)
+# Build lusush executable with LLE
 # NOTE: lle_shell_sources contains shell integration files that depend on
 # shell globals (config, builtins, etc.) and cannot be in liblle.a
 lusush_exe = executable('lusush',
                         src + lle_shell_sources,
                         include_directories: inc,
-                        dependencies: [readline_link_dep, lle_dep])
+                        dependencies: [lle_dep])
 
 # ============================================================================
 # TEST INFRASTRUCTURE
@@ -277,7 +240,7 @@ if lle_sources.length() > 0
                                'src/libhashtable/ht_strstr.c',
                                'src/globals.c'],
                               include_directories: inc,
-                              dependencies: [lle_dep, readline_link_dep])
+                              dependencies: [lle_dep])
 
   test('LLE Multiline Manager', test_multiline,
        suite: 'lle-functional',
@@ -310,7 +273,7 @@ if lle_sources.length() > 0
                                         ['tests/lle/integration/display_integration_test.c',
                                          'tests/lle/functional/display_test_stubs.c'],
                                         include_directories: inc,
-                                        dependencies: [lle_dep, display_dep, readline_link_dep])
+                                        dependencies: [lle_dep, display_dep])
 
   test('LLE Display Integration', test_display_integration,
        suite: 'lle-integration',
@@ -359,7 +322,7 @@ if lle_sources.length() > 0
                                  ['tests/lle/benchmarks/display_performance_benchmark.c',
                                   'tests/lle/functional/display_test_stubs.c'],
                                  include_directories: inc,
-                                 dependencies: [lle_dep, display_dep, readline_link_dep])
+                                 dependencies: [lle_dep, display_dep])
 
   test('LLE Display Performance', benchmark_display,
        suite: 'lle-benchmarks',
@@ -371,7 +334,7 @@ if lle_sources.length() > 0
                               ['tests/lle/stress/display_stress_test.c',
                                'tests/lle/functional/display_test_stubs.c'],
                               include_directories: inc,
-                              dependencies: [lle_dep, display_dep, readline_link_dep])
+                              dependencies: [lle_dep, display_dep])
 
   test('LLE Display Stress Tests', stress_display,
        suite: 'lle-stress',
@@ -382,7 +345,7 @@ if lle_sources.length() > 0
   stress_watchdog = executable('stress_watchdog_test',
                                ['tests/lle/stress/watchdog_stress_test.c'],
                                include_directories: inc,
-                               dependencies: [lle_dep, display_dep, readline_link_dep])
+                               dependencies: [lle_dep, display_dep])
 
   test('LLE Watchdog Stress Tests', stress_watchdog,
        suite: 'lle-stress',
@@ -397,7 +360,7 @@ if lle_sources.length() > 0
                                    ['tests/lle/unit/test_display_bridge.c',
                                     'tests/lle/functional/display_test_stubs.c'],
                                    include_directories: inc,
-                                   dependencies: [lle_dep, display_dep, readline_link_dep])
+                                   dependencies: [lle_dep, display_dep])
 
   test('LLE Display Bridge', test_display_bridge,
        suite: 'lle-unit',
@@ -409,7 +372,7 @@ if lle_sources.length() > 0
                                  ['tests/lle/unit/test_event_system.c',
                                   'tests/lle/functional/test_memory_mock.c'],
                                  include_directories: inc,
-                                 dependencies: [lle_dep, readline_link_dep])
+                                 dependencies: [lle_dep])
 
   test('LLE Event System', test_event_system,
        suite: 'lle-unit',
@@ -421,7 +384,7 @@ if lle_sources.length() > 0
                                  ['tests/lle/unit/test_event_phase2.c',
                                   'tests/lle/functional/test_memory_mock.c'],
                                  include_directories: inc,
-                                 dependencies: [lle_dep, readline_link_dep])
+                                 dependencies: [lle_dep])
 
   test('LLE Event System Phase 2', test_event_phase2,
        suite: 'lle-unit',
@@ -431,7 +394,7 @@ if lle_sources.length() > 0
   test_terminal_capabilities = executable('test_terminal_capabilities',
                                           'tests/lle/unit/test_terminal_capabilities.c',
                                           include_directories: inc,
-                                          dependencies: [lle_dep, readline_link_dep])
+                                          dependencies: [lle_dep])
 
   test('LLE Terminal Capabilities', test_terminal_capabilities,
        suite: 'lle-unit',
@@ -441,7 +404,7 @@ if lle_sources.length() > 0
   test_terminal_state = executable('test_terminal_state',
                                    'tests/lle/unit/test_terminal_state.c',
                                    include_directories: inc,
-                                   dependencies: [lle_dep, readline_link_dep])
+                                   dependencies: [lle_dep])
 
   test('LLE Terminal State', test_terminal_state,
        suite: 'lle-unit',
@@ -451,7 +414,7 @@ if lle_sources.length() > 0
   test_terminal_event_reading = executable('test_terminal_event_reading',
                                           'tests/lle/unit/test_terminal_event_reading.c',
                                           include_directories: inc,
-                                          dependencies: [lle_dep, readline_link_dep])
+                                          dependencies: [lle_dep])
 
   test('LLE Terminal Event Reading', test_terminal_event_reading,
        suite: 'lle-unit',
@@ -463,7 +426,7 @@ if lle_sources.length() > 0
   test_fkey_detection = executable('test_fkey_detection',
                                    'tests/lle/integration/test_fkey_detection.c',
                                    include_directories: inc,
-                                   dependencies: [lle_dep, readline_link_dep])
+                                   dependencies: [lle_dep])
 
   test('LLE F-Key Detection Integration', test_fkey_detection,
        suite: 'lle-integration',
@@ -475,7 +438,7 @@ if lle_sources.length() > 0
   test_fkey_manual = executable('test_fkey_manual',
                                 'tests/lle/manual/test_fkey_manual.c',
                                 include_directories: inc,
-                                dependencies: [lle_dep, readline_link_dep])
+                                dependencies: [lle_dep])
 
   # Render Controller Unit Tests (Spec 08)
   # Unit tests for render controller initialization, cleanup, and sub-component setup
@@ -484,28 +447,19 @@ if lle_sources.length() > 0
                                       ['tests/lle/unit/test_render_controller.c',
                                        'tests/lle/functional/display_test_stubs.c'],
                                       include_directories: inc,
-                                      dependencies: [lle_dep, display_dep, readline_link_dep])
+                                      dependencies: [lle_dep, display_dep])
 
   test('LLE Render Controller', test_render_controller,
        suite: 'lle-unit',
        timeout: 30)
 
-  # Theme integration unit tests
-  test_theme_integration = executable('test_theme_integration',
-                                      ['tests/lle/unit/test_theme_integration.c',
-                                       'tests/lle/functional/display_test_stubs.c'],
-                                      include_directories: inc,
-                                      dependencies: [lle_dep, display_dep, readline_link_dep])
 
-  test('LLE Theme Integration', test_theme_integration,
-       suite: 'lle-unit',
-       timeout: 30)
 
   # Syntax highlighting unit tests (Spec 11)
   test_lle_syntax_highlighting = executable('test_lle_syntax_highlighting',
                                             'tests/lle/unit/test_lle_syntax_highlighting.c',
                                             include_directories: inc,
-                                            dependencies: [lle_dep, readline_link_dep])
+                                            dependencies: [lle_dep])
 
   test('LLE Syntax Highlighting', test_lle_syntax_highlighting,
        suite: 'lle-unit',
@@ -516,7 +470,7 @@ if lle_sources.length() > 0
                                     ['tests/lle/unit/test_render_pipeline.c',
                                      'tests/lle/functional/display_test_stubs.c'],
                                     include_directories: inc,
-                                    dependencies: [lle_dep, display_dep, readline_link_dep])
+                                    dependencies: [lle_dep, display_dep])
 
   test('LLE Render Pipeline', test_render_pipeline,
        suite: 'lle-unit',
@@ -526,7 +480,7 @@ if lle_sources.length() > 0
   test_hashtable = executable('test_hashtable',
                               'tests/lle/unit/test_hashtable.c',
                               include_directories: inc,
-                              dependencies: [lle_dep, readline_link_dep])
+                              dependencies: [lle_dep])
 
   test('LLE Hashtable Wrapper', test_hashtable,
        suite: 'lle-unit',
@@ -537,7 +491,7 @@ if lle_sources.length() > 0
   test_async_worker = executable('test_async_worker',
                                  'tests/lle/unit/test_async_worker.c',
                                  include_directories: inc,
-                                 dependencies: [lle_dep, readline_link_dep])
+                                 dependencies: [lle_dep])
 
   test('LLE Async Worker', test_async_worker,
        suite: 'lle-unit',
@@ -548,7 +502,7 @@ if lle_sources.length() > 0
   test_template_engine = executable('test_template_engine',
                                     'tests/lle/unit/test_template_engine.c',
                                     include_directories: inc,
-                                    dependencies: [lle_dep, readline_link_dep])
+                                    dependencies: [lle_dep])
 
   test('LLE Template Engine', test_template_engine,
        suite: 'lle-unit',
@@ -559,7 +513,7 @@ if lle_sources.length() > 0
   test_segment_system = executable('test_segment_system',
                                    'tests/lle/unit/test_segment_system.c',
                                    include_directories: inc,
-                                   dependencies: [lle_dep, readline_link_dep])
+                                   dependencies: [lle_dep])
 
   test('LLE Segment System', test_segment_system,
        suite: 'lle-unit',
@@ -570,7 +524,7 @@ if lle_sources.length() > 0
   test_theme_registry = executable('test_theme_registry',
                                    'tests/lle/unit/test_theme_registry.c',
                                    include_directories: inc,
-                                   dependencies: [lle_dep, readline_link_dep])
+                                   dependencies: [lle_dep])
 
   test('LLE Theme Registry', test_theme_registry,
        suite: 'lle-unit',
@@ -582,7 +536,7 @@ if lle_sources.length() > 0
                                     ['tests/lle/unit/test_prompt_composer.c',
                                      'tests/lle/functional/display_test_stubs.c'],
                                     include_directories: inc,
-                                    dependencies: [lle_dep, display_dep, readline_link_dep])
+                                    dependencies: [lle_dep, display_dep])
 
   test('LLE Prompt Composer', test_prompt_composer,
        suite: 'lle-unit',
@@ -592,7 +546,7 @@ if lle_sources.length() > 0
   test_render_cache = executable('test_render_cache',
                                  'tests/lle/unit/test_render_cache.c',
                                  include_directories: inc,
-                                 dependencies: [lle_dep, readline_link_dep])
+                                 dependencies: [lle_dep])
 
   test('LLE Render Cache', test_render_cache,
        suite: 'lle-unit',
@@ -602,7 +556,7 @@ if lle_sources.length() > 0
   test_dirty_tracker = executable('test_dirty_tracker',
                                   'tests/lle/unit/test_dirty_tracker.c',
                                   include_directories: inc,
-                                  dependencies: [lle_dep, readline_link_dep])
+                                  dependencies: [lle_dep])
 
   test('LLE Dirty Tracker', test_dirty_tracker,
        suite: 'lle-unit',
@@ -615,7 +569,7 @@ if lle_sources.length() > 0
                                  ['tests/lle/unit/test_input_stream.c',
                                   'tests/lle/functional/test_memory_mock.c'],
                                  include_directories: inc,
-                                 dependencies: [lle_dep, readline_link_dep])
+                                 dependencies: [lle_dep])
 
   test('LLE Input Stream', test_input_stream,
        suite: 'lle-unit',
@@ -628,7 +582,7 @@ if lle_sources.length() > 0
                                          ['tests/lle/unit/test_input_utf8_processor.c',
                                           'tests/lle/functional/test_memory_mock.c'],
                                          include_directories: inc,
-                                         dependencies: [lle_dep, readline_link_dep])
+                                         dependencies: [lle_dep])
 
   test('LLE Input UTF-8 Processor', test_input_utf8_processor,
        suite: 'lle-unit',
@@ -641,7 +595,7 @@ if lle_sources.length() > 0
                                     ['tests/lle/unit/test_sequence_parser.c',
                                      'tests/lle/functional/test_memory_mock.c'],
                                     include_directories: inc,
-                                    dependencies: [lle_dep, readline_link_dep])
+                                    dependencies: [lle_dep])
 
   test('LLE Sequence Parser', test_sequence_parser,
        suite: 'lle-unit',
@@ -654,7 +608,7 @@ if lle_sources.length() > 0
                                  ['tests/lle/unit/test_key_detector.c',
                                   'tests/lle/functional/test_memory_mock.c'],
                                  include_directories: inc,
-                                 dependencies: [lle_dep, readline_link_dep])
+                                 dependencies: [lle_dep])
 
   test('LLE Key Detector', test_key_detector,
        suite: 'lle-unit',
@@ -667,7 +621,7 @@ if fs.exists('tests/lle/unit/test_mouse_parser.c')
                                  ['tests/lle/unit/test_mouse_parser.c',
                                   'tests/lle/functional/test_memory_mock.c'],
                                  include_directories: inc,
-                                 dependencies: [lle_dep, readline_link_dep])
+                                 dependencies: [lle_dep])
   test('LLE Mouse Parser', test_mouse_parser,
        suite: 'lle-unit',
        timeout: 30)
@@ -679,7 +633,7 @@ if fs.exists('tests/lle/unit/test_parser_state_machine.c')
                                          ['tests/lle/unit/test_parser_state_machine.c',
                                           'tests/lle/functional/test_memory_mock.c'],
                                          include_directories: inc,
-                                         dependencies: [lle_dep, readline_link_dep])
+                                         dependencies: [lle_dep])
   test('LLE Parser State Machine', test_parser_state_machine,
        suite: 'lle-unit',
        timeout: 30)
@@ -880,7 +834,7 @@ endif
                                                'src/libhashtable/ht_strstr.c',
                                                'src/globals.c'],
                                               include_directories: inc,
-                                              dependencies: [lle_dep, readline_link_dep])
+                                              dependencies: [lle_dep])
     test('LLE History Phase 4 Complete', test_history_phase4_complete,
          suite: 'lle-functional',
          timeout: 60)
@@ -1026,41 +980,7 @@ if fs.exists('tests/lle/integration/simple_input_test.c')
                                   'tests/lle/integration/simple_input_test.c')
 endif
 
-# NOTE: test_lle_readline_real removed - use lusush binary with 'display lle enable' for real-world testing
-
-# Minimal lle_readline() test - with stubs for non-display functions
-# This version includes only display system sources and stubs the rest
-if fs.exists('tests/manual/test_lle_readline_minimal.c')
-  minimal_lusush_sources = [
-    'src/display/base_terminal.c',
-    'src/display/terminal_control.c',
-    'src/display/layer_events.c',
-    'src/display/prompt_layer.c',
-    'src/display/command_layer.c',
-    'src/display/composition_engine.c',
-    'src/display/display_controller.c',
-    'src/display/screen_buffer.c',
-    'src/display_integration.c',
-    'src/lusush_memory_pool.c',
-    'src/themes.c',
-    'src/input_continuation.c',
-    'src/prompt.c',
-    'src/globals.c',
-    'src/strings.c',
-    'src/errors.c',
-    'src/symtable.c',
-    'src/libhashtable/ht.c',
-    'src/libhashtable/ht_fnv1a.c',
-    'src/libhashtable/ht_strstr.c',
-    'src/libhashtable/ht_strint.c',
-  ]
-
-  test_lle_readline_minimal = executable('test_lle_readline_minimal',
-                                         ['tests/manual/test_lle_readline_minimal.c'] + minimal_lusush_sources,
-                                         include_directories: inc,
-                                         dependencies: [readline_dep, lle_dep])
-  # NOTE: Interactive test - run with: ./builddir/test_lle_readline_minimal
-endif
+# NOTE: For manual LLE testing, use the main lusush binary
 
 # ============================================================================
 # LLE Completion Menu Renderer Unit Tests (Spec 12 Phase 5.1)

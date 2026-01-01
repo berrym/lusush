@@ -42,9 +42,10 @@
  */
 
 #include "prompt_layer.h"
-#include "prompt.h"
+#include "lle/lle_shell_integration.h"
+#include "lle/prompt/composer.h"
+#include "lle/prompt/theme.h"
 #include "symtable.h"
-#include "themes.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -84,6 +85,30 @@
 // ============================================================================
 // INTERNAL HELPER FUNCTIONS
 // ============================================================================
+
+/**
+ * Get active theme name from LLE theme registry
+ */
+static const char *get_active_theme_name(void) {
+    if (g_lle_integration && g_lle_integration->prompt_composer &&
+        g_lle_integration->prompt_composer->themes) {
+        const lle_theme_t *theme = lle_theme_registry_get_active(
+            g_lle_integration->prompt_composer->themes);
+        if (theme) {
+            return theme->name;
+        }
+    }
+    return "default";
+}
+
+/**
+ * Check if a theme is available from LLE
+ */
+static bool is_theme_available(void) {
+    return (g_lle_integration && g_lle_integration->prompt_composer &&
+            g_lle_integration->prompt_composer->themes &&
+            lle_theme_registry_get_active(g_lle_integration->prompt_composer->themes) != NULL);
+}
 
 /**
  * Calculate FNV-1a hash for content validation
@@ -423,9 +448,8 @@ static prompt_layer_error_t render_prompt_content(prompt_layer_t *layer) {
 
     uint64_t start_time = get_current_time_ns();
 
-    // Get current theme information
-    theme_definition_t *theme = theme_get_active();
-    const char *theme_name = theme ? theme->name : "default";
+    // Get current theme information from LLE
+    const char *theme_name = get_active_theme_name();
 
     // Check cache first
     prompt_cache_entry_t *cached =
@@ -567,14 +591,11 @@ prompt_layer_error_t prompt_layer_init(prompt_layer_t *layer,
     }
 
     // Initialize theme context
-    layer->theme_context.theme_available = (theme_get_active() != NULL);
+    layer->theme_context.theme_available = is_theme_available();
     if (layer->theme_context.theme_available) {
-        theme_definition_t *theme = theme_get_active();
-        if (theme) {
-            layer->theme_context.current_theme_name = strdup(theme->name);
-            layer->theme_context.theme_hash =
-                calculate_content_hash(theme->name);
-        }
+        const char *theme_name = get_active_theme_name();
+        layer->theme_context.current_theme_name = strdup(theme_name);
+        layer->theme_context.theme_hash = calculate_content_hash(theme_name);
     }
     layer->theme_context.last_theme_check_ns = get_current_time_ns();
 
@@ -795,11 +816,12 @@ prompt_layer_error_t prompt_layer_update_theme(prompt_layer_t *layer) {
 
     DEBUG_PRINT("Updating theme integration");
 
-    theme_definition_t *current_theme = theme_get_active();
+    bool theme_available = is_theme_available();
     bool theme_changed = false;
 
-    if (current_theme) {
-        uint64_t new_theme_hash = calculate_content_hash(current_theme->name);
+    if (theme_available) {
+        const char *theme_name = get_active_theme_name();
+        uint64_t new_theme_hash = calculate_content_hash(theme_name);
 
         if (!layer->theme_context.theme_available ||
             layer->theme_context.theme_hash != new_theme_hash) {
@@ -810,12 +832,11 @@ prompt_layer_error_t prompt_layer_update_theme(prompt_layer_t *layer) {
             if (layer->theme_context.current_theme_name) {
                 free(layer->theme_context.current_theme_name);
             }
-            layer->theme_context.current_theme_name =
-                strdup(current_theme->name);
+            layer->theme_context.current_theme_name = strdup(theme_name);
             layer->theme_context.theme_hash = new_theme_hash;
             layer->theme_context.theme_available = true;
 
-            DEBUG_PRINT("Theme changed to '%s'", current_theme->name);
+            DEBUG_PRINT("Theme changed to '%s'", theme_name);
         }
     } else {
         if (layer->theme_context.theme_available) {
@@ -1048,8 +1069,8 @@ prompt_layer_error_t prompt_layer_generate_from_lusush(prompt_layer_t *layer) {
 
     DEBUG_PRINT("Generating prompt from Lusush system");
 
-    // Generate prompt using existing Lusush system
-    build_prompt(); // This updates the global PS1 variable
+    // Generate prompt using LLE prompt composer
+    lle_shell_update_prompt(); // This updates the global PS1 variable
 
     // Get the generated prompt from the symbol table
     char *ps1_value = symtable_get_global("PS1");

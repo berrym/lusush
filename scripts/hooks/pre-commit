@@ -118,7 +118,8 @@ if [ -n "$LLE_FILES_CHANGED" ]; then
 
     # Check for TODO/STUB markers in committed LLE CODE (FORBIDDEN)
     # Only check actual code files (.c, .h), not documentation (.md)
-    LLE_CODE_FILES=$(git diff --cached --name-only | grep -E "include/lle/.*\.(h|c)$|src/lle/.*\.(h|c)$|tests/lle/.*\.(h|c)$" || true)
+    # Use --diff-filter=d to exclude deleted files (they cause "ambiguous argument" errors)
+    LLE_CODE_FILES=$(git diff --cached --diff-filter=d --name-only | grep -E "include/lle/.*\.(h|c)$|src/lle/.*\.(h|c)$|tests/lle/.*\.(h|c)$" || true)
 
     if [ -n "$LLE_CODE_FILES" ]; then
         # Check each code file for forbidden markers AND actual stubs

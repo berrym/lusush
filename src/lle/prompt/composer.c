@@ -10,6 +10,7 @@
  */
 
 #include "lle/prompt/composer.h"
+#include "display/command_layer.h"
 #include "lle/adaptive_terminal_integration.h"
 #include "lle/display_integration.h"
 #include "lle/lle_shell_event_hub.h"
@@ -669,8 +670,9 @@ lle_result_t lle_composer_set_theme(lle_prompt_composer_t *composer,
         const lle_theme_t *active_theme =
             lle_theme_registry_get_active(composer->themes);
         if (active_theme && active_theme->has_syntax_colors) {
-            lle_apply_theme_syntax_colors(
-                active_theme, integration->display_bridge->command_layer);
+            command_layer_apply_theme_colors(
+                active_theme,
+                (command_layer_t *)integration->display_bridge->command_layer);
         }
     }
 

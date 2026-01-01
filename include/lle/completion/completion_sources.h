@@ -159,6 +159,18 @@ lle_result_t lle_completion_source_history(lle_memory_pool_t *memory_pool,
                                            const char *prefix,
                                            lle_completion_result_t *result);
 
+/**
+ * Get SSH host completions from ~/.ssh/config and known_hosts
+ *
+ * @param memory_pool memory pool for allocations
+ * @param prefix hostname prefix to match
+ * @param result completion result to populate
+ * @return LLE_SUCCESS on success, error code on failure
+ */
+lle_result_t lle_completion_source_ssh_hosts(lle_memory_pool_t *memory_pool,
+                                             const char *prefix,
+                                             lle_completion_result_t *result);
+
 #ifdef __cplusplus
 }
 #endif

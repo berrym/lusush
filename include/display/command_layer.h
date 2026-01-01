@@ -52,6 +52,7 @@
 #define COMMAND_LAYER_H
 
 #include "layer_events.h"
+#include "lle/error_handling.h"
 #include "lle/syntax_highlighting.h"
 #include "prompt_layer.h"
 
@@ -645,6 +646,18 @@ command_layer_create_default_colors(command_color_scheme_t *color_scheme);
  * @return Human-readable error message
  */
 const char *command_layer_get_error_message(command_layer_error_t error);
+
+/**
+ * Apply LLE theme syntax colors to command layer's spec highlighter
+ *
+ * @param lle_theme LLE theme with syntax colors
+ * @param cmd_layer Command layer to apply colors to
+ * @return LLE_SUCCESS on success, error code on failure
+ */
+struct lle_theme;
+typedef struct lle_theme lle_theme_t;
+lle_result_t command_layer_apply_theme_colors(const lle_theme_t *lle_theme,
+                                              command_layer_t *cmd_layer);
 
 #ifdef __cplusplus
 }

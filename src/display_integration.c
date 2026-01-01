@@ -51,10 +51,9 @@
 #include "lle/lle_shell_integration.h"
 #include "lle/prompt/composer.h"
 #include "lle/prompt/segment.h"
+#include "lle/prompt/theme.h"
 #include "lusush_memory_pool.h"
-#include "prompt.h"
-#include "readline_integration.h"
-#include "themes.h"
+#include "symtable.h"
 
 #include <inttypes.h>
 #include <libgen.h>
@@ -65,45 +64,23 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-#if HAVE_READLINE
-#include <readline/history.h>
-#include <readline/readline.h>
-#else
-/* Stub definitions when readline is disabled */
+/* LLE is the sole line editor - stub definitions for display compatibility */
 static char *rl_line_buffer = NULL;
 static int rl_end = 0;
 static int rl_point = 0;
 static inline void rl_redisplay(void) {}
 static inline int rl_clear_visible_line(void) { return 0; }
 static inline int rl_on_new_line(void) { return 0; }
-MAYBE_UNUSED
-static inline int rl_clear_screen(int count, int key) { (void)count; (void)key; return 0; }
-#endif
 
 /**
- * Clear screen helper that works for both LLE and readline modes.
- * Uses ANSI escape sequences when LLE is enabled or shell is non-interactive
- * (readline not initialized), otherwise uses readline's clear screen.
+ * Clear screen helper using ANSI escape sequences.
+ * LLE is the sole line editor - no readline fallback needed.
  */
 static void do_clear_screen(void) {
-    /* Use ANSI sequences for LLE mode or non-interactive shell
-     * (readline is only initialized in interactive mode) */
-    if (config.use_lle || !is_interactive_shell()) {
-        /* ESC[2J clears entire screen, ESC[H moves cursor to home position */
-        const char *clear_seq = "\033[2J\033[H";
-        if (write(STDOUT_FILENO, clear_seq, strlen(clear_seq)) < 0) {
-            /* Ignore write errors - terminal may be in unusual state */
-        }
-    } else {
-#if HAVE_READLINE
-        rl_clear_screen(0, 0);
-#else
-        /* Fallback: ANSI clear screen */
-        const char *clear_seq = "\033[2J\033[H";
-        if (write(STDOUT_FILENO, clear_seq, strlen(clear_seq)) < 0) {
-            /* Ignore write errors */
-        }
-#endif
+    /* ESC[2J clears entire screen, ESC[H moves cursor to home position */
+    const char *clear_seq = "\033[2J\033[H";
+    if (write(STDOUT_FILENO, clear_seq, strlen(clear_seq)) < 0) {
+        /* Ignore write errors - terminal may be in unusual state */
     }
 }
 
@@ -115,7 +92,61 @@ static void do_clear_screen(void) {
 void lusush_refresh_line(void);
 void lusush_prompt_update(void);
 void lusush_clear_screen(void);
-char *lusush_generate_prompt(void);
+
+/**
+ * Generate current prompt string using LLE prompt composer.
+ * Returns a pool-allocated string that caller must free.
+ */
+static char *display_generate_prompt(void) {
+    if (g_lle_integration && g_lle_integration->prompt_composer) {
+        lle_prompt_composer_t *composer = g_lle_integration->prompt_composer;
+        lle_prompt_output_t output;
+        memset(&output, 0, sizeof(output));
+        
+        lle_result_t result = lle_composer_render(composer, &output);
+        if (result == LLE_SUCCESS && output.ps1_len > 0) {
+            return lusush_pool_strdup(output.ps1);
+        }
+    }
+    /* Fallback */
+    return lusush_pool_strdup((getuid() > 0) ? "$ " : "# ");
+}
+
+/* Generate prompt using LLE prompt composer */
+char *lusush_generate_prompt(void) {
+    return display_generate_prompt();
+}
+
+/* Helper to get active theme name from LLE */
+static const char *get_active_theme_name(void) {
+    if (g_lle_integration && g_lle_integration->prompt_composer &&
+        g_lle_integration->prompt_composer->themes) {
+        const lle_theme_t *theme = lle_theme_registry_get_active(
+            g_lle_integration->prompt_composer->themes);
+        if (theme) {
+            return theme->name;
+        }
+    }
+    return "default";
+}
+
+/* Helper to get symbol mode from LLE theme */
+static symbol_compatibility_t get_symbol_mode(void) {
+    if (g_lle_integration && g_lle_integration->prompt_composer &&
+        g_lle_integration->prompt_composer->themes) {
+        const lle_theme_t *theme = lle_theme_registry_get_active(
+            g_lle_integration->prompt_composer->themes);
+        if (theme) {
+            /* Map LLE capabilities to symbol mode */
+            if (theme->capabilities & LLE_THEME_CAP_NERD_FONT) {
+                return SYMBOL_MODE_NERD_FONT;
+            } else if (theme->capabilities & LLE_THEME_CAP_UNICODE) {
+                return SYMBOL_MODE_UNICODE;
+            }
+        }
+    }
+    return SYMBOL_MODE_ASCII;
+}
 
 // ============================================================================
 // GLOBAL STATE AND CONFIGURATION
@@ -513,9 +544,8 @@ void display_integration_redisplay(void) {
         char *current_command = rl_line_buffer ? rl_line_buffer : "";
 
         // Update theme context before display controller operations
-        theme_definition_t *active_theme = theme_get_active();
-        const char *theme_name = active_theme ? active_theme->name : "default";
-        symbol_compatibility_t symbol_mode = symbol_get_compatibility_mode();
+        const char *theme_name = get_active_theme_name();
+        symbol_compatibility_t symbol_mode = get_symbol_mode();
 
         display_controller_set_theme_context(global_display_controller,
                                              theme_name, symbol_mode);
@@ -552,9 +582,8 @@ void display_integration_redisplay(void) {
         char *current_prompt = lusush_generate_prompt();
 
         // Update theme context before display controller operations
-        theme_definition_t *active_theme = theme_get_active();
-        const char *theme_name = active_theme ? active_theme->name : "default";
-        symbol_compatibility_t symbol_mode = symbol_get_compatibility_mode();
+        const char *theme_name = get_active_theme_name();
+        symbol_compatibility_t symbol_mode = get_symbol_mode();
 
         display_controller_set_theme_context(global_display_controller,
                                              theme_name, symbol_mode);
@@ -672,9 +701,8 @@ void display_integration_prompt_update(void) {
         char *current_command = rl_line_buffer ? rl_line_buffer : "";
 
         // Update theme context before display controller operations
-        theme_definition_t *active_theme = theme_get_active();
-        const char *theme_name = active_theme ? active_theme->name : "default";
-        symbol_compatibility_t symbol_mode = symbol_get_compatibility_mode();
+        const char *theme_name = get_active_theme_name();
+        symbol_compatibility_t symbol_mode = get_symbol_mode();
 
         display_controller_set_theme_context(global_display_controller,
                                              theme_name, symbol_mode);
@@ -699,7 +727,7 @@ void display_integration_prompt_update(void) {
     }
 
     // Fallback: call original functions safely
-    rebuild_prompt();
+    lle_shell_update_prompt();
     lusush_generate_prompt();
 
     // Enhanced Performance Monitoring: Record timing
@@ -829,9 +857,8 @@ void display_integration_post_command_update(const char *executed_command) {
         char *current_command = ""; // Post-command state has no active command
 
         // Update theme context before display controller operations
-        theme_definition_t *active_theme = theme_get_active();
-        const char *theme_name = active_theme ? active_theme->name : "default";
-        symbol_compatibility_t symbol_mode = symbol_get_compatibility_mode();
+        const char *theme_name = get_active_theme_name();
+        symbol_compatibility_t symbol_mode = get_symbol_mode();
 
         display_controller_set_theme_context(global_display_controller,
                                              theme_name, symbol_mode);
@@ -1180,16 +1207,15 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
     // Use Spec 25 prompt composer when LLE is active - completely bypass legacy
     bool theme_result = false;
     const char *theme_name = "default";
-    extern config_values_t config;
     const char *debug = getenv("LUSUSH_PROMPT_DEBUG");
     
     if (debug && strcmp(debug, "1") == 0) {
-        fprintf(stderr, "[DI] use_lle=%d g_lle=%p composer=%p\n",
-                config.use_lle, (void*)g_lle_integration,
+        fprintf(stderr, "[DI] g_lle=%p composer=%p\n",
+                (void*)g_lle_integration,
                 g_lle_integration ? (void*)g_lle_integration->prompt_composer : NULL);
     }
     
-    if (config.use_lle && g_lle_integration && g_lle_integration->prompt_composer) {
+    if (g_lle_integration && g_lle_integration->prompt_composer) {
         lle_prompt_composer_t *composer = g_lle_integration->prompt_composer;
         lle_prompt_output_t output;
         memset(&output, 0, sizeof(output));
@@ -1228,18 +1254,8 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
         return (*enhanced_prompt != NULL);
     }
 
-    // Fallback to legacy theme system ONLY if LLE not configured (config.use_lle == false)
+    // Ultimate fallback prompt generation (LLE not configured)
     if (!theme_result) {
-        theme_definition_t *active_theme = theme_get_active();
-        if (active_theme) {
-            theme_name = active_theme->name;
-        }
-
-        theme_result = theme_generate_primary_prompt(base_prompt, base_prompt_size);
-    }
-
-    if (!theme_result) {
-        // Ultimate fallback prompt generation
         char *current_dir = getcwd(NULL, 0);
         const char *user = getenv("USER");
         const char *hostname = getenv("HOSTNAME");
@@ -1259,8 +1275,9 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
             lusush_pool_free(current_dir);
     }
 
-    // Phase 2: Update theme context before display controller operations
-    symbol_compatibility_t symbol_mode = symbol_get_compatibility_mode();
+    // Update theme context before display controller operations
+    theme_name = get_active_theme_name();
+    symbol_compatibility_t symbol_mode = get_symbol_mode();
 
     // Set theme context in display controller for theme-aware caching
     display_controller_error_t theme_context_result =

@@ -49,7 +49,9 @@ char *build_prompt(void) {
 
 char *rebuild_prompt(void) { return build_prompt(); }
 
-char *lusush_generate_prompt(void) { return build_prompt(); }
+void lle_shell_update_prompt(void) { /* No-op in tests */ }
+
+/* Note: lusush_generate_prompt() is now in libdisplay.a via display_integration.c */
 
 char *format_git_prompt(void) { return NULL; /* No git info in tests */ }
 
@@ -174,4 +176,20 @@ int executor_count_jobs(executor_t *executor) {
 
 executor_t *get_global_executor(void) {
     return NULL; /* No executor in tests */
+}
+
+/* ============================================================================
+ * Network Functions (for SSH host completion)
+ * ============================================================================
+ */
+
+/* SSH host cache type stub */
+typedef struct ssh_host_cache {
+    void *hosts;
+    size_t count;
+    size_t capacity;
+} ssh_host_cache_t;
+
+ssh_host_cache_t *get_ssh_host_cache(void) {
+    return NULL; /* No SSH hosts in tests */
 }

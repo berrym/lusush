@@ -5,7 +5,7 @@
 #include "display_integration.h"
 #include "errors.h"
 #include "executor.h"
-#include "history.h"
+#include "posix_history.h"
 #include "ht.h"
 #include "input.h"
 #include "lle/adaptive_terminal_integration.h"
@@ -23,11 +23,10 @@
 #include "lle/prompt/composer.h"
 #include "lusush.h"
 #include "lusush_memory_pool.h"
-#include "network.h"
-#include "prompt.h"  // For prompt_cache_invalidate()
+#include "lle/completion/ssh_hosts.h"
+#include "posix_history.h"
 #include "signals.h"
 #include "symtable.h"
-#include "themes.h"
 
 #include <dirent.h>
 #include <stdio.h>
@@ -45,7 +44,6 @@ int bin_colon(int argc, char **argv);
 int bin_readonly(int argc, char **argv);
 int bin_config(int argc, char **argv);
 int bin_hash(int argc, char **argv);
-int bin_theme(int argc, char **argv);
 int bin_display(int argc, char **argv);
 int bin_network(int argc, char **argv);
 int bin_debug(int argc, char **argv);
@@ -73,8 +71,7 @@ builtin builtins[] = {
     {"cd", "change directory", bin_cd},
     {"pwd", "print working directory", bin_pwd},
     {"history", "print command history", bin_history},
-    {"fc", "POSIX history edit/list", bin_fc},
-    {"ehistory", "enhanced history commands", bin_enhanced_history},
+    {"fc", "fix command (POSIX history edit/list)", bin_fc},
     {"alias", "set an alias", bin_alias},
     {"unalias", "unset an alias", bin_unalias},
     {"clear", "clear the screen", bin_clear},
@@ -115,7 +112,6 @@ builtin builtins[] = {
     {"readonly", "create read-only variables", bin_readonly},
     {"config", "manage shell configuration", bin_config},
     {"hash", "remember utility locations", bin_hash},
-    {"theme", "manage shell themes", bin_theme},
     {"display", "manage layered display system", bin_display},
     {"network", "manage network and SSH hosts", bin_network},
     {"debug", "advanced debugging and profiling", bin_debug},
@@ -401,13 +397,6 @@ int bin_cd(int argc __attribute__((unused)),
         }
     }
 
-    // Invalidate prompt cache to force refresh of git info and other
-    // directory-dependent content on next prompt display
-    prompt_cache_invalidate();
-
-    // Trigger async git status fetch for new directory
-    prompt_async_refresh_git();
-
     /* Fire LLE shell event for directory change (Spec 26)
      * This notifies registered handlers (prompt composer, autosuggestions, etc.)
      * that the working directory has changed. previous_dir holds the old dir.
@@ -456,50 +445,18 @@ int bin_pwd(int argc __attribute__((unused)),
 
 /**
  * bin_history:
- *      Implementation of a history command.
+ *      Implementation of a history command using LLE history system.
  */
-int bin_history(int argc __attribute__((unused)),
-                char **argv __attribute__((unused))) {
-    // Check if LLE is enabled - history command uses GNU readline API
-    extern config_values_t config;
-    if (config.use_lle) {
-        fprintf(stderr, "history: command disabled when LLE is enabled\n");
-        fprintf(stderr,
-                "history: LLE will have its own history system (Spec 09)\n");
-        fprintf(stderr, "history: use 'display lle disable' to switch back to "
-                        "GNU readline\n");
-        return 1;
+int bin_history(int argc, char **argv) {
+    char *output = NULL;
+    lle_result_t result = lle_history_bridge_handle_builtin(argc, argv, &output);
+    
+    if (output) {
+        printf("%s", output);
+        free(output);
     }
-
-    char *line = NULL;
-
-    switch (argc) {
-    case 1:
-        history_print();
-        break;
-    case 2:
-        // Lookup a history entry
-        line = history_lookup(argv[1]);
-        if (line == NULL) {
-            error_message("history: unable to find entry %s", argv[1]);
-            return 1;
-        }
-
-        // Add the retrieved command to history
-        if (*line) {
-            history_add(line);
-            history_save();
-        }
-
-        // Execute the history entry
-        parse_and_execute(line);
-        break;
-    default:
-        history_usage();
-        break;
-    }
-
-    return 0;
+    
+    return (result == LLE_SUCCESS) ? 0 : 1;
 }
 
 /**
@@ -814,11 +771,11 @@ static char *process_escape_sequences(const char *str) {
 
 /**
  * bin_echo:
- *      Echo arguments to stdout with escape sequence processing.
+ *      Echo arguments to stdout with XSI escape sequence processing.
+ *      Per POSIX XSI extension, escape sequences like \n, \t are interpreted.
  */
 int bin_echo(int argc, char **argv) {
-    bool interpret_escapes =
-        false; // POSIX: echo does not interpret escapes by default
+    bool interpret_escapes = true; // XSI: interpret escape sequences by default
     bool no_newline = false;
     int arg_start = 1;
 
@@ -3226,614 +3183,73 @@ int bin_hash(int argc, char **argv) {
 
     return 0;
 }
-
-/**
- * bin_theme:
- *      Manage shell themes - list, set, and configure themes
- *      Phase 3 Target 2: Advanced Configuration Themes
- */
-int bin_theme(int argc, char **argv) {
-    if (!argv) {
-        return 1;
-    }
-
-    // No arguments - show current theme and available themes
-    if (argc == 1) {
-        extern config_values_t config;
-
-        // Show theme system status first
-        printf("Theme system: %s\n",
-               config.use_theme_prompt ? "enabled" : "disabled");
-        if (!config.use_theme_prompt) {
-            printf("  (User PS1/PS2 is respected. Use 'theme on' to enable "
-                   "themes.)\n\n");
-        }
-
-        theme_definition_t *active = theme_get_active();
-        if (active) {
-            printf("Current theme: %s\n", active->name);
-            printf("Description: %s\n", active->description);
-            printf("Category: %s\n",
-                   active->category == THEME_CATEGORY_PROFESSIONAL
-                       ? "Professional"
-                   : active->category == THEME_CATEGORY_CREATIVE  ? "Creative"
-                   : active->category == THEME_CATEGORY_MINIMAL   ? "Minimal"
-                   : active->category == THEME_CATEGORY_CLASSIC   ? "Classic"
-                   : active->category == THEME_CATEGORY_DEVELOPER ? "Developer"
-                                                                  : "Custom");
-        } else {
-            printf("No theme active\n");
-        }
-
-        printf("\nAvailable themes:\n");
-        char **themes = theme_list_available(-1);
-        if (themes) {
-            for (int i = 0; themes[i]; i++) {
-                theme_definition_t *theme = theme_load(themes[i]);
-                if (theme) {
-                    printf("  %-12s - %s\n", theme->name, theme->description);
-                }
-                free(themes[i]);
-            }
-            free(themes);
-        }
-        return 0;
-    }
-
-    // Handle subcommands
-    if (argc >= 2) {
-        if (strcmp(argv[1], "off") == 0 || strcmp(argv[1], "disable") == 0) {
-            // Disable theme system via config - respect user PS1/PS2
-            config_set_value("prompt.use_theme", "false");
-            printf("Theme system disabled - user PS1/PS2 will be respected\n");
-            printf("Set your prompt with: PS1=\"your prompt> \"\n");
-            printf("To re-enable: theme on\n");
-            printf("To persist: config save\n");
-            return 0;
-        }
-
-        if (strcmp(argv[1], "on") == 0 || strcmp(argv[1], "enable") == 0) {
-            // Enable theme system via config
-            config_set_value("prompt.use_theme", "true");
-            printf("Theme system enabled\n");
-            // Rebuild prompt with theme
-            rebuild_prompt();
-            printf("To persist: config save\n");
-            return 0;
-        }
-
-        if (strcmp(argv[1], "list") == 0) {
-            // List themes by category
-            printf("Available themes:\n\n");
-
-            printf("Professional:\n");
-            char **prof_themes =
-                theme_list_available(THEME_CATEGORY_PROFESSIONAL);
-            if (prof_themes) {
-                for (int i = 0; prof_themes[i]; i++) {
-                    theme_definition_t *theme = theme_load(prof_themes[i]);
-                    if (theme) {
-                        printf("  %-12s - %s\n", theme->name,
-                               theme->description);
-                    }
-                    free(prof_themes[i]);
-                }
-                free(prof_themes);
-            }
-
-            printf("\nDeveloper:\n");
-            char **dev_themes = theme_list_available(THEME_CATEGORY_DEVELOPER);
-            if (dev_themes) {
-                for (int i = 0; dev_themes[i]; i++) {
-                    theme_definition_t *theme = theme_load(dev_themes[i]);
-                    if (theme) {
-                        printf("  %-12s - %s\n", theme->name,
-                               theme->description);
-                    }
-                    free(dev_themes[i]);
-                }
-                free(dev_themes);
-            }
-
-            printf("\nMinimal:\n");
-            char **min_themes = theme_list_available(THEME_CATEGORY_MINIMAL);
-            if (min_themes) {
-                for (int i = 0; min_themes[i]; i++) {
-                    theme_definition_t *theme = theme_load(min_themes[i]);
-                    if (theme) {
-                        printf("  %-12s - %s\n", theme->name,
-                               theme->description);
-                    }
-                    free(min_themes[i]);
-                }
-                free(min_themes);
-            }
-
-            printf("\nCreative:\n");
-            char **creative_themes =
-                theme_list_available(THEME_CATEGORY_CREATIVE);
-            if (creative_themes) {
-                for (int i = 0; creative_themes[i]; i++) {
-                    theme_definition_t *theme = theme_load(creative_themes[i]);
-                    if (theme) {
-                        printf("  %-12s - %s\n", theme->name,
-                               theme->description);
-                    }
-                    free(creative_themes[i]);
-                }
-                free(creative_themes);
-            }
-
-            printf("\nClassic:\n");
-            char **classic_themes =
-                theme_list_available(THEME_CATEGORY_CLASSIC);
-            if (classic_themes) {
-                for (int i = 0; classic_themes[i]; i++) {
-                    theme_definition_t *theme = theme_load(classic_themes[i]);
-                    if (theme) {
-                        printf("  %-12s - %s\n", theme->name,
-                               theme->description);
-                    }
-                    free(classic_themes[i]);
-                }
-                free(classic_themes);
-            }
-
-            return 0;
-        }
-
-        if (strcmp(argv[1], "set") == 0) {
-            if (argc < 3) {
-                error_message("theme set: theme name required");
-                return 1;
-            }
-
-            const char *theme_name = argv[2];
-            if (theme_set_active(theme_name)) {
-                printf("Theme set to: %s\n", theme_name);
-
-                // Update configuration
-                if (config.theme_name) {
-                    free(config.theme_name);
-                }
-                config.theme_name = strdup(theme_name);
-
-                // Rebuild prompt with new theme
-                rebuild_prompt();
-
-                return 0;
-            } else {
-                error_message("theme set: theme '%s' not found", theme_name);
-                return 1;
-            }
-        }
-
-        if (strcmp(argv[1], "info") == 0) {
-            const char *theme_name = argc >= 3 ? argv[2] : NULL;
-            theme_definition_t *theme =
-                theme_name ? theme_load(theme_name) : theme_get_active();
-
-            if (!theme) {
-                error_message("theme info: %s", theme_name ? "theme not found"
-                                                           : "no active theme");
-                return 1;
-            }
-
-            printf("Theme: %s\n", theme->name);
-            printf("Description: %s\n", theme->description);
-            printf("Author: %s\n", theme->author);
-            printf("Version: %s\n", theme->version);
-            printf("Category: %s\n",
-                   theme->category == THEME_CATEGORY_PROFESSIONAL
-                       ? "Professional"
-                   : theme->category == THEME_CATEGORY_CREATIVE  ? "Creative"
-                   : theme->category == THEME_CATEGORY_MINIMAL   ? "Minimal"
-                   : theme->category == THEME_CATEGORY_CLASSIC   ? "Classic"
-                   : theme->category == THEME_CATEGORY_DEVELOPER ? "Developer"
-                                                                 : "Custom");
-            printf("Built-in: %s\n", theme->is_built_in ? "Yes" : "No");
-            printf("256-color support: %s\n",
-                   theme->supports_256_color ? "Yes" : "No");
-            printf("True color support: %s\n",
-                   theme->supports_true_color ? "Yes" : "No");
-            printf("Requires Powerline fonts: %s\n",
-                   theme->requires_powerline_fonts ? "Yes" : "No");
-
-            printf("\nFeatures:\n");
-            printf("  Right prompt: %s\n",
-                   theme->templates.enable_right_prompt ? "Yes" : "No");
-            printf("  Timestamp: %s\n",
-                   theme->templates.enable_timestamp ? "Yes" : "No");
-            printf("  Git status: %s\n",
-                   theme->templates.enable_git_status ? "Yes" : "No");
-            printf("  Exit code: %s\n",
-                   theme->templates.enable_exit_code ? "Yes" : "No");
-            printf("  Icons: %s\n", theme->effects.enable_icons ? "Yes" : "No");
-
-            return 0;
-        }
-
-        if (strcmp(argv[1], "colors") == 0) {
-            theme_definition_t *theme = theme_get_active();
-            if (!theme) {
-                error_message("theme colors: no active theme");
-                return 1;
-            }
-
-            printf("Color scheme for theme: %s\n\n", theme->name);
-
-            // Display color palette with examples
-            lle_terminal_detection_result_t *det = NULL;
-            lle_detect_terminal_capabilities_optimized(&det);
-            bool use_colors = det && det->supports_colors;
-
-            if (use_colors) {
-                printf("\033[34mPrimary:\033[0m    Example text\n");
-                printf("\033[36mSecondary:\033[0m  Example text\n");
-                printf("\033[32mSuccess:\033[0m    Example text\n");
-                printf("\033[33mWarning:\033[0m    Example text\n");
-                printf("\033[31mError:\033[0m      Example text\n");
-                printf("\033[36mInfo:\033[0m       Example text\n");
-                printf("\033[37mText:\033[0m       Example text\n");
-                printf("\033[90mText dim:\033[0m   Example text\n");
-                printf("\033[96mHighlight:\033[0m  Example text\n");
-                printf("\033[32mGit clean:\033[0m  Example text\n");
-                printf("\033[33mGit dirty:\033[0m  Example text\n");
-                printf("\033[92mGit staged:\033[0m Example text\n");
-                printf("\033[35mGit branch:\033[0m Example text\n");
-            } else {
-                printf("Primary:    Example text\n");
-                printf("Secondary:  Example text\n");
-                printf("Success:    Example text\n");
-                printf("Warning:    Example text\n");
-                printf("Error:      Example text\n");
-                printf("Info:       Example text\n");
-                printf("Text:       Example text\n");
-                printf("Text dim:   Example text\n");
-                printf("Highlight:  Example text\n");
-                printf("Git clean:  Example text\n");
-                printf("Git dirty:  Example text\n");
-                printf("Git staged: Example text\n");
-                printf("Git branch: Example text\n");
-            }
-
-            return 0;
-        }
-
-        if (strcmp(argv[1], "preview") == 0) {
-            const char *theme_name = argc >= 3 ? argv[2] : NULL;
-            theme_definition_t *theme =
-                theme_name ? theme_load(theme_name) : theme_get_active();
-
-            if (!theme) {
-                error_message("theme preview: %s", theme_name
-                                                       ? "theme not found"
-                                                       : "no active theme");
-                return 1;
-            }
-
-            printf("Preview of theme: %s\n\n", theme->name);
-
-            // Temporarily set the theme and generate sample prompts
-            theme_definition_t *original = theme_get_active();
-            if (theme_name) {
-                theme_set_active(theme_name);
-            }
-
-            char sample_prompt[1024];
-            if (theme_generate_primary_prompt(sample_prompt,
-                                              sizeof(sample_prompt))) {
-                printf("Primary prompt: %s\n", sample_prompt);
-            }
-
-            char sample_ps2[256];
-            if (theme_generate_secondary_prompt(sample_ps2,
-                                                sizeof(sample_ps2))) {
-                printf("Secondary prompt: %s\n", sample_ps2);
-            }
-
-            // Restore original theme if we changed it
-            if (theme_name && original) {
-                theme_set_active(original->name);
-            }
-
-            return 0;
-        }
-
-        if (strcmp(argv[1], "stats") == 0) {
-            size_t total, builtin, custom;
-            theme_get_statistics(&total, &builtin, &custom);
-
-            printf("Theme system statistics:\n");
-            printf("  Total themes: %zu\n", total);
-            printf("  Built-in themes: %zu\n", builtin);
-            printf("  Custom themes: %zu\n", custom);
-            printf("  Color support: %d\n", theme_detect_color_support());
-            printf("  Theme system version: %s\n", theme_get_version());
-
-            return 0;
-        }
-
-        if (strcmp(argv[1], "symbols") == 0) {
-            // Symbol compatibility controls
-            if (argc == 2) {
-                // Show current symbol mode
-                symbol_compatibility_t mode = symbol_get_compatibility_mode();
-                printf("Symbol compatibility mode: %s\n",
-                       mode == SYMBOL_MODE_UNICODE ? "unicode"
-                       : mode == SYMBOL_MODE_ASCII ? "ascii"
-                                                   : "auto");
-
-                // Show terminal detection
-                symbol_compatibility_t detected =
-                    symbol_detect_terminal_capability();
-                printf("Terminal detected capability: %s\n",
-                       detected == SYMBOL_MODE_UNICODE ? "unicode" : "ascii");
-
-                // Show symbol mappings
-                printf("\nSymbol mappings:\n");
-                const symbol_mapping_t *mappings = symbol_get_mapping_table();
-                for (int i = 0; mappings[i].unicode_symbol != NULL; i++) {
-                    printf("  %s -> %s  (%s)\n", mappings[i].unicode_symbol,
-                           mappings[i].ascii_fallback, mappings[i].description);
-                }
-                return 0;
-            } else if (argc == 3) {
-                // Set symbol mode
-                const char *mode_str = argv[2];
-                symbol_compatibility_t new_mode;
-
-                if (strcmp(mode_str, "unicode") == 0) {
-                    new_mode = SYMBOL_MODE_UNICODE;
-                } else if (strcmp(mode_str, "ascii") == 0) {
-                    new_mode = SYMBOL_MODE_ASCII;
-                } else if (strcmp(mode_str, "auto") == 0) {
-                    new_mode = SYMBOL_MODE_AUTO;
-                } else {
-                    error_message("theme symbols: invalid mode '%s' (use "
-                                  "unicode|ascii|auto)",
-                                  mode_str);
-                    return 1;
-                }
-
-                if (symbol_set_compatibility_mode(new_mode)) {
-                    printf("Symbol compatibility mode set to: %s\n", mode_str);
-                    // Rebuild prompt to apply new symbol settings
-                    rebuild_prompt();
-                    return 0;
-                } else {
-                    error_message("theme symbols: failed to set mode");
-                    return 1;
-                }
-            } else {
-                error_message(
-                    "theme symbols: usage: theme symbols [unicode|ascii|auto]");
-                return 1;
-            }
-        }
-
-        if (strcmp(argv[1], "help") == 0) {
-            printf("Theme command usage:\n");
-            printf("  theme              - Show current theme and list "
-                   "available themes\n");
-            printf("  theme off          - Disable themes, respect user "
-                   "PS1/PS2\n");
-            printf("  theme on           - Enable theme system\n");
-            printf("  theme list         - List all themes by category\n");
-            printf("  theme set <name>   - Set active theme\n");
-            printf("  theme info [name]  - Show detailed theme information\n");
-            printf(
-                "  theme colors       - Show color palette of active theme\n");
-            printf("  theme preview [name] - Preview theme prompts\n");
-            printf("  theme stats        - Show theme system statistics\n");
-            printf("  theme symbols [mode] - Show/set symbol compatibility "
-                   "(unicode|ascii|auto)\n");
-            printf("  theme help         - Show this help message\n");
-            printf("\nAvailable built-in themes:\n");
-            printf("  corporate  - Professional theme for business "
-                   "environments\n");
-            printf("  dark       - Modern dark theme with bright accents\n");
-            printf("  light      - Clean light theme with good contrast\n");
-            printf("  colorful   - Vibrant theme for creative workflows\n");
-            printf("  minimal    - Ultra-minimal theme for focused work\n");
-            printf("  classic    - Traditional shell appearance\n");
-            printf("\nTo use traditional PS1/PS2:\n");
-            printf("  theme off          - Disable theme system\n");
-            printf("  PS1=\"\\u@\\h:\\w\\$ \" - Set your custom prompt\n");
-
-            return 0;
-        }
-
-        // Unknown subcommand
-        error_message("theme: unknown subcommand '%s'", argv[1]);
-        printf("Use 'theme help' for usage information\n");
-        return 1;
-    }
-
-    return 0;
-}
-
 /**
  * bin_network:
- *      Manage network features and SSH host completion
- *      Phase 3 Target 3: Network Integration
+ *      Manage SSH host completion
  */
 int bin_network(int argc, char **argv) {
     if (!argv) {
         return 1;
     }
 
-    // No arguments - show network status and SSH host count
+    /* No arguments - show SSH host count */
     if (argc == 1) {
         ssh_host_cache_t *cache = get_ssh_host_cache();
-        remote_context_t *context = &g_remote_context;
-
-        printf("Network Integration Status:\n");
-        printf("SSH host completion: %s\n",
-               g_network_config.ssh_completion_enabled ? "Enabled"
-                                                       : "Disabled");
-        printf("SSH hosts cached: %zu\n", cache ? cache->count : 0);
-        printf("Remote session: %s\n",
-               context->is_remote_session ? "Yes" : "No");
-        printf("Cloud instance: %s\n",
-               context->is_cloud_instance ? "Yes" : "No");
-
-        if (context->remote_host[0]) {
-            printf("Remote host: %s\n", context->remote_host);
-        }
-        if (context->cloud_provider[0]) {
-            printf("Cloud provider: %s\n", context->cloud_provider);
-        }
-
+        printf("SSH Hosts Status:\n");
+        printf("  Hosts cached: %zu\n", cache ? cache->count : 0);
+        printf("  Remote session: %s\n", 
+               getenv("SSH_CLIENT") ? "Yes" : "No");
         return 0;
     }
 
-    // Handle subcommands
-    if (argc >= 2) {
-        if (strcmp(argv[1], "hosts") == 0) {
-            // List SSH hosts
-            ssh_host_cache_t *cache = get_ssh_host_cache();
-            if (!cache || cache->count == 0) {
-                printf("No SSH hosts found in cache\n");
-                printf("Check ~/.ssh/config and ~/.ssh/known_hosts\n");
-                return 0;
-            }
-
-            printf("SSH Hosts (%zu total):\n", cache->count);
-            printf("%-25s %-15s %-8s %s\n", "Host/Alias", "Hostname", "Port",
-                   "Source");
-            printf("%-25s %-15s %-8s %s\n", "----------", "--------", "----",
-                   "------");
-
-            for (size_t i = 0; i < cache->count && i < 50; i++) {
-                ssh_host_t *host = &cache->hosts[i];
-                const char *alias =
-                    host->alias[0] ? host->alias : host->hostname;
-                const char *hostname =
-                    host->hostname[0] ? host->hostname : "N/A";
-                const char *port = host->port[0] ? host->port : "22";
-                const char *source =
-                    host->from_config ? "config" : "known_hosts";
-
-                printf("%-25s %-15s %-8s %s\n", alias, hostname, port, source);
-            }
-
-            if (cache->count > 50) {
-                printf("... and %zu more hosts\n", cache->count - 50);
-            }
-
+    /* Handle subcommands */
+    if (strcmp(argv[1], "hosts") == 0) {
+        ssh_host_cache_t *cache = get_ssh_host_cache();
+        if (!cache || cache->count == 0) {
+            printf("No SSH hosts found\n");
+            printf("Check ~/.ssh/config and ~/.ssh/known_hosts\n");
             return 0;
         }
 
-        if (strcmp(argv[1], "refresh") == 0) {
-            // Refresh SSH host cache
-            printf("Refreshing SSH host cache...\n");
-            refresh_ssh_host_cache();
-            ssh_host_cache_t *cache = get_ssh_host_cache();
-            printf("Loaded %zu SSH hosts\n", cache ? cache->count : 0);
-            return 0;
+        printf("SSH Hosts (%zu total):\n", cache->count);
+        printf("%-25s %-25s %-8s %s\n", "Alias", "Hostname", "Port", "Source");
+        printf("%-25s %-25s %-8s %s\n", "-----", "--------", "----", "------");
+
+        for (size_t i = 0; i < cache->count && i < 50; i++) {
+            ssh_host_t *host = &cache->hosts[i];
+            const char *alias = host->alias[0] ? host->alias : "-";
+            const char *hostname = host->hostname[0] ? host->hostname : "-";
+            const char *port = host->port[0] ? host->port : "22";
+            const char *source = host->from_config ? "config" : "known_hosts";
+            printf("%-25s %-25s %-8s %s\n", alias, hostname, port, source);
         }
 
-        if (strcmp(argv[1], "test") == 0) {
-            // Test network connectivity
-            if (argc >= 3) {
-                const char *hostname = argv[2];
-                int port = (argc >= 4) ? atoi(argv[3]) : 22;
-
-                printf("Testing connectivity to %s:%d...\n", hostname, port);
-                bool result = test_host_connectivity(hostname, port, 5000);
-                printf("Result: %s\n", result ? "Connected" : "Failed");
-                return result ? 0 : 1;
-            } else {
-                printf("Usage: network test <hostname> [port]\n");
-                return 1;
-            }
+        if (cache->count > 50) {
+            printf("... and %zu more hosts\n", cache->count - 50);
         }
-
-        if (strcmp(argv[1], "info") == 0) {
-            // Show detailed network information
-            print_remote_context_info(&g_remote_context);
-            printf("\n");
-            print_network_config(&g_network_config);
-            printf("\n");
-            print_ssh_host_cache_stats(get_ssh_host_cache());
-            return 0;
-        }
-
-        if (strcmp(argv[1], "diagnostics") == 0) {
-            // Run full network diagnostics
-            return run_network_diagnostics();
-        }
-
-        if (strcmp(argv[1], "config") == 0) {
-            // Show or modify network configuration
-            if (argc >= 4 && strcmp(argv[2], "set") == 0) {
-                const char *setting = argv[3];
-                const char *value = (argc >= 5) ? argv[4] : "true";
-
-                if (strcmp(setting, "ssh_completion") == 0) {
-                    g_network_config.ssh_completion_enabled =
-                        (strcmp(value, "true") == 0 || strcmp(value, "1") == 0);
-                    printf("SSH completion: %s\n",
-                           g_network_config.ssh_completion_enabled
-                               ? "Enabled"
-                               : "Disabled");
-                } else if (strcmp(setting, "cache_timeout") == 0) {
-                    int timeout = atoi(value);
-                    if (timeout > 0 && timeout <= 60) {
-                        g_network_config.cache_timeout_minutes = timeout;
-                        printf("Cache timeout set to %d minutes\n", timeout);
-                    } else {
-                        printf("Invalid timeout value (1-60 minutes)\n");
-                        return 1;
-                    }
-                } else {
-                    printf("Unknown setting: %s\n", setting);
-                    printf(
-                        "Available settings: ssh_completion, cache_timeout\n");
-                    return 1;
-                }
-                return 0;
-            } else {
-                print_network_config(&g_network_config);
-                return 0;
-            }
-        }
-
-        if (strcmp(argv[1], "help") == 0) {
-            printf("Network command usage:\n");
-            printf("  network                    - Show network status\n");
-            printf("  network hosts              - List SSH hosts from config "
-                   "and known_hosts\n");
-            printf("  network refresh            - Refresh SSH host cache\n");
-            printf(
-                "  network test <host> [port] - Test connectivity to host\n");
-            printf("  network info               - Show detailed network "
-                   "information\n");
-            printf("  network diagnostics        - Run comprehensive network "
-                   "diagnostics\n");
-            printf(
-                "  network config             - Show network configuration\n");
-            printf("  network config set <setting> <value> - Modify network "
-                   "settings\n");
-            printf("  network help               - Show this help message\n");
-            printf("\nFeatures:\n");
-            printf("  - SSH host completion for ssh, scp, rsync commands\n");
-            printf("  - Remote session detection and context awareness\n");
-            printf("  - Cloud provider detection (AWS, GCP, Azure)\n");
-            printf("  - Network connectivity testing and VPN detection\n");
-            printf("  - SSH config and known_hosts parsing\n");
-            printf("\nPhase 3 Target 3: Network Integration - COMPLETE\n");
-            return 0;
-        }
-
-        // Unknown subcommand
-        printf("network: unknown subcommand '%s'\n", argv[1]);
-        printf("Use 'network help' for usage information\n");
-        return 1;
+        return 0;
     }
 
-    return 0;
+    if (strcmp(argv[1], "refresh") == 0) {
+        printf("Refreshing SSH host cache...\n");
+        ssh_hosts_refresh();
+        ssh_host_cache_t *cache = get_ssh_host_cache();
+        printf("Loaded %zu SSH hosts\n", cache ? cache->count : 0);
+        return 0;
+    }
+
+    if (strcmp(argv[1], "help") == 0) {
+        printf("Usage: network [command]\n\n");
+        printf("Commands:\n");
+        printf("  hosts    - List SSH hosts from config and known_hosts\n");
+        printf("  refresh  - Refresh SSH host cache\n");
+        printf("  help     - Show this help message\n");
+        return 0;
+    }
+
+    printf("network: unknown command '%s'\n", argv[1]);
+    printf("Use 'network help' for usage\n");
+    return 1;
 }
 
 // Debug builtin command - wrapper for debug system
@@ -4489,10 +3905,9 @@ int bin_display(int argc, char **argv) {
         if (argc < 3) {
             printf("LLE (Lusush Line Editor) Commands\n");
             printf("Usage: display lle <command> [options]\n");
-            printf("\nCore Commands:\n");
-            printf("  enable           - Enable LLE for this session\n");
-            printf("  disable          - Disable LLE for this session\n");
+            printf("\nStatus:\n");
             printf("  status           - Show LLE status and configuration\n");
+            printf("  diagnostics      - Show LLE diagnostics and health\n");
             printf("\nFeature Control:\n");
             printf("  autosuggestions on|off  - Control Fish-style "
                    "autosuggestions\n");
@@ -4513,9 +3928,8 @@ int bin_display(int argc, char **argv) {
             printf("  completions [cmd] - Custom completion source management\n");
             printf("                      list    - Show all sources\n");
             printf("                      reload  - Reload from config file\n");
-            printf("  diagnostics      - Show LLE diagnostics and health\n");
-            printf(
-                "  history-import   - Import GNU Readline history into LLE\n");
+            printf("\nHistory:\n");
+            printf("  history-import   - Import history from ~/.lusush_history\n");
             printf("\nNote: Changes apply immediately. Use 'config save' to "
                    "persist.\n");
             return 0;
@@ -4523,68 +3937,33 @@ int bin_display(int argc, char **argv) {
 
         const char *lle_cmd = argv[2];
 
-        if (strcmp(lle_cmd, "enable") == 0) {
+        if (strcmp(lle_cmd, "status") == 0) {
             extern config_values_t config;
-            config.use_lle = true;
-            
-            /* Initialize LLE shell integration if not already done */
-            if (!g_lle_integration) {
-                lle_result_t result = lle_shell_integration_init();
-                if (result != LLE_SUCCESS) {
-                    fprintf(stderr, "Warning: LLE shell integration init failed\n");
-                }
-            }
-            
-            printf(
-                "✓ LLE enabled for this session (takes effect immediately)\n");
-            printf("  Next prompt will use LLE line editor\n");
-            printf("  To persist: config set editor.use_lle true && config "
-                   "save\n");
-            return 0;
+            extern lle_editor_t *lle_get_global_editor(void);
+            lle_editor_t *editor = lle_get_global_editor();
 
-        } else if (strcmp(lle_cmd, "disable") == 0) {
-            extern config_values_t config;
-            config.use_lle = false;
-            printf(
-                "✓ LLE disabled for this session (takes effect immediately)\n");
-            printf("  Next prompt will use GNU Readline\n");
-            printf("  To persist: config set editor.use_lle false && config "
-                   "save\n");
-            return 0;
-
-        } else if (strcmp(lle_cmd, "status") == 0) {
-            extern config_values_t config;
             printf("LLE Status:\n");
-            printf("  Mode: %s\n",
-                   config.use_lle ? "LLE (enabled)" : "GNU Readline (default)");
-            printf("  History file: %s\n", config.use_lle
-                                               ? "~/.lusush_history_lle"
-                                               : "~/.lusush_history");
+            printf("  Line Editor: LLE (Lusush Line Editor)\n");
+            printf("  History file: ~/.lusush_history\n");
+            printf("  Editor: %s\n", editor ? "initialized" : "not initialized");
 
-            if (config.use_lle) {
-                printf("\nLLE Features:\n");
-                printf("  Multi-line editing: %s\n",
-                       config.lle_enable_multiline_editing ? "enabled"
-                                                           : "disabled");
-                printf("  History deduplication: %s\n",
-                       config.lle_enable_deduplication ? "enabled"
-                                                       : "disabled");
-                printf("  Forensic tracking: %s\n",
-                       config.lle_enable_forensic_tracking ? "enabled"
-                                                           : "disabled");
+            printf("\nLLE Features:\n");
+            printf("  Multi-line editing: %s\n",
+                   config.lle_enable_multiline_editing ? "enabled" : "disabled");
+            printf("  History deduplication: %s\n",
+                   config.lle_enable_deduplication ? "enabled" : "disabled");
+            printf("  Forensic tracking: %s\n",
+                   config.lle_enable_forensic_tracking ? "enabled" : "disabled");
+
+            if (editor && editor->history_system) {
+                size_t count = 0;
+                lle_history_get_entry_count(editor->history_system, &count);
+                printf("\nHistory:\n");
+                printf("  Entries: %zu\n", count);
             }
             return 0;
 
         } else if (strcmp(lle_cmd, "history-import") == 0) {
-            extern config_values_t config;
-
-            if (!config.use_lle) {
-                fprintf(stderr,
-                        "Error: LLE must be enabled to import history\n");
-                fprintf(stderr, "Run: display lle enable\n");
-                return 1;
-            }
-
             /* Get the global LLE editor */
             extern lle_editor_t *lle_get_global_editor(void);
             lle_editor_t *editor = lle_get_global_editor();
@@ -4614,7 +3993,7 @@ int bin_display(int argc, char **argv) {
                 if (home) {
                     char history_path[1024];
                     snprintf(history_path, sizeof(history_path),
-                             "%s/.lusush_history_lle", home);
+                             "%s/.lusush_history", home);
                     lle_history_save_to_file(editor->history_system,
                                              history_path);
                     printf("  Saved to: %s\n", history_path);
@@ -5020,8 +4399,7 @@ int bin_display(int argc, char **argv) {
             printf("===============\n");
 
             printf("\nSystem Status:\n");
-            printf("  LLE mode: %s\n",
-                   config.use_lle ? "active" : "inactive (using GNU Readline)");
+            printf("  Line Editor: LLE (Lusush Line Editor)\n");
             printf("  Global editor: %s\n",
                    editor ? "initialized" : "not initialized");
 
@@ -5084,9 +4462,7 @@ int bin_display(int argc, char **argv) {
                                                         : "disabled");
 
             printf("\nHealth: ");
-            if (!config.use_lle) {
-                printf("N/A (LLE not active)\n");
-            } else if (!editor) {
+            if (!editor) {
                 printf("ERROR (editor not initialized)\n");
             } else if (!editor->buffer || !editor->history_system ||
                        !editor->keybinding_manager) {
@@ -5136,14 +4512,6 @@ int bin_display(int argc, char **argv) {
              * - reset --soft : Soft reset (abort current line)
              * - reset --terminal : Nuclear reset (hard + terminal reset)
              */
-            extern config_values_t config;
-
-            if (!config.use_lle) {
-                fprintf(stderr, "display lle reset: LLE is not active\n");
-                fprintf(stderr, "Run 'display lle enable' first\n");
-                return 1;
-            }
-
             if (!lle_is_active()) {
                 fprintf(stderr,
                         "display lle reset: LLE shell integration not "

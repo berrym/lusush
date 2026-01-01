@@ -38,9 +38,9 @@ test_posix() {
     TEST_COUNT=$((TEST_COUNT + 1))
     echo -e "${YELLOW}Test $TEST_COUNT: $test_name${NC}"
 
-    # Execute the command
+    # Execute the command using -c option for non-interactive mode
     local output
-    output=$(echo "$input" | "$SHELL_PATH" 2>&1)
+    output=$("$SHELL_PATH" -c "$input" 2>&1)
     local exit_code=$?
 
     if [ $exit_code -eq 0 ]; then

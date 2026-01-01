@@ -622,3 +622,63 @@ lle_result_t lle_completion_source_history(lle_memory_pool_t *memory_pool,
 
     return LLE_SUCCESS;
 }
+
+// ============================================================================
+// SSH HOST SOURCE
+// ============================================================================
+
+#include "lle/completion/ssh_hosts.h"
+
+lle_result_t lle_completion_source_ssh_hosts(lle_memory_pool_t *memory_pool,
+                                             const char *prefix,
+                                             lle_completion_result_t *result) {
+    if (!memory_pool || !prefix || !result) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+
+    ssh_host_cache_t *cache = get_ssh_host_cache();
+    if (!cache || cache->count == 0) {
+        return LLE_SUCCESS;
+    }
+
+    size_t prefix_len = strlen(prefix);
+    lle_result_t final_result = LLE_SUCCESS;
+
+    for (size_t i = 0; i < cache->count; i++) {
+        ssh_host_t *host = &cache->hosts[i];
+
+        /* Try hostname match */
+        if (strncmp(host->hostname, prefix, prefix_len) == 0) {
+            /* Format: hostname or user@hostname */
+            char completion[320];
+            if (host->user[0]) {
+                snprintf(completion, sizeof(completion), "%s@%s", 
+                         host->user, host->hostname);
+            } else {
+                snprintf(completion, sizeof(completion), "%s", host->hostname);
+            }
+
+            lle_result_t res = lle_completion_result_add(
+                result, completion, " ", LLE_COMPLETION_TYPE_CUSTOM,
+                800 + host->priority);
+
+            if (res != LLE_SUCCESS && final_result == LLE_SUCCESS) {
+                final_result = res;
+            }
+            continue;
+        }
+
+        /* Try alias match */
+        if (host->alias[0] && strncmp(host->alias, prefix, prefix_len) == 0) {
+            lle_result_t res = lle_completion_result_add(
+                result, host->alias, " ", LLE_COMPLETION_TYPE_CUSTOM,
+                850 + host->priority);
+
+            if (res != LLE_SUCCESS && final_result == LLE_SUCCESS) {
+                final_result = res;
+            }
+        }
+    }
+
+    return final_result;
+}

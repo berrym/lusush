@@ -87,7 +87,7 @@ typedef enum lle_history_dedup_strategy {
 /* File format */
 #define LLE_HISTORY_FILE_MAGIC "LLE_HISTORY_V1"
 #define LLE_HISTORY_FILE_VERSION 1
-#define LLE_HISTORY_DEFAULT_FILE ".lle_history"
+#define LLE_HISTORY_DEFAULT_FILE ".lusush_history"
 
 /* ============================================================================
  * ENUMERATIONS

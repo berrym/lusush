@@ -52,6 +52,7 @@
 #include "display/display_controller.h"
 #include "display_integration.h"
 #include "lle/adaptive_terminal_integration.h"
+#include "lle/prompt/theme.h"
 #include "lle/syntax_highlighting.h"
 
 // Note: Completion menu support moved to display_controller (proper
@@ -1635,4 +1636,29 @@ command_layer_error_t command_layer_set_menu_selection(command_layer_t *layer,
     layer->needs_redraw = true;
 
     return COMMAND_LAYER_SUCCESS;
+}
+
+/**
+ * Apply LLE theme syntax colors to command layer's spec highlighter
+ *
+ * @param lle_theme LLE theme with syntax colors
+ * @param cmd_layer Command layer to apply colors to
+ * @return LLE_SUCCESS on success, error code on failure
+ */
+lle_result_t command_layer_apply_theme_colors(const lle_theme_t *lle_theme,
+                                              command_layer_t *cmd_layer) {
+    if (!lle_theme || !cmd_layer) {
+        return LLE_ERROR_NULL_POINTER;
+    }
+
+    if (!lle_theme->has_syntax_colors) {
+        return LLE_SUCCESS;
+    }
+
+    if (cmd_layer->spec_highlighter) {
+        lle_syntax_highlighter_set_colors(cmd_layer->spec_highlighter,
+                                          &lle_theme->syntax_colors);
+    }
+
+    return LLE_SUCCESS;
 }

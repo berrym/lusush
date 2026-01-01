@@ -10,7 +10,6 @@
 
 #include "alias.h"
 #include "lle/lle_shell_event_hub.h"
-#include "prompt.h"
 #include "arithmetic.h"
 #include "autocorrect.h"
 #include "builtins.h"
@@ -884,23 +883,13 @@ static int execute_command(executor_t *executor, node_t *command) {
                         symtable_set_global("PWD", new_pwd);
                         
                         /**
-                         * @brief Invalidate all prompt-related caches
-                         * 
-                         * Per Spec 25/26: Directory changes must invalidate:
-                         * - Legacy prompt cache (prompt.c)
-                         * - LLE segment caches (via event hub -> composer)
-                         * - Trigger async git status refresh
-                         */
-                        prompt_cache_invalidate();
-                        prompt_async_refresh_git();
-                        
-                        /**
                          * @brief Fire directory changed event for LLE shell integration
                          * 
                          * This notifies the prompt composer which:
                          * - Refreshes context.cwd
                          * - Invalidates all segment caches
                          * - Sets needs_regeneration flag
+                         * - Triggers async git status refresh
                          */
                         lle_fire_directory_changed(old_pwd, new_pwd);
                         

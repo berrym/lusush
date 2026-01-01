@@ -9,10 +9,8 @@
 #include "input.h"
 #include "posix_history.h"
 
+#include "lle/completion/ssh_hosts.h"
 #include "lusush.h"
-#include "network.h"
-#include "prompt.h"
-#include "readline_integration.h"
 #include "signals.h"
 #include "symtable.h"
 
@@ -20,7 +18,6 @@
 #include "lle/adaptive_terminal_integration.h"
 #include "lle/lle_shell_integration.h"
 #include "lusush_memory_pool.h"
-#include "themes.h"
 #include "version.h"
 
 #include <errno.h>
@@ -171,10 +168,10 @@ int init(int argc, char **argv, FILE **in) {
     // Initialize auto-correction system
     autocorrect_init();
 
-    // Initialize network system (Phase 3 Target 3)
-    if (network_init() != 0) {
+    // Initialize SSH host cache for completion
+    if (ssh_hosts_init() != 0) {
         if (IS_INTERACTIVE_SHELL) {
-            fprintf(stderr, "Warning: Failed to initialize network system\n");
+            fprintf(stderr, "Warning: Failed to initialize SSH host cache\n");
         }
     }
 
@@ -194,59 +191,7 @@ int init(int argc, char **argv, FILE **in) {
         // Note: detection result is cached, no need to destroy here
     }
 
-    // Initialize theme system (Phase 3 Target 2)
-    if (!theme_init()) {
-        if (IS_INTERACTIVE_SHELL) {
-            fprintf(stderr, "Warning: Failed to initialize theme system\n");
-        }
-    } else {
-        // Apply theme configuration from config file
-        if (config.theme_name && strlen(config.theme_name) > 0) {
-            if (!theme_set_active(config.theme_name)) {
-                // Try fallback themes silently
-                if (!theme_set_active("minimal") &&
-                    !theme_set_active("classic")) {
-                    // Only warn in interactive mode
-                    if (IS_INTERACTIVE_SHELL) {
-                        fprintf(stderr,
-                                "Warning: Failed to set theme '%s', using "
-                                "default\n",
-                                config.theme_name);
-                    }
-                }
-            }
-        } else {
-            // Set default theme silently
-            if (!theme_set_active("corporate")) {
-                theme_set_active("minimal"); // Final fallback
-            }
-        }
-
-        // Set up corporate branding if configured
-        if (config.theme_corporate_company ||
-            config.theme_corporate_department) {
-            branding_config_t branding = {0};
-            if (config.theme_corporate_company) {
-                strncpy(branding.company_name, config.theme_corporate_company,
-                        BRAND_TEXT_MAX - 1);
-            }
-            if (config.theme_corporate_department) {
-                strncpy(branding.department, config.theme_corporate_department,
-                        BRAND_TEXT_MAX - 1);
-            }
-            if (config.theme_corporate_project) {
-                strncpy(branding.project, config.theme_corporate_project,
-                        BRAND_TEXT_MAX - 1);
-            }
-            if (config.theme_corporate_environment) {
-                strncpy(branding.environment,
-                        config.theme_corporate_environment, BRAND_TEXT_MAX - 1);
-            }
-            branding.show_company_in_prompt = config.theme_show_company;
-            branding.show_department_in_prompt = config.theme_show_department;
-            theme_set_branding(&branding);
-        }
-    }
+    /* Theme system removed - LLE prompt composer handles themes now */
 
     // Set up auto-correction configuration from config system
     autocorrect_config_t autocorrect_cfg;
@@ -456,23 +401,13 @@ int init(int argc, char **argv, FILE **in) {
         }
 
         /* Initialize LLE shell integration (Spec 26)
-         * This must happen before readline init because readline's prompt
-         * generation calls build_prompt() which needs g_lle_integration.
+         * LLE is the sole line editor - no GNU readline fallback.
          * Requires: global_memory_pool (initialized above)
          */
-        if (config.use_lle) {
-            lle_result_t lle_result = lle_shell_integration_init();
-            if (lle_result != LLE_SUCCESS) {
-                config.use_lle = false;
-            }
+        lle_result_t lle_result = lle_shell_integration_init();
+        if (lle_result != LLE_SUCCESS) {
+            fprintf(stderr, "Warning: Failed to initialize LLE: %d\n", lle_result);
         }
-
-        // UTF-8 encoding is handled automatically by readline
-        // Initialize readline integration
-        if (!lusush_readline_init()) {
-            fprintf(stderr, "Warning: Failed to initialize readline\n");
-        }
-        lusush_multiline_set_enabled(config.multiline_mode);
 
         // Initialize display integration ONLY in interactive mode
         if (IS_INTERACTIVE_SHELL) {
@@ -505,9 +440,8 @@ int init(int argc, char **argv, FILE **in) {
             }
         }
 
-        /* LLE shell integration already initialized above, before readline */
-
-        build_prompt();
+        /* Generate initial prompt */
+        lle_shell_update_prompt();
     }
 
     // For login shells, set the appropriate type
@@ -548,22 +482,9 @@ int init(int argc, char **argv, FILE **in) {
         symtable_set_global("0", argv[0]);
     }
 
-    // Initialize async git status for prompt (before history, lightweight)
-    if (IS_INTERACTIVE_SHELL) {
-        if (!prompt_async_init()) {
-            // Non-fatal: fall back to synchronous git status
-            const char *debug_env = getenv("LUSUSH_DEBUG");
-            if (debug_env &&
-                (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0)) {
-                fprintf(stderr, "Warning: Failed to initialize async git status\n");
-            }
-        }
-    }
-
     // Initialize history for interactive shells
     if (IS_INTERACTIVE_SHELL) {
-        init_history();
-
+        // LLE history is initialized via lle_shell_integration_init()
         // Initialize enhanced POSIX history system
         if (!global_posix_history) {
             global_posix_history = posix_history_create(0);
@@ -601,14 +522,11 @@ int init(int argc, char **argv, FILE **in) {
     atexit(free_aliases);
     atexit(free_command_hash);
     atexit(autocorrect_cleanup);
-    atexit(theme_cleanup);
-    atexit(network_cleanup);
+    atexit(ssh_hosts_cleanup);
 
-    // Enhanced history cleanup - only in non-interactive mode
-    // In interactive mode, readline handles history
-    if (global_posix_history && !IS_INTERACTIVE_SHELL) {
-        atexit(enhanced_history_cleanup);
-    }
+    // LLE handles all history management now
+    // POSIX history manager cleanup for non-interactive shells
+    (void)global_posix_history; // May still be used by scripts
     // atexit(config_cleanup);  // Temporarily disabled
     if (!IS_INTERACTIVE_SHELL) {
         atexit(free_input_buffers);
@@ -619,12 +537,11 @@ int init(int argc, char **argv, FILE **in) {
         process_shebang(*in);
     }
 
-    // Register cleanup for readline integration
+    // Register cleanup for display integration
     // Note: atexit handlers run in REVERSE order of registration
+    // LLE cleanup is handled by lle_shell_integration_shutdown (registered in init)
     if (IS_INTERACTIVE_SHELL) {
-        atexit(lusush_readline_cleanup);
         atexit(display_integration_cleanup);
-        atexit(prompt_async_cleanup);
     }
 
     /* Memory pool cleanup is now registered immediately after pool init

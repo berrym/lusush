@@ -346,6 +346,13 @@ void display_integration_clear_screen(void);
 bool display_integration_get_enhanced_prompt(char **enhanced_prompt);
 
 /**
+ * Generate the current prompt string using LLE prompt composer.
+ *
+ * @return Newly allocated prompt string, or NULL on error
+ */
+char *lusush_generate_prompt(void);
+
+/**
  * Update display after command execution completion.
  * This function is called from the main shell loop after each command
  * execution to ensure the layered display system handles post-command

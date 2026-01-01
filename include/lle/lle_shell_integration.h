@@ -170,6 +170,23 @@ lle_shell_integration_t *lle_get_shell_integration(void);
  */
 bool lle_is_active(void);
 
+/**
+ * @brief Update the shell prompt
+ *
+ * Renders the prompt using the LLE prompt composer and updates PS1/PS2
+ * in the symbol table. This is the main entry point for prompt generation.
+ *
+ * Actions:
+ * - Updates background job count from executor
+ * - Calls lle_composer_render() to generate prompt strings
+ * - Sets PS1 and PS2 in the symbol table
+ * - Clears the regeneration flag
+ *
+ * If the prompt composer is not initialized or rendering fails,
+ * falls back to a minimal "$ " or "# " prompt.
+ */
+void lle_shell_update_prompt(void);
+
 /* ============================================================================
  * RESET FUNCTIONS (THREE-TIER HIERARCHY)
  * ============================================================================
@@ -274,5 +291,29 @@ void lle_record_ctrl_g(void);
 
 /** Time window for Ctrl+G panic detection (microseconds) */
 #define LLE_CTRL_G_PANIC_WINDOW_US 2000000
+
+/* ============================================================================
+ * EDITING MODE
+ * ============================================================================
+ */
+
+/**
+ * @brief Update editing mode from shell options
+ *
+ * Syncs LLE editor mode with shell_opts.vi_mode/emacs_mode settings.
+ * Called when user changes mode via `set -o vi` or `set -o emacs`.
+ */
+void lusush_update_editing_mode(void);
+
+/**
+ * @brief Shell-facing readline wrapper
+ *
+ * Reads a line of input using LLE. This is the main entry point for
+ * interactive input in the shell.
+ *
+ * @param prompt The prompt to display (or NULL for default prompt)
+ * @return Newly allocated string with the input line, or NULL on EOF/error
+ */
+char *lusush_readline_with_prompt(const char *prompt);
 
 #endif /* LLE_SHELL_INTEGRATION_H */

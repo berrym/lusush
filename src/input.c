@@ -15,9 +15,9 @@
 #include "input.h"
 #include "errors.h"
 #include "init.h"
+#include "lle/lle_shell_integration.h"
 #include "lle/utf8_support.h"
 #include "lusush.h"
-#include "readline_integration.h"
 #include "symtable.h"
 
 #include <ctype.h>

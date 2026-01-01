@@ -1,8 +1,26 @@
 # LLE Known Issues and Blockers
 
-**Date**: 2025-12-31 (Updated: Session 89)  
-**Status**: ✅ MAJOR BLOCKERS RESOLVED - Testing in progress  
+**Date**: 2025-12-31 (Updated: Session 91)  
+**Status**: ✅ MAJOR MILESTONE - GNU Readline Removed, LLE-Only  
 **Implementation Status**: Spec 25 (Prompt/Theme) VERIFIED, Spec 26 (Shell Integration) VERIFIED
+
+---
+
+## Session 91 Milestone: GNU Readline Removal Complete
+
+**Date**: 2025-12-31
+
+LLE is now the **sole line editing system** in lusush. GNU readline support has been completely removed:
+- ~5,200+ lines of legacy code deleted
+- 7 source files and 7 header files removed
+- `config.use_lle` option removed (LLE always enabled)
+- History file standardized to `.lusush_history`
+- All 58 unit tests passing
+- All 49 POSIX regression tests passing
+
+**Bugs fixed during migration**:
+- Prompt not displaying on startup (NULL prompt handling)
+- History builtin showing no output (bridge not initialized)
 
 ---
 

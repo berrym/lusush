@@ -38,7 +38,6 @@
 
 /* Lusush Display System Dependencies */
 #include "display/display_controller.h"
-#include "themes.h"
 
 /* libhashtable Integration (Spec 05) - Use LLE wrapper */
 #include "lle/hashtable.h"
@@ -965,47 +964,6 @@ const lle_terminal_capabilities_t *
 lle_terminal_adapter_get_capabilities(const lle_terminal_adapter_t *adapter);
 bool lle_terminal_adapter_supports_feature(
     const lle_terminal_adapter_t *adapter, const char *feature_name);
-
-/* Theme Integration Functions */
-lle_result_t
-lle_display_integrate_theme_system(lle_display_integration_t *integration,
-                                   theme_definition_t *theme);
-lle_result_t lle_on_theme_changed(lle_display_integration_t *integration,
-                                  const char *theme_name);
-
-/* Forward declare lle_theme_t from prompt/theme.h */
-struct lle_theme;
-typedef struct lle_theme lle_theme_t;
-
-/**
- * Apply LLE theme syntax colors to command layer's spec highlighter
- *
- * @param lle_theme LLE theme with syntax colors (from lle_theme_t)
- * @param cmd_layer Command layer containing the spec highlighter
- * @return LLE_SUCCESS on success, error code on failure
- */
-lle_result_t lle_apply_theme_syntax_colors(const lle_theme_t *lle_theme,
-                                           void *cmd_layer);
-
-lle_result_t
-lle_extract_syntax_colors_from_theme(theme_definition_t *theme,
-                                     lle_syntax_color_table_t **table,
-                                     lle_memory_pool_t *memory_pool);
-lle_result_t
-lle_extract_cursor_colors_from_theme(theme_definition_t *theme,
-                                     lle_cursor_colors_t **colors,
-                                     lle_memory_pool_t *memory_pool);
-
-/* Forward declare lle_syntax_colors_t from syntax_highlighting.h */
-struct lle_syntax_colors;
-typedef struct lle_syntax_colors lle_syntax_colors_t;
-
-/**
- * Extract syntax highlighting colors from theme
- * Converts theme's syntax_color_scheme_t to lle_syntax_colors_t
- */
-lle_result_t lle_theme_get_syntax_colors(theme_definition_t *theme,
-                                         lle_syntax_colors_t *colors);
 
 /* Additional function declarations will be added as implementation progresses
  */

@@ -1,22 +1,10 @@
-#include "config.h"
-#include "executor.h"
-#include "posix_history.h"
-
-#include <ctype.h>
-#include <getopt.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/wait.h>
-#include <unistd.h>
-
 /**
  * @file fc.c
- * @brief POSIX fc Command Builtin Implementation
+ * @brief POSIX fc Command Builtin Implementation using LLE History System
  *
  * This module implements the POSIX fc (fix command) builtin for Lusush shell.
  * The fc command provides POSIX-compliant history editing, listing, and
- * re-execution capabilities.
+ * re-execution capabilities using LLE's history system.
  *
  * POSIX fc command syntax:
  * - fc [-r] [-e editor] [first [last]]    # Edit and re-execute
@@ -24,72 +12,192 @@
  * - fc -s [old=new] [first]               # Substitute and re-execute
  *
  * @author Michael Berry
- * @version 1.0
+ * @version 2.0 (LLE-based implementation)
  */
 
-// ============================================================================
-// Global History Manager (shared with shell)
-// ============================================================================
+#include "builtins.h"
+#include "executor.h"
+#include "lle/history.h"
+#include "lle/lle_editor.h"
+#include "symtable.h"
 
-extern posix_history_manager_t *global_posix_history;
+#include <ctype.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
-// ============================================================================
-// Helper Functions
-// ============================================================================
+/* Maximum editor command length */
+#define FC_MAX_EDITOR_COMMAND 4096
+
+/* External function to get the global LLE editor */
+extern lle_editor_t *lle_get_global_editor(void);
+
+/* fc command options */
+typedef struct fc_options {
+    bool list_mode;
+    bool reverse_order;
+    bool suppress_numbers;
+    bool substitute_mode;
+    char *editor;
+    char *old_pattern;
+    char *new_pattern;
+    int first;
+    int last;
+    bool range_valid;
+} fc_options_t;
+
+/* ============================================================================
+ * Helper Functions
+ * ============================================================================ */
+
+/**
+ * @brief Get the LLE history core from the global editor
+ */
+static lle_history_core_t *get_lle_history(void) {
+    lle_editor_t *editor = lle_get_global_editor();
+    if (!editor) {
+        return NULL;
+    }
+    return editor->history_system;
+}
+
+/**
+ * @brief Get total history entry count
+ */
+static size_t get_history_count(lle_history_core_t *history) {
+    size_t count = 0;
+    if (lle_history_get_entry_count(history, &count) != LLE_SUCCESS) {
+        return 0;
+    }
+    return count;
+}
 
 /**
  * @brief Parse old=new substitution pattern
- *
- * @param pattern Substitution pattern (old=new)
- * @param old Pointer to receive old pattern (must be freed)
- * @param new Pointer to receive new pattern (must be freed)
- * @return true on success, false on parse error
  */
 static bool parse_substitution_pattern(const char *pattern, char **old,
-                                       char **new) {
-    if (!pattern || !old || !new) {
+                                       char **new_str) {
+    if (!pattern || !old || !new_str) {
         return false;
     }
 
     const char *equals = strchr(pattern, '=');
     if (!equals) {
-        // No equals sign, treat entire pattern as old with empty new
+        /* No equals sign, treat entire pattern as old with empty new */
         *old = strdup(pattern);
-        *new = strdup("");
-        return (*old && *new);
+        *new_str = strdup("");
+        return (*old && *new_str);
     }
 
-    size_t old_len = equals - pattern;
+    size_t old_len = (size_t)(equals - pattern);
     size_t new_len = strlen(equals + 1);
 
     *old = malloc(old_len + 1);
-    *new = malloc(new_len + 1);
+    *new_str = malloc(new_len + 1);
 
-    if (!*old || !*new) {
+    if (!*old || !*new_str) {
         free(*old);
-        free(*new);
+        free(*new_str);
+        *old = NULL;
+        *new_str = NULL;
         return false;
     }
 
     strncpy(*old, pattern, old_len);
     (*old)[old_len] = '\0';
-    strcpy(*new, equals + 1);
+    strcpy(*new_str, equals + 1);
 
     return true;
 }
 
 /**
+ * @brief Get default editor from environment
+ */
+static char *get_default_editor(void) {
+    const char *fcedit = getenv("FCEDIT");
+    if (fcedit && *fcedit) {
+        return strdup(fcedit);
+    }
+
+    const char *editor = getenv("EDITOR");
+    if (editor && *editor) {
+        return strdup(editor);
+    }
+
+    const char *visual = getenv("VISUAL");
+    if (visual && *visual) {
+        return strdup(visual);
+    }
+
+    /* POSIX default */
+    return strdup("ed");
+}
+
+/**
+ * @brief Create temporary file with content
+ */
+static char *create_temp_file(const char *content) {
+    char template[] = "/tmp/fc.XXXXXX";
+    int fd = mkstemp(template);
+    if (fd < 0) {
+        return NULL;
+    }
+
+    if (content && *content) {
+        size_t len = strlen(content);
+        ssize_t written = write(fd, content, len);
+        if (written < 0 || (size_t)written != len) {
+            close(fd);
+            unlink(template);
+            return NULL;
+        }
+    }
+
+    close(fd);
+    return strdup(template);
+}
+
+/**
+ * @brief Read file content
+ */
+static char *read_file_content(const char *filename) {
+    FILE *fp = fopen(filename, "r");
+    if (!fp) {
+        return NULL;
+    }
+
+    fseek(fp, 0, SEEK_END);
+    long size = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+
+    if (size <= 0) {
+        fclose(fp);
+        return strdup("");
+    }
+
+    char *content = malloc((size_t)size + 1);
+    if (!content) {
+        fclose(fp);
+        return NULL;
+    }
+
+    size_t read_size = fread(content, 1, (size_t)size, fp);
+    content[read_size] = '\0';
+    fclose(fp);
+
+    return content;
+}
+
+/**
  * @brief Execute a command and return its exit status
- *
- * @param command Command to execute
- * @return Exit status of command
  */
 static int execute_command(const char *command) {
     if (!command || !*command) {
         return 1;
     }
 
-    // Use the shell's executor to run the command
     executor_t *executor = executor_new();
     if (!executor) {
         fprintf(stderr, "fc: failed to create executor\n");
@@ -106,60 +214,153 @@ static int execute_command(const char *command) {
     return exit_status;
 }
 
-// ============================================================================
-// fc Command Implementations
-// ============================================================================
+/**
+ * @brief Resolve a range specifier to an index
+ *
+ * @param history History core
+ * @param spec Range specifier (number, -offset, or string prefix)
+ * @param count Total history count
+ * @param result Output index (0-based)
+ * @return true on success, false on error
+ */
+static bool resolve_range_spec(lle_history_core_t *history, const char *spec,
+                               size_t count, size_t *result) {
+    if (!spec || !*spec || count == 0) {
+        return false;
+    }
+
+    /* Check for negative offset */
+    if (spec[0] == '-' && isdigit((unsigned char)spec[1])) {
+        long offset = strtol(spec, NULL, 10);
+        if (offset < 0 && (size_t)(-offset) <= count) {
+            *result = count + (size_t)offset;
+            return true;
+        }
+        return false;
+    }
+
+    /* Check for positive number (1-based history number) */
+    if (isdigit((unsigned char)spec[0])) {
+        long num = strtol(spec, NULL, 10);
+        if (num > 0 && (size_t)num <= count) {
+            *result = (size_t)(num - 1);
+            return true;
+        }
+        return false;
+    }
+
+    /* String prefix search - find most recent match */
+    size_t prefix_len = strlen(spec);
+    for (size_t i = count; i > 0; i--) {
+        lle_history_entry_t *entry = NULL;
+        if (lle_history_get_entry_by_index(history, i - 1, &entry) ==
+                LLE_SUCCESS &&
+            entry && entry->command) {
+            if (strncmp(entry->command, spec, prefix_len) == 0) {
+                *result = i - 1;
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+/**
+ * @brief Parse range arguments for fc command
+ */
+static bool parse_range(lle_history_core_t *history, const char *first_str,
+                        const char *last_str, fc_options_t *opts) {
+    size_t count = get_history_count(history);
+    if (count == 0) {
+        fprintf(stderr, "fc: no history available\n");
+        return false;
+    }
+
+    size_t first_idx, last_idx;
+
+    if (!first_str) {
+        /* Default: last command for edit, last 16 for list */
+        if (opts->list_mode) {
+            first_idx = (count > 16) ? count - 16 : 0;
+            last_idx = count - 1;
+        } else {
+            first_idx = last_idx = count - 1;
+        }
+    } else {
+        if (!resolve_range_spec(history, first_str, count, &first_idx)) {
+            fprintf(stderr, "fc: %s: history specification out of range\n",
+                    first_str);
+            return false;
+        }
+
+        if (last_str) {
+            if (!resolve_range_spec(history, last_str, count, &last_idx)) {
+                fprintf(stderr, "fc: %s: history specification out of range\n",
+                        last_str);
+                return false;
+            }
+        } else {
+            /* Single spec: for list use to end, for edit use single command */
+            if (opts->list_mode) {
+                last_idx = count - 1;
+            } else {
+                last_idx = first_idx;
+            }
+        }
+    }
+
+    /* Ensure first <= last */
+    if (first_idx > last_idx) {
+        size_t tmp = first_idx;
+        first_idx = last_idx;
+        last_idx = tmp;
+    }
+
+    opts->first = (int)first_idx;
+    opts->last = (int)last_idx;
+    opts->range_valid = true;
+
+    return true;
+}
+
+/* ============================================================================
+ * fc Command Implementations
+ * ============================================================================ */
 
 /**
  * @brief List history entries with fc formatting
- *
- * @param manager History manager
- * @param range Range of entries to list
- * @param reverse_order Whether to list in reverse order
- * @param suppress_numbers Whether to suppress line numbers
- * @return 0 on success, non-zero on error
  */
-int posix_fc_list(posix_history_manager_t *manager,
-                  const posix_history_range_t *range, bool reverse_order,
-                  bool suppress_numbers) {
-    if (!manager || !range || !range->valid) {
+static int fc_list(lle_history_core_t *history, fc_options_t *opts) {
+    if (!opts->range_valid) {
         fprintf(stderr, "fc: invalid range for list operation\n");
         return 1;
     }
 
-    // Collect entries in range
-    posix_history_entry_t *entries[POSIX_HISTORY_MAX_ENTRIES];
-    size_t count = 0;
-
-    for (size_t i = 0; i < manager->count && count < POSIX_HISTORY_MAX_ENTRIES;
-         i++) {
-        int number = manager->entries[i].number;
-        if (number >= range->first && number <= range->last) {
-            entries[count++] = &manager->entries[i];
-        }
-    }
-
-    if (count == 0) {
-        fprintf(stderr, "fc: no commands found in range %d-%d\n", range->first,
-                range->last);
-        return 1;
-    }
-
-    // Print entries in requested order
-    if (reverse_order) {
-        for (int i = (int)count - 1; i >= 0; i--) {
-            if (suppress_numbers) {
-                printf("%s\n", entries[i]->command);
-            } else {
-                printf("%5d  %s\n", entries[i]->number, entries[i]->command);
+    if (opts->reverse_order) {
+        for (int i = opts->last; i >= opts->first; i--) {
+            lle_history_entry_t *entry = NULL;
+            if (lle_history_get_entry_by_index(history, (size_t)i, &entry) ==
+                    LLE_SUCCESS &&
+                entry && entry->command) {
+                if (opts->suppress_numbers) {
+                    printf("%s\n", entry->command);
+                } else {
+                    printf("%5d  %s\n", i + 1, entry->command);
+                }
             }
         }
     } else {
-        for (size_t i = 0; i < count; i++) {
-            if (suppress_numbers) {
-                printf("%s\n", entries[i]->command);
-            } else {
-                printf("%5d  %s\n", entries[i]->number, entries[i]->command);
+        for (int i = opts->first; i <= opts->last; i++) {
+            lle_history_entry_t *entry = NULL;
+            if (lle_history_get_entry_by_index(history, (size_t)i, &entry) ==
+                    LLE_SUCCESS &&
+                entry && entry->command) {
+                if (opts->suppress_numbers) {
+                    printf("%s\n", entry->command);
+                } else {
+                    printf("%5d  %s\n", i + 1, entry->command);
+                }
             }
         }
     }
@@ -169,40 +370,33 @@ int posix_fc_list(posix_history_manager_t *manager,
 
 /**
  * @brief Edit and re-execute history entries
- *
- * @param manager History manager
- * @param range Range of entries to edit
- * @param editor Editor command to use (NULL for default)
- * @return 0 on success, non-zero on error
  */
-int posix_fc_edit(posix_history_manager_t *manager,
-                  const posix_history_range_t *range, const char *editor) {
-    if (!manager || !range || !range->valid) {
+static int fc_edit(lle_history_core_t *history, fc_options_t *opts) {
+    if (!opts->range_valid) {
         fprintf(stderr, "fc: invalid range for edit operation\n");
         return 1;
     }
 
-    // Collect commands in range
-    char *content = NULL;
-    size_t content_size = 0;
+    /* Collect commands in range */
     size_t content_capacity = 1024;
-
-    content = malloc(content_capacity);
+    size_t content_size = 0;
+    char *content = malloc(content_capacity);
     if (!content) {
         fprintf(stderr, "fc: memory allocation failed\n");
         return 1;
     }
     content[0] = '\0';
 
-    for (size_t i = 0; i < manager->count; i++) {
-        int number = manager->entries[i].number;
-        if (number >= range->first && number <= range->last) {
-            const char *command = manager->entries[i].command;
-            size_t command_len = strlen(command);
+    for (int i = opts->first; i <= opts->last; i++) {
+        lle_history_entry_t *entry = NULL;
+        if (lle_history_get_entry_by_index(history, (size_t)i, &entry) ==
+                LLE_SUCCESS &&
+            entry && entry->command) {
+            size_t cmd_len = strlen(entry->command);
 
-            // Ensure buffer capacity
-            if (content_size + command_len + 2 > content_capacity) {
-                content_capacity = (content_size + command_len + 2) * 2;
+            /* Ensure buffer capacity */
+            if (content_size + cmd_len + 2 > content_capacity) {
+                content_capacity = (content_size + cmd_len + 2) * 2;
                 char *new_content = realloc(content, content_capacity);
                 if (!new_content) {
                     free(content);
@@ -212,37 +406,29 @@ int posix_fc_edit(posix_history_manager_t *manager,
                 content = new_content;
             }
 
-            // Append command
-            strcat(content, command);
+            strcat(content, entry->command);
             strcat(content, "\n");
-            content_size += command_len + 1;
+            content_size += cmd_len + 1;
         }
     }
 
     if (content_size == 0) {
         free(content);
-        fprintf(stderr, "fc: no commands found in range %d-%d\n", range->first,
-                range->last);
+        fprintf(stderr, "fc: no commands in specified range\n");
         return 1;
     }
 
-    // Create temporary file
-    char *temp_filename = NULL;
-    if (!posix_history_create_temp_file(content, &temp_filename)) {
-        free(content);
+    /* Create temporary file */
+    char *temp_filename = create_temp_file(content);
+    free(content);
+
+    if (!temp_filename) {
         fprintf(stderr, "fc: failed to create temporary file\n");
         return 1;
     }
-    free(content);
 
-    // Determine editor to use
-    char *editor_cmd = NULL;
-    if (editor) {
-        editor_cmd = strdup(editor);
-    } else {
-        editor_cmd = posix_history_get_default_editor();
-    }
-
+    /* Determine editor to use */
+    char *editor_cmd = opts->editor ? strdup(opts->editor) : get_default_editor();
     if (!editor_cmd) {
         unlink(temp_filename);
         free(temp_filename);
@@ -250,23 +436,23 @@ int posix_fc_edit(posix_history_manager_t *manager,
         return 1;
     }
 
-    // Build editor command
-    char editor_command[POSIX_HISTORY_MAX_EDITOR_COMMAND];
+    /* Build and execute editor command */
+    char editor_command[FC_MAX_EDITOR_COMMAND];
     snprintf(editor_command, sizeof(editor_command), "%s %s", editor_cmd,
              temp_filename);
     free(editor_cmd);
 
-    // Execute editor
     int editor_status = system(editor_command);
     if (editor_status != 0) {
         unlink(temp_filename);
         free(temp_filename);
-        fprintf(stderr, "fc: editor failed with status %d\n", editor_status);
+        fprintf(stderr, "fc: editor failed with status %d\n",
+                WEXITSTATUS(editor_status));
         return 1;
     }
 
-    // Read back edited content
-    char *edited_content = posix_history_read_file_content(temp_filename);
+    /* Read back edited content */
+    char *edited_content = read_file_content(temp_filename);
     unlink(temp_filename);
     free(temp_filename);
 
@@ -275,7 +461,7 @@ int posix_fc_edit(posix_history_manager_t *manager,
         return 1;
     }
 
-    // Execute edited commands line by line
+    /* Execute edited commands line by line */
     int final_status = 0;
     char *line_start = edited_content;
     char *line_end;
@@ -283,13 +469,14 @@ int posix_fc_edit(posix_history_manager_t *manager,
     while ((line_end = strchr(line_start, '\n')) != NULL) {
         *line_end = '\0';
 
-        // Skip empty lines
+        /* Skip empty lines and whitespace-only lines */
         char *trimmed = line_start;
-        while (*trimmed && isspace(*trimmed))
+        while (*trimmed && isspace((unsigned char)*trimmed))
             trimmed++;
+
         if (*trimmed) {
-            // Add to history and execute
-            posix_history_add(manager, trimmed);
+            /* Add to history and execute */
+            lle_history_bridge_add_entry(trimmed, 0, NULL);
             printf("%s\n", trimmed);
             final_status = execute_command(trimmed);
         }
@@ -297,13 +484,13 @@ int posix_fc_edit(posix_history_manager_t *manager,
         line_start = line_end + 1;
     }
 
-    // Handle last line if no trailing newline
+    /* Handle last line if no trailing newline */
     if (*line_start) {
         char *trimmed = line_start;
-        while (*trimmed && isspace(*trimmed))
+        while (*trimmed && isspace((unsigned char)*trimmed))
             trimmed++;
         if (*trimmed) {
-            posix_history_add(manager, trimmed);
+            lle_history_bridge_add_entry(trimmed, 0, NULL);
             printf("%s\n", trimmed);
             final_status = execute_command(trimmed);
         }
@@ -315,40 +502,43 @@ int posix_fc_edit(posix_history_manager_t *manager,
 
 /**
  * @brief Substitute and re-execute history command
- *
- * @param manager History manager
- * @param number History number to operate on
- * @param old_pattern Pattern to replace
- * @param new_pattern Replacement pattern
- * @return 0 on success, non-zero on error
  */
-int posix_fc_substitute(posix_history_manager_t *manager, int number,
-                        const char *old_pattern, const char *new_pattern) {
-    if (!manager || !old_pattern || !new_pattern) {
-        fprintf(stderr, "fc: invalid parameters for substitution\n");
+static int fc_substitute(lle_history_core_t *history, fc_options_t *opts) {
+    if (!opts->range_valid) {
+        fprintf(stderr, "fc: invalid range for substitution\n");
         return 1;
     }
 
-    posix_history_entry_t *entry = posix_history_get(manager, number);
-    if (!entry) {
-        fprintf(stderr, "fc: history entry %d not found\n", number);
+    lle_history_entry_t *entry = NULL;
+    if (lle_history_get_entry_by_index(history, (size_t)opts->first, &entry) !=
+            LLE_SUCCESS ||
+        !entry || !entry->command) {
+        fprintf(stderr, "fc: history entry not found\n");
         return 1;
     }
 
-    // Perform substitution
     const char *original = entry->command;
-    const char *match = strstr(original, old_pattern);
 
+    /* If no pattern specified, just re-execute */
+    if (!opts->old_pattern || !*opts->old_pattern) {
+        printf("%s\n", original);
+        lle_history_bridge_add_entry(original, 0, NULL);
+        return execute_command(original);
+    }
+
+    /* Find pattern in command */
+    const char *match = strstr(original, opts->old_pattern);
     if (!match) {
-        fprintf(stderr, "fc: pattern '%s' not found in command\n", old_pattern);
+        fprintf(stderr, "fc: pattern '%s' not found in command\n",
+                opts->old_pattern);
         return 1;
     }
 
-    // Build new command with substitution
-    size_t old_len = strlen(old_pattern);
-    size_t new_len = strlen(new_pattern);
+    /* Build new command with substitution */
+    size_t old_len = strlen(opts->old_pattern);
+    size_t new_len = opts->new_pattern ? strlen(opts->new_pattern) : 0;
     size_t original_len = strlen(original);
-    size_t prefix_len = match - original;
+    size_t prefix_len = (size_t)(match - original);
     size_t suffix_len = original_len - prefix_len - old_len;
 
     char *new_command = malloc(prefix_len + new_len + suffix_len + 1);
@@ -357,57 +547,26 @@ int posix_fc_substitute(posix_history_manager_t *manager, int number,
         return 1;
     }
 
-    // Copy prefix
+    /* Build the new command */
     strncpy(new_command, original, prefix_len);
     new_command[prefix_len] = '\0';
-
-    // Add replacement
-    strcat(new_command, new_pattern);
-
-    // Add suffix
+    if (opts->new_pattern) {
+        strcat(new_command, opts->new_pattern);
+    }
     strcat(new_command, match + old_len);
 
-    // Print the substituted command
+    /* Print and execute */
     printf("%s\n", new_command);
-
-    // Add to history and execute
-    posix_history_add(manager, new_command);
+    lle_history_bridge_add_entry(new_command, 0, NULL);
     int status = execute_command(new_command);
 
     free(new_command);
     return status;
 }
 
-/**
- * @brief Execute fc command with given options
- *
- * @param manager History manager
- * @param options fc command options
- * @return Exit status (0 for success, non-zero for error)
- */
-int posix_fc_execute(posix_history_manager_t *manager,
-                     const posix_fc_options_t *options) {
-    if (!manager || !options) {
-        fprintf(stderr, "fc: invalid parameters\n");
-        return 1;
-    }
-
-    if (options->list_mode) {
-        return posix_fc_list(manager, &options->range, options->reverse_order,
-                             options->suppress_numbers);
-    } else if (options->substitute_mode) {
-        // For substitute mode, use first number from range
-        return posix_fc_substitute(manager, options->range.first,
-                                   options->old_pattern, options->new_pattern);
-    } else {
-        // Edit mode
-        return posix_fc_edit(manager, &options->range, options->editor);
-    }
-}
-
-// ============================================================================
-// Main fc Command Entry Point
-// ============================================================================
+/* ============================================================================
+ * Main fc Command Entry Point
+ * ============================================================================ */
 
 /**
  * @brief Print fc command usage information
@@ -425,60 +584,43 @@ static void fc_usage(void) {
     fprintf(stderr, "  -s         Substitute old with new and re-execute\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "range specifiers:\n");
-    fprintf(stderr, "  number     Specific history number\n");
+    fprintf(stderr, "  number     Specific history number (1-based)\n");
     fprintf(stderr, "  -offset    Relative to current (e.g., -1 = last)\n");
     fprintf(stderr, "  string     Most recent command starting with string\n");
 }
 
 /**
- * @brief Main fc command implementation
- *
- * @param argc Argument count
- * @param argv Argument vector
- * @return Exit status
+ * @brief Main fc command implementation using LLE history
  */
 int bin_fc(int argc, char **argv) {
-    // Check if LLE is enabled - fc command uses GNU readline/POSIX history API
-    extern config_values_t config;
-    if (config.use_lle) {
-        fprintf(stderr, "fc: command disabled when LLE is enabled\n");
-        fprintf(stderr, "fc: LLE will have its own history system (Spec 09)\n");
-        fprintf(
-            stderr,
-            "fc: use 'display lle disable' to switch back to GNU readline\n");
+    lle_history_core_t *history = get_lle_history();
+    if (!history) {
+        fprintf(stderr, "fc: history system not available\n");
         return 1;
     }
 
-    // Initialize history manager if not already done
-    if (!global_posix_history) {
-        global_posix_history = posix_history_create(0);
-        if (!global_posix_history) {
-            fprintf(stderr, "fc: failed to initialize history manager\n");
-            return 1;
-        }
-    }
+    /* Initialize options */
+    fc_options_t opts = {0};
 
-    // Initialize options
-    posix_fc_options_t options = {0};
-
-    // Parse command line options
+    /* Parse command line options */
     int opt;
+    optind = 1; /* Reset getopt */
     while ((opt = getopt(argc, argv, "e:lnrs")) != -1) {
         switch (opt) {
         case 'e':
-            options.editor = strdup(optarg);
+            opts.editor = strdup(optarg);
             break;
         case 'l':
-            options.list_mode = true;
+            opts.list_mode = true;
             break;
         case 'n':
-            options.suppress_numbers = true;
+            opts.suppress_numbers = true;
             break;
         case 'r':
-            options.reverse_order = true;
+            opts.reverse_order = true;
             break;
         case 's':
-            options.substitute_mode = true;
+            opts.substitute_mode = true;
             break;
         default:
             fc_usage();
@@ -486,45 +628,48 @@ int bin_fc(int argc, char **argv) {
         }
     }
 
-    // Handle substitute mode pattern parsing
-    if (options.substitute_mode) {
-        if (optind < argc) {
-            if (!parse_substitution_pattern(argv[optind], &options.old_pattern,
-                                            &options.new_pattern)) {
+    /* Handle substitute mode pattern parsing */
+    if (opts.substitute_mode) {
+        if (optind < argc && strchr(argv[optind], '=')) {
+            if (!parse_substitution_pattern(argv[optind], &opts.old_pattern,
+                                            &opts.new_pattern)) {
                 fprintf(stderr, "fc: invalid substitution pattern\n");
+                free(opts.editor);
                 return 1;
             }
             optind++;
         } else {
-            // Default substitution pattern (empty old, empty new)
-            options.old_pattern = strdup("");
-            options.new_pattern = strdup("");
+            /* No pattern - will just re-execute */
+            opts.old_pattern = strdup("");
+            opts.new_pattern = strdup("");
         }
     }
 
-    // Parse range arguments
+    /* Parse range arguments */
     const char *first_str = (optind < argc) ? argv[optind] : NULL;
     const char *last_str = (optind + 1 < argc) ? argv[optind + 1] : NULL;
 
-    if (!posix_history_parse_range(global_posix_history, first_str, last_str,
-                                   &options.range)) {
-        const char *error = posix_history_get_last_error();
-        fprintf(stderr, "fc: %s\n", error ? error : "invalid range");
-
-        // Cleanup
-        free(options.editor);
-        free(options.old_pattern);
-        free(options.new_pattern);
+    if (!parse_range(history, first_str, last_str, &opts)) {
+        free(opts.editor);
+        free(opts.old_pattern);
+        free(opts.new_pattern);
         return 1;
     }
 
-    // Execute fc command
-    int status = posix_fc_execute(global_posix_history, &options);
+    /* Execute appropriate fc operation */
+    int status;
+    if (opts.list_mode) {
+        status = fc_list(history, &opts);
+    } else if (opts.substitute_mode) {
+        status = fc_substitute(history, &opts);
+    } else {
+        status = fc_edit(history, &opts);
+    }
 
-    // Cleanup
-    free(options.editor);
-    free(options.old_pattern);
-    free(options.new_pattern);
+    /* Cleanup */
+    free(opts.editor);
+    free(opts.old_pattern);
+    free(opts.new_pattern);
 
     return status;
 }

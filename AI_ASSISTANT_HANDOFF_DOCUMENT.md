@@ -1,433 +1,202 @@
-# AI Assistant Handoff Document - Session 90
+# AI Assistant Handoff Document - Session 91
 
-**Date**: 2025-12-31  
-**Session Type**: Theme Wiring, Async Git, and prompt.c Migration  
-**Status**: COMPLETE  
+**Date**: 2025-12-31
+**Session Type**: GNU Readline Removal - LLE-Only Migration
+**Status**: COMPLETE
 **Branch**: `feature/lle`
 
 ---
 
-## Session 90: Theme Wiring, Async Git, and prompt.c Migration
+## Session 91: GNU Readline Removal - LLE-Only Migration
 
-This session completed theme symbol wiring from Session 89, then added async git support to the LLE segment system and reorganized prompt.c for eventual readline removal.
+This session completed the removal of GNU readline support, making LLE (Lusush Line Editor) the sole line editing system. This eliminates ~5,200+ lines of legacy code and simplifies the architecture.
 
-### Part 1: Wire Remaining Git Symbols and path_root Color
+### Overview
 
-Continued the theme wiring work from Session 89 by connecting remaining unused symbols and colors.
+**Goal**: Remove all readline-specific source files, remove readline-only code paths from shared files, remove build system conditionals, and fix any issues that arise.
 
-### Git Symbols Wired
-
-**New symbols in git segment**:
-
-| Symbol | Default | Usage |
-|--------|---------|-------|
-| `branch` | (empty) | Prefix before branch name |
-| `stash` | `≡` | Stash indicator with count |
-| `conflict` | `!` | Merge conflict indicator |
-
-**Implementation in `segment_git_render()`**:
-- Branch symbol prepended before branch name (if configured)
-- Stash indicator shown when `stash_count > 0`
-- Conflict indicator shown when `has_conflicts` is true (uses error color)
-
-### Git State Detection Added
-
-**New fields populated in `fetch_git_status()`**:
-- `stash_count` - via `git stash list | wc -l`
-- `has_conflicts` - via `git ls-files -u | head -1`
-
-**Pipe draining**: Added proper pipe draining before `pclose()` to prevent child processes from blocking on write. Fixed in:
-- `run_git_command()` - general git command helper
-- `conflict_fp` - conflict detection
-
-### path_root Color Wired
-
-**New context field**: Added `cwd_is_root` to `lle_prompt_context_t` to detect when CWD is `/`.
-
-**Directory segment enhancement**: When at filesystem root and `path_root` color is configured, the directory segment now applies that color to the `/` display.
-
-### Files Modified
-
-| File | Changes |
-|------|---------|
-| `src/lle/prompt/segment.c` | Stash/conflict detection, wire branch/stash/conflict symbols, wire path_root color, pipe draining |
-| `include/lle/prompt/segment.h` | Added `cwd_is_root` field to context |
-| `tests/lle/unit/test_segment_system.c` | Updated render calls with NULL theme parameter |
-| `tests/lle/compliance/spec_25_segment_compliance.c` | Updated render calls with NULL theme parameter |
-| `examples/theme.toml` | Updated status annotations |
-| `docs/lle_specification/LLE_IMPLEMENTATION_STATUS_AND_ROADMAP.md` | Updated to v2.4, Section 2.7 |
-
-### Testing
-
-- Main binary builds successfully
-- Test files updated for new render signature
-
-### Part 2: Async Git in LLE Segment System
-
-Ported async git functionality from the legacy `prompt.c` to the LLE segment system.
-
-**Problem**: The LLE git segment used blocking `popen()` calls in `fetch_git_status()`, causing prompt lag on slow repos.
-
-**Solution**: Integrated the `lle_async_worker_t` infrastructure into the git segment.
-
-**Implementation**:
-1. Extended `segment_git_state_t` with async worker state (worker, mutex, pending flag)
-2. Added `segment_git_init()` - initializes async worker on segment creation
-3. Added `segment_git_cleanup()` - shuts down async worker on segment destruction
-4. Added `segment_git_async_callback()` - updates state when async fetch completes
-5. Added `queue_async_git_fetch()` - queues non-blocking git status request
-6. Modified `segment_git_render()` - uses async when available, falls back to sync
-
-**Async behavior**:
-- First render: Does sync fetch to show data immediately
-- Subsequent renders: Queues async request, shows cached/stale data while fetching
-- Async completion: Updates state, next render shows fresh data
-
-**Files modified**:
-- `src/lle/prompt/segment.c` - Added async worker integration to git segment
-
-### Part 3: prompt.c Reorganization
-
-Reorganized `src/prompt.c` to clearly separate LLE and legacy code paths, preparing for eventual readline/theme system removal.
-
-**Changes**:
-1. Added clear section headers marking legacy code:
-   - `LEGACY PROMPT CACHING SYSTEM` - cache used only by legacy themes
-   - `LEGACY GIT STATUS SYSTEM` - git functions used only by `themes.c`
-   - `LEGACY PROMPT CACHING API` - cache API functions
-   - `LEGACY ASYNC GIT STATUS SYSTEM` - async git for legacy themes
-2. Reorganized `build_prompt()` with clear sections:
-   - `LLE PATH` - Uses Spec 25 prompt composer (preferred)
-   - `LEGACY PATH` - Theme system for readline mode
-3. Added comments noting code will be removed with readline
-
-**Why not remove legacy code**:
-- `themes.c` still calls `update_git_info()` and `format_git_prompt()`
-- These are only used in legacy readline mode
-- Will be removed when readline support is removed
-
-### Files Modified (Part 2 & 3)
-
-| File | Changes |
-|------|---------|
-| `src/lle/prompt/segment.c` | Async worker integration in git segment |
-| `src/prompt.c` | Reorganized with clear LLE/legacy sections |
-| `docs/lle_specification/LLE_IMPLEMENTATION_STATUS_AND_ROADMAP.md` | Updated to v2.4 |
+**Result**: 
+- ~5,200+ lines of legacy code removed
+- 7 source files deleted
+- 7 header files deleted  
+- LLE is now the only line editing system
+- All 58 unit tests passing
+- All 49 POSIX regression tests passing
 
 ---
 
-## Session 89: Wire Theme Symbols and Colors to Segment Rendering
+## Files Deleted
 
-Implemented the "low-hanging fruit" from the Session 88 theme audit: wiring parsed-but-unused symbols and colors to actual rendering.
+### Source Files Removed
 
-### API Change: Segment Render Signature
+| File | Lines | Purpose |
+|------|-------|---------|
+| `src/readline_integration.c` | ~1,622 | Full GNU readline wrapper |
+| `src/readline_stubs.c` | ~274 | Compatibility shims |
+| `src/themes.c` | ~2,346 | Legacy theme system |
+| `src/prompt.c` | ~450 | Legacy prompt system |
+| `src/network.c` | - | Network utilities (unused) |
+| `src/completion.c` | - | Legacy completion (replaced by LLE) |
+| `src/builtins/enhanced_history.c` | - | Enhanced history builtin |
+| `src/builtins/history.c` | - | Old history builtin (replaced) |
+| `src/lle/display/theme_integration.c` | - | Legacy theme bridge |
+| `tests/lle/unit/test_theme_integration.c` | - | Tests for removed code |
 
-**Problem**: Segments couldn't access theme symbols/colors because `lle_segment_render_fn` didn't receive the theme.
+### Header Files Removed
 
-**Solution**: Changed segment render function signature to include theme parameter.
+| File | Purpose |
+|------|---------|
+| `include/readline_integration.h` | Readline API declarations |
+| `include/themes.h` | Legacy theme declarations |
+| `include/prompt.h` | Legacy prompt declarations |
+| `include/completion.h` | Legacy completion declarations |
+| `include/network.h` | Network utility declarations |
 
-**Old signature**:
+---
+
+## Files Modified
+
+### Build System
+
+| File | Changes |
+|------|---------|
+| `meson.build` | Removed readline_support option, readline dependency, HAVE_READLINE define, conditional source inclusion |
+| `meson_options.txt` | Removed readline_support option |
+| `src/lle/meson.build` | Removed theme_integration.c |
+
+### Core Files
+
+| File | Changes |
+|------|---------|
+| `src/init.c` | Removed theme/readline initialization, cleaned up includes |
+| `src/config.c` | Removed use_lle option, added legacy key handler for backward compatibility |
+| `include/config.h` | Removed use_lle struct member |
+| `src/input.c` | Simplified to LLE-only path |
+| `src/display_integration.c` | Removed readline conditionals |
+| `src/executor.c` | Removed readline include |
+| `src/posix_opts.c` | Removed readline include |
+
+### LLE Files
+
+| File | Changes |
+|------|---------|
+| `src/lle/lle_shell_integration.c` | Added PS1 retrieval when prompt is NULL, added history bridge initialization |
+| `src/lle/lle_readline.c` | Removed debug output |
+| `src/lle/prompt/composer.c` | Minor cleanup |
+| `include/lle/lle_shell_integration.h` | Updated declarations |
+| `include/lle/history.h` | Changed default history file to `.lusush_history` |
+
+### Builtins
+
+| File | Changes |
+|------|---------|
+| `src/builtins/builtins.c` | Rewrote bin_history to use LLE, enabled XSI echo escapes, removed display lle enable/disable |
+| `src/builtins/fc.c` | Complete rewrite to use LLE history system |
+| `include/builtins.h` | Removed obsolete declarations |
+
+### Display Layer
+
+| File | Changes |
+|------|---------|
+| `src/display/display_controller.c` | Removed debug output |
+| `src/display/command_layer.c` | Minor cleanup |
+| `src/display/prompt_layer.c` | Updated prompt calls |
+| `include/display/display_controller.h` | Cleanup |
+| `include/display/command_layer.h` | Cleanup |
+
+### Tests
+
+| File | Changes |
+|------|---------|
+| `tests/compliance/test_posix_regression.sh` | Fixed to use -c option instead of piped input |
+| `tests/lle/functional/display_test_stubs.c` | Updated stubs |
+
+### Pre-commit Hook
+
+| File | Changes |
+|------|---------|
+| `scripts/hooks/pre-commit` | Fixed to exclude deleted files from analysis (--diff-filter=d) |
+
+---
+
+## Bugs Fixed During Migration
+
+### Issue 1: Prompt Not Displaying on Startup
+
+**Symptom**: Shell started with no prompt visible. Ctrl+G (panic recovery) would force prompt to appear.
+
+**Root Cause**: `input.c` passed `NULL` for the prompt to let the readline system generate the themed prompt, but `lle_readline()` didn't handle NULL prompts.
+
+**Fix**: Modified `lusush_readline_with_prompt()` in `src/lle/lle_shell_integration.c`:
 ```c
-typedef lle_result_t (*lle_segment_render_fn)(
-    const struct lle_prompt_segment *self,
-    const lle_prompt_context_t *ctx,
-    lle_segment_output_t *output);
-```
-
-**New signature**:
-```c
-typedef lle_result_t (*lle_segment_render_fn)(
-    const struct lle_prompt_segment *self,
-    const lle_prompt_context_t *ctx,
-    const struct lle_theme *theme,  // NEW - can be NULL
-    lle_segment_output_t *output);
-```
-
-### Files Modified
-
-**API Changes**:
-- `include/lle/prompt/segment.h` - Updated `lle_segment_render_fn` typedef
-- `src/lle/prompt/segment.c` - Updated all 8 render functions, added `#include "lle/prompt/theme.h"`
-- `src/lle/prompt/composer.c` - Pass `ctx->theme` to segment render calls
-
-**Symbols Wired**:
-
-| Segment | Symbol Fields | Default Fallback |
-|---------|--------------|------------------|
-| symbol | `prompt`, `prompt_root` | `$`, `#` |
-| git | `staged`, `unstaged`, `untracked`, `ahead`, `behind` | `+`, `*`, `?`, `↑`, `↓` |
-| status | `error` | (empty) |
-| jobs | `jobs` | (empty) |
-
-**Colors Wired** (Git segment with embedded ANSI):
-
-| Color Field | Applied To |
-|-------------|------------|
-| `git_staged` | Staged indicator (+N) |
-| `git_dirty` | Unstaged indicator (*N) |
-| `git_untracked` | Untracked indicator (?N) |
-| `git_ahead` | Ahead indicator (↑N) |
-| `git_behind` | Behind indicator (↓N) |
-
-Added `append_colored()` helper function that:
-- Embeds ANSI color codes in output
-- Tracks visual width separately from byte length
-- Handles color reset sequences
-
-### Layout: newline_after Implementation
-
-**Problem**: `theme->layout.newline_after` was parsed but never used.
-
-**Solution**: Added handling in `composer.c` after PS1 rendering:
-```c
-if (theme && theme->layout.newline_after > 0) {
-    for (int i = 0; i < theme->layout.newline_after &&
-         output->ps1_len < sizeof(output->ps1) - 2; i++) {
-        output->ps1[output->ps1_len++] = '\n';
+const char *effective_prompt = prompt;
+if (!effective_prompt) {
+    lle_shell_update_prompt();
+    effective_prompt = symtable_get_global("PS1");
+    if (!effective_prompt) {
+        effective_prompt = "$ ";
     }
-    output->ps1[output->ps1_len] = '\0';
 }
 ```
 
-### Documentation Updates
+### Issue 2: History Builtin Showing No Output
 
-- `examples/theme.toml` - Updated status annotations for newly-working features
-- `docs/lle_specification/LLE_IMPLEMENTATION_STATUS_AND_ROADMAP.md`:
-  - Updated to v2.3
-  - Section 2.7 updated with Session 89 changes
-  - Added Session 89 entries to Recently Resolved
-  - Updated Document History
+**Symptom**: `history` command produced no output, even though history file was populated and history navigation worked.
 
-### Testing
+**Root Cause**: `lle_history_bridge_init()` was never called, so `g_bridge` was NULL.
 
-- Build: Clean compilation, no warnings
-- All spec compliance tests pass
+**Fix**: Added bridge initialization in `create_and_configure_editor()`:
+```c
+lle_result_t bridge_result = lle_history_bridge_init(
+    integ->editor->history_system,
+    NULL,  /* No POSIX manager - LLE-only now */
+    integ->editor->lle_pool);
+```
+
+### Issue 3: Echo Escape Sequences
+
+**Symptom**: POSIX regression test for echo failed - `\n` not interpreted.
+
+**Root Cause**: `bin_echo` had `interpret_escapes = false` by default.
+
+**Fix**: Changed to `interpret_escapes = true` for XSI compliance (most users expect bash-like behavior).
 
 ---
 
-## Session 88: Syntax Highlighting Enhancement & Theme Feature Audit
+## Configuration Changes
 
-Two major improvements: completing syntax highlighting for shell constructs and auditing/documenting which theme features actually work.
+### Removed Options
 
-### Part 1: Syntax Highlighting - Missing Shell Constructs
+| Option | Notes |
+|--------|-------|
+| `editor.use_lle` | LLE is now always enabled; old config files handled gracefully |
+| `readline_support` (meson) | Build option removed |
 
-**Problem**: Syntax highlighting was at ~60% coverage, missing several shell constructs.
+### History File
 
-**Solution**: Added support for:
-- **ANSI-C quoting** (`$'...'`) - handles escape sequences
-- **Arithmetic expansion** (`$((...))`) - nested depth tracking
-- **Here-strings** (`<<<`)
-- **Here-documents** (`<<`, `<<-`)
-- **Process substitution** (`<(...)`, `>(...)`)
-
-All new token types have configurable colors in TOML themes.
-
-**New Token Types**:
-- `LLE_TOKEN_STRING_ANSIC`
-- `LLE_TOKEN_ARITHMETIC`
-- `LLE_TOKEN_HERESTRING`
-- `LLE_TOKEN_HEREDOC_OP`, `LLE_TOKEN_HEREDOC_DELIM`, `LLE_TOKEN_HEREDOC_CONTENT`
-- `LLE_TOKEN_PROCSUB_IN`, `LLE_TOKEN_PROCSUB_OUT`
-
-**New Color Fields** (in `lle_syntax_colors_t`):
-- `string_ansic`, `arithmetic`, `herestring`
-- `heredoc_op`, `heredoc_delim`, `heredoc_content`
-- `procsub`
-
-**Files Modified**:
-- `include/lle/syntax_highlighting.h` - Added token types and color fields
-- `src/lle/display/syntax_highlighting.c` - Tokenizer logic and color application
-- `src/lle/prompt/theme_parser.c` - Parse new `[syntax]` keys from TOML
-- `src/lle/prompt/theme_loader.c` - Export new syntax colors to TOML
-
-### Part 2: Theme Feature Audit
-
-**Problem**: Many theme options were defined in specs/structs but unclear which actually worked.
-
-**Findings**: Many features are **parsed but never used** in rendering:
-
-| Category | Working | Parsed Only |
-|----------|---------|-------------|
-| **Layout** | ps1, ps2, newline_before, newline_after | rps1, transient, enable_multiline, compact_mode |
-| **Colors** | Core accent, text, most git/path/status, git_ahead/behind/untracked | text_bright, border, background, highlight, path_separator |
-| **Symbols** | prompt, prompt_root, separators, git indicators, error, jobs | branch, stash, conflict, directory, home, success, time |
-| **Segments** | - | enabled_segments array (filtering not implemented) |
-| **Syntax** | All 30+ colors | - |
-
-**Key Gaps Identified**:
-- Right prompt (`rps1`) is rendered by composer but display layer ignores it
-- `enabled_segments` is parsed but segment filtering not implemented
-
-### Part 3: Documentation Updates
-
-1. **Created `examples/theme.toml`** - Comprehensive example with inline `[x]`/`[~]` status annotations showing what works vs. what's parsed only
-
-2. **Updated `docs/lle_specification/LLE_IMPLEMENTATION_STATUS_AND_ROADMAP.md`**:
-   - Added Section 2.7: Theme System Feature Status (Session 88 Audit)
-   - Updated syntax highlighting from 60% → 85%
-   - Added to Recently Resolved section
-
-### Testing
-
-- Build: All targets compile successfully (`meson compile -C builddir lusush`)
-- Syntax highlighting status upgraded from 60% to 85%
+Changed from `.lusush_history_lle` to `.lusush_history` - the standard name now that LLE is the only system.
 
 ---
 
-## Session 87: Wire exit_code and jobs Template Variables (Issue #22)
+## Verification
 
-Connected LLE prompt template variables `${status}` (exit code) and `${jobs}` (background job count) to actual shell state. Previously these were dead code - the infrastructure existed but values were never updated.
-
-### Problem
-
-The LLE prompt template system had `${status}` and `${jobs}` segments defined, but:
-- `lle_prompt_context_t.last_exit_code` was only partially wired
-- `lle_prompt_context_t.background_job_count` was **never updated** - completely dead code
-
-Users couldn't display command exit status or background job indicators in their prompts.
-
-### Solution
-
-**Phase 1: Verified exit_code wiring (already complete)**
-- `lusush.c` calls `lle_fire_post_command(line, exit_status, duration)`
-- Event hub fires `POST_COMMAND` event with exit_code
-- `composer_on_post_command()` calls `lle_prompt_context_update()`
-- `segment_status_render()` reads `ctx->last_exit_code`
-
-**Phase 2: Wired jobs count (NEW)**
-1. Added `executor_count_jobs()` function to count active background jobs
-2. Added `lle_prompt_context_set_job_count()` setter function
-3. Before prompt render, call `executor_update_job_status()` then `executor_count_jobs()`
-4. Update prompt context with job count before `lle_composer_render()`
-
-### Files Modified
-
-- `include/executor.h` - Added `executor_count_jobs()` declaration
-- `src/executor.c` - Implemented `executor_count_jobs()` (counts RUNNING and STOPPED jobs)
-- `include/lle/prompt/segment.h` - Added `lle_prompt_context_set_job_count()` declaration
-- `src/lle/prompt/segment.c` - Implemented `lle_prompt_context_set_job_count()`
-- `src/prompt.c` - Update job count before `lle_composer_render()`
-- `src/display_integration.c` - Update job count before `lle_composer_render()`
-- `tests/lle/functional/display_test_stubs.c` - Added executor stubs for test linking
-
-### Theme Usage
-
-The "minimal" theme demonstrates these variables:
+### Test Results
 
 ```
-PS1:  ${?status:[${status}] }${symbol}    # Shows [1] if last command failed
-RPS1: ${time}${?jobs: [${jobs}]}          # Shows [2] if 2 background jobs
+Unit Tests:      58/58 passing
+POSIX Tests:     49/49 passing
+Focused POSIX:   42/42 passing
 ```
 
-The `${?var:text}` syntax only shows text when the segment is visible (non-zero).
+### Manual Testing
 
-### Testing
-
-- Build: All 60 targets compile successfully
-- Tests: 59/59 pass (fixed Spec 12 compliance test for new CUSTOM completion type)
-
-### Spec Coverage
-
-- **Spec 25** (Prompt Theme System): Template variable wiring
-- **Spec 26** (Shell Integration): Event-driven context updates
-
----
-
-## Session 86: Custom Completion Source API & Configuration
-
-Implemented a two-layer custom completion source system: a public C API for programmatic registration and a user-facing config file for shell command-based completions.
-
-### Problem
-
-Users couldn't define custom completion sources without modifying C code. There was no way to add project-specific or tool-specific completions.
-
-### Solution
-
-Created a complete extensibility system with two layers:
-
-1. **Layer 2: Public C API** (`include/lle/completion/custom_source.h`)
-   - `lle_custom_completion_source_t` struct for defining sources
-   - `lle_completion_register_source()` / `lle_completion_unregister_source()`
-   - Query functions for listing sources
-   - Helper: `lle_completion_add_item()` for adding completions
-
-2. **Layer 3: Config File** (`~/.config/lusush/completions.toml`)
-   - TOML format matching keybindings/themes
-   - Shell command execution with 2-second timeout
-   - Result caching with configurable TTL
-   - Pattern matching for command/argument context
-
-### Configuration Format
-
-```toml
-# ~/.config/lusush/completions.toml
-[sources.git-branches]
-description = "Git branch names"
-applies_to = ["git checkout", "git merge", "git rebase"]
-argument = 2
-command = "git branch --list 2>/dev/null | sed 's/^[* ]*//'"
-suffix = " "
-cache_seconds = 5
-```
-
-### Key Features
-
-- **Two-layer architecture**: C API foundation + config file on top
-- **Shell command execution**: Run any command to generate completions
-- **Caching**: Optional TTL-based result caching for performance
-- **Pattern matching**: `applies_to` matches command + subcommand patterns
-- **Argument position**: Target specific argument positions
-- **Thread-safe**: Mutex-protected registration and queries
-- **Hot reload**: `display lle completions reload` applies changes immediately
-
-### Display Commands
-
-- `display lle completions` - Show help
-- `display lle completions list` - Show all sources (built-in + custom)
-- `display lle completions reload` - Reload config file
-- `display lle completions help` - Show config format and examples
-
-### Files Created
-
-- `include/lle/completion/custom_source.h` - Public API header (400+ lines)
-- `src/lle/completion/custom_source.c` - C API implementation
-- `src/lle/completion/completion_config.c` - Config parser and command executor
-- `examples/completions.toml` - Comprehensive example with git, docker, ssh, npm, k8s, etc.
-
-### Files Modified
-
-- `include/lle/completion/source_manager.h` - Added `LLE_SOURCE_CUSTOM` enum
-- `include/lle/completion/completion_types.h` - Added `LLE_COMPLETION_TYPE_CUSTOM`
-- `src/lle/completion/completion_types.c` - Added custom type handling
-- `src/lle/meson.build` - Added new source files
-- `src/lle/lle_editor.c` - Initialize custom sources on editor creation
-- `src/builtins/builtins.c` - Added `display lle completions` commands
-
-### Architecture
-
-```
-┌─────────────────────────────────────────┐
-│  Layer 3: User Config (completions.toml)│  ← End users
-└─────────────────────────────────────────┘
-                    │
-                    ▼
-┌─────────────────────────────────────────┐
-│  Layer 2: Public C API                  │  ← Builtins, future plugins
-│  lle_completion_register_source()       │
-└─────────────────────────────────────────┘
-                    │
-                    ▼
-┌─────────────────────────────────────────┐
-│  Layer 1: Internal Infrastructure       │  ← Already exists
-│  lle_source_manager_register()          │
-└─────────────────────────────────────────┘
-```
-
-### Spec Coverage
-
-- **Spec 12** (Completion System): Custom source extensibility
-- **Spec 07** (Extensibility): User-defined completion providers
-- **Spec 13** (User Customization): Config file-based customization
+- Prompt displays correctly on startup
+- History navigation works (Up/Down arrows)
+- History builtin displays entries
+- Tab completion works
+- Syntax highlighting works
+- Autosuggestions work
+- Multiline input works
 
 ---
 
@@ -440,15 +209,48 @@ cache_seconds = 5
 
 ---
 
+## Architecture After Removal
+
+```
+┌─────────────────────────────────────────┐
+│           Shell (lusush)                │
+├─────────────────────────────────────────┤
+│  input.c                                │
+│    └── lusush_readline_with_prompt()    │
+│          └── lle_readline()             │
+├─────────────────────────────────────────┤
+│  LLE (Lusush Line Editor)               │
+│    ├── lle_shell_integration.c          │
+│    ├── lle_readline.c                   │
+│    ├── lle_editor.c                     │
+│    ├── prompt/composer.c                │
+│    ├── history/                         │
+│    └── completion/                      │
+├─────────────────────────────────────────┤
+│  Display Layer                          │
+│    ├── display_controller.c             │
+│    ├── prompt_layer.c                   │
+│    └── command_layer.c                  │
+└─────────────────────────────────────────┘
+```
+
+**No more**:
+- `HAVE_READLINE` conditionals
+- `config.use_lle` checks
+- Legacy theme system
+- GNU readline dependency
+
+---
+
 ## Feature Status Summary
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| **Theme Symbols** | **Working** | prompt, git indicators, error, jobs (Session 89) |
-| **Theme Colors** | **Working** | git_ahead/behind/untracked embedded in output (Session 89) |
-| **newline_after** | **Working** | Layout option now functional (Session 89) |
-| **Custom Completions** | Working | ~/.config/lusush/completions.toml + C API |
-| **User Keybindings** | Complete | ~/.config/lusush/keybindings.toml |
+| **LLE-Only Mode** | **Complete** | GNU readline fully removed |
+| **Theme Symbols** | Working | prompt, git indicators, error, jobs |
+| **Theme Colors** | Working | git_ahead/behind/untracked embedded |
+| Custom Completions | Working | ~/.config/lusush/completions.toml + C API |
+| User Keybindings | Complete | ~/.config/lusush/keybindings.toml |
 | Autosuggestions | Working | Fish-style, Ctrl+Right partial accept |
 | Emacs Keybindings | Working | Full preset loader |
 | Completion System | Working | Spec 12 implementation |
@@ -457,7 +259,7 @@ cache_seconds = 5
 | History Search | Working | Ctrl+R reverse search, fuzzy matching |
 | Undo/Redo | Working | Ctrl+_ / Ctrl+^ |
 | Widget System | Working | 24 builtin widgets |
-| Syntax Highlighting | Working | 85% coverage (Session 88) |
+| Syntax Highlighting | Working | 85% coverage |
 | Shell Lifecycle Events | Working | Directory/pre/post command |
 | Async Worker | Working | Non-blocking git status |
 | Template Engine | Working | Spec 25 Section 6 |
@@ -484,17 +286,10 @@ cache_seconds = 5
 
 ## Next Steps (Suggested)
 
-1. **Wire Remaining Theme Features**:
-   - `branch`, `stash`, `conflict` symbols
-   - `directory`, `home`, `success`, `time` symbols
-   - `path_root`, `path_separator` colors
-   - `enabled_segments` array filtering
-
-2. **Right Prompt Display**: Wire composer's rprompt output to display layer
-
-3. **Complete Vi Mode**: Keybindings exist, needs testing
-
-4. **User-Defined Widgets**: Allow users to define custom widgets from config
+1. **Verify Linux Build**: Test compilation and functionality on Linux
+2. **Remove Remaining Legacy References**: Clean up any remaining `use_lle` or readline references in comments
+3. **Documentation Cleanup**: Update any docs still referencing readline option
+4. **Performance Testing**: Benchmark LLE-only vs previous readline mode
 
 ---
 
@@ -509,6 +304,9 @@ meson test -C builddir
 
 # Run LLE unit tests only
 meson test -C builddir --suite lle-unit
+
+# Run POSIX regression tests
+bash tests/compliance/test_posix_regression.sh
 
 # Test in interactive shell
 ./builddir/lusush

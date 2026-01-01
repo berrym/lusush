@@ -2,8 +2,8 @@
 
 #include "alias.h"
 #include "autocorrect.h"
+#include "lle/lle_shell_integration.h"
 #include "lusush.h"
-#include "readline_integration.h"
 #include "symtable.h"
 
 #include <ctype.h>
@@ -397,11 +397,6 @@ static config_option_t config_options[] = {
      &config.script_execution, "Enable script execution", config_validate_bool,
      NULL},
 
-    // Line editor selection
-    {"editor.use_lle", CONFIG_TYPE_BOOL, CONFIG_SECTION_BEHAVIOR,
-     &config.use_lle, "Use LLE instead of GNU readline (requires restart)",
-     config_validate_bool, NULL},
-
     // Shell options integration - all 24 POSIX options with shell.* namespace
     // These map directly to existing shell_opts flags for perfect compatibility
     {"shell.errexit", CONFIG_TYPE_BOOL, CONFIG_SECTION_SHELL, NULL,
@@ -477,6 +472,12 @@ static bool config_handle_legacy_key(const char *key, const char *value
                                      __attribute__((unused))) {
     if (!key) {
         return false;
+    }
+
+    // Legacy editor.use_lle option - LLE is now the only line editor
+    if (strcmp(key, "editor.use_lle") == 0) {
+        // Silently ignore - LLE is always enabled
+        return true;
     }
 
     // Legacy display configuration keys
@@ -658,16 +659,12 @@ void config_set_shell_option(const char *option_name, bool value) {
         shell_opts.emacs_mode = value;
         if (value) {
             shell_opts.vi_mode = false; // Mutually exclusive
-            // Update readline editing mode if function exists
-            extern void lusush_update_editing_mode(void);
             lusush_update_editing_mode();
         }
     } else if (strcmp(opt_name, "vi") == 0) {
         shell_opts.vi_mode = value;
         if (value) {
             shell_opts.emacs_mode = false; // Mutually exclusive
-            // Update readline editing mode if function exists
-            extern void lusush_update_editing_mode(void);
             lusush_update_editing_mode();
         }
     } else if (strcmp(opt_name, "posix") == 0) {
@@ -1026,9 +1023,6 @@ const char *CONFIG_FILE_TEMPLATE =
     "=========================================================================="
     "==\n"
     "\n"
-    "# Use LLE instead of GNU readline (requires restart)\n"
-    "editor.use_lle = false\n"
-    "\n"
     "# Arrow key behavior mode:\n"
     "#   context-aware   - Smart behavior based on cursor position\n"
     "#   classic         - Traditional readline behavior\n"
@@ -1070,8 +1064,8 @@ const char *CONFIG_FILE_TEMPLATE =
     "#   readline-compat - GNU Readline compatible mode\n"
     "lle.storage_mode = dual\n"
     "\n"
-    "# LLE history file path (default: ~/.lle_history)\n"
-    "# lle.history_file = ~/.lle_history\n"
+    "# LLE history file path (default: ~/.lusush_history)\n"
+    "# lle.history_file = ~/.lusush_history\n"
     "\n"
     "# Sync LLE history with GNU Readline\n"
     "lle.sync_with_readline = true\n"
@@ -1402,13 +1396,6 @@ int config_init(void) {
     // Apply loaded settings (always safe to call with defaults)
     config_apply_settings();
 
-    // AFTER loading config files, check environment variable override
-    // This allows LLE_ENABLED=1 to work even if config file says false
-    const char *lle_env = getenv("LLE_ENABLED");
-    if (lle_env && strcmp(lle_env, "1") == 0) {
-        config.use_lle = true;
-    }
-
     return 0;
 }
 
@@ -1436,7 +1423,7 @@ void config_set_defaults(void) {
     config.lle_search_fuzzy_matching = false;
     config.lle_search_case_sensitive = false;
     config.lle_storage_mode = LLE_STORAGE_MODE_DUAL;
-    config.lle_history_file = NULL; // Will default to ~/.lle_history
+    config.lle_history_file = NULL; // Will default to ~/.lusush_history
     config.lle_sync_with_readline = true;
     config.lle_export_to_bash_history = true;
     config.lle_enable_forensic_tracking = true;
@@ -1532,15 +1519,8 @@ void config_set_defaults(void) {
     // Script execution defaults
     config.script_execution = true;
 
-    // Line editor defaults
-#if HAVE_READLINE
-    // GNU readline available - LLE is opt-in via environment or config
-    const char *lle_env = getenv("LLE_ENABLED");
-    config.use_lle = (lle_env && strcmp(lle_env, "1") == 0);
-#else
-    // No readline - LLE is the only option, always enabled
-    config.use_lle = true;
-#endif
+    // Line editor - LLE is always enabled (sole line editor)
+    // LLE is the only line editor - no config option needed
 }
 
 /**
@@ -1924,11 +1904,7 @@ void config_apply_settings(void) {
     symtable_set_global_int("COMPLETION_THRESHOLD",
                             config.completion_threshold);
 
-    // Apply prompt settings (handled by theme system)
-
-    // Apply behavior settings
-    // Use multiline mode with fixed line consumption issues
-    lusush_multiline_set_enabled(config.multiline_mode);
+    // Apply prompt settings (handled by LLE prompt composer)
 
     // Apply history settings
     // History deduplication is handled automatically by readline integration
@@ -1962,11 +1938,7 @@ void config_apply_settings(void) {
     autocorrect_cfg.case_sensitive = config.autocorrect_case_sensitive;
     autocorrect_load_config(&autocorrect_cfg);
 
-    // Update readline debug mode
-    lusush_readline_set_debug(config.debug_mode);
-
-    // v1.3.0: Autosuggestions disabled for stability
-    // lusush_autosuggestions_sync_config() call removed
+    // Debug mode is handled by LLE's internal configuration
 }
 
 /**

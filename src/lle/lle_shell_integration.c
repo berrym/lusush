@@ -12,6 +12,7 @@
 #include "lle/lle_shell_integration.h"
 #include "lle/lle_shell_event_hub.h"
 #include "lle/lle_editor.h"
+#include "lle/lle_readline.h"
 #include "lle/lle_watchdog.h"
 #include "lle/history.h"
 #include "lle/prompt/composer.h"
@@ -19,7 +20,10 @@
 #include "lle/prompt/theme.h"
 #include "lle/prompt/theme_loader.h"
 #include "config.h"
+#include "executor.h"
+#include "lusush.h"
 #include "lusush_memory_pool.h"
+#include "symtable.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -233,7 +237,7 @@ void lle_shell_integration_shutdown(void) {
         if (home) {
             char history_path[1024];
             snprintf(history_path, sizeof(history_path),
-                     "%s/.lusush_history_lle", home);
+                     "%s/.lusush_history", home);
             lle_history_save_to_file(integ->editor->history_system,
                                      history_path);
         }
@@ -317,9 +321,19 @@ static lle_result_t create_and_configure_editor(lle_shell_integration_t *integ) 
         if (home) {
             char history_path[1024];
             snprintf(history_path, sizeof(history_path),
-                     "%s/.lusush_history_lle", home);
+                     "%s/.lusush_history", home);
             lle_history_load_from_file(integ->editor->history_system,
                                        history_path);
+        }
+
+        /* Initialize the history bridge for builtin commands
+         * This connects the LLE history core to the shell's history builtin */
+        lle_result_t bridge_result = lle_history_bridge_init(
+            integ->editor->history_system,
+            NULL,  /* No POSIX manager - LLE-only now */
+            integ->editor->lle_pool);
+        if (bridge_result != LLE_SUCCESS) {
+            /* Non-fatal - history builtin won't work but shell continues */
         }
     }
 
@@ -493,7 +507,7 @@ void lle_hard_reset(void) {
         if (home) {
             char history_path[1024];
             snprintf(history_path, sizeof(history_path),
-                     "%s/.lusush_history_lle", home);
+                     "%s/.lusush_history", home);
             lle_history_save_to_file(integ->editor->history_system,
                                      history_path);
         }
@@ -536,6 +550,45 @@ void lle_nuclear_reset(void) {
 
     /* Update statistics */
     g_lle_integration->nuclear_reset_count++;
+}
+
+/* ============================================================================
+ * PROMPT GENERATION
+ * ============================================================================
+ */
+
+void lle_shell_update_prompt(void) {
+    /* Use minimal fallback if LLE integration not available */
+    if (!g_lle_integration || !g_lle_integration->prompt_composer) {
+        symtable_set_global("PS1", (getuid() > 0) ? "$ " : "# ");
+        symtable_set_global("PS2", "> ");
+        return;
+    }
+
+    lle_prompt_composer_t *composer = g_lle_integration->prompt_composer;
+    lle_prompt_output_t output;
+    memset(&output, 0, sizeof(output));
+
+    /* Update background job count from executor */
+    executor_t *executor = get_global_executor();
+    if (executor) {
+        executor_update_job_status(executor);
+        int job_count = executor_count_jobs(executor);
+        lle_prompt_context_set_job_count(&composer->context, job_count);
+    }
+
+    /* Render the prompt */
+    lle_result_t result = lle_composer_render(composer, &output);
+    if (result == LLE_SUCCESS && output.ps1_len > 0) {
+        symtable_set_global("PS1", output.ps1);
+        symtable_set_global("PS2", output.ps2);
+        lle_composer_clear_regeneration_flag(composer);
+        return;
+    }
+
+    /* Rendering failed - use minimal fallback */
+    symtable_set_global("PS1", (getuid() > 0) ? "$ " : "# ");
+    symtable_set_global("PS2", "> ");
 }
 
 /* ============================================================================
@@ -592,4 +645,58 @@ void lle_record_ctrl_g(void) {
         g_lle_integration->ctrl_g_count = 0;
         lle_hard_reset();
     }
+}
+
+/**
+ * Update LLE editing mode based on shell options (vi/emacs mode).
+ * Called when user changes editing mode via set -o vi/emacs.
+ */
+void lusush_update_editing_mode(void) {
+    if (!g_lle_integration || !g_lle_integration->editor) {
+        return;
+    }
+
+    extern shell_options_t shell_opts;
+    lle_editor_t *editor = g_lle_integration->editor;
+
+    if (shell_opts.vi_mode) {
+        editor->editing_mode = LLE_EDITING_MODE_VI_INSERT;
+    } else {
+        /* Default to emacs mode */
+        editor->editing_mode = LLE_EDITING_MODE_EMACS;
+    }
+}
+
+/**
+ * Shell-facing readline wrapper.
+ * Calls LLE's lle_readline() and tracks statistics.
+ */
+char *lusush_readline_with_prompt(const char *prompt) {
+    if (!g_lle_integration || !g_lle_integration->editor) {
+        return NULL;
+    }
+
+    g_lle_integration->total_readline_calls++;
+
+    /* If prompt is NULL, retrieve from PS1 (primary prompt)
+     * This is the standard behavior - input.c passes NULL to let
+     * the prompt system generate the themed prompt via lle_shell_update_prompt()
+     */
+    const char *effective_prompt = prompt;
+    if (!effective_prompt) {
+        /* Ensure prompt is up-to-date before reading */
+        lle_shell_update_prompt();
+        effective_prompt = symtable_get_global("PS1");
+        if (!effective_prompt) {
+            effective_prompt = "$ "; /* Ultimate fallback */
+        }
+    }
+
+    char *line = lle_readline(effective_prompt);
+
+    if (line) {
+        g_lle_integration->successful_reads++;
+    }
+
+    return line;
 }

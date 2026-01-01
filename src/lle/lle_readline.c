@@ -142,7 +142,7 @@ populate_history_config_from_lusush_config(lle_history_config_t *hist_config) {
         hist_config->history_file_path = config.lle_history_file;
     } else {
         hist_config->history_file_path =
-            NULL; /* Use default ~/.lusush_history_lle */
+            NULL; /* Use default ~/.lusush_history */
     }
     hist_config->auto_save = true;    /* Always auto-save for safety */
     hist_config->load_on_init = true; /* Load existing history on startup */
@@ -1145,7 +1145,7 @@ static lle_result_t handle_enter(lle_event_t *event, void *user_data) {
         if (home) {
             char history_path[1024];
             snprintf(history_path, sizeof(history_path),
-                     "%s/.lusush_history_lle", home);
+                     "%s/.lusush_history", home);
             lle_history_save_to_file(ctx->editor->history_system, history_path);
         }
     }
@@ -1283,7 +1283,7 @@ lle_result_t lle_accept_line_context(readline_context_t *ctx) {
         if (home) {
             char history_path[1024];
             snprintf(history_path, sizeof(history_path),
-                     "%s/.lusush_history_lle", home);
+                     "%s/.lusush_history", home);
             lle_history_save_to_file(ctx->editor->history_system, history_path);
         }
     }
@@ -2603,7 +2603,7 @@ char *lle_readline(const char *prompt) {
                     char history_path[1024];
                     if (history_file) {
                         snprintf(history_path, sizeof(history_path),
-                                 "%s/.lusush_history_lle", history_file);
+                                 "%s/.lusush_history", history_file);
                         lle_history_load_from_file(
                             global_lle_editor->history_system, history_path);
                     }

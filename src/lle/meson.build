@@ -145,7 +145,6 @@ lle_sources += files(
   'display/render_pipeline.c',
   'display/render_cache.c',
   'display/dirty_tracker.c',
-  'display/theme_integration.c',
   'display/syntax_highlighting.c',
 )
 
@@ -222,6 +221,7 @@ lle_sources += files(
   'completion/completion_system.c',
   'completion/custom_source.c',
   'completion/completion_config.c',
+  'completion/ssh_hosts.c',
 )
 
 # ============================================================================

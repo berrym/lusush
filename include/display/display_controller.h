@@ -52,8 +52,17 @@
 #define DISPLAY_CONTROLLER_H
 
 #include "../lle/completion/completion_menu_state.h"
-#include "../themes.h"
 #include "autosuggestions_layer.h"
+
+/* Symbol compatibility mode for display rendering */
+typedef enum {
+    SYMBOL_MODE_UNICODE = 0,     /**< Full Unicode symbols */
+    SYMBOL_MODE_ASCII = 1,       /**< ASCII-only fallback */
+    SYMBOL_MODE_NERD_FONT = 2,   /**< Nerd Font enhanced symbols */
+    SYMBOL_MODE_AUTO = 3         /**< Auto-detect terminal capability */
+} symbol_compatibility_t;
+
+#define THEME_NAME_MAX 64
 #include "composition_engine.h"
 #include "layer_events.h"
 #include "terminal_control.h"
