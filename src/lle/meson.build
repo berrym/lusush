@@ -144,7 +144,6 @@ lle_sources += files(
   'display/render_controller.c',
   'display/render_pipeline.c',
   'display/render_cache.c',
-  'display/dirty_tracker.c',
   'display/syntax_highlighting.c',
 )
 

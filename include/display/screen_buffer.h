@@ -123,33 +123,6 @@ typedef struct {
     int command_end_col;    // Column where command text ends
 } screen_buffer_t;
 
-/**
- * Represents a change operation for differential update
- */
-typedef enum {
-    SCREEN_CHANGE_NONE,
-    SCREEN_CHANGE_WRITE_TEXT,   // Write text at position
-    SCREEN_CHANGE_CLEAR_TO_EOL, // Clear from position to end of line
-    SCREEN_CHANGE_CLEAR_TO_EOS, // Clear from position to end of screen
-    SCREEN_CHANGE_MOVE_CURSOR   // Move cursor to position
-} screen_change_type_t;
-
-typedef struct {
-    screen_change_type_t type;
-    int row;
-    int col;
-    char text[SCREEN_BUFFER_MAX_COLS]; // Text to write (for WRITE_TEXT)
-    int text_len;
-} screen_change_t;
-
-/**
- * List of changes to transform one screen state to another
- */
-typedef struct {
-    screen_change_t changes[SCREEN_BUFFER_MAX_ROWS * 2]; // Max changes
-    int num_changes;
-} screen_diff_t;
-
 // ============================================================================
 // FUNCTION DECLARATIONS
 // ============================================================================
@@ -246,24 +219,6 @@ void screen_buffer_render_with_continuation(
  * @return Visual width in columns
  */
 size_t screen_buffer_visual_width(const char *text, size_t byte_length);
-
-/**
- * Compare two screen buffers and generate diff
- *
- * @param old_buffer Previous screen state
- * @param new_buffer Desired screen state
- * @param diff Output diff structure
- */
-void screen_buffer_diff(const screen_buffer_t *old_buffer,
-                        const screen_buffer_t *new_buffer, screen_diff_t *diff);
-
-/**
- * Apply diff to terminal (write escape sequences)
- *
- * @param diff Diff to apply
- * @param fd File descriptor to write to (usually STDOUT_FILENO)
- */
-void screen_buffer_apply_diff(const screen_diff_t *diff, int fd);
 
 /**
  * Copy screen buffer (for saving old state)

@@ -694,11 +694,6 @@ static void refresh_display_keep_suggestion(readline_context_t *ctx) {
         return;
     }
 
-    /* Mark entire buffer as dirty for redraw */
-    if (render_controller->dirty_tracker) {
-        lle_dirty_tracker_mark_full(render_controller->dirty_tracker);
-    }
-
     /* Render buffer content through Spec 08 render system */
     lle_render_output_t *render_output = NULL;
     lle_result_t result = lle_render_buffer_content(
@@ -717,11 +712,6 @@ static void refresh_display_keep_suggestion(readline_context_t *ctx) {
 
     /* Free the render output */
     lle_render_output_free(render_output);
-
-    /* Clear dirty tracker after successful render */
-    if (render_controller->dirty_tracker) {
-        lle_dirty_tracker_clear(render_controller->dirty_tracker);
-    }
 }
 
 /**
@@ -801,7 +791,6 @@ static bool is_input_incomplete(const char *buffer_data,
  *
  * PROPER IMPLEMENTATION: Uses Spec 08 display integration components:
  * - render_controller: Coordinates rendering operations
- * - dirty_tracker: Tracks what changed for incremental updates
  * - render_cache: Caches rendered output for performance
  * - display_bridge: Communicates with Lusush display system
  *
@@ -850,30 +839,6 @@ static void refresh_display(readline_context_t *ctx) {
         return;
     }
 
-    /* Mark dirty regions in dirty tracker based on what actually changed
-     * Use change tracking to mark only affected regions for efficient updates
-     */
-    if (render_controller->dirty_tracker) {
-        /* Check if we have change tracking information */
-        if (ctx->buffer->change_tracking_enabled &&
-            ctx->buffer->current_sequence &&
-            ctx->buffer->current_sequence->last_op) {
-
-            /* Get the last operation that was performed */
-            lle_change_operation_t *last_op =
-                ctx->buffer->current_sequence->last_op;
-
-            /* Mark only the affected region as dirty */
-            lle_dirty_tracker_mark_range(render_controller->dirty_tracker,
-                                         last_op->start_position,
-                                         last_op->affected_length);
-        } else {
-            /* No change tracking info - mark entire buffer dirty (first render)
-             */
-            lle_dirty_tracker_mark_full(render_controller->dirty_tracker);
-        }
-    }
-
     /* Render buffer content through Spec 08 render system */
     lle_render_output_t *render_output = NULL;
     lle_result_t result = lle_render_buffer_content(
@@ -911,11 +876,6 @@ static void refresh_display(readline_context_t *ctx) {
 
     /* Free the render output */
     lle_render_output_free(render_output);
-
-    /* Clear dirty tracker after successful render */
-    if (render_controller->dirty_tracker) {
-        lle_dirty_tracker_clear(render_controller->dirty_tracker);
-    }
 }
 
 /**

@@ -347,17 +347,7 @@ typedef struct {
     bool throttling_enabled;       /**< Throttling enabled flag */
 } lle_frame_scheduler_t;
 
-/**
- * @brief Dirty region tracker
- *
- * Tracks dirty regions for efficient partial rendering.
- */
-typedef struct {
-    size_t *dirty_regions;   /**< Array of dirty region offsets */
-    size_t region_count;     /**< Number of dirty regions */
-    size_t region_capacity;  /**< Dirty region array capacity */
-    bool full_redraw_needed; /**< Full redraw flag */
-} lle_dirty_tracker_t;
+
 
 /**
  * @brief Render metrics
@@ -402,7 +392,6 @@ struct lle_render_controller_t {
     lle_cursor_renderer_t *cursor_renderer;   /**< Cursor renderer */
     lle_frame_scheduler_t *scheduler;         /**< Frame scheduler */
     lle_render_cache_t *cache;                /**< Render cache */
-    lle_dirty_tracker_t *dirty_tracker;       /**< Dirty region tracker */
     lle_render_metrics_t *metrics;            /**< Rendering metrics */
     lle_render_config_t *config;              /**< Rendering configuration */
     lle_syntax_color_table_t *theme_colors;   /**< Theme syntax colors */
@@ -940,20 +929,6 @@ lle_result_t lle_render_cache_init(lle_render_cache_t **cache,
 lle_result_t lle_render_cache_cleanup(lle_render_cache_t *cache);
 uint64_t lle_compute_cache_key(lle_buffer_t *buffer,
                                lle_cursor_position_t *cursor);
-
-/* Dirty Region Tracking Functions */
-lle_result_t lle_dirty_tracker_init(lle_dirty_tracker_t **tracker,
-                                    lle_memory_pool_t *memory_pool);
-lle_result_t lle_dirty_tracker_cleanup(lle_dirty_tracker_t *tracker);
-lle_result_t lle_dirty_tracker_mark_region(lle_dirty_tracker_t *tracker,
-                                           size_t offset);
-lle_result_t lle_dirty_tracker_mark_range(lle_dirty_tracker_t *tracker,
-                                          size_t start_offset, size_t length);
-lle_result_t lle_dirty_tracker_mark_full(lle_dirty_tracker_t *tracker);
-lle_result_t lle_dirty_tracker_clear(lle_dirty_tracker_t *tracker);
-bool lle_dirty_tracker_is_region_dirty(const lle_dirty_tracker_t *tracker,
-                                       size_t offset);
-bool lle_dirty_tracker_needs_full_redraw(const lle_dirty_tracker_t *tracker);
 
 /* Terminal Adapter Functions */
 lle_result_t lle_terminal_adapter_init(lle_terminal_adapter_t **adapter,

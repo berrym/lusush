@@ -90,9 +90,9 @@ typedef struct lle_git_status_data {
     bool is_git_repo;                  /**< Is this a git repository? */
     char branch[LLE_ASYNC_BRANCH_MAX]; /**< Current branch name */
     char commit[LLE_ASYNC_COMMIT_MAX]; /**< Short commit hash */
-    bool has_staged;                   /**< Has staged changes */
-    bool has_unstaged;                 /**< Has unstaged changes */
-    bool has_untracked;                /**< Has untracked files */
+    int staged_count;                  /**< Number of staged files */
+    int unstaged_count;                /**< Number of unstaged files */
+    int untracked_count;               /**< Number of untracked files */
     int ahead;                         /**< Commits ahead of upstream */
     int behind;                        /**< Commits behind upstream */
     bool is_detached;                  /**< HEAD is detached */

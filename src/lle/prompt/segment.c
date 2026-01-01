@@ -953,9 +953,9 @@ static void segment_git_async_callback(const lle_async_response_t *response,
 
         if (git->is_git_repo) {
             snprintf(state->branch, sizeof(state->branch), "%s", git->branch);
-            state->staged = git->has_staged ? 1 : 0;
-            state->unstaged = git->has_unstaged ? 1 : 0;
-            state->untracked = git->has_untracked ? 1 : 0;
+            state->staged = git->staged_count;
+            state->unstaged = git->unstaged_count;
+            state->untracked = git->untracked_count;
             state->ahead = git->ahead;
             state->behind = git->behind;
             /* Note: stash_count and has_conflicts not in async response,

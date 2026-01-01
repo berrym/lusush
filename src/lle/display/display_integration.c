@@ -202,8 +202,4 @@ lle_display_integration_cleanup(lle_display_integration_t *integration) {
  * spec-compliant implementation with full sub-component support (buffer
  * renderer, cursor renderer, cache, etc.) */
 
-/* ========================================================================== */
-/*                      DIRTY TRACKING FUNCTIONS                              */
-/* ========================================================================== */
 
-/* NOTE: Dirty tracker functions are implemented in dirty_tracker.c */

@@ -1,7 +1,7 @@
 # LLE Implementation Status and Roadmap
 
-**Last Updated**: 2025-12-31 (Session 91)  
-**Document Version**: 2.5  
+**Last Updated**: 2026-01-01 (Session 92)  
+**Document Version**: 2.6  
 **Purpose**: Accurate assessment of LLE implementation status, realistic next milestones, and long-term vision
 
 ---
@@ -84,7 +84,7 @@ These systems exist and function but have gaps or need enhancement:
 |-----------|--------|-----------------|
 | **Syntax Highlighting** | 85% | Core highlighting complete; TOML theme colors; here-docs, process substitution, ANSI-C quoting, arithmetic expansion added (Session 88) |
 | **Autosuggestions** | 70% | History-based suggestions work; not Fish-level sophistication |
-| **Display Rendering** | 75% | Works correctly; differential update code exists but is broken/unused (full redraw used instead) |
+| **Display Rendering** | 80% | Works correctly; broken differential update code removed (Session 92); full redraw approach is reliable |
 | **Vi Mode** | 50% | Keybindings exist; not fully tested or complete |
 | **User Interface Commands** | 50% | Some `display lle` commands exist; not all spec'd commands implemented |
 
@@ -242,7 +242,7 @@ These are achievable next steps, ordered by priority and dependency.
 | ~~Fix display stress test memory leak~~ | ~~Medium~~ | ✅ Fixed | Session 83: `pool_was_ever_initialized` flag in lusush_memory_pool.c |
 | Address any remaining freeze scenarios | High | Ongoing | Session 80 added watchdog and state machine |
 | Complete Vi mode if desired | Low | Partial | Keybindings exist, needs testing |
-| Clean up dead code (broken diff updates) | Low | Open | Either fix or remove |
+| ~~Clean up dead code (broken diff updates)~~ | ~~Low~~ | ✅ Done | Session 92: Removed ~575 lines of broken differential display code |
 
 ### Phase 2: Configuration Foundation
 
@@ -287,7 +287,7 @@ These are achievable next steps, ordered by priority and dependency.
 
 | Task | Priority | Description |
 |------|----------|-------------|
-| Fix or remove differential updates | Medium | Currently broken; full redraw works but is less efficient |
+| ~~Fix or remove differential updates~~ | ~~Medium~~ | ✅ Removed Session 92; full redraw is reliable and sufficient |
 | Advanced syntax highlighting rules | Medium | More shell construct coverage |
 | Improved autosuggestion algorithm | Low | Context-aware, not just history prefix |
 | Fish-style path abbreviation | Low | ~/D/p/lusush instead of ~/Documents/projects/lusush |
@@ -370,12 +370,13 @@ Active issues are tracked in `docs/lle_implementation/tracking/KNOWN_ISSUES.md`.
 | Issue | Severity | Description |
 |-------|----------|-------------|
 | macOS cursor flicker | Low | Pre-existing multiline input flicker |
-| Differential updates broken | Low | Code exists but doesn't work; full redraw used |
 
 ### Recently Resolved
 
 | Issue | Resolution | Session |
 |-------|------------|---------|
+| Git segment truncation after first prompt | Async git status used booleans instead of counts; fixed to use `git status --porcelain` counting | Session 92 |
+| Broken differential display code | Removed ~575 lines of dead code: dirty_tracker.c, screen_buffer_diff/apply_diff, partial render logic | Session 92 |
 | Git segment blocking on slow repos | Added async worker to git segment for non-blocking status fetching | Session 90 |
 | prompt.c code organization | Reorganized with clear LLE/legacy sections; marked legacy code for future removal | Session 90 |
 | Theme symbols not wired | Changed segment render API to pass theme; wired prompt, git, jobs, status symbols | Session 89 |
@@ -441,14 +442,14 @@ bin_cd()
       → registered handlers notified
 ```
 
-### Differential Updates (Broken)
+### Display Rendering Approach
 
-The display system has code for differential updates (only redraw changed lines) but it **doesn't work correctly**. Current approach:
+The display system uses a full redraw approach:
 
 1. Clear screen from cursor position to end
 2. Redraw everything
 
-This is functional but less efficient. Fixing this is lower priority since the current approach works.
+This is simple, reliable, and sufficient for typical line editing. The broken differential update code (dirty_tracker, screen_buffer_diff/apply_diff) was removed in Session 92 as it never worked correctly and created false expectations. If differential updates become needed in the future, they should be implemented fresh with proper virtual-to-physical coordinate translation.
 
 ---
 
@@ -489,6 +490,8 @@ The original specifications remain as inspiration for what LLE could become, whi
 ---
 
 **Document History**:
+- v2.6 (2026-01-01): Session 92 - Removed ~575 lines of broken differential display code (dirty_tracker.c, screen_buffer_diff/apply_diff, partial render); Fixed git segment truncation (async used booleans instead of counts)
+- v2.5 (2025-12-31): Session 91 - GNU readline fully removed; LLE is now the sole line editor
 - v2.4 (2025-12-31): Session 90 - Git segment now uses async worker for non-blocking status fetching; src/prompt.c reorganized with clear LLE/legacy sections; Legacy code marked for future removal
 - v2.3 (2025-12-31): Session 89 - Wired theme symbols (prompt, git, jobs, status) and colors (git_ahead/behind/untracked); Implemented newline_after; Segment render API now includes theme parameter
 - v2.2 (2025-12-31): Session 88 - Syntax highlighting 60%→85% (shell constructs, TOML colors); Theme feature audit with working/parsed-only status

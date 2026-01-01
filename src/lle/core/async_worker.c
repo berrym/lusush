@@ -469,20 +469,27 @@ static lle_result_t lle_async_get_git_status(const char *cwd,
                         status->commit, sizeof(status->commit));
     }
 
-    /* Check for staged changes */
-    status->has_staged =
-        !run_git_command("git diff --cached --quiet 2>/dev/null", NULL, 0);
+    /* Get status counts using git status --porcelain (same as sync version) */
+    status->staged_count = 0;
+    status->unstaged_count = 0;
+    status->untracked_count = 0;
 
-    /* Check for unstaged changes */
-    status->has_unstaged =
-        !run_git_command("git diff --quiet 2>/dev/null", NULL, 0);
-
-    /* Check for untracked files */
-    char untracked[16] = {0};
-    if (run_git_command(
-            "git ls-files --others --exclude-standard 2>/dev/null | head -1",
-            untracked, sizeof(untracked))) {
-        status->has_untracked = (untracked[0] != '\0');
+    FILE *fp = popen("git status --porcelain 2>/dev/null", "r");
+    if (fp) {
+        char line[512];
+        while (fgets(line, sizeof(line), fp)) {
+            if (line[0] == '?') {
+                status->untracked_count++;
+            } else {
+                if (line[0] != ' ' && line[0] != '?') {
+                    status->staged_count++;
+                }
+                if (line[1] != ' ' && line[1] != '?') {
+                    status->unstaged_count++;
+                }
+            }
+        }
+        pclose(fp);
     }
 
     /* Check ahead/behind counts */

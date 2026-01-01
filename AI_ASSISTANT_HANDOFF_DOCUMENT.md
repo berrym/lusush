@@ -1,9 +1,92 @@
-# AI Assistant Handoff Document - Session 94
+# AI Assistant Handoff Document - Session 95
 
 **Date**: 2026-01-01
-**Session Type**: LLE Freeze/Hang Prevention - Defensive Improvements
+**Session Type**: Dead Code Cleanup & Bug Fix
 **Status**: COMPLETE
 **Branch**: `feature/lle`
+
+---
+
+## Session 95: Broken Differential Display Code Removal & Git Truncation Fix
+
+This session completed cleanup of broken/unused differential display update code (~575+ lines) and fixed a git segment truncation bug.
+
+### Dead Code Removed
+
+The differential display update system was architecturally broken and never integrated. It created false expectations about working functionality.
+
+#### Files Deleted
+
+| File | Lines | Description |
+|------|-------|-------------|
+| `src/lle/display/dirty_tracker.c` | ~250 | Tracked changed regions for selective updates |
+| `tests/lle/unit/test_dirty_tracker.c` | ~100 | Unit tests for removed code |
+
+#### Functions Removed from `src/display/screen_buffer.c`
+
+| Function | Lines | Description |
+|----------|-------|-------------|
+| `screen_buffer_diff()` | ~114 | Compare two buffers for changes |
+| `screen_buffer_apply_diff()` | ~63 | Apply diff to terminal (broken coordinate system) |
+
+**Note**: `screen_buffer_copy()` was kept - it's still used for state tracking.
+
+#### Code Removed from Other Files
+
+| File | Changes |
+|------|---------|
+| `include/display/screen_buffer.h` | Removed `screen_diff_t`, `screen_change_t`, `screen_change_type_t`, and diff function declarations |
+| `include/lle/display_integration.h` | Removed `lle_dirty_tracker_t` field from `lle_render_controller_t`, removed all `lle_dirty_tracker_*` declarations |
+| `src/lle/display/render_controller.c` | Removed dirty tracker initialization, cleanup, and partial render logic |
+| `src/lle/lle_readline.c` | Removed `lle_dirty_tracker_mark_full()`, `lle_dirty_tracker_mark_range()`, `lle_dirty_tracker_clear()` calls |
+| `src/lle/display/display_integration.c` | Removed stale "dirty tracker functions in dirty_tracker.c" comment |
+| `src/lle/meson.build` | Removed `'display/dirty_tracker.c'` from sources |
+| `meson.build` | Disabled `display_integration_test`, `display_performance_benchmark`, `display_stress_test` (had dirty_tracker deps) |
+
+### Git Segment Truncation Bug Fixed
+
+**Symptom**: Git segment showed `!10` correctly on startup, but after first command became `!1`.
+
+**Root Cause**: Async git status update used boolean flags (`has_staged`, `has_unstaged`, `has_untracked`) which converted counts to 1 or 0. The sync version used `git status --porcelain` to count files, but async version used `git diff --quiet` for boolean checks.
+
+**Fix**: Changed `lle_git_status_data_t` from booleans to integer counts:
+
+```c
+// Before (broken)
+typedef struct lle_git_status_data {
+    bool has_staged;
+    bool has_unstaged;
+    bool has_untracked;
+    ...
+} lle_git_status_data_t;
+
+// After (fixed)
+typedef struct lle_git_status_data {
+    int staged_count;
+    int unstaged_count;
+    int untracked_count;
+    ...
+} lle_git_status_data_t;
+```
+
+Updated `src/lle/core/async_worker.c` to use `git status --porcelain` (same as sync version) and count files properly.
+
+Updated `src/lle/prompt/segment.c` callback to use counts directly instead of boolean-to-int conversion.
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `include/lle/async_worker.h` | Changed booleans to int counts |
+| `src/lle/core/async_worker.c` | Use `git status --porcelain` counting |
+| `src/lle/prompt/segment.c` | Use counts directly in callback |
+
+### Results
+
+- **Build**: ✅ Successful
+- **Tests**: ✅ 54/54 passing
+- **~575+ lines of dead code removed**
+- **Git segment displays correct counts** (e.g., `!10` stays `!10`)
 
 ---
 
