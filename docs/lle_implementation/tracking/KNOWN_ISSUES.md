@@ -1,6 +1,6 @@
 # LLE Known Issues and Blockers
 
-**Date**: 2025-12-31 (Updated: Session 91)  
+**Date**: 2026-01-01 (Updated: Session 94)  
 **Status**: ✅ MAJOR MILESTONE - GNU Readline Removed, LLE-Only  
 **Implementation Status**: Spec 25 (Prompt/Theme) VERIFIED, Spec 26 (Shell Integration) VERIFIED
 
@@ -35,8 +35,11 @@ LLE is now the **sole line editing system** in lusush. GNU readline support has 
 - ⚠️ **Remaining Issues** - Enhancements and minor fixes, no blockers
 - ✅ **Issue #17 Fixed** - Command-aware directory completion for cd/rmdir (Session 53, 2025-12-21)
 - ℹ️ **Issue #18 Clarified** - pushd/popd are bash extensions, not POSIX; not implemented in lusush (future work)
-- ✅ **Issue #14 Documented** - Git-aware prompt not showing git info (2025-12-02)
-- ✅ **Issue #15 Documented** - Tab handling uses formula-based calculation (2025-12-02)
+- ✅ **Issue #14 Fixed** - Git-aware prompt now working via LLE prompt system (Session 94, 2026-01-01)
+- ✅ **Issue #15 Fixed** - Tab handling uses formula-based calculation (2025-12-02)
+- ✅ **Issue #8 Fixed** - Multi-column completion menu implemented (Session 94, 2026-01-01)
+- ✅ **Issue #5 Fixed** - Multiline builtin highlighting working (Session 94, 2026-01-01)
+- ✅ **Issue #6 Fixed** - Continuation prompt separate from content highlighting (Session 94, 2026-01-01)
 - ✅ **Issue #9 Fixed** - Cursor positioning after menu display (Session 25)
 - ✅ **Issue #10 Fixed** - Arrow key navigation (Session 25)
 - ✅ **Issue #11 Fixed** - Menu dismissal (Session 26)
@@ -625,71 +628,52 @@ cd /tmp           # Change to non-git directory
 
 ---
 
-### Issue #14: Git-Aware Prompt Not Displaying Git Information
+### Issue #14: Git-Aware Prompt Not Displaying Git Information ✅ FIXED
 **Severity**: MEDIUM  
 **Discovered**: 2025-12-02 (macOS LLE compatibility session)  
-**Status**: Not yet fixed  
-**Component**: src/prompt.c - git status integration  
+**Fixed**: 2026-01-01 (Session 94 verification)  
+**Status**: ✅ FIXED - Superseded by LLE prompt system with async support  
+**Component**: src/lle/prompt/segment.c, src/lle/core/async_worker.c  
 
 **Description**:
-The git-aware themed prompt is not displaying any git information (branch name, status indicators). The prompt shows username, hostname, and path correctly, but the git branch/status section is missing entirely.
+The git-aware themed prompt was not displaying git information due to a flawed `run_command()` implementation in the old `src/prompt.c`.
 
-**Reproduction**:
-```bash
-$ ./builddir/lusush
-[mberry@Michaels-Mac-mini.local] ~/Lab/c/lusush $
-# ^ No git branch shown, should show branch and status in a git repository
-```
+**Resolution**:
+The old `src/prompt.c` git implementation was replaced by the LLE Spec 25 prompt system. The new implementation in `src/lle/prompt/segment.c` includes **full async support**:
 
-**Expected Behavior**:
-```bash
-[mberry@Michaels-Mac-mini.local] ~/Lab/c/lusush (feature/lle) $
-# Or with status indicators like *, +, etc.
-```
+**Async Architecture**:
+1. On render, if cache invalid, queue async request via `lle_async_worker_t`
+2. Return cached/stale data immediately for non-blocking render
+3. When async completes, callback updates state and invalidates prompt
+4. Next render uses fresh data
 
-**Root Cause**:
-A blanket fix was applied to suppress git stderr messages (which were causing display corruption when running `cd /tmp` outside of a git repository). The fix added `2>/dev/null` redirection to git commands in `src/prompt.c`:
+**Key Features**:
+- `lle_async_worker_t` runs git commands in background thread
+- `pthread_mutex_t` protects state for thread safety
+- Non-blocking prompt rendering (never waits for git)
+- Proper `popen()` capture with stderr redirection
+- Handles detached HEAD state (falls back to short commit hash)
+- Tracks ahead/behind counts, stash count, conflicts
 
+**Key Implementation** (`src/lle/prompt/segment.c`):
 ```c
-// In get_git_branch():
-return run_command("git branch --show-current 2>/dev/null", branch, branch_size);
-
-// In get_git_status():
-if (run_command("git rev-parse --git-dir 2>/dev/null", NULL, 0) != 0) {
-    return; // Not in a git repository
-}
+typedef struct {
+    char branch[256];
+    int staged, unstaged, untracked, ahead, behind, stash_count;
+    bool has_conflicts, is_repo, cache_valid;
+    lle_async_worker_t *async_worker;
+    pthread_mutex_t async_mutex;
+    bool async_pending;
+} segment_git_state_t;
 ```
 
-The stderr redirection is correct, but the issue is likely that:
-1. The `run_command()` function may not be returning output correctly with the redirection
-2. Or the git commands are failing for another reason on macOS
-3. Or there's a PATH issue where git isn't being found
+**Verification**:
+- Git branch displays correctly in prompt when in git repository
+- No git info shown when outside git repository (correct behavior)
+- Status indicators work for modified/staged files
+- Prompt never blocks waiting for slow git operations
 
-**Investigation Needed**:
-1. Check if `run_command()` properly captures stdout while redirecting stderr
-2. Verify git is in PATH when lusush runs
-3. Test git commands directly to ensure they work
-4. May need to use `2>/dev/null` only for the stderr while still capturing stdout
-
-**Original Issue Being Fixed**:
-When `cd /tmp` was executed (outside a git repo), git commands output:
-```
-fatal: not a git repository (or any of the parent directories): .git
-```
-This stderr output corrupted the display because it wasn't being suppressed.
-
-**Proper Fix Strategy**:
-The stderr redirection is correct for suppressing error messages, but we need to ensure stdout is still captured. The issue may be in how `run_command()` handles the command string with shell redirection.
-
-**Workaround**:
-None currently - git information simply doesn't appear in prompts.
-
-**Priority**: MEDIUM (affects user experience but shell is functional)
-
-**Files Involved**:
-- `src/prompt.c` - `get_git_branch()` and `get_git_status()` functions
-
-**Status**: DOCUMENTED - Needs investigation
+**Status**: ✅ FIXED
 
 ---
 
@@ -834,70 +818,36 @@ Users can type the full path manually: `/usr/bin/echo` instead of relying on com
 
 ---
 
-### Issue #8: Completion Menu Single-Column Display (Inefficient Space Usage)
+### Issue #8: Completion Menu Single-Column Display (Inefficient Space Usage) ✅ FIXED
 **Severity**: LOW  
 **Discovered**: 2025-11-22 (Session 23 Part 2)  
-**Status**: Not yet fixed (documented for investigation)  
-**Component**: Completion menu display / legacy bash completion integration  
+**Fixed**: 2026-01-01 (Session 94 verification)  
+**Status**: ✅ FIXED - Multi-column display implemented  
+**Component**: src/lle/completion/completion_menu_renderer.c  
 
 **Description**:
-Completion menu currently displays one item per line (single-column), which is inefficient use of screen space. Modern shells like zsh display completions in multiple columns with category headers, making better use of terminal width.
+Completion menu was displaying one item per line instead of utilizing terminal width efficiently.
 
-**Current Behavior**:
-```
-Display all 112 possibilities? (y or n)
-e2freefrag
-e2fsck
-e2fsdroid
-e2image
-e2label
-echo
-ed
-... (one per line, continues)
+**Resolution**:
+Multi-column display is now fully implemented in the LLE completion system:
+
+**Implementation** (`src/lle/completion/completion_menu_renderer.c`):
+```c
+.use_multi_column = true,  // Enabled by default
 ```
 
-**Expected Behavior** (zsh-style):
-```
-completing external command
-e2freefrag  e2fsck      e2fsdroid   e2image     e2label
-completing builtin command
-echo        echotc      echoti
-```
+**Key Features**:
+- `completion_menu_state.c` calculates optimal column count based on terminal width
+- Maximum 6 columns to prevent overcrowding
+- Cached layout (`column_width`, `num_columns`) prevents recalculation flicker
+- Category-aware navigation preserves column position when moving between sections
 
-**Investigation Findings**:
-1. **LLE has multi-column support**: The completion_menu_renderer.c already supports multi-column layout:
-   ```c
-   .use_multi_column = true,
-   ```
+**Code Path**:
+- `lle_completion_menu_update_layout()` calculates columns from terminal width
+- `lle_completion_menu_render()` uses cached `state->column_width` and `state->num_columns`
+- Layout recalculates on terminal resize events
 
-2. **Problem**: Menu is likely going through **legacy bash completion display** instead of using the LLE menu renderer
-
-3. **Evidence**: The "Display all X possibilities?" prompt is bash's completion pager, not LLE's menu system
-
-**Root Cause** (suspected):
-- v2 completion generates results correctly
-- Results not being routed through LLE menu renderer
-- Instead falling back to bash/readline completion display
-- Need to verify menu rendering path in keybinding integration
-
-**Why This Matters**:
-- Screen space efficiency (especially on small terminals)
-- Better visual organization with category grouping
-- Improved UX matching modern shell expectations
-- Professional appearance
-
-**Priority**: LOW (functionality works, this is UX enhancement)
-
-**Resolution Plan**:
-1. Trace completion display path in `lle_complete()` keybinding action
-2. Verify LLE menu renderer is being called vs bash fallback
-3. If using bash fallback: Wire v2 results to LLE menu renderer
-4. Enable multi-column display with category headers
-5. Test with various terminal widths
-
-**Status**: DOCUMENTED - Investigation needed
-
-**Note**: This may be related to screen_buffer integration that was planned in Session 23. Menu needs to go through proper LLE display system, not bypass to bash completion.
+**Status**: ✅ FIXED
 
 ---
 
@@ -944,80 +894,58 @@ $ ehello
 ### Issue #5: Multiline Input - Builtins Not Highlighted
 **Severity**: MEDIUM  
 **Discovered**: 2025-11-16 (Session 18+)  
-**Status**: Not yet fixed  
-**Component**: Syntax highlighting / multiline command processing  
+**Fixed**: 2026-01-01 (Session 94 verification)  
+**Status**: ✅ FIXED - LLE syntax highlighting processes full buffer  
+**Component**: src/lle/display/syntax_highlighting.c  
 
 **Description**:
-In multiline input, builtin commands are not getting syntax highlighting. Single-line commands highlight correctly, but the same commands in multiline constructs (if/while/for blocks) don't get highlighted.
+In multiline input, builtin commands were not getting syntax highlighting.
 
-**Reproduction**:
-```bash
-$ if true; then
-if> echo done
-     ^^^^ - "echo" not highlighted (should be green as builtin)
-if> fi
+**Resolution**:
+The LLE syntax highlighting system processes the entire buffer, not line-by-line. The `is_builtin()` check from `builtins.h` is used to identify builtin commands regardless of their position in the buffer.
+
+**Key Implementation** (`src/lle/display/syntax_highlighting.c`):
+```c
+if (is_builtin(command)) {
+    type = LLE_TOKEN_COMMAND_BUILTIN;
+}
+// ...
+case LLE_TOKEN_COMMAND_BUILTIN:
+    tok->color = c->command_builtin;  // Cyan color
 ```
 
-**Expected Behavior**:
-Builtin commands like `echo`, `cd`, `export`, etc. should be highlighted green regardless of whether they appear in single-line or multiline input.
+**Verification**:
+- Builtins like `echo`, `cd`, `export` are highlighted in multiline constructs
+- Token type `LLE_TOKEN_COMMAND_BUILTIN` applied correctly
+- Full buffer tokenization ensures consistent highlighting
 
-**Root Cause** (suspected):
-- Syntax highlighter may only process first line
-- Continuation prompt lines may not be passed through highlighter
-- Multiline parsing may strip highlighting information
-
-**Impact**:
-- Inconsistent user experience between single-line and multiline
-- Reduced readability of complex multiline commands
-- Makes multiline editing harder to validate visually
-
-**Priority**: MEDIUM (affects multiline editing UX)
+**Status**: ✅ FIXED
 
 ---
 
-### Issue #6: Continuation Prompt Incorrectly Highlighted in Quotes
+### Issue #6: Continuation Prompt Incorrectly Highlighted in Quotes ✅ FIXED
 **Severity**: LOW  
 **Discovered**: 2025-11-16 (Session 18+)  
-**Status**: Not yet fixed  
-**Component**: Syntax highlighting / continuation prompt rendering  
+**Fixed**: 2026-01-01 (Session 94 verification)  
+**Status**: ✅ FIXED - LLE prompt system separates prompt from content  
+**Component**: src/lle/prompt/, src/lle/lle_shell_integration.c  
 
 **Description**:
-When a quoted string spans multiple lines (open quote with continuation), the continuation prompt itself gets highlighted with the quote color (yellow), not just the content after the prompt.
+Continuation prompt was being highlighted with quote color when inside multiline quoted strings.
 
-**Reproduction**:
-```bash
-$ echo "hello
-quote> world"
-^^^^^^ - continuation prompt "quote> " incorrectly highlighted yellow
-```
+**Resolution**:
+The LLE prompt system (Spec 25/26) generates prompts separately from command content:
+- Continuation prompt (`PS2`) is set via `symtable_set_global("PS2", "> ")`
+- Prompt rendering goes through the LLE prompt composer, not through syntax highlighting
+- Command content is tokenized and highlighted separately from prompt display
 
-**Expected Behavior**:
-- Continuation prompt: Normal prompt color (not highlighted)
-- Content after prompt: Quoted string color (yellow)
+**Architecture**:
+1. Prompt layer renders `PS2` with theme colors (not syntax highlighting colors)
+2. Buffer content is tokenized separately by syntax highlighter
+3. Display controller composites prompt + highlighted content
+4. No overlap between prompt rendering and content highlighting
 
-**Visual Example**:
-```
-Current (incorrect):
-$ echo "hello
-quote> world"
-└─────────────┘ all yellow including "quote> "
-
-Expected (correct):
-$ echo "hello
-quote> world"
-       └─────┘ only content highlighted yellow
-```
-
-**Root Cause** (suspected):
-- Syntax highlighter doesn't distinguish continuation prompt from command content
-- Highlighting applied to entire line including prompt prefix
-- Prompt prefixes not excluded from highlighting scope
-
-**Impact**:
-- Minor visual inconsistency
-- Continuation prompt less readable when inside quotes
-
-**Priority**: LOW (cosmetic, doesn't affect functionality)
+**Status**: ✅ FIXED
 
 ---
 
