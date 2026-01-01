@@ -254,12 +254,13 @@ These are achievable next steps, ordered by priority and dependency.
 - ✅ System theme files (`/etc/lusush/themes/`)
 - ✅ Theme hot reload (`display lle theme reload`)
 - ✅ Theme export (`display lle theme export`)
+- ✅ User keybinding configuration (`~/.config/lusush/keybindings.toml`)
+- ✅ Keybinding hot reload (`display lle keybindings reload`)
 
 **Remaining Work:**
 
 | Task | Priority | Description |
 |------|----------|-------------|
-| User keybinding configuration | High | Allow custom keybindings via config file |
 | Per-directory configuration | Low | Project-specific settings |
 
 ### Phase 3: Native Extensibility
