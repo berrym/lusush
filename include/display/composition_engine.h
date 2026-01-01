@@ -1,30 +1,13 @@
-/*
- * Lusush Shell - Layered Display Architecture
- * Composition Engine Header - Intelligent Layer Combination System
+/**
+ * @file composition_engine.h
+ * @brief Composition engine - Intelligent layer combination system
  *
- * Copyright (C) 2021-2025  Michael Berry
+ * Intelligently combines prompt and command layers without interference,
+ * enabling universal prompt compatibility with real-time syntax highlighting.
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- *
- * ============================================================================
- *
- * COMPOSITION ENGINE SYSTEM (Intelligent Layer Combination)
- *
- * This header defines the API for the composition engine of the Lusush Display
- * System. The composition engine intelligently combines prompt and command
- * layers without interference, enabling universal prompt compatibility with
- * real-time syntax highlighting.
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ * @license GPL-3.0-or-later
  *
  * Key Features:
  * - Intelligent combination of prompt and command layers

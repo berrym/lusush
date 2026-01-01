@@ -24,7 +24,7 @@ TOTAL_REQUIRED_TESTS=211
 
 # Configuration
 LUSUSH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-LUSUSH_BINARY="$LUSUSH_DIR/builddir/lusush"
+LUSUSH_BINARY="$LUSUSH_DIR/build/lusush"
 TEMP_DIR=$(mktemp -d)
 TEST_CONFIG="$TEMP_DIR/test_lusushrc"
 
@@ -93,7 +93,7 @@ if [ -f "$LUSUSH_BINARY" ]; then
     show_result "Binary exists" "PASS" "$LUSUSH_BINARY"
 else
     show_result "Binary exists" "FAIL" "Binary not found at $LUSUSH_BINARY"
-    echo -e "${RED}CRITICAL: Please run 'ninja -C builddir' first${NC}"
+    echo -e "${RED}CRITICAL: Please run 'ninja -C build' first${NC}"
     exit 1
 fi
 
@@ -482,7 +482,7 @@ PRODUCTION_CRITERIA=$((PRODUCTION_CRITERIA + 1))
 show_result "Feature completeness" "PASS" "All major features implemented"
 
 # 9. Build system ready
-if [ -f "$LUSUSH_DIR/meson.build" ] && [ -f "$LUSUSH_DIR/builddir/build.ninja" ]; then
+if [ -f "$LUSUSH_DIR/meson.build" ] && [ -f "$LUSUSH_DIR/build/build.ninja" ]; then
     PRODUCTION_CRITERIA=$((PRODUCTION_CRITERIA + 1))
     show_result "Build system" "PASS" "Build system ready for production"
 else

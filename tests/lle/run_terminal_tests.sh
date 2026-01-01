@@ -10,14 +10,14 @@ echo "==================================================================="
 echo ""
 
 # Build directory
-BUILD_DIR="../../builddir"
+BUILD_DIR="../../build"
 if [ ! -d "$BUILD_DIR" ]; then
     BUILD_DIR="../../build"
 fi
 
 if [ ! -d "$BUILD_DIR" ]; then
     echo "Error: Build directory not found"
-    echo "Please run 'meson setup builddir' first"
+    echo "Please run 'meson setup build' first"
     exit 1
 fi
 

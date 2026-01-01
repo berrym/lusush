@@ -175,7 +175,7 @@ echo_pass "Test input file created: utf8_test_inputs.txt"
 echo ""
 
 echo_info "Ready to start manual testing"
-echo_info "Run: ./builddir/lusush"
+echo_info "Run: ./build/lusush"
 echo_info "Then copy/paste test inputs from above or utf8_test_inputs.txt"
 echo ""
 echo_info "Record results in: docs/development/PHASE1_TEST_RESULTS.md"

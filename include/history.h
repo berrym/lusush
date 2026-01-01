@@ -1,3 +1,14 @@
+/**
+ * @file history.h
+ * @brief Basic shell command history interface
+ *
+ * Provides core history functionality including initialization, adding
+ * commands, saving, and lookup operations.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ */
+
 #ifndef HISTORY_H
 #define HISTORY_H
 

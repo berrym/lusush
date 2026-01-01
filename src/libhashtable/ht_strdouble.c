@@ -1,9 +1,13 @@
-/* ht_strdouble.c - Type wrapped implementation of a string->double hash table.
+/**
+ * @file ht_strdouble.c
+ * @brief String to Double Hash Table Implementation
  *
  * Project: libhashtable
  * URL: https://github.com/berrym/libhashtable
- * License: MIT
- * Copyright (c) Michael Berry <trismegustis@gmail.com> 2023
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (c) 2023 Michael Berry
+ * @license MIT
  */
 
 #include "ht.h"

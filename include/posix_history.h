@@ -1,25 +1,17 @@
-#ifndef POSIX_HISTORY_H
-#define POSIX_HISTORY_H
-
 /**
  * @file posix_history.h
- * @brief Enhanced POSIX-Compliant History Management for Lusush Shell
+ * @brief Enhanced POSIX-compliant history management
  *
- * This module provides POSIX-compliant history management that extends beyond
- * basic shell history to include the complete POSIX fc command implementation
- * and enhanced history builtin with bash/zsh compatibility.
+ * Provides POSIX-compliant history management including fc command
+ * implementation, enhanced history builtin with bash/zsh compatibility,
+ * editor integration, and file operations.
  *
- * Features:
- * - POSIX fc command (list, edit, substitute, re-execute)
- * - Enhanced history builtin with range operations
- * - Editor integration with FCEDIT support
- * - History numbering with wraparound support
- * - File operations (read, write, append)
- * - Range parsing and validation
- *
- * @author Michael Berry
- * @version 1.0
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  */
+
+#ifndef POSIX_HISTORY_H
+#define POSIX_HISTORY_H
 
 #include <stdbool.h>
 #include <stddef.h>

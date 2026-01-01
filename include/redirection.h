@@ -1,22 +1,21 @@
+/**
+ * @file redirection.h
+ * @brief I/O redirection handling for shell commands
+ *
+ * Provides comprehensive I/O redirection functionality including basic output
+ * redirection (>), append (>>), input (<), error (2>, 2>>), combined (&>),
+ * here strings (<<<), and here documents (<<, <<-).
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ */
+
 #ifndef REDIRECTION_H
 #define REDIRECTION_H
 
 #include "node.h"
 
 #include <stdbool.h>
-
-/**
- * I/O Redirection Header for Lusush Shell
- *
- * Provides comprehensive I/O redirection functionality including:
- * - Basic output redirection (>)
- * - Append redirection (>>)
- * - Input redirection (<)
- * - Error redirection (2>, 2>>)
- * - Combined redirection (&>)
- * - Here strings (<<<)
- * - Here documents (<<, <<-)
- */
 #include "executor.h"
 #include "node.h"
 

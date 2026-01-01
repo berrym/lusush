@@ -1,8 +1,11 @@
 /**
- * fuzzy_match.c - Unicode-Aware Fuzzy String Matching Implementation
+ * @file fuzzy_match.c
+ * @brief Unicode-Aware Fuzzy String Matching Implementation
  *
  * Implements multiple fuzzy matching algorithms with Unicode support.
  * Uses NFC normalization from lle/unicode_compare.h for consistent matching.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
  */
 
 #include "fuzzy_match.h"

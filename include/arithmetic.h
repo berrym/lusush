@@ -1,19 +1,20 @@
+/**
+ * @file arithmetic.h
+ * @brief POSIX-compliant arithmetic expansion module
+ *
+ * Provides arithmetic expansion using the shunting yard algorithm.
+ * Supports all POSIX arithmetic operators, variables, and proper error handling.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ */
+
 #ifndef ARITHMETIC_H
 #define ARITHMETIC_H
 
 #include <stdbool.h>
 #include <stddef.h>
 #include <sys/types.h>
-
-/**
- * Arithmetic Expansion Module
- *
- * Provides POSIX-compliant arithmetic expansion using the shunting yard
- * algorithm. Supports all POSIX arithmetic operators, variables, and proper
- * error handling.
- *
- * This module provides arithmetic functionality for the shell architecture.
- */
 
 /**
  * arithm_expand:

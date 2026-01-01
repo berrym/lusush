@@ -1,13 +1,15 @@
-/*
- * input_continuation.h - Shared Multiline Input Continuation System
+/**
+ * @file input_continuation.h
+ * @brief Shared multiline input continuation system
  *
- * This module provides shared multiline parsing functionality for both the
- * Line Editing Engine (LLE) and the main input system. It handles shell
- * construct detection, quote tracking, bracket counting, and continuation
- * line analysis.
+ * Provides shared multiline parsing functionality for both the Line Editing
+ * Engine (LLE) and the main input system. Handles shell construct detection,
+ * quote tracking, bracket counting, and continuation line analysis.
  *
- * This is NOT owned by LLE but is shared infrastructure used by multiple
- * components of Lusush.
+ * This is shared infrastructure used by multiple components of Lusush.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  */
 
 #ifndef INPUT_CONTINUATION_H

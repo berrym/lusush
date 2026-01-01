@@ -1,3 +1,14 @@
+/**
+ * @file init.h
+ * @brief Shell initialization and type detection
+ *
+ * Provides shell initialization routines and functions for detecting
+ * shell type (interactive, login, non-interactive).
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ */
+
 #ifndef INIT_H
 #define INIT_H
 

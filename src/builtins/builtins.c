@@ -1,3 +1,15 @@
+/**
+ * @file builtins.c
+ * @brief Shell builtin command implementations
+ *
+ * Comprehensive implementation of shell builtin commands including cd, echo,
+ * export, pwd, exit, jobs, fg, bg, history, config, debug, and many more.
+ * Provides POSIX-compliant builtins alongside Lusush-specific extensions.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ */
+
 #include "builtins.h"
 
 #include "config.h"
@@ -119,9 +131,13 @@ builtin builtins[] = {
 const size_t builtins_count = sizeof(builtins) / sizeof(builtins[0]);
 
 /**
- * bin_colon:
- *      Null command - does nothing and returns success.
- *      Used for parameter expansions and as a no-op.
+ * @brief Null command - does nothing and returns success
+ *
+ * Used for parameter expansions and as a no-op placeholder.
+ *
+ * @param argc Argument count (unused)
+ * @param argv Argument vector (unused)
+ * @return Always returns 0 (success)
  */
 int bin_colon(int argc __attribute__((unused)),
               char **argv __attribute__((unused))) {
@@ -136,8 +152,13 @@ int bin_colon(int argc __attribute__((unused)),
 }
 
 /**
- * bin_exit:
- *      Exit the shell.
+ * @brief Exit the shell
+ *
+ * Executes EXIT traps before terminating with the specified exit code.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector (argv[1] is optional exit code)
+ * @return Does not return (calls exit())
  */
 int bin_exit(int argc, char **argv) {
     int exit_code = 0;
@@ -155,8 +176,11 @@ int bin_exit(int argc, char **argv) {
 }
 
 /**
- * bin_help:
- *      Print a list of builtins and their description.
+ * @brief Print a list of builtins and their descriptions
+ *
+ * @param argc Argument count (unused)
+ * @param argv Argument vector (unused)
+ * @return Always returns 0
  */
 int bin_help(int argc __attribute__((unused)),
              char **argv __attribute__((unused))) {
@@ -168,10 +192,13 @@ int bin_help(int argc __attribute__((unused)),
 }
 
 /**
- * canonicalize_logical_path:
- *      Canonicalize a path by resolving . and .. components logically
- *      (without following symlinks). Returns a malloc'd string or NULL on
- * error.
+ * @brief Canonicalize a path by resolving . and .. components logically
+ *
+ * Resolves relative path components without following symlinks,
+ * maintaining the logical path as entered by the user.
+ *
+ * @param path The path to canonicalize
+ * @return Newly allocated canonicalized path, or NULL on error (caller must free)
  */
 static char *canonicalize_logical_path(const char *path) {
     if (!path)
@@ -234,8 +261,18 @@ static char *canonicalize_logical_path(const char *path) {
 }
 
 /**
- * bin_cd:
- *      Change working directory.
+ * @brief Change the current working directory
+ *
+ * Implements the cd builtin with support for:
+ * - cd (no args): go to HOME
+ * - cd -: go to previous directory (OLDPWD)
+ * - cd path: change to specified path
+ *
+ * Respects physical_mode setting for symlink resolution.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, 1 on error
  */
 int bin_cd(int argc __attribute__((unused)),
            char **argv __attribute__((unused))) {
@@ -407,8 +444,14 @@ int bin_cd(int argc __attribute__((unused)),
 }
 
 /**
- * bin_pwd:
- *      Print working directory.
+ * @brief Print the current working directory
+ *
+ * In physical mode, resolves symlinks and shows the physical path.
+ * In logical mode, uses PWD from the symbol table if available.
+ *
+ * @param argc Argument count (unused)
+ * @param argv Argument vector (unused)
+ * @return 0 on success, 1 on error
  */
 int bin_pwd(int argc __attribute__((unused)),
             char **argv __attribute__((unused))) {
@@ -444,8 +487,14 @@ int bin_pwd(int argc __attribute__((unused)),
 }
 
 /**
- * bin_history:
- *      Implementation of a history command using LLE history system.
+ * @brief Display or manipulate the command history
+ *
+ * Implements the history builtin using the LLE history system.
+ * Supports listing history entries and various manipulation options.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector with history options
+ * @return 0 on success, 1 on error
  */
 int bin_history(int argc, char **argv) {
     char *output = NULL;
@@ -461,8 +510,15 @@ int bin_history(int argc, char **argv) {
 }
 
 /**
- * bin_terminal:
- *      Display terminal information using LLE detection.
+ * @brief Display terminal capability information
+ *
+ * Shows detailed terminal detection results from LLE including:
+ * TTY status, terminal type, dimensions, color support,
+ * unicode support, mouse support, and multiplexer detection.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector (supports "help" subcommand)
+ * @return 0 on success, 1 on error
  */
 int bin_terminal(int argc, char **argv) {
     if (argc > 2) {
@@ -544,8 +600,13 @@ int bin_terminal(int argc, char **argv) {
 }
 
 /**
- * bin_clear:
- *      Clear the screen.
+ * @brief Clear the terminal screen
+ *
+ * Uses the display integration layer to clear the screen.
+ *
+ * @param argc Argument count (unused)
+ * @param argv Argument vector (unused)
+ * @return Always returns 0
  */
 int bin_clear(int argc __attribute__((unused)),
               char **argv __attribute__((unused))) {
@@ -554,8 +615,13 @@ int bin_clear(int argc __attribute__((unused)),
 }
 
 /**
- * bin_unset:
- *       Remove an entry from global symbol table.
+ * @brief Remove a variable from the global symbol table
+ *
+ * Unsets the specified shell variable, removing it from the environment.
+ *
+ * @param argc Argument count (must be 2)
+ * @param argv Argument vector (argv[1] is variable name)
+ * @return 0 on success, 1 on invalid usage
  */
 int bin_unset(int argc __attribute__((unused)),
               char **argv __attribute__((unused))) {
@@ -570,8 +636,14 @@ int bin_unset(int argc __attribute__((unused)),
 }
 
 /**
- * bin_type:
- *      Display the type of a command (builtin, function, file, alias, etc.)
+ * @brief Display how a command would be interpreted
+ *
+ * Shows whether a command is a builtin, alias, function, or external file.
+ * Supports -t (type only), -p (path only), and -a (show all) options.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector with options and command names
+ * @return 0 if all commands found, 1 if any not found
  */
 int bin_type(int argc, char **argv) {
     bool type_only = false; // -t flag: output only the type
@@ -704,8 +776,14 @@ int bin_type(int argc, char **argv) {
 }
 
 /**
- * process_escape_sequences:
- *      Process escape sequences in a string.
+ * @brief Process escape sequences in a string
+ *
+ * Converts escape sequences like \n, \t, \r, etc. to their
+ * corresponding characters.
+ *
+ * @param str The string to process
+ * @return Newly allocated string with escapes processed (caller must free),
+ *         or NULL on error
  */
 static char *process_escape_sequences(const char *str) {
     if (!str) {
@@ -771,9 +849,15 @@ static char *process_escape_sequences(const char *str) {
 }
 
 /**
- * bin_echo:
- *      Echo arguments to stdout with XSI escape sequence processing.
- *      Per POSIX XSI extension, escape sequences like \n, \t are interpreted.
+ * @brief Echo arguments to stdout
+ *
+ * Implements the echo builtin with XSI escape sequence processing.
+ * Per POSIX XSI extension, escape sequences like \n, \t are interpreted.
+ * Supports -n (no newline), -e (interpret escapes), -E (no escapes) options.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector with options and strings to echo
+ * @return Always returns 0
  */
 int bin_echo(int argc, char **argv) {
     bool interpret_escapes = true; // XSI: interpret escape sequences by default
@@ -826,9 +910,15 @@ int bin_echo(int argc, char **argv) {
 }
 
 /**
- * bin_printf:
- *      Printf builtin with POSIX format specifier support.
- *      Handles width specifiers like %0100s for compatibility.
+ * @brief Formatted output to stdout
+ *
+ * Implements the printf builtin with POSIX format specifier support.
+ * Handles width specifiers, precision, and all standard format conversions
+ * including %s, %d, %i, %c, %x, %X, %o, %u, %f, %g, %e.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector (argv[1] is format, rest are arguments)
+ * @return 0 on success, 1 on usage error
  */
 int bin_printf(int argc, char **argv) {
     if (argc < 2) {
@@ -1131,8 +1221,13 @@ int bin_printf(int argc, char **argv) {
 }
 
 /**
- * is_valid_identifier:
- *      Check if a string is a valid shell variable identifier.
+ * @brief Check if a string is a valid shell variable identifier
+ *
+ * A valid identifier starts with a letter or underscore, followed
+ * by zero or more alphanumeric characters or underscores.
+ *
+ * @param name The string to validate
+ * @return 1 if valid identifier, 0 otherwise
  */
 static int is_valid_identifier(const char *name) {
     if (!name || !*name) {
@@ -1155,8 +1250,15 @@ static int is_valid_identifier(const char *name) {
 }
 
 /**
- * bin_export:
- *      Export shell variables to environment.
+ * @brief Export shell variables to the environment
+ *
+ * With no arguments, prints all exported variables.
+ * With arguments, exports the specified variables to child processes.
+ * Supports VAR=value syntax for simultaneous assignment and export.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector with variable names/assignments
+ * @return 0 on success, 1 on error
  */
 int bin_export(int argc, char **argv) {
     if (argc == 1) {
@@ -1240,8 +1342,14 @@ int bin_export(int argc, char **argv) {
 }
 
 /**
- * bin_source:
- *      Source (execute) a script file.
+ * @brief Source (execute) a script file in the current shell
+ *
+ * Reads and executes commands from the specified file in the current
+ * shell environment. Variables set in the sourced file persist.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector (argv[1] is the filename)
+ * @return 0 on success, 1 on error, or last command's exit status
  */
 int bin_source(int argc, char **argv) {
     if (argc < 2) {
@@ -1307,9 +1415,15 @@ static int evaluate_test_expression(char **argv, int start, int end);
 static int evaluate_single_test(char **argv, int start, int end);
 
 /**
- * bin_test:
- *      Enhanced POSIX-compliant test expressions with logical operators.
- *      Supports negation (!), logical AND (-a), and logical OR (-o).
+ * @brief Evaluate conditional expressions
+ *
+ * Enhanced POSIX-compliant test builtin with logical operators.
+ * Supports file tests (-f, -d, -e, etc.), string tests (-z, -n, =, !=),
+ * numeric comparisons (-eq, -ne, -lt, etc.), and logical operators (!, -a, -o).
+ *
+ * @param argc Argument count
+ * @param argv Argument vector with test expression
+ * @return 0 if expression is true, 1 if false, 2 on error
  */
 int bin_test(int argc, char **argv) {
     if (argc == 1) {
@@ -1329,7 +1443,17 @@ int bin_test(int argc, char **argv) {
     return evaluate_test_expression(argv, 1, argc);
 }
 
-// Recursive evaluation of test expressions with logical operators
+/**
+ * @brief Recursively evaluate test expressions with logical operators
+ *
+ * Handles operator precedence: -o (OR) has lower precedence than -a (AND).
+ * Also handles negation (!) operator.
+ *
+ * @param argv Argument vector
+ * @param start Starting index in argv
+ * @param end Ending index in argv (exclusive)
+ * @return 0 if expression is true, 1 if false
+ */
 static int evaluate_test_expression(char **argv, int start, int end) {
     if (start >= end) {
         return 1; // Empty expression is false
@@ -1364,7 +1488,17 @@ static int evaluate_test_expression(char **argv, int start, int end) {
     return evaluate_single_test(argv, start, end);
 }
 
-// Evaluate a single test condition (unary or binary operators)
+/**
+ * @brief Evaluate a single test condition
+ *
+ * Handles unary operators (-z, -n, -f, -d, etc.) and binary operators
+ * (=, !=, -eq, -ne, -lt, -le, -gt, -ge).
+ *
+ * @param argv Argument vector
+ * @param start Starting index in argv
+ * @param end Ending index in argv (exclusive)
+ * @return 0 if condition is true, 1 if false, 2 on error
+ */
 static int evaluate_single_test(char **argv, int start, int end) {
     int argc = end - start;
 
@@ -1485,10 +1619,15 @@ static int evaluate_single_test(char **argv, int start, int end) {
 }
 
 /**
- * bin_read:
- *      Enhanced POSIX-compliant read user input into variables.
- *      Supports -p (prompt), -r (raw), -t (timeout), -n (nchars), -s (silent)
- * options. Leverages existing input.c infrastructure.
+ * @brief Read a line of input into shell variables
+ *
+ * Enhanced POSIX-compliant read builtin that reads user input into variables.
+ * Supports -p (prompt), -r (raw mode), -t (timeout), -n (nchars),
+ * and -s (silent) options.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector with options and variable name
+ * @return 0 on success, 1 on EOF or error
  */
 int bin_read(int argc, char **argv) {
     // Option flags
@@ -1632,8 +1771,14 @@ int bin_read(int argc, char **argv) {
 }
 
 /**
- * bin_eval:
- *      Evaluate arguments as shell commands.
+ * @brief Evaluate arguments as shell commands
+ *
+ * Concatenates all arguments into a single command string and
+ * executes it in the current shell context.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector with command fragments
+ * @return Exit status of the evaluated command, or 0 if no arguments
  */
 int bin_eval(int argc, char **argv) {
     if (argc < 2) {
@@ -1667,8 +1812,12 @@ int bin_eval(int argc, char **argv) {
 }
 
 /**
- * is_builtin:
- *      Check if a command name is a builtin command.
+ * @brief Check if a command name is a shell builtin
+ *
+ * Searches the builtins table for the specified command name.
+ *
+ * @param name The command name to check
+ * @return true if name is a builtin, false otherwise
  */
 bool is_builtin(const char *name) {
     for (size_t i = 0; i < builtins_count; i++) {
@@ -1681,8 +1830,13 @@ bool is_builtin(const char *name) {
 }
 
 /**
- * bin_true:
- *      Always return success (exit status 0)
+ * @brief Return success status
+ *
+ * Always returns 0 (success). Used in shell scripts and conditionals.
+ *
+ * @param argc Argument count (unused)
+ * @param argv Argument vector (unused)
+ * @return Always returns 0
  */
 int bin_true(int argc, char **argv) {
     (void)argc;
@@ -1691,8 +1845,13 @@ int bin_true(int argc, char **argv) {
 }
 
 /**
- * bin_false:
- *      Always return failure (exit status 1)
+ * @brief Return failure status
+ *
+ * Always returns 1 (failure). Used in shell scripts and conditionals.
+ *
+ * @param argc Argument count (unused)
+ * @param argv Argument vector (unused)
+ * @return Always returns 1
  */
 int bin_false(int argc, char **argv) {
     (void)argc;
@@ -1701,8 +1860,14 @@ int bin_false(int argc, char **argv) {
 }
 
 /**
- * bin_set:
- *      Manage shell options and behavior flags
+ * @brief Set or unset shell options
+ *
+ * Manages shell behavior flags like errexit, nounset, etc.
+ * With no arguments, displays all shell variables.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector with option flags
+ * @return Result from builtin_set()
  */
 int bin_set(int argc, char **argv) {
     (void)argc;
@@ -1710,8 +1875,13 @@ int bin_set(int argc, char **argv) {
 }
 
 /**
- * bin_jobs:
- *      List active jobs
+ * @brief List active background jobs
+ *
+ * Displays all active jobs managed by the current executor.
+ *
+ * @param argc Argument count (unused)
+ * @param argv Argument vector with job options
+ * @return 0 on success, 1 if no executor available
  */
 int bin_jobs(int argc, char **argv) {
     (void)argc;
@@ -1722,8 +1892,13 @@ int bin_jobs(int argc, char **argv) {
 }
 
 /**
- * bin_fg:
- *      Bring job to foreground
+ * @brief Bring a background job to the foreground
+ *
+ * Resumes a stopped job or brings a background job to the foreground.
+ *
+ * @param argc Argument count (unused)
+ * @param argv Argument vector (argv[1] is optional job specification)
+ * @return 0 on success, 1 on error or no current job
  */
 int bin_fg(int argc, char **argv) {
     (void)argc;
@@ -1735,8 +1910,13 @@ int bin_fg(int argc, char **argv) {
 }
 
 /**
- * bin_bg:
- *      Send job to background
+ * @brief Resume a job in the background
+ *
+ * Resumes a stopped job and runs it in the background.
+ *
+ * @param argc Argument count (unused)
+ * @param argv Argument vector (argv[1] is optional job specification)
+ * @return 0 on success, 1 on error or no current job
  */
 int bin_bg(int argc, char **argv) {
     (void)argc;
@@ -1748,8 +1928,14 @@ int bin_bg(int argc, char **argv) {
 }
 
 /**
- * bin_shift:
- *      Shift positional parameters left by n positions
+ * @brief Shift positional parameters left
+ *
+ * Shifts positional parameters ($1, $2, etc.) left by n positions.
+ * Default shift count is 1. Updates $# and individual parameters.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector (argv[1] is optional shift count)
+ * @return 0 on success, 1 on invalid argument
  */
 int bin_shift(int argc, char **argv) {
     int shift_count = 1; // Default shift by 1
@@ -1809,8 +1995,14 @@ int bin_shift(int argc, char **argv) {
     return 0;
 }
 /**
- * bin_break:
- *      Break out of enclosing loop
+ * @brief Break out of enclosing loop
+ *
+ * Exits from a for, while, or until loop. An optional numeric argument
+ * specifies how many levels of loops to break out of.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector (argv[1] is optional loop level)
+ * @return 0 on success, 1 if not in a loop or invalid argument
  */
 int bin_break(int argc, char **argv) {
     if (!current_executor) {
@@ -1850,8 +2042,15 @@ int bin_break(int argc, char **argv) {
 }
 
 /**
- * bin_continue:
- *      Continue to next iteration of enclosing loop
+ * @brief Continue to the next iteration of enclosing loop
+ *
+ * Skips the remaining commands in the current loop iteration and
+ * continues with the next iteration. An optional numeric argument
+ * specifies which enclosing loop to continue.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector (argv[1] is optional loop level)
+ * @return 0 on success, 1 if not in a loop or invalid argument
  */
 int bin_continue(int argc, char **argv) {
     if (!current_executor) {
@@ -1893,8 +2092,14 @@ int bin_continue(int argc, char **argv) {
 }
 
 /**
- * bin_return_value:
- *      Set a string return value for the current function
+ * @brief Set a string return value for the current function
+ *
+ * Lusush extension (not POSIX) that allows functions to return
+ * string values via command substitution. Not available in POSIX mode.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector (argv[1] is the return value)
+ * @return 0 on success, 1 on error or in POSIX mode
  */
 int bin_return_value(int argc, char **argv) {
     // POSIX compliance: return_value is not available in strict POSIX mode
@@ -1918,8 +2123,14 @@ int bin_return_value(int argc, char **argv) {
 }
 
 /**
- * bin_return:
- *      Return from function with optional exit code
+ * @brief Return from a function with optional exit code
+ *
+ * Exits from a shell function with the specified exit status.
+ * If no argument is given, returns with status 0.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector (argv[1] is optional exit code)
+ * @return Special return code (200 + exit_code) for executor recognition
  */
 int bin_return(int argc, char **argv) {
     int return_code = 0; // Default return code
@@ -1943,10 +2154,18 @@ int bin_return(int argc, char **argv) {
     // return" We'll use a specific value that doesn't conflict with normal exit
     // codes
     return 200 + (return_code & 0xFF); // 200-255 range for function returns
-} /**
-   * bin_trap:
-   *      Set or display signal traps
-   */
+}
+
+/**
+ * @brief Set or display signal traps
+ *
+ * Manages signal handlers for the shell. Can set, display, or reset
+ * traps for signals like EXIT, INT, TERM, HUP, etc.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector with trap action and signal names
+ * @return 0 on success, 1 on error
+ */
 int bin_trap(int argc, char **argv) {
     // If no arguments, list all traps
     if (argc == 1) {
@@ -2022,10 +2241,19 @@ int bin_trap(int argc, char **argv) {
     }
 
     return 0;
-} /**
-   * bin_exec:
-   *      Replace shell process with command or modify file descriptors
-   */
+}
+
+/**
+ * @brief Replace the shell process with a command
+ *
+ * Replaces the current shell with the specified command using execvp.
+ * Can also be used for file descriptor manipulation (redirections only).
+ * Executes EXIT traps before replacing the process.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector with command and arguments
+ * @return Does not return on success; 1 on error or restricted mode
+ */
 int bin_exec(int argc, char **argv) {
     // Privileged mode security check
     if (shell_opts.privileged_mode) {
@@ -2101,10 +2329,18 @@ int bin_exec(int argc, char **argv) {
 
     // exec failure should exit the shell with error status
     exit(127);
-} /**
-   * bin_wait:
-   *      Wait for background jobs to complete
-   */
+}
+
+/**
+ * @brief Wait for background jobs to complete
+ *
+ * With no arguments, waits for all background jobs. With arguments,
+ * waits for specific job IDs (%n) or process IDs.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector with optional job/process IDs
+ * @return Exit status of the last waited process
+ */
 int bin_wait(int argc, char **argv) {
     // Get the current executor to access job control
     if (!current_executor) {
@@ -2237,8 +2473,14 @@ int bin_wait(int argc, char **argv) {
 }
 
 /**
- * bin_umask:
- *      Set or display file creation mask
+ * @brief Set or display the file creation mask
+ *
+ * With no arguments, displays the current umask in octal format.
+ * With an octal argument, sets the new file creation mask.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector (argv[1] is optional octal mask)
+ * @return 0 on success, 1 on invalid mode
  */
 int bin_umask(int argc, char **argv) {
     // If no arguments, display current umask
@@ -2276,8 +2518,15 @@ int bin_umask(int argc, char **argv) {
 }
 
 /**
- * bin_ulimit:
- *      Set or display resource limits
+ * @brief Set or display resource limits
+ *
+ * Displays or modifies shell resource limits (file size, open files,
+ * CPU time, stack size, etc.). Supports -a to show all limits,
+ * -H for hard limits, -S for soft limits.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector with options and limit values
+ * @return 0 on success, 1 on error
  */
 int bin_ulimit(int argc, char **argv) {
     int opt;
@@ -2571,8 +2820,14 @@ int bin_ulimit(int argc, char **argv) {
 }
 
 /**
- * bin_times:
- *      Display user and system times for shell and children
+ * @brief Display accumulated user and system times
+ *
+ * Prints the accumulated user and system times for the shell
+ * and for processes run from the shell (children).
+ *
+ * @param argc Argument count (unused)
+ * @param argv Argument vector (unused)
+ * @return 0 on success, 1 on error
  */
 int bin_times(int argc, char **argv) {
     (void)argc; // Suppress unused parameter warning
@@ -2614,8 +2869,15 @@ int bin_times(int argc, char **argv) {
 }
 
 /**
- * bin_getopts:
- *      Parse command options for shell scripts
+ * @brief Parse positional parameters for shell scripts
+ *
+ * POSIX-compliant option parser for shell scripts. Uses OPTIND and
+ * OPTARG variables to track parsing state. Supports silent mode
+ * (optstring starts with ':') for custom error handling.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector (optstring, varname, [args...])
+ * @return 0 if option found, 1 if no more options
  */
 int bin_getopts(int argc, char **argv) {
     if (argc < 3) {
@@ -2854,9 +3116,15 @@ int bin_getopts(int argc, char **argv) {
 }
 
 /**
- * bin_local:
- *      Declare local variables within function scope.
- *      Usage: local [name[=value] ...]
+ * @brief Declare local variables within function scope
+ *
+ * Creates variables that are local to the current function.
+ * Can only be used inside a function. Supports assignment syntax
+ * (local var=value) or declaration only (local var).
+ *
+ * @param argc Argument count
+ * @param argv Argument vector with variable declarations
+ * @return 0 on success, 1 on error or if not in a function
  */
 int bin_local(int argc, char **argv) {
     if (argc == 1) {
@@ -2946,9 +3214,15 @@ int bin_local(int argc, char **argv) {
 }
 
 /**
- * bin_readonly:
- *      Create read-only variables according to POSIX standards
- *      Usage: readonly [name[=value] ...]
+ * @brief Create read-only variables
+ *
+ * Marks variables as read-only according to POSIX standards.
+ * With no arguments, lists all readonly variables.
+ * Supports assignment syntax (readonly var=value).
+ *
+ * @param argc Argument count
+ * @param argv Argument vector with variable declarations
+ * @return 0 on success, 1 on invalid identifier
  */
 int bin_readonly(int argc, char **argv) {
     if (argc == 1) {
@@ -3014,9 +3288,14 @@ int bin_readonly(int argc, char **argv) {
 }
 
 /**
- * bin_config:
- *      Manage shell configuration
- *      Usage: config [show|set|get|reload|save] [options]
+ * @brief Manage shell configuration
+ *
+ * Interface to the shell configuration system. Supports subcommands:
+ * show, set, get, reload, save for managing configuration options.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector with config subcommand and options
+ * @return Always returns 0
  */
 int bin_config(int argc, char **argv) {
     builtin_config(argc, argv);
@@ -3024,8 +3303,10 @@ int bin_config(int argc, char **argv) {
 }
 
 /**
- * init_command_hash:
- *      Initialize the command hash table for remembering utility locations
+ * @brief Initialize the command hash table
+ *
+ * Creates the hash table used by the hash builtin for remembering
+ * utility locations in PATH.
  */
 void init_command_hash(void) {
     if (command_hash == NULL) {
@@ -3034,8 +3315,9 @@ void init_command_hash(void) {
 }
 
 /**
- * free_command_hash:
- *      Free the command hash table
+ * @brief Free the command hash table
+ *
+ * Destroys the hash table used for remembering utility locations.
  */
 void free_command_hash(void) {
     if (command_hash != NULL) {
@@ -3045,8 +3327,15 @@ void free_command_hash(void) {
 }
 
 /**
- * find_command_in_path:
- *      Search for a command in PATH and return its full path
+ * @brief Search for a command in PATH
+ *
+ * Searches each directory in PATH for an executable matching
+ * the command name. If command contains a slash, checks if
+ * it exists as-is.
+ *
+ * @param command The command name to find
+ * @return Newly allocated full path string (caller must free),
+ *         or NULL if not found
  */
 char *find_command_in_path(const char *command) {
     if (!command || command[0] == '\0') {
@@ -3102,10 +3391,15 @@ char *find_command_in_path(const char *command) {
 }
 
 /**
- * bin_hash:
- *      POSIX hash builtin - remember or report utility locations
- *      Usage: hash [utility...]
- *             hash -r
+ * @brief Remember or report utility locations (POSIX hash)
+ *
+ * With no arguments, displays all remembered utility locations.
+ * With utility names, finds and remembers their PATH locations.
+ * With -r, forgets all remembered locations.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector with options and utility names
+ * @return 0 on success, 1 if utility not found, 2 on invalid option
  */
 int bin_hash(int argc, char **argv) {
     init_command_hash();
@@ -3168,8 +3462,17 @@ int bin_hash(int argc, char **argv) {
     return 0;
 }
 /**
- * bin_network:
- *      Manage SSH host completion
+ * @brief Manage network and SSH host completion
+ *
+ * Provides subcommands for SSH host management:
+ * - (no args): Show SSH host count and status
+ * - hosts: List all cached SSH hosts
+ * - refresh: Reload SSH host cache from config files
+ * - help: Show usage information
+ *
+ * @param argc Argument count
+ * @param argv Argument vector with subcommand
+ * @return 0 on success, 1 on unknown command or error
  */
 int bin_network(int argc, char **argv) {
     if (!argv) {
@@ -3235,7 +3538,21 @@ int bin_network(int argc, char **argv) {
     return 1;
 }
 
-// Debug builtin command - wrapper for debug system
+/**
+ * @brief Advanced debugging and profiling builtin
+ *
+ * Provides comprehensive debugging capabilities including:
+ * - Enable/disable debug mode with configurable levels
+ * - Breakpoint management (add, remove, list, clear)
+ * - Execution stepping (step, next, continue)
+ * - Variable inspection (vars, print)
+ * - Performance profiling
+ * - Script analysis
+ *
+ * @param argc Argument count (unused directly, counted from argv)
+ * @param argv Argument vector with debug subcommands
+ * @return 0 on success, 1 on error
+ */
 int bin_debug(int argc __attribute__((unused)), char **argv) {
     // Initialize debug context if not already done
     if (!g_debug_context) {
@@ -3519,8 +3836,7 @@ int bin_debug(int argc __attribute__((unused)), char **argv) {
         printf("  2 - Verbose debugging\n");
         printf("  3 - Trace execution\n");
         printf("  4 - Full profiling\n");
-        printf("\nPhase 3 Target 4: Shell Scripting Enhancement - ADVANCED "
-               "FEATURES READY\n");
+        printf("\nShell Scripting Enhancement - ADVANCED FEATURES READY\n");
         return 0;
     }
 
@@ -3530,9 +3846,21 @@ int bin_debug(int argc __attribute__((unused)), char **argv) {
 }
 
 /**
- * bin_display:
- *      Manage the layered display system (Week 8 - Display Integration)
- *      Usage: display status|enable|disable|config|stats|diagnostics|help
+ * @brief Manage the layered display system
+ *
+ * Provides comprehensive control over the display integration system.
+ * Supports subcommands:
+ * - status: Show system status and health
+ * - config: Show detailed configuration
+ * - stats: Show usage statistics
+ * - diagnostics: Show system diagnostics
+ * - performance: Performance monitoring commands
+ * - lle: LLE (Lusush Line Editor) control commands
+ * - help: Show usage information
+ *
+ * @param argc Argument count
+ * @param argv Argument vector with display subcommand
+ * @return 0 on success, 1 on error or unknown command
  */
 int bin_display(int argc, char **argv) {
     if (argc < 2) {
@@ -3728,7 +4056,7 @@ int bin_display(int argc, char **argv) {
         const char *perf_cmd = argv[2];
 
         if (strcmp(perf_cmd, "init") == 0) {
-            if (display_integration_init_phase_2b_monitoring()) {
+            if (display_integration_perf_monitor_init()) {
                 printf("Performance monitoring initialized\n");
                 printf("Targets: Cache hit rate >75%%, Display timing <50ms\n");
                 return 0;
@@ -3741,7 +4069,7 @@ int bin_display(int argc, char **argv) {
 
         } else if (strcmp(perf_cmd, "report") == 0) {
             bool detailed = (argc > 3 && strcmp(argv[3], "detail") == 0);
-            if (display_integration_generate_phase_2b_report(detailed)) {
+            if (display_integration_perf_monitor_report(detailed)) {
                 return 0;
             } else {
                 fprintf(stderr,
@@ -3768,7 +4096,7 @@ int bin_display(int argc, char **argv) {
             }
 
         } else if (strcmp(perf_cmd, "reset") == 0) {
-            if (display_integration_reset_phase_2b_metrics()) {
+            if (display_integration_perf_monitor_reset()) {
                 printf("Performance metrics reset\n");
                 return 0;
             } else {
@@ -3779,7 +4107,7 @@ int bin_display(int argc, char **argv) {
 
         } else if (strcmp(perf_cmd, "targets") == 0) {
             bool cache_met, timing_met;
-            if (display_integration_check_phase_2b_targets(&cache_met,
+            if (display_integration_perf_monitor_check_targets(&cache_met,
                                                            &timing_met)) {
                 printf("Performance Target Status:\n");
                 printf("  Cache Hit Rate: %s\n",
@@ -3805,7 +4133,7 @@ int bin_display(int argc, char **argv) {
 
             const char *state = argv[3];
             if (strcmp(state, "on") == 0) {
-                if (display_integration_set_phase_2b_monitoring(true, 10)) {
+                if (display_integration_perf_monitor_set_active(true, 10)) {
                     printf("Real-time performance monitoring enabled (10Hz)\n");
                     return 0;
                 } else {
@@ -3815,7 +4143,7 @@ int bin_display(int argc, char **argv) {
                     return 1;
                 }
             } else if (strcmp(state, "off") == 0) {
-                if (display_integration_set_phase_2b_monitoring(false, 0)) {
+                if (display_integration_perf_monitor_set_active(false, 0)) {
                     printf("Real-time performance monitoring disabled\n");
                     return 0;
                 } else {
@@ -3837,8 +4165,8 @@ int bin_display(int argc, char **argv) {
             printf("Performance Monitoring Debug Information:\n");
 
             // Check initialization status
-            phase_2b_performance_metrics_t metrics;
-            if (display_integration_get_phase_2b_metrics(&metrics)) {
+            display_perf_metrics_t metrics;
+            if (display_integration_perf_monitor_get_metrics(&metrics)) {
                 printf("  Monitoring initialized: YES\n");
                 printf("  Cache operations recorded: %" PRIu64 "\n",
                        metrics.cache_operations_total);

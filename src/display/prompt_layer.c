@@ -1,8 +1,12 @@
-/*
- * Lusush Shell - Layered Display Architecture
- * Prompt Layer Implementation - Universal Prompt Rendering System
+/**
+ * @file prompt_layer.c
+ * @brief Prompt Layer - Universal Prompt Rendering System
  *
- * Copyright (C) 2021-2025  Michael Berry
+ * Part of the Lusush Shell Layered Display Architecture.
+ * Handles prompt generation, caching, and theme integration.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

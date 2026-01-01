@@ -1,3 +1,14 @@
+/**
+ * @file alias.h
+ * @brief Shell alias management declarations
+ *
+ * Provides alias creation, lookup, expansion, and validation functions
+ * for shell command aliasing.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ */
+
 #ifndef ALIAS_H
 #define ALIAS_H
 

@@ -31,7 +31,7 @@
 # Target: Complete POSIX + Modern Shell Compliance Assessment
 # =============================================================================
 
-SHELL_UNDER_TEST="${1:-./builddir/lusush}"
+SHELL_UNDER_TEST="${1:-./build/lusush}"
 TOTAL_TESTS=0
 PASSED_TESTS=0
 FAILED_TESTS=0
@@ -987,7 +987,7 @@ main() {
     # Verify shell exists and is executable
     if [ ! -x "$SHELL_UNDER_TEST" ]; then
         echo -e "${RED}Error: Shell '$SHELL_UNDER_TEST' not found or not executable${NC}"
-        echo -e "${YELLOW}Please ensure the shell is built: ninja -C builddir${NC}"
+        echo -e "${YELLOW}Please ensure the shell is built: ninja -C build${NC}"
         exit 1
     fi
 

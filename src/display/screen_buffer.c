@@ -1,21 +1,21 @@
-/*
- * Lusush Shell - Screen Buffer Management Implementation
+/**
+ * @file screen_buffer.c
+ * @brief Screen Buffer Management Implementation
  *
- * Copyright (C) 2021-2025  Michael Berry
+ * Virtual screen buffer system for reliable terminal updates.
+ * Based on techniques from ZLE (zsh), Fish, and Replxx.
  *
- * ARCHITECTURE:
- *
- * This implements a virtual screen buffer system for reliable terminal updates.
- * The approach is based on how ZLE (zsh), Fish, and Replxx handle display:
- *
+ * Architecture:
  * 1. Maintain a virtual representation of what's on the terminal screen
  * 2. When content changes, render new state into a new virtual screen
  * 3. Diff old vs new virtual screens to find what changed
  * 4. Generate minimal escape sequences to apply only the changes
  *
  * This solves line wrapping issues because we never rely on cursor movement
- * tricks or assumptions about terminal state. We always know exactly what's
- * on screen and what needs to change.
+ * tricks or assumptions about terminal state.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  */
 
 #include "display/screen_buffer.h"
@@ -770,7 +770,7 @@ void screen_buffer_render_with_continuation(
 }
 
 // ============================================================================
-// PREFIX SUPPORT FUNCTIONS (Phase 2: Continuation Prompts)
+// PREFIX SUPPORT FUNCTIONS (Continuation Prompts)
 // ============================================================================
 
 bool screen_buffer_set_line_prefix(screen_buffer_t *buffer, int line_num,

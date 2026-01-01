@@ -1,8 +1,12 @@
-/*
- * Lusush Shell - Layered Display Architecture
- * Autosuggestions Layer Implementation - Fish-like Autosuggestions Integration
+/**
+ * @file autosuggestions_layer.c
+ * @brief Autosuggestions Layer - Fish-like Autosuggestions Integration
  *
- * Copyright (C) 2021-2025  Michael Berry
+ * Part of the Lusush Shell Layered Display Architecture.
+ * Provides inline command suggestions based on history and completions.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

@@ -1,9 +1,12 @@
 /**
- * Modern Execution Engine Implementation
+ * @file executor.c
+ * @brief Modern Execution Engine Implementation
  *
  * Clean, efficient execution engine designed for the modern parser and
  * tokenizer. Handles command execution, control structures, pipelines, and
  * variable management with proper POSIX compliance.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
  */
 
 #include "executor.h"
@@ -115,8 +118,14 @@ static int execute_assignment(executor_t *executor, const char *assignment);
 static bool match_pattern(const char *str, const char *pattern);
 
 /**
- * is_privileged_command_allowed:
- *      Check if command is allowed in privileged mode
+ * @brief Check if command is allowed in privileged mode
+ *
+ * In privileged mode, certain commands are restricted for security:
+ * - Commands with absolute/relative paths (containing '/')
+ * - Dangerous builtins: exec, cd, set
+ *
+ * @param command Command name to check
+ * @return true if command is allowed, false if blocked
  */
 static bool is_privileged_command_allowed(const char *command) {
     if (!shell_opts.privileged_mode || !command) {
@@ -138,8 +147,14 @@ static bool is_privileged_command_allowed(const char *command) {
 }
 
 /**
- * is_privileged_redirection_allowed:
- *      Check if redirection target is allowed in privileged mode
+ * @brief Check if redirection target is allowed in privileged mode
+ *
+ * In privileged mode, certain redirections are restricted:
+ * - Absolute paths (starting with '/')
+ * - Parent directory references ('../')
+ *
+ * @param target Redirection target path
+ * @return true if redirection is allowed, false if blocked
  */
 bool is_privileged_redirection_allowed(const char *target) {
     if (!shell_opts.privileged_mode || !target) {
@@ -160,8 +175,16 @@ bool is_privileged_redirection_allowed(const char *target) {
 }
 
 /**
- * is_privileged_path_modification_allowed:
- *      Check if PATH-related environment variable modification is allowed
+ * @brief Check if environment variable modification is allowed in privileged mode
+ *
+ * In privileged mode, security-sensitive variables cannot be modified:
+ * - PATH: Command search path
+ * - IFS: Input field separator
+ * - ENV: Startup script path
+ * - SHELL: Shell path
+ *
+ * @param var_name Variable name to check
+ * @return true if modification is allowed, false if blocked
  */
 static bool is_privileged_path_modification_allowed(const char *var_name) {
     if (!shell_opts.privileged_mode || !var_name) {
@@ -177,7 +200,14 @@ static bool is_privileged_path_modification_allowed(const char *var_name) {
     return true;
 }
 
-// Create new executor with global symtable
+/**
+ * @brief Create a new executor with global symbol table
+ *
+ * Allocates and initializes an executor context using the global
+ * symbol table manager. Initializes job control and sets default state.
+ *
+ * @return New executor instance or NULL on failure
+ */
 executor_t *executor_new(void) {
     executor_t *executor = malloc(sizeof(executor_t));
     if (!executor) {
@@ -209,7 +239,12 @@ executor_t *executor_new(void) {
     return executor;
 }
 
-// Create new executor with external symtable
+/**
+ * @brief Create a new executor with specified symbol table
+ *
+ * @param symtable Symbol table manager to use
+ * @return New executor instance or NULL on failure
+ */
 executor_t *executor_new_with_symtable(symtable_manager_t *symtable) {
     executor_t *executor = malloc(sizeof(executor_t));
     if (!executor) {
@@ -237,7 +272,14 @@ executor_t *executor_new_with_symtable(symtable_manager_t *symtable) {
     return executor;
 }
 
-// Free executor
+/**
+ * @brief Free an executor and all associated resources
+ *
+ * Frees the function table and script context. Does not free the
+ * symbol table as it may be externally managed.
+ *
+ * @param executor Executor to free
+ */
 void executor_free(executor_t *executor) {
     if (executor) {
         // Don't free global symtable - it's managed globally
@@ -259,7 +301,12 @@ void executor_free(executor_t *executor) {
     }
 }
 
-// Set debug mode
+/**
+ * @brief Enable or disable debug mode
+ *
+ * @param executor Executor context
+ * @param debug True to enable debug output
+ */
 void executor_set_debug(executor_t *executor, bool debug) {
     if (executor) {
         executor->debug = debug;
@@ -269,14 +316,24 @@ void executor_set_debug(executor_t *executor, bool debug) {
     }
 }
 
-// Set interactive mode
+/**
+ * @brief Set interactive mode flag
+ *
+ * @param executor Executor context
+ * @param interactive True for interactive shell mode
+ */
 void executor_set_interactive(executor_t *executor, bool interactive) {
     if (executor) {
         executor->interactive = interactive;
     }
 }
 
-// Set external symtable
+/**
+ * @brief Set the symbol table manager
+ *
+ * @param executor Executor context
+ * @param symtable Symbol table manager to use
+ */
 void executor_set_symtable(executor_t *executor, symtable_manager_t *symtable) {
     if (executor) {
         // Don't free the old symtable if it exists - it might be external
@@ -284,7 +341,13 @@ void executor_set_symtable(executor_t *executor, symtable_manager_t *symtable) {
     }
 }
 
-// Script context management for debugging
+/**
+ * @brief Set script execution context for debugging
+ *
+ * @param executor Executor context
+ * @param script_file Script file path (NULL to clear)
+ * @param line_number Current line number in script
+ */
 void executor_set_script_context(executor_t *executor, const char *script_file,
                                  int line_number) {
     if (!executor) {
@@ -300,6 +363,11 @@ void executor_set_script_context(executor_t *executor, const char *script_file,
     executor->in_script_execution = (script_file != NULL);
 }
 
+/**
+ * @brief Clear script execution context
+ *
+ * @param executor Executor context
+ */
 void executor_clear_script_context(executor_t *executor) {
     if (!executor) {
         return;
@@ -311,24 +379,52 @@ void executor_clear_script_context(executor_t *executor) {
     executor->in_script_execution = false;
 }
 
+/**
+ * @brief Get current script file path
+ *
+ * @param executor Executor context
+ * @return Script file path or NULL
+ */
 const char *executor_get_current_script_file(executor_t *executor) {
     return executor ? executor->current_script_file : NULL;
 }
 
+/**
+ * @brief Get current script line number
+ *
+ * @param executor Executor context
+ * @return Line number or 0 if not in script
+ */
 int executor_get_current_script_line(executor_t *executor) {
     return executor ? executor->current_script_line : 0;
 }
 
-// Check for errors
+/**
+ * @brief Check if executor has an error
+ *
+ * @param executor Executor context
+ * @return True if an error occurred
+ */
 bool executor_has_error(executor_t *executor) {
     return executor && executor->has_error;
 }
 
+/**
+ * @brief Get the last error message
+ *
+ * @param executor Executor context
+ * @return Error message string or NULL
+ */
 const char *executor_error(executor_t *executor) {
     return executor ? executor->error_message : "Invalid executor";
 }
 
-// Set error
+/**
+ * @brief Set an error on the executor
+ *
+ * @param executor Executor context
+ * @param message Error message
+ */
 static void set_executor_error(executor_t *executor, const char *message) {
     if (executor) {
         executor->error_message = message;
@@ -336,7 +432,16 @@ static void set_executor_error(executor_t *executor, const char *message) {
     }
 }
 
-// Main execution entry point
+/**
+ * @brief Execute an AST node
+ *
+ * Main execution entry point. Handles both single commands and
+ * command sequences (commands with siblings).
+ *
+ * @param executor Executor context
+ * @param ast Abstract syntax tree to execute
+ * @return Exit status of executed command
+ */
 int executor_execute(executor_t *executor, node_t *ast) {
     if (!executor || !ast) {
         return 1;
@@ -359,7 +464,16 @@ int executor_execute(executor_t *executor, node_t *ast) {
     }
 }
 
-// Execute command line (parse and execute)
+/**
+ * @brief Parse and execute a command line string
+ *
+ * Parses the input string into an AST and executes it. Handles syntax
+ * check mode (set -n) where commands are parsed but not executed.
+ *
+ * @param executor Executor context
+ * @param input Shell command string to parse and execute
+ * @return Exit status of executed command, or error code
+ */
 int executor_execute_command_line(executor_t *executor, const char *input) {
     if (!executor || !input) {
         return 1;
@@ -404,8 +518,18 @@ int executor_execute_command_line(executor_t *executor, const char *input) {
     return result;
 }
 
-// Core node execution dispatcher
-int execute_node(executor_t *executor, node_t *node) {
+/**
+ * @brief Core node execution dispatcher
+ *
+ * Dispatches execution to the appropriate handler based on node type.
+ * Handles debug tracing, breakpoints, and loop control. This is the
+ * central execution function that routes all AST node types.
+ *
+ * @param executor Executor context
+ * @param node AST node to execute
+ * @return Exit status of the executed node
+ */
+static int execute_node(executor_t *executor, node_t *node) {
     if (!node) {
         return 0;
     }
@@ -489,7 +613,16 @@ int execute_node(executor_t *executor, node_t *node) {
     }
 }
 
-// Execute command list (sequence of commands)
+/**
+ * @brief Execute a sequence of commands
+ *
+ * Executes commands in sequence, handling loop control (break/continue)
+ * and exit-on-error mode (set -e). Updates exit status after each command.
+ *
+ * @param executor Executor context
+ * @param list First node in the command list
+ * @return Exit status of last executed command
+ */
 static int execute_command_list(executor_t *executor, node_t *list) {
     if (!list) {
         return 0;
@@ -541,7 +674,23 @@ static int execute_command_list(executor_t *executor, node_t *list) {
     return last_result;
 }
 
-// Execute a simple command
+/**
+ * @brief Execute a simple command node
+ *
+ * Handles command execution including:
+ * - Variable assignments
+ * - Parameter expansions
+ * - Alias expansion
+ * - Builtin commands
+ * - Function calls
+ * - External commands with redirections
+ * - Auto-cd when enabled
+ * - Command auto-correction
+ *
+ * @param executor Executor context
+ * @param command Command node to execute
+ * @return Exit status of the command
+ */
 static int execute_command(executor_t *executor, node_t *command) {
     if (!command || command->type != NODE_COMMAND) {
         return 1;
@@ -1004,7 +1153,17 @@ static int execute_command(executor_t *executor, node_t *command) {
     return result;
 }
 
-// Execute pipeline
+/**
+ * @brief Execute a pipeline of commands
+ *
+ * Implements a two-command pipeline with proper pipe setup.
+ * Supports pipefail mode where failure in any command causes
+ * pipeline failure.
+ *
+ * @param executor Executor context
+ * @param pipeline Pipeline node containing commands
+ * @return Exit status (last command's status, or first failure with pipefail)
+ */
 static int execute_pipeline(executor_t *executor, node_t *pipeline) {
     if (!pipeline || pipeline->type != NODE_PIPE) {
         return 1;
@@ -1101,7 +1260,16 @@ static int execute_pipeline(executor_t *executor, node_t *pipeline) {
     return right_exit;
 }
 
-// Execute a chain of commands connected by next_sibling
+/**
+ * @brief Execute a chain of sibling commands
+ *
+ * Executes commands connected via next_sibling pointers.
+ * Handles loop control and exit-on-error semantics.
+ *
+ * @param executor Executor context
+ * @param first_command First command in the sibling chain
+ * @return Exit status of last executed command
+ */
 static int execute_command_chain(executor_t *executor, node_t *first_command) {
     if (!first_command) {
         return 0;
@@ -1133,7 +1301,19 @@ static int execute_command_chain(executor_t *executor, node_t *first_command) {
     return last_result;
 }
 
-// Execute if statement
+/**
+ * @brief Execute an if statement
+ *
+ * Handles if/elif/else control flow. Children are organized as:
+ * - First child: if condition
+ * - Second child: then body
+ * - Subsequent pairs: elif condition/body
+ * - Final unpaired child: else body (optional)
+ *
+ * @param executor Executor context
+ * @param if_node If statement node
+ * @return Exit status of executed branch
+ */
 static int execute_if(executor_t *executor, node_t *if_node) {
     if (!if_node || if_node->type != NODE_IF) {
         return 1;
@@ -1189,7 +1369,16 @@ static int execute_if(executor_t *executor, node_t *if_node) {
     return 0;
 }
 
-// Execute while loop
+/**
+ * @brief Execute a while loop
+ *
+ * Executes body while condition returns success (0).
+ * Supports break/continue and has a safety limit of 10000 iterations.
+ *
+ * @param executor Executor context
+ * @param while_node While loop node
+ * @return Exit status of last executed body command
+ */
 static int execute_while(executor_t *executor, node_t *while_node) {
     if (!while_node || while_node->type != NODE_WHILE) {
         return 1;
@@ -1251,7 +1440,17 @@ static int execute_while(executor_t *executor, node_t *while_node) {
     return last_result;
 }
 
-// Execute until loop
+/**
+ * @brief Execute an until loop
+ *
+ * Executes body until condition returns success (0).
+ * Inverse of while loop - continues while condition fails.
+ * Supports break/continue with 10000 iteration safety limit.
+ *
+ * @param executor Executor context
+ * @param until_node Until loop node
+ * @return Exit status of last executed body command
+ */
 static int execute_until(executor_t *executor, node_t *until_node) {
     if (!until_node || until_node->type != NODE_UNTIL) {
         return 1;
@@ -1314,7 +1513,17 @@ static int execute_until(executor_t *executor, node_t *until_node) {
     return last_result;
 }
 
-// Execute for loop
+/**
+ * @brief Execute a for loop
+ *
+ * Iterates over a word list, setting the loop variable for each iteration.
+ * Handles "$@" specially to preserve word boundaries. Creates a loop scope
+ * for the iteration variable.
+ *
+ * @param executor Executor context
+ * @param for_node For loop node with variable name in val.str
+ * @return Exit status of last executed body command
+ */
 static int execute_for(executor_t *executor, node_t *for_node) {
     if (!for_node || for_node->type != NODE_FOR) {
         return 1;
@@ -1499,7 +1708,16 @@ static int execute_for(executor_t *executor, node_t *for_node) {
     return last_result;
 }
 
-// Execute logical AND operator (&&)
+/**
+ * @brief Execute logical AND operator (&&)
+ *
+ * Short-circuit evaluation: executes right operand only if
+ * left operand succeeds (returns 0).
+ *
+ * @param executor Executor context
+ * @param and_node Logical AND node
+ * @return Exit status of last executed operand
+ */
 static int execute_logical_and(executor_t *executor, node_t *and_node) {
     if (!and_node || and_node->type != NODE_LOGICAL_AND) {
         return 1;
@@ -1525,7 +1743,16 @@ static int execute_logical_and(executor_t *executor, node_t *and_node) {
     return left_result;
 }
 
-// Execute logical OR operator (||)
+/**
+ * @brief Execute logical OR operator (||)
+ *
+ * Short-circuit evaluation: executes right operand only if
+ * left operand fails (returns non-zero).
+ *
+ * @param executor Executor context
+ * @param or_node Logical OR node
+ * @return Exit status of last executed operand
+ */
 static int execute_logical_or(executor_t *executor, node_t *or_node) {
     if (!or_node || or_node->type != NODE_LOGICAL_OR) {
         return 1;
@@ -1551,7 +1778,18 @@ static int execute_logical_or(executor_t *executor, node_t *or_node) {
     return left_result;
 }
 
-// Helper function to add arguments to dynamic list (C99 compliant)
+/**
+ * @brief Add an argument to a dynamic argv list
+ *
+ * Dynamically grows the argument list as needed, doubling capacity
+ * when full. Used during command argument building.
+ *
+ * @param argv_list Pointer to argument array
+ * @param argv_count Pointer to current count
+ * @param argv_capacity Pointer to current capacity
+ * @param arg Argument string to add (ownership transferred)
+ * @return 1 on success, 0 on allocation failure
+ */
 static int add_to_argv_list(char ***argv_list, int *argv_count,
                             int *argv_capacity, char *arg) {
     if (*argv_count >= *argv_capacity) {
@@ -1566,7 +1804,17 @@ static int add_to_argv_list(char ***argv_list, int *argv_count,
     return 1;
 }
 
-// Simple field splitting implementation for IFS
+/**
+ * @brief Split text into fields using IFS delimiters
+ *
+ * Performs POSIX IFS field splitting on text. Default IFS is
+ * space, tab, and newline.
+ *
+ * @param text Text to split
+ * @param ifs Field separator characters (NULL for default)
+ * @param count Output: number of fields produced
+ * @return Array of field strings (caller must free), or NULL on error
+ */
 static char **ifs_field_split(const char *text, const char *ifs, int *count) {
     if (!text || !count) {
         *count = 0;
@@ -1641,7 +1889,21 @@ static char **ifs_field_split(const char *text, const char *ifs, int *count) {
     return result;
 }
 
-// Build argv from AST
+/**
+ * @brief Build argument vector from command AST
+ *
+ * Constructs argv array from command node, performing:
+ * - Variable expansion
+ * - Brace expansion
+ * - Glob expansion
+ * - IFS field splitting
+ * Excludes redirection nodes from the argument list.
+ *
+ * @param executor Executor context for variable lookup
+ * @param command Command node to process
+ * @param argc Output: argument count
+ * @return NULL-terminated argv array (caller must free), or NULL on error
+ */
 static char **build_argv_from_ast(executor_t *executor, node_t *command,
                                   int *argc) {
     if (!executor || !command || !argc) {
@@ -2008,7 +2270,17 @@ cleanup_delimiters:
     return NULL;
 }
 
-// Expand variable/arithmetic/command substitution if needed
+/**
+ * @brief Expand variables, arithmetic, and command substitutions if needed
+ *
+ * Checks text for expansion markers ($, ~, `) and applies appropriate
+ * expansion. Handles tilde expansion, variable expansion, arithmetic
+ * expansion $((...)), and command substitution $(...).
+ *
+ * @param executor Executor context for variable lookup
+ * @param text Text to potentially expand
+ * @return Expanded string (caller must free), or copy of original
+ */
 char *expand_if_needed(executor_t *executor, const char *text) {
     if (!executor || !text) {
         return NULL;
@@ -2070,12 +2342,32 @@ char *expand_if_needed(executor_t *executor, const char *text) {
     return strdup(text);
 }
 
-// Execute external command
+/**
+ * @brief Execute an external command
+ *
+ * Forks and executes an external command using execvp.
+ * Handles command hashing for faster subsequent lookups.
+ *
+ * @param executor Executor context
+ * @param argv NULL-terminated argument vector
+ * @return Exit status of command (127 for not found, 126 for permission denied)
+ */
 MAYBE_UNUSED
 static int execute_external_command(executor_t *executor, char **argv) {
     return execute_external_command_with_redirection(executor, argv, false);
 }
 
+/**
+ * @brief Execute external command with optional stderr redirection
+ *
+ * Forks and executes an external command, optionally redirecting
+ * stderr to /dev/null. Handles command hashing and proper signal handling.
+ *
+ * @param executor Executor context
+ * @param argv NULL-terminated argument vector
+ * @param redirect_stderr If true, redirect stderr to /dev/null
+ * @return Exit status of command
+ */
 static int execute_external_command_with_redirection(executor_t *executor,
                                                      char **argv,
                                                      bool redirect_stderr) {
@@ -2185,7 +2477,16 @@ static int execute_external_command_with_redirection(executor_t *executor,
     }
 }
 
-// Execute brace group { commands; }
+/**
+ * @brief Execute a brace group { commands; }
+ *
+ * Executes commands within braces in the current shell context
+ * (not a subshell). Useful for grouping commands for redirection.
+ *
+ * @param executor Executor context
+ * @param group Brace group node
+ * @return Exit status of last command in group
+ */
 static int execute_brace_group(executor_t *executor, node_t *group) {
     if (!group || group->type != NODE_BRACE_GROUP) {
         return 1;
@@ -2207,7 +2508,16 @@ static int execute_brace_group(executor_t *executor, node_t *group) {
     return last_result;
 }
 
-// Execute subshell ( commands )
+/**
+ * @brief Execute a subshell ( commands )
+ *
+ * Forks a child process and executes commands in that subshell.
+ * Variable changes in the subshell do not affect the parent.
+ *
+ * @param executor Executor context
+ * @param subshell Subshell node
+ * @return Exit status of subshell
+ */
 static int execute_subshell(executor_t *executor, node_t *subshell) {
     if (!subshell || subshell->type != NODE_SUBSHELL) {
         return 1;
@@ -2254,7 +2564,17 @@ static int execute_subshell(executor_t *executor, node_t *subshell) {
     }
 }
 
-// Expand glob pattern using system glob() function
+/**
+ * @brief Expand glob pattern to matching filenames
+ *
+ * Uses system glob() function to expand patterns like *.c, ?.txt.
+ * Returns original pattern if no matches (POSIX behavior).
+ * Respects set -f (no_globbing) option.
+ *
+ * @param pattern Glob pattern to expand
+ * @param expanded_count Output: number of matches
+ * @return Array of matching paths (caller must free), or NULL on error
+ */
 static char **expand_glob_pattern(const char *pattern, int *expanded_count) {
     if (!pattern || !expanded_count) {
         *expanded_count = 0;
@@ -2323,7 +2643,14 @@ static char **expand_glob_pattern(const char *pattern, int *expanded_count) {
     return result;
 }
 
-// Check if a string contains glob patterns that need expansion
+/**
+ * @brief Check if string contains glob metacharacters
+ *
+ * Checks for *, ?, and [...] character class patterns.
+ *
+ * @param str String to check
+ * @return true if glob expansion is needed
+ */
 static bool needs_glob_expansion(const char *str) {
     if (!str) {
         return false;
@@ -2339,7 +2666,14 @@ static bool needs_glob_expansion(const char *str) {
     return false;
 }
 
-// Check if a string contains brace patterns that need expansion
+/**
+ * @brief Check if string contains brace expansion patterns
+ *
+ * Checks for {a,b,c} style patterns with comma separators.
+ *
+ * @param str String to check
+ * @return true if brace expansion is needed
+ */
 static bool needs_brace_expansion(const char *str) {
     if (!str) {
         return false;
@@ -2361,7 +2695,16 @@ static bool needs_brace_expansion(const char *str) {
     return false;
 }
 
-// Expand brace patterns like {a,b,c} into multiple strings
+/**
+ * @brief Expand brace patterns like {a,b,c}
+ *
+ * Expands patterns like file.{c,h} into [file.c, file.h].
+ * Handles prefix and suffix around the braces.
+ *
+ * @param pattern Pattern containing braces
+ * @param expanded_count Output: number of expansions
+ * @return Array of expanded strings (caller must free), or NULL on error
+ */
 static char **expand_brace_pattern(const char *pattern, int *expanded_count) {
     if (!pattern || !expanded_count) {
         *expanded_count = 0;
@@ -2499,7 +2842,18 @@ static char **expand_brace_pattern(const char *pattern, int *expanded_count) {
     return result;
 }
 
-// Execute external command with full redirection setup in child process
+/**
+ * @brief Execute external command with full redirection setup
+ *
+ * Forks and sets up redirections in the child process before exec.
+ * Handles command hashing, tracing (set -x), and debug profiling.
+ *
+ * @param executor Executor context
+ * @param argv NULL-terminated argument vector
+ * @param redirect_stderr If true, redirect stderr to /dev/null
+ * @param command Command node for redirection setup
+ * @return Exit status of command
+ */
 static int execute_external_command_with_setup(executor_t *executor,
                                                char **argv,
                                                bool redirect_stderr,
@@ -2615,9 +2969,19 @@ static int execute_external_command_with_setup(executor_t *executor,
     }
 }
 
-// Execute builtin command
+/* Forward declaration for test builtin */
 static int execute_test_builtin(executor_t *executor, char **argv);
 
+/**
+ * @brief Execute a builtin command
+ *
+ * Looks up and executes a shell builtin command from the builtins table.
+ * Handles command tracing (set -x) and sets global executor for job control.
+ *
+ * @param executor Executor context
+ * @param argv NULL-terminated argument vector
+ * @return Exit status of builtin command
+ */
 static int execute_builtin_command(executor_t *executor, char **argv) {
     if (!argv || !argv[0]) {
         return 1;
@@ -2671,10 +3035,25 @@ static int execute_builtin_command(executor_t *executor, char **argv) {
     return 1; // Command not found
 }
 
-// Check if command is builtin
+/**
+ * @brief Check if command name is a builtin
+ *
+ * @param cmd Command name to check
+ * @return true if command is a shell builtin
+ */
 static bool is_builtin_command(const char *cmd) { return is_builtin(cmd); }
 
-// Execute test builtin command
+/**
+ * @brief Execute the test/[ builtin command
+ *
+ * Evaluates test expressions for conditionals. Supports:
+ * - Unary operators: -z, -n (string tests)
+ * - Binary operators: =, !=, -eq, -ne, -lt, -le, -gt, -ge
+ *
+ * @param executor Executor context (reserved for future use)
+ * @param argv NULL-terminated argument vector
+ * @return 0 if test succeeds, 1 if test fails
+ */
 MAYBE_UNUSED
 static int execute_test_builtin(executor_t *executor, char **argv) {
     (void)executor; /* Reserved for executor-aware test evaluation */
@@ -2784,7 +3163,15 @@ static int execute_test_builtin(executor_t *executor, char **argv) {
     return 1;
 }
 
-// Check if text is an assignment
+/**
+ * @brief Check if text is a variable assignment
+ *
+ * An assignment has the form VAR=value with = not at the start.
+ * Parameter expansions ${...} are not treated as assignments.
+ *
+ * @param text Text to check
+ * @return true if text is an assignment
+ */
 static bool is_assignment(const char *text) {
     if (!text) {
         return false;
@@ -2800,8 +3187,20 @@ static bool is_assignment(const char *text) {
     return eq && eq != text;
 }
 
-// Execute assignment
-// Execute assignment using modern symbol table
+/**
+ * @brief Execute a variable assignment
+ *
+ * Parses and executes VAR=value assignments. Handles:
+ * - Variable name validation
+ * - Value expansion
+ * - Local vs global scope based on context
+ * - Auto-export with set -a
+ * - Privileged mode restrictions
+ *
+ * @param executor Executor context
+ * @param assignment Assignment string (VAR=value)
+ * @return 0 on success, 1 on failure
+ */
 static int execute_assignment(executor_t *executor, const char *assignment) {
     if (!executor || !assignment) {
         return 1;
@@ -2876,7 +3275,16 @@ static int execute_assignment(executor_t *executor, const char *assignment) {
     return result == 0 ? 0 : 1;
 }
 
-// Execute case statement
+/**
+ * @brief Execute a case statement
+ *
+ * Matches test word against patterns and executes corresponding commands.
+ * Patterns can be separated by | for alternation.
+ *
+ * @param executor Executor context
+ * @param node Case statement node
+ * @return Exit status of executed commands, or 0 if no match
+ */
 static int execute_case(executor_t *executor, node_t *node) {
     if (!executor || !node || node->type != NODE_CASE) {
         return 1;
@@ -2939,7 +3347,16 @@ static int execute_case(executor_t *executor, node_t *node) {
     return result;
 }
 
-// Execute function definition
+/**
+ * @brief Execute a function definition
+ *
+ * Stores function name and body in the executor's function table.
+ * Supports optional parameter syntax (disabled in POSIX mode).
+ *
+ * @param executor Executor context
+ * @param node Function definition node
+ * @return 0 on success, 1 on failure
+ */
 static int execute_function_definition(executor_t *executor, node_t *node) {
     if (!executor || !node || node->type != NODE_FUNCTION) {
         return 1;
@@ -3036,13 +3453,30 @@ static int execute_function_definition(executor_t *executor, node_t *node) {
     return 0;
 }
 
-// Check if a function is defined
+/**
+ * @brief Check if a function is defined
+ *
+ * @param executor Executor context
+ * @param function_name Name of function to check
+ * @return true if function exists in function table
+ */
 static bool is_function_defined(executor_t *executor,
                                 const char *function_name) {
     return find_function(executor, function_name) != NULL;
 }
 
-// Execute function call
+/**
+ * @brief Execute a function call
+ *
+ * Creates a function scope, sets up positional parameters,
+ * executes the function body, and handles return values.
+ *
+ * @param executor Executor context
+ * @param function_name Name of function to call
+ * @param argv Argument vector (argv[0] is function name)
+ * @param argc Argument count
+ * @return Exit status of function body
+ */
 static int execute_function_call(executor_t *executor,
                                  const char *function_name, char **argv,
                                  int argc) {
@@ -3151,7 +3585,16 @@ static int execute_function_call(executor_t *executor,
     return result;
 }
 
-// Create a new function parameter
+/**
+ * @brief Create a new function parameter
+ *
+ * Allocates and initializes a function parameter structure.
+ * Parameters without default values are marked as required.
+ *
+ * @param name Parameter name
+ * @param default_value Default value (NULL for required parameters)
+ * @return New parameter structure, or NULL on failure
+ */
 function_param_t *create_function_param(const char *name,
                                         const char *default_value) {
     if (!name) {
@@ -3176,7 +3619,14 @@ function_param_t *create_function_param(const char *name,
     return param;
 }
 
-// Free function parameter list
+/**
+ * @brief Free a function parameter list
+ *
+ * Frees all parameters in the linked list including their
+ * name and default_value strings.
+ *
+ * @param params Head of parameter list to free
+ */
 void free_function_params(function_param_t *params) {
     while (params) {
         function_param_t *next = params->next;
@@ -3187,7 +3637,18 @@ void free_function_params(function_param_t *params) {
     }
 }
 
-// Validate function parameters against call arguments
+/**
+ * @brief Validate function call arguments against parameters
+ *
+ * Checks that required parameters have values and that the
+ * argument count doesn't exceed the parameter count.
+ * Disabled in POSIX mode for backward compatibility.
+ *
+ * @param func Function definition with parameter info
+ * @param argv Argument vector (reserved for future validation)
+ * @param argc Argument count (reserved for arity checking)
+ * @return 0 on success, 1 on validation failure
+ */
 static int validate_function_parameters(function_def_t *func, char **argv,
                                         int argc) {
     (void)argv; /* Reserved for argument type validation */
@@ -3235,7 +3696,16 @@ static int validate_function_parameters(function_def_t *func, char **argv,
     return 0;
 }
 
-// Find function in function table
+/**
+ * @brief Find function in function table
+ *
+ * Searches the executor's function linked list for a function
+ * with the specified name.
+ *
+ * @param executor Executor context
+ * @param function_name Name to search for
+ * @return Function definition, or NULL if not found
+ */
 static function_def_t *find_function(executor_t *executor,
                                      const char *function_name) {
     if (!executor || !function_name) {
@@ -3252,7 +3722,20 @@ static function_def_t *find_function(executor_t *executor,
     return NULL;
 }
 
-// Store function in function table
+/**
+ * @brief Store function in function table
+ *
+ * Stores or replaces a function definition. Creates a deep copy
+ * of the function body AST. If a function with the same name exists,
+ * it is replaced.
+ *
+ * @param executor Executor context
+ * @param function_name Function name
+ * @param body AST of function body (will be copied)
+ * @param params Parameter list (ownership transferred)
+ * @param param_count Number of parameters
+ * @return 0 on success, 1 on failure
+ */
 static int store_function(executor_t *executor, const char *function_name,
                           node_t *body, function_param_t *params,
                           int param_count) {
@@ -3308,7 +3791,15 @@ static int store_function(executor_t *executor, const char *function_name,
     return 0;
 }
 
-// Copy AST node recursively
+/**
+ * @brief Copy an AST node recursively
+ *
+ * Creates a deep copy of an AST node including all children.
+ * Does not copy siblings - use copy_ast_chain for that.
+ *
+ * @param node Node to copy
+ * @return Deep copy of node, or NULL on failure
+ */
 static node_t *copy_ast_node(node_t *node) {
     if (!node) {
         return NULL;
@@ -3346,7 +3837,15 @@ static node_t *copy_ast_node(node_t *node) {
     return copy;
 }
 
-// Copy AST node chain (including siblings)
+/**
+ * @brief Copy an AST node chain including siblings
+ *
+ * Creates a deep copy of a node and all its siblings.
+ * Used for copying function bodies with multiple statements.
+ *
+ * @param node First node in chain to copy
+ * @return Deep copy of entire chain, or NULL on failure
+ */
 static node_t *copy_ast_chain(node_t *node) {
     if (!node) {
         return NULL;
@@ -3377,10 +3876,25 @@ static node_t *copy_ast_chain(node_t *node) {
     return first_copy;
 }
 
-// Helper function to check if a string is empty or null
+/**
+ * @brief Check if a string is empty or NULL
+ *
+ * @param str String to check
+ * @return true if str is NULL or empty string
+ */
 static bool is_empty_or_null(const char *str) { return !str || str[0] == '\0'; }
 
-// Helper function to extract substring
+/**
+ * @brief Extract a substring with offset and length
+ *
+ * Supports negative offsets (from end of string).
+ * Handles bounds checking and returns empty string for invalid ranges.
+ *
+ * @param str Source string
+ * @param offset Starting position (negative for from-end)
+ * @param length Number of characters (-1 for rest of string)
+ * @return Extracted substring (caller must free)
+ */
 static char *extract_substring(const char *str, int offset, int length) {
     if (!str) {
         return strdup("");
@@ -3418,8 +3932,17 @@ static char *extract_substring(const char *str, int offset, int length) {
     return result;
 }
 
-// Enhanced glob pattern matching for parameter expansion with special character
-// support
+/**
+ * @brief Match string against glob pattern
+ *
+ * Supports *, ?, and [...] character classes including ranges
+ * and negation [!...] or [^...]. Used for case patterns and
+ * parameter expansion pattern matching.
+ *
+ * @param str String to match
+ * @param pattern Glob pattern
+ * @return true if string matches pattern
+ */
 static bool match_pattern(const char *str, const char *pattern) {
     if (!str || !pattern) {
         return false;
@@ -3517,7 +4040,17 @@ static bool match_pattern(const char *str, const char *pattern) {
     return *s == '\0';
 }
 
-// Find shortest match from beginning (for # operator)
+/**
+ * @brief Find prefix match length for # and ## operators
+ *
+ * Finds how many characters from the beginning of str match pattern.
+ * Used for ${var#pattern} and ${var##pattern} expansion.
+ *
+ * @param str String to search
+ * @param pattern Pattern to match
+ * @param longest If true, find longest match (##), else shortest (#)
+ * @return Number of characters matched from beginning
+ */
 static int find_prefix_match(const char *str, const char *pattern,
                              bool longest) {
     if (!str || !pattern) {
@@ -3549,7 +4082,17 @@ static int find_prefix_match(const char *str, const char *pattern,
     return match_len;
 }
 
-// Find shortest match from end (for % operator)
+/**
+ * @brief Find suffix match length for % and %% operators
+ *
+ * Finds how many characters from the end of str match pattern.
+ * Used for ${var%pattern} and ${var%%pattern} expansion.
+ *
+ * @param str String to search
+ * @param pattern Pattern to match
+ * @param longest If true, find longest match (%%), else shortest (%)
+ * @return Number of characters matched from end
+ */
 static int find_suffix_match(const char *str, const char *pattern,
                              bool longest) {
     if (!str || !pattern) {
@@ -3572,7 +4115,14 @@ static int find_suffix_match(const char *str, const char *pattern,
     return match_len;
 }
 
-// Case conversion functions
+/**
+ * @brief Convert first character to uppercase
+ *
+ * Used for ${var^} parameter expansion.
+ *
+ * @param str String to convert
+ * @return Converted string (caller must free)
+ */
 static char *convert_case_first_upper(const char *str) {
     if (!str) {
         return strdup("");
@@ -3592,6 +4142,14 @@ static char *convert_case_first_upper(const char *str) {
     return result;
 }
 
+/**
+ * @brief Convert first character to lowercase
+ *
+ * Used for ${var,} parameter expansion.
+ *
+ * @param str String to convert
+ * @return Converted string (caller must free)
+ */
 static char *convert_case_first_lower(const char *str) {
     if (!str) {
         return strdup("");
@@ -3611,6 +4169,14 @@ static char *convert_case_first_lower(const char *str) {
     return result;
 }
 
+/**
+ * @brief Convert all characters to uppercase
+ *
+ * Used for ${var^^} parameter expansion.
+ *
+ * @param str String to convert
+ * @return Converted string (caller must free)
+ */
 static char *convert_case_all_upper(const char *str) {
     if (!str) {
         return strdup("");
@@ -3630,6 +4196,14 @@ static char *convert_case_all_upper(const char *str) {
     return result;
 }
 
+/**
+ * @brief Convert all characters to lowercase
+ *
+ * Used for ${var,,} parameter expansion.
+ *
+ * @param str String to convert
+ * @return Converted string (caller must free)
+ */
 static char *convert_case_all_lower(const char *str) {
     if (!str) {
         return strdup("");
@@ -3649,8 +4223,17 @@ static char *convert_case_all_lower(const char *str) {
     return result;
 }
 
-// Recursively expand variables within a string (for parameter expansion
-// defaults)
+/**
+ * @brief Recursively expand variables within a string
+ *
+ * Expands all variable references, arithmetic expressions, and
+ * command substitutions within a string. Used for expanding
+ * default values in parameter expansion.
+ *
+ * @param executor Executor context
+ * @param str String containing variables to expand
+ * @return Fully expanded string (caller must free)
+ */
 static char *expand_variables_in_string(executor_t *executor, const char *str) {
     if (!str || !executor) {
         return strdup("");
@@ -3871,7 +4454,25 @@ static char *expand_variables_in_string(executor_t *executor, const char *str) {
     return result;
 }
 
-// Parse parameter expansion inside ${...}
+/**
+ * @brief Parse and execute parameter expansion
+ *
+ * Handles all POSIX and bash-style parameter expansions:
+ * - ${#var} - length
+ * - ${var:-default} - use default if unset/empty
+ * - ${var:+alternative} - use alternative if set
+ * - ${var#pattern} - remove shortest prefix
+ * - ${var##pattern} - remove longest prefix
+ * - ${var%pattern} - remove shortest suffix
+ * - ${var%%pattern} - remove longest suffix
+ * - ${var^} ${var^^} - case conversion
+ * - ${var,} ${var,,} - case conversion
+ * - ${var:offset:length} - substring
+ *
+ * @param executor Executor context
+ * @param expansion Content inside ${...} (without braces)
+ * @return Expanded value (caller must free)
+ */
 static char *parse_parameter_expansion(executor_t *executor,
                                        const char *expansion) {
     if (!expansion) {
@@ -4257,8 +4858,21 @@ static char *parse_parameter_expansion(executor_t *executor,
     return value ? strdup(value) : strdup("");
 }
 
-// Expand variable reference using modern symbol table with advanced parameter
-// expansion
+/**
+ * @brief Expand a variable reference
+ *
+ * Expands $var and ${var...} syntax. Handles special variables:
+ * - $? - last exit status
+ * - $$ - shell PID
+ * - $# - argument count
+ * - $*, $@ - positional parameters
+ * - $0-$9 - individual positional parameters
+ * - $! - last background PID
+ *
+ * @param executor Executor context
+ * @param var_text Variable text starting with $
+ * @return Expanded value (caller must free)
+ */
 static char *expand_variable(executor_t *executor, const char *var_text) {
     if (!executor || !var_text || var_text[0] != '$') {
         return strdup(var_text ? var_text : "");
@@ -4585,7 +5199,15 @@ static char *expand_variable(executor_t *executor, const char *var_text) {
     return strdup("");
 }
 
-// Expand tilde (~) to home directory
+/**
+ * @brief Expand tilde to home directory
+ *
+ * Handles ~ (current user) and ~user (specific user) expansion.
+ * Falls back to getpwuid if HOME is not set.
+ *
+ * @param text Text starting with ~
+ * @return Expanded path (caller must free)
+ */
 static char *expand_tilde(const char *text) {
     if (!text || text[0] != '~') {
         return strdup(text ? text : "");
@@ -4648,7 +5270,16 @@ static char *expand_tilde(const char *text) {
     }
 }
 
-// Expand arithmetic expression using modern implementation
+/**
+ * @brief Expand arithmetic expression $((...))
+ *
+ * Evaluates arithmetic expressions and returns the result as a string.
+ * Sets expansion error flags on evaluation errors like division by zero.
+ *
+ * @param executor Executor context for variable lookup
+ * @param arith_text Arithmetic expression text
+ * @return Result as string (caller must free), "0" on error
+ */
 static char *expand_arithmetic(executor_t *executor, const char *arith_text) {
     if (!executor || !arith_text) {
         return strdup("0");
@@ -4675,6 +5306,17 @@ static char *expand_arithmetic(executor_t *executor, const char *arith_text) {
     return strdup("");
 }
 
+/**
+ * @brief Expand command substitution $(...) or `...`
+ *
+ * Forks a child process to execute the command and captures its stdout.
+ * Trailing newlines are stripped from the output. Uses the shell's own
+ * parser/executor to preserve function definitions.
+ *
+ * @param executor Executor context
+ * @param cmd_text Command text in $(...) or `...` format
+ * @return Command output (caller must free)
+ */
 static char *expand_command_substitution(executor_t *executor,
                                          const char *cmd_text) {
     if (!executor || !cmd_text) {
@@ -4835,7 +5477,15 @@ static char *expand_command_substitution(executor_t *executor,
     }
 }
 
-// Copy function definitions from source executor to destination executor
+/**
+ * @brief Copy function definitions between executors
+ *
+ * Copies all function definitions from source to destination executor.
+ * Used when creating child executors that need access to parent functions.
+ *
+ * @param dest Destination executor
+ * @param src Source executor
+ */
 MAYBE_UNUSED
 static void copy_function_definitions(executor_t *dest, executor_t *src) {
     if (!dest || !src) {
@@ -4872,7 +5522,15 @@ static void copy_function_definitions(executor_t *dest, executor_t *src) {
     }
 }
 
-// Simple node copying function for function definitions
+/**
+ * @brief Simple recursive node copy
+ *
+ * Creates a copy of an AST node and its children. Simpler than
+ * copy_ast_node, used for function definition copying.
+ *
+ * @param original Node to copy
+ * @return Copy of node tree, or NULL on failure
+ */
 static node_t *copy_node_simple(node_t *original) {
     if (!original) {
         return NULL;
@@ -4910,7 +5568,17 @@ static node_t *copy_node_simple(node_t *original) {
     return copy;
 }
 
-// Expand variables within double-quoted strings
+/**
+ * @brief Expand variables within double-quoted strings
+ *
+ * Handles variable expansion, command substitution, arithmetic
+ * expansion, and escape sequences within double quotes. Preserves
+ * literal text and handles backslash escapes for $, `, ", and \.
+ *
+ * @param executor Executor context
+ * @param str Double-quoted string content
+ * @return Expanded string (caller must free)
+ */
 static char *expand_quoted_string(executor_t *executor, const char *str) {
     if (!executor || !str) {
         return strdup("");
@@ -5281,7 +5949,7 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
     result[result_pos] = '\0';
     return result;
 }
-// ========== JOB CONTROL IMPLEMENTATION ==========
+/* ========== JOB CONTROL IMPLEMENTATION ========== */
 
 #include "executor.h"
 
@@ -5292,7 +5960,14 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
 #include <sys/wait.h>
 #include <unistd.h>
 
-// Initialize job control in executor
+/**
+ * @brief Initialize job control in executor
+ *
+ * Sets up job control data structures and records the shell's
+ * process group ID.
+ *
+ * @param executor Executor context to initialize
+ */
 static void initialize_job_control(executor_t *executor) {
     if (!executor) {
         return;
@@ -5303,7 +5978,15 @@ static void initialize_job_control(executor_t *executor) {
     executor->shell_pgid = getpgrp();
 }
 
-// Create a new process structure
+/**
+ * @brief Create a new process structure
+ *
+ * Allocates and initializes a process entry for job tracking.
+ *
+ * @param pid Process ID
+ * @param command Command string (will be copied)
+ * @return New process structure, or NULL on failure
+ */
 MAYBE_UNUSED
 static process_t *create_process(pid_t pid, const char *command) {
     process_t *proc = malloc(sizeof(process_t));
@@ -5319,7 +6002,11 @@ static process_t *create_process(pid_t pid, const char *command) {
     return proc;
 }
 
-// Free process list
+/**
+ * @brief Free a linked list of processes
+ *
+ * @param processes Head of process list to free
+ */
 static void free_process_list(process_t *processes) {
     while (processes) {
         process_t *next = processes->next;
@@ -5329,7 +6016,17 @@ static void free_process_list(process_t *processes) {
     }
 }
 
-// Add a new job to the job list
+/**
+ * @brief Add a new job to the job list
+ *
+ * Creates a job entry for background process tracking.
+ * Assigns a unique job ID and adds to the executor's job list.
+ *
+ * @param executor Executor context
+ * @param pgid Process group ID of the job
+ * @param command_line Command line for display
+ * @return New job structure, or NULL on failure
+ */
 job_t *executor_add_job(executor_t *executor, pid_t pgid,
                         const char *command_line) {
     if (!executor) {
@@ -5353,7 +6050,13 @@ job_t *executor_add_job(executor_t *executor, pid_t pgid,
     return job;
 }
 
-// Find job by ID
+/**
+ * @brief Find a job by its ID
+ *
+ * @param executor Executor context
+ * @param job_id Job ID to search for
+ * @return Job structure, or NULL if not found
+ */
 job_t *executor_find_job(executor_t *executor, int job_id) {
     if (!executor) {
         return NULL;
@@ -5369,7 +6072,14 @@ job_t *executor_find_job(executor_t *executor, int job_id) {
     return NULL;
 }
 
-// Remove job from job list
+/**
+ * @brief Remove a job from the job list
+ *
+ * Removes and frees the job with the specified ID.
+ *
+ * @param executor Executor context
+ * @param job_id Job ID to remove
+ */
 void executor_remove_job(executor_t *executor, int job_id) {
     if (!executor || !executor->jobs) {
         return;
@@ -5396,7 +6106,14 @@ void executor_remove_job(executor_t *executor, int job_id) {
     }
 }
 
-// Update job status by checking all processes
+/**
+ * @brief Update status of all jobs
+ *
+ * Checks for completed or stopped jobs using waitpid with WNOHANG.
+ * Prints status messages and removes completed jobs.
+ *
+ * @param executor Executor context
+ */
 void executor_update_job_status(executor_t *executor) {
     if (!executor) {
         return;
@@ -5428,7 +6145,14 @@ void executor_update_job_status(executor_t *executor) {
     }
 }
 
-// Count active jobs (running or stopped, not done)
+/**
+ * @brief Count active jobs
+ *
+ * Returns count of jobs that are running or stopped (not done).
+ *
+ * @param executor Executor context
+ * @return Number of active jobs
+ */
 int executor_count_jobs(executor_t *executor) {
     if (!executor) {
         return 0;
@@ -5445,7 +6169,17 @@ int executor_count_jobs(executor_t *executor) {
     return count;
 }
 
-// Execute command in background
+/**
+ * @brief Execute a command in the background
+ *
+ * Forks the command and adds it to the job list if job control
+ * is enabled. Sets up process group for proper signal handling.
+ * Updates $! with the background PID.
+ *
+ * @param executor Executor context
+ * @param command Command node to execute
+ * @return 0 on success, 1 on failure
+ */
 int executor_execute_background(executor_t *executor, node_t *command) {
     if (!executor || !command) {
         return 1;
@@ -5507,7 +6241,16 @@ int executor_execute_background(executor_t *executor, node_t *command) {
     }
 }
 
-// Built-in jobs command
+/**
+ * @brief Built-in jobs command implementation
+ *
+ * Lists all active jobs with their status (Running/Stopped/Done).
+ * Updates job statuses before displaying.
+ *
+ * @param executor Executor context
+ * @param argv Arguments (reserved for filtering options)
+ * @return 0 on success
+ */
 int executor_builtin_jobs(executor_t *executor, char **argv) {
     (void)argv; /* Reserved for job filtering options */
     if (!executor) {
@@ -5550,7 +6293,16 @@ int executor_builtin_jobs(executor_t *executor, char **argv) {
     return 0;
 }
 
-// Built-in fg command
+/**
+ * @brief Built-in fg command implementation
+ *
+ * Brings a background job to the foreground. Continues stopped
+ * jobs with SIGCONT. Waits for the job to complete or stop.
+ *
+ * @param executor Executor context
+ * @param argv Arguments (argv[1] is optional job ID)
+ * @return Exit status of the foregrounded job
+ */
 int executor_builtin_fg(executor_t *executor, char **argv) {
     if (!executor) {
         return 1;
@@ -5597,7 +6349,15 @@ int executor_builtin_fg(executor_t *executor, char **argv) {
     return 0;
 }
 
-// Built-in bg command
+/**
+ * @brief Built-in bg command implementation
+ *
+ * Continues a stopped job in the background by sending SIGCONT.
+ *
+ * @param executor Executor context
+ * @param argv Arguments (argv[1] is optional job ID)
+ * @return 0 on success, 1 on error
+ */
 int executor_builtin_bg(executor_t *executor, char **argv) {
     if (!executor) {
         return 1;
@@ -5630,7 +6390,14 @@ int executor_builtin_bg(executor_t *executor, char **argv) {
     return 0;
 }
 
-// Check if stdout is being captured (piped or redirected to file)
+/**
+ * @brief Check if stdout is being captured
+ *
+ * Determines if stdout is piped or redirected to a file
+ * (not a terminal). Used to handle builtin redirection properly.
+ *
+ * @return true if stdout is not a terminal
+ */
 static bool is_stdout_captured(void) {
     struct stat stat_buf;
     if (fstat(STDOUT_FILENO, &stat_buf) == -1) {
@@ -5641,7 +6408,14 @@ static bool is_stdout_captured(void) {
     return !isatty(STDOUT_FILENO);
 }
 
-// Check if command has redirections that affect stdout
+/**
+ * @brief Check if command has stdout-affecting redirections
+ *
+ * Checks for >, >>, &>, or >| redirections in the command.
+ *
+ * @param command Command node to check
+ * @return true if command has stdout redirections
+ */
 static bool has_stdout_redirections(node_t *command) {
     if (!command) {
         return false;
@@ -5661,9 +6435,18 @@ static bool has_stdout_redirections(node_t *command) {
     return false;
 }
 
-// Execute builtin command with redirections in child process when stdout is
-// captured This prevents redirection setup from interfering with the shell's
-// captured stdout
+/**
+ * @brief Execute builtin with redirections in child process
+ *
+ * When stdout is captured externally and the command has stdout
+ * redirections, we must execute in a child process to avoid
+ * file descriptor interference with the parent shell.
+ *
+ * @param executor Executor context
+ * @param argv NULL-terminated argument vector
+ * @param command Command node with redirections
+ * @return Exit status of the builtin
+ */
 static int execute_builtin_with_captured_stdout(executor_t *executor,
                                                 char **argv, node_t *command) {
     if (!argv || !argv[0]) {

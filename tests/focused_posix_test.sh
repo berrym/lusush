@@ -12,7 +12,7 @@
 
 set -euo pipefail
 
-LUSUSH_BINARY="${1:-$(realpath ./builddir/lusush)}"
+LUSUSH_BINARY="${1:-$(realpath ./build/lusush)}"
 TEST_DIR="/tmp/lusush_focused_test_$$"
 TOTAL_TESTS=0
 PASSED_TESTS=0

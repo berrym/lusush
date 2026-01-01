@@ -36,7 +36,7 @@ CURRENT_CATEGORY_TESTS=0
 CURRENT_CATEGORY_PASSED=0
 
 # Shell to test (default to lusush)
-SHELL_UNDER_TEST=${1:-"./builddir/lusush"}
+SHELL_UNDER_TEST=${1:-"./build/lusush"}
 
 # Test timeout (seconds)
 TEST_TIMEOUT=10

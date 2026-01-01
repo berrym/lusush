@@ -1,3 +1,14 @@
+/**
+ * @file errors.h
+ * @brief Error handling and reporting utilities
+ *
+ * Provides error codes, severity levels, and standardized error
+ * reporting functions for parser and shell operations.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ */
+
 #ifndef ERRORS_H
 #define ERRORS_H
 

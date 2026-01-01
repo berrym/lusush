@@ -1,9 +1,13 @@
-/* ht_strstr.c - Type wrapped implementation of a string->string hash table.
+/**
+ * @file ht_strstr.c
+ * @brief String to String Hash Table Implementation
  *
  * Project: libhashtable
  * URL: https://github.com/berrym/libhashtable
- * License: MIT
- * Copyright (c) Michael Berry <trismegustis@gmail.com> 2023
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (c) 2023 Michael Berry
+ * @license MIT
  */
 
 #include "ht.h"

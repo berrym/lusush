@@ -7,7 +7,7 @@
 # Tests both presence and correct behavior according to POSIX standards
 # ===============================================================================
 
-SHELL_PATH="$(pwd)/builddir/lusush"
+SHELL_PATH="$(pwd)/build/lusush"
 TEMP_DIR="/tmp/lusush_posix_builtin_tests"
 LOGFILE="$TEMP_DIR/posix_builtin_test.log"
 
@@ -606,7 +606,7 @@ main() {
     # Verify shell exists
     if [[ ! -x "$SHELL_PATH" ]]; then
         echo -e "${RED}ERROR: Shell not found at $SHELL_PATH${NC}"
-        echo "Please build the shell first: ninja -C builddir"
+        echo "Please build the shell first: ninja -C build"
         exit 1
     fi
 

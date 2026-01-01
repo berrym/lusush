@@ -1,3 +1,15 @@
+/**
+ * @file node.h
+ * @brief Abstract Syntax Tree (AST) node definitions
+ *
+ * Defines the node types and structures used to represent parsed shell
+ * commands as an abstract syntax tree. Includes command nodes, redirections,
+ * pipelines, control structures, and more.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ */
+
 #ifndef NODE_H
 #define NODE_H
 
@@ -74,9 +86,35 @@ typedef struct node {
     struct node *next_sibling, *prev_sibling;
 } node_t;
 
-node_t *new_node(node_type_t);
-void add_child_node(node_t *, node_t *);
-void free_node_tree(node_t *);
-void set_node_val_str(node_t *, char *);
+/**
+ * @brief Create a new AST node
+ *
+ * @param type Node type
+ * @return New node or NULL on failure
+ */
+node_t *new_node(node_type_t type);
+
+/**
+ * @brief Add a child node to a parent
+ *
+ * @param parent Parent node
+ * @param child Child node to add
+ */
+void add_child_node(node_t *parent, node_t *child);
+
+/**
+ * @brief Free an entire AST tree
+ *
+ * @param node Root node of tree to free
+ */
+void free_node_tree(node_t *node);
+
+/**
+ * @brief Set node value to a string
+ *
+ * @param node Node to modify
+ * @param str String value (node takes ownership)
+ */
+void set_node_val_str(node_t *node, char *str);
 
 #endif

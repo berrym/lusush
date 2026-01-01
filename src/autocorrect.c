@@ -1,10 +1,12 @@
 /**
- * Auto-Correction System Implementation for Lusush Shell
+ * @file autocorrect.c
+ * @brief Auto-Correction System Implementation for Lusush Shell
  *
- * Phase 3 Target 1: Intelligent command spell checking and correction
- * suggestions Provides "Did you mean...?" functionality with user confirmation
- * prompts Integrates with existing completion algorithms and configuration
- * system
+ * Intelligent command spell checking and correction suggestions.
+ * Provides "Did you mean...?" functionality with user confirmation prompts.
+ * Integrates with existing completion algorithms and configuration system.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
  */
 
 #include "autocorrect.h"
@@ -504,7 +506,7 @@ int autocorrect_suggest_functions(executor_t *executor, const char *command,
                                   correction_t *suggestions,
                                   int max_suggestions, bool case_sensitive) {
     // This would require access to executor's function table
-    // For Phase 3 Target 1, we'll focus on builtins and PATH commands
+    // Currently focusing on builtins and PATH commands
     (void)executor;
     (void)command;
     (void)suggestions;

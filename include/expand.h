@@ -1,3 +1,14 @@
+/**
+ * @file expand.h
+ * @brief Word expansion module for shell variable and command substitution
+ *
+ * Provides expansion context and flags for controlling shell word expansion
+ * including variable expansion, command substitution, and globbing.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ */
+
 #ifndef EXPAND_H
 #define EXPAND_H
 

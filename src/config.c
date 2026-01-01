@@ -1,3 +1,14 @@
+/**
+ * @file config.c
+ * @brief Configuration System Implementation for Lusush Shell
+ *
+ * Handles loading, parsing, and managing shell configuration files.
+ * Supports TOML-style configuration with sections, type validation,
+ * and runtime updates.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ */
+
 #include "config.h"
 
 #include "alias.h"
@@ -250,7 +261,7 @@ static config_option_t config_options[] = {
      &config.prompt_format, "Custom prompt format string",
      config_validate_string, NULL},
 
-    // Theme settings (Phase 3 Target 2)
+    // Theme settings
     {"prompt.theme_name", CONFIG_TYPE_STRING, CONFIG_SECTION_PROMPT,
      &config.theme_name, "Active theme name", config_validate_string, NULL},
     {"prompt.theme_auto_detect_colors", CONFIG_TYPE_BOOL, CONFIG_SECTION_PROMPT,
@@ -460,13 +471,14 @@ static const int num_config_options =
     sizeof(config_options) / sizeof(config_option_t);
 
 /**
- * Handle legacy configuration keys that were removed or renamed.
+ * @brief Handle legacy configuration keys that were removed or renamed
+ *
  * This prevents warnings for deprecated configuration options in existing
  * .lusushrc files.
  *
- * @param key   The legacy configuration key
- * @param value The value being set
- * @return true if key was handled, false if unknown
+ * @param key The legacy configuration key
+ * @param value The value being set (unused but required for API)
+ * @return True if key was handled as legacy, false if unknown
  */
 static bool config_handle_legacy_key(const char *key, const char *value
                                      __attribute__((unused))) {
@@ -593,7 +605,14 @@ static legacy_option_mapping_t legacy_mappings[] = {
 
     {NULL, NULL}};
 
-// Find new name for legacy option
+/**
+ * @brief Find the new name for a legacy configuration option
+ *
+ * Maps old flat configuration keys to new dotted notation names.
+ *
+ * @param old_name Legacy option name
+ * @return New option name, or NULL if not a legacy option
+ */
 static const char *find_new_name_for_legacy(const char *old_name) {
     for (int i = 0; legacy_mappings[i].old_name; i++) {
         if (strcmp(legacy_mappings[i].old_name, old_name) == 0) {
@@ -603,10 +622,13 @@ static const char *find_new_name_for_legacy(const char *old_name) {
     return NULL;
 }
 
-// Shell option integration functions - use existing POSIX infrastructure
 /**
- * config_validate_shell_option:
- *      Validate shell option values (true/false).
+ * @brief Validate shell option values
+ *
+ * Accepts true/false, 1/0, on/off as valid boolean values.
+ *
+ * @param value String value to validate
+ * @return True if value is a valid boolean string
  */
 bool config_validate_shell_option(const char *value) {
     return (strcmp(value, "true") == 0 || strcmp(value, "false") == 0 ||
@@ -615,9 +637,13 @@ bool config_validate_shell_option(const char *value) {
 }
 
 /**
- * config_set_shell_option:
- *      Set shell option using existing POSIX infrastructure.
- *      Maps config system calls to existing set/unset option logic.
+ * @brief Set a shell option using existing POSIX infrastructure
+ *
+ * Maps configuration system calls to existing shell_opts flags.
+ * Handles the "shell." prefix stripping internally.
+ *
+ * @param option_name Full option name including "shell." prefix
+ * @param value Boolean value to set
  */
 void config_set_shell_option(const char *option_name, bool value) {
     // Remove "shell." prefix to get the actual option name
@@ -682,8 +708,12 @@ void config_set_shell_option(const char *option_name, bool value) {
 }
 
 /**
- * config_get_shell_option:
- *      Get shell option value using existing POSIX infrastructure.
+ * @brief Get a shell option value
+ *
+ * Retrieves the current value of a shell option from shell_opts.
+ *
+ * @param option_name Full option name including "shell." prefix
+ * @return Current boolean value of the option
  */
 bool config_get_shell_option(const char *option_name) {
     // Remove "shell." prefix to get the actual option name
@@ -741,8 +771,6 @@ bool config_get_shell_option(const char *option_name) {
     return false; // Unknown option
 }
 
-// Script execution support for traditional shell compatibility
-
 // Traditional shell script file paths
 #define PROFILE_SCRIPT_FILE ".profile"
 #define LOGIN_SCRIPT_FILE ".lusush_login"
@@ -750,22 +778,27 @@ bool config_get_shell_option(const char *option_name) {
 #define LOGOUT_SCRIPT_FILE ".lusush_logout"
 
 /**
- * config_should_execute_scripts:
- *      Check if script execution is enabled.
+ * @brief Check if script execution is enabled
+ *
+ * @return True if script execution is enabled in configuration
  */
 bool config_should_execute_scripts(void) { return config.script_execution; }
 
 /**
- * config_set_script_execution:
- *      Enable or disable script execution.
+ * @brief Enable or disable script execution
+ *
+ * @param enabled True to enable script execution, false to disable
  */
 void config_set_script_execution(bool enabled) {
     config.script_execution = enabled;
 }
 
 /**
- * config_get_profile_script_path:
- *      Get the path to the profile script file.
+ * @brief Get the path to the profile script file
+ *
+ * Returns the full path to ~/.profile.
+ *
+ * @return Allocated path string, or NULL on failure (caller must free)
  */
 char *config_get_profile_script_path(void) {
     const char *home = getenv("HOME");
@@ -783,8 +816,11 @@ char *config_get_profile_script_path(void) {
 }
 
 /**
- * config_get_login_script_path:
- *      Get the path to the login script file.
+ * @brief Get the path to the login script file
+ *
+ * Returns the full path to ~/.lusush_login.
+ *
+ * @return Allocated path string, or NULL on failure (caller must free)
  */
 char *config_get_login_script_path(void) {
     const char *home = getenv("HOME");
@@ -802,8 +838,11 @@ char *config_get_login_script_path(void) {
 }
 
 /**
- * config_get_rc_script_path:
- *      Get the path to the RC script file.
+ * @brief Get the path to the RC script file
+ *
+ * Returns the full path to ~/.lusushrc.sh.
+ *
+ * @return Allocated path string, or NULL on failure (caller must free)
  */
 char *config_get_rc_script_path(void) {
     const char *home = getenv("HOME");
@@ -821,8 +860,11 @@ char *config_get_rc_script_path(void) {
 }
 
 /**
- * config_get_logout_script_path:
- *      Get the path to the logout script file.
+ * @brief Get the path to the logout script file
+ *
+ * Returns the full path to ~/.lusush_logout.
+ *
+ * @return Allocated path string, or NULL on failure (caller must free)
  */
 char *config_get_logout_script_path(void) {
     const char *home = getenv("HOME");
@@ -840,8 +882,10 @@ char *config_get_logout_script_path(void) {
 }
 
 /**
- * config_script_exists:
- *      Check if a script file exists and is readable.
+ * @brief Check if a script file exists and is readable
+ *
+ * @param path Path to the script file
+ * @return True if file exists and is readable, false otherwise
  */
 bool config_script_exists(const char *path) {
     if (!path) {
@@ -857,8 +901,13 @@ bool config_script_exists(const char *path) {
 }
 
 /**
- * config_execute_script_file:
- *      Execute a shell script file.
+ * @brief Execute a shell script file
+ *
+ * Reads and executes each line of the script file, skipping
+ * empty lines and comments.
+ *
+ * @param path Path to the script file
+ * @return 0 on success, -1 on failure
  */
 int config_execute_script_file(const char *path) {
     if (!path || !config_script_exists(path)) {
@@ -900,8 +949,11 @@ int config_execute_script_file(const char *path) {
 }
 
 /**
- * config_execute_startup_scripts:
- *      Execute startup scripts for interactive shells.
+ * @brief Execute startup scripts for interactive shells
+ *
+ * Executes ~/.lusushrc.sh if it exists and script execution is enabled.
+ *
+ * @return 0 on success, -1 if any script fails
  */
 int config_execute_startup_scripts(void) {
     if (!config_should_execute_scripts()) {
@@ -923,8 +975,12 @@ int config_execute_startup_scripts(void) {
 }
 
 /**
- * config_execute_login_scripts:
- *      Execute login scripts for login shells.
+ * @brief Execute login scripts for login shells
+ *
+ * Executes ~/.profile and ~/.lusush_login if they exist
+ * and script execution is enabled.
+ *
+ * @return 0 on success, -1 if any script fails
  */
 int config_execute_login_scripts(void) {
     if (!config_should_execute_scripts()) {
@@ -955,8 +1011,11 @@ int config_execute_login_scripts(void) {
 }
 
 /**
- * config_execute_logout_scripts:
- *      Execute logout scripts when shell exits.
+ * @brief Execute logout scripts when shell exits
+ *
+ * Executes ~/.lusush_logout if it exists and script execution is enabled.
+ *
+ * @return 0 on success, -1 if script fails
  */
 int config_execute_logout_scripts(void) {
     if (!config_should_execute_scripts()) {
@@ -1353,8 +1412,12 @@ const char *CONFIG_FILE_TEMPLATE =
     "# ctrl-r = reverse-search\n";
 
 /**
- * config_init:
- *      Initialize the configuration system.
+ * @brief Initialize the configuration system
+ *
+ * Sets default values, loads system and user config files,
+ * and applies the loaded settings.
+ *
+ * @return 0 on success
  */
 int config_init(void) {
     // Set default values
@@ -1393,8 +1456,10 @@ int config_init(void) {
 }
 
 /**
- * config_set_defaults:
- *      Set default configuration values.
+ * @brief Set default configuration values
+ *
+ * Initializes all configuration options to their default values.
+ * Called during config_init before loading config files.
  */
 void config_set_defaults(void) {
     // History defaults
@@ -1449,7 +1514,7 @@ void config_set_defaults(void) {
     config.git_cache_timeout = 5;
     config.prompt_format = NULL;
 
-    // Theme defaults (Phase 3 Target 2)
+    // Theme defaults
     config.theme_name = strdup("corporate");
     config.theme_auto_detect_colors = true;
     config.theme_fallback_basic = true;
@@ -1519,8 +1584,11 @@ void config_set_defaults(void) {
 }
 
 /**
- * config_get_user_config_path:
- *      Get the path to the user's configuration file.
+ * @brief Get the path to the user's configuration file
+ *
+ * Returns the full path to ~/.lusushrc.
+ *
+ * @return Allocated path string (caller must free), or NULL on failure
  */
 char *config_get_user_config_path(void) {
     const char *home = getenv("HOME");
@@ -1544,30 +1612,36 @@ char *config_get_user_config_path(void) {
 }
 
 /**
- * config_get_system_config_path:
- *      Get the path to the system configuration file.
+ * @brief Get the path to the system configuration file
+ *
+ * Returns the path to /etc/lusushrc.
+ *
+ * @return Allocated path string (caller must free)
  */
 char *config_get_system_config_path(void) { return strdup(SYSTEM_CONFIG_FILE); }
 
 /**
- * config_load_user:
- *      Load user configuration file.
+ * @brief Load user configuration file
+ *
+ * @return 0 on success, -1 on failure
  */
 int config_load_user(void) {
     return config_load_file(config_ctx.user_config_path);
 }
 
 /**
- * config_load_system:
- *      Load system configuration file.
+ * @brief Load system configuration file
+ *
+ * @return 0 on success, -1 on failure
  */
 int config_load_system(void) {
     return config_load_file(config_ctx.system_config_path);
 }
 
 /**
- * config_save_user:
- *      Save user configuration to file.
+ * @brief Save user configuration to file
+ *
+ * @return 0 on success, -1 on failure
  */
 int config_save_user(void) {
     if (!config_ctx.user_config_path) {
@@ -1577,8 +1651,13 @@ int config_save_user(void) {
 }
 
 /**
- * config_save_file:
- *      Save configuration to a file in INI format.
+ * @brief Save configuration to a file in INI format
+ *
+ * Writes all configuration options to the specified file
+ * using dotted notation (e.g., history.enabled = true).
+ *
+ * @param path Path to the configuration file
+ * @return 0 on success, -1 on failure
  */
 int config_save_file(const char *path) {
     FILE *file = fopen(path, "w");
@@ -1645,8 +1724,12 @@ int config_save_file(const char *path) {
 }
 
 /**
- * config_load_file:
- *      Load configuration from a file.
+ * @brief Load configuration from a file
+ *
+ * Reads and parses a configuration file line by line.
+ *
+ * @param path Path to the configuration file
+ * @return 0 on success, -1 if file cannot be opened
  */
 int config_load_file(const char *path) {
     FILE *file = fopen(path, "r");
@@ -1679,8 +1762,14 @@ int config_load_file(const char *path) {
 }
 
 /**
- * config_parse_line:
- *      Parse a single configuration line.
+ * @brief Parse a single configuration line
+ *
+ * Handles comments, section headers, and key=value pairs.
+ *
+ * @param line Line to parse
+ * @param line_num Line number for error messages
+ * @param filename File name for error messages
+ * @return 0 on success, -1 on parse error
  */
 int config_parse_line(const char *line, int line_num, const char *filename) {
     // Skip empty lines and comments
@@ -1752,8 +1841,12 @@ int config_parse_line(const char *line, int line_num, const char *filename) {
 }
 
 /**
- * config_parse_section:
- *      Parse a configuration section header.
+ * @brief Parse a configuration section header
+ *
+ * Sets the current section for subsequent option parsing.
+ *
+ * @param section_name Name of the section (e.g., "history", "prompt")
+ * @return 0 on success, -1 if unknown section
  */
 int config_parse_section(const char *section_name) {
     if (strcmp(section_name, "history") == 0) {
@@ -1782,8 +1875,14 @@ int config_parse_section(const char *section_name) {
 }
 
 /**
- * config_parse_option:
- *      Parse a configuration option.
+ * @brief Parse a configuration option
+ *
+ * Parses a key=value pair and updates the corresponding config field.
+ * Handles aliases specially by adding them to the alias table.
+ *
+ * @param key Configuration key (may use dotted notation)
+ * @param value Configuration value string
+ * @return 0 on success, -1 on error
  */
 int config_parse_option(const char *key, const char *value) {
     // Handle aliases specially
@@ -1884,8 +1983,10 @@ int config_parse_option(const char *key, const char *value) {
 }
 
 /**
- * config_apply_settings:
- *      Apply loaded configuration settings to the shell.
+ * @brief Apply loaded configuration settings to the shell
+ *
+ * Updates symbol table variables and subsystem configurations
+ * based on loaded config values.
  */
 void config_apply_settings(void) {
     // Apply settings safely - only set basic variables for now
@@ -1937,8 +2038,11 @@ void config_apply_settings(void) {
 }
 
 /**
- * config_create_user_config:
- *      Create a user configuration file with default values.
+ * @brief Create a user configuration file with default values
+ *
+ * Writes the default configuration template to ~/.lusushrc.
+ *
+ * @return 0 on success, -1 on failure
  */
 int config_create_user_config(void) {
     FILE *file = fopen(config_ctx.user_config_path, "w");
@@ -1953,7 +2057,10 @@ int config_create_user_config(void) {
 }
 
 /**
- * Validation functions
+ * @brief Validate a boolean configuration value
+ *
+ * @param value String to validate
+ * @return True if value is a valid boolean (true/false/1/0/yes/no/on/off)
  */
 bool config_validate_bool(const char *value) {
     return (strcmp(value, "true") == 0 || strcmp(value, "false") == 0 ||
@@ -1962,42 +2069,90 @@ bool config_validate_bool(const char *value) {
             strcmp(value, "on") == 0 || strcmp(value, "off") == 0);
 }
 
+/**
+ * @brief Validate an integer configuration value
+ *
+ * @param value String to validate
+ * @return True if value is a valid integer
+ */
 bool config_validate_int(const char *value) {
     char *endptr;
     strtol(value, &endptr, 10);
     return (*endptr == '\0');
 }
 
+/**
+ * @brief Validate a string configuration value
+ *
+ * @param value String to validate
+ * @return True if value is non-NULL and non-empty
+ */
 bool config_validate_string(const char *value) {
     return (value != NULL && strlen(value) > 0);
 }
 
+/**
+ * @brief Validate a color configuration value
+ *
+ * @param value String to validate
+ * @return True if value is a valid color string
+ */
 bool config_validate_color(const char *value) {
     // Basic color validation - could be enhanced
     return config_validate_string(value);
 }
 
+/**
+ * @brief Validate a color scheme name
+ *
+ * @param value String to validate
+ * @return True if value is a known color scheme
+ */
 bool config_validate_color_scheme(const char *value) {
     return (strcmp(value, "default") == 0 || strcmp(value, "dark") == 0 ||
             strcmp(value, "light") == 0 || strcmp(value, "solarized") == 0);
 }
 
+/**
+ * @brief Validate a floating-point configuration value
+ *
+ * @param value String to validate
+ * @return True if value is a valid float
+ */
 bool config_validate_float(const char *value) {
     char *endptr;
     strtod(value, &endptr);
     return (*endptr == '\0');
 }
 
+/**
+ * @brief Validate a path configuration value
+ *
+ * @param value String to validate
+ * @return True if value is a valid path string
+ */
 bool config_validate_path(const char *value) {
     return config_validate_string(value);
 }
 
+/**
+ * @brief Validate display optimization level
+ *
+ * @param value String to validate
+ * @return True if value is 0-4
+ */
 bool config_validate_optimization_level(const char *value) {
     char *endptr;
     long level = strtol(value, &endptr, 10);
     return (*endptr == '\0' && level >= 0 && level <= 4);
 }
 
+/**
+ * @brief Validate LLE arrow key mode value
+ *
+ * @param value String to validate
+ * @return True if value is a valid arrow key mode
+ */
 bool config_validate_lle_arrow_mode(const char *value) {
     return (strcmp(value, "context-aware") == 0 ||
             strcmp(value, "classic") == 0 ||
@@ -2005,17 +2160,35 @@ bool config_validate_lle_arrow_mode(const char *value) {
             strcmp(value, "multiline-first") == 0);
 }
 
+/**
+ * @brief Validate LLE storage mode value
+ *
+ * @param value String to validate
+ * @return True if value is a valid storage mode
+ */
 bool config_validate_lle_storage_mode(const char *value) {
     return (strcmp(value, "lle-only") == 0 || strcmp(value, "bash-only") == 0 ||
             strcmp(value, "dual") == 0 ||
             strcmp(value, "readline-compat") == 0);
 }
 
+/**
+ * @brief Validate LLE deduplication scope value
+ *
+ * @param value String to validate
+ * @return True if value is a valid dedup scope
+ */
 bool config_validate_lle_dedup_scope(const char *value) {
     return (strcmp(value, "none") == 0 || strcmp(value, "session") == 0 ||
             strcmp(value, "recent") == 0 || strcmp(value, "global") == 0);
 }
 
+/**
+ * @brief Validate LLE deduplication strategy value
+ *
+ * @param value String to validate
+ * @return True if value is a valid dedup strategy
+ */
 bool config_validate_lle_dedup_strategy(const char *value) {
     return (strcmp(value, "ignore") == 0 || strcmp(value, "keep-recent") == 0 ||
             strcmp(value, "keep-frequent") == 0 ||
@@ -2023,7 +2196,12 @@ bool config_validate_lle_dedup_strategy(const char *value) {
 }
 
 /**
- * Error handling functions
+ * @brief Report a configuration error
+ *
+ * Formats and prints an error message to stderr.
+ *
+ * @param format Printf-style format string
+ * @param ... Format arguments
  */
 void config_error(const char *format, ...) {
     va_list args;
@@ -2034,6 +2212,14 @@ void config_error(const char *format, ...) {
     fprintf(stderr, "Config Error: %s\n", last_error);
 }
 
+/**
+ * @brief Report a configuration warning
+ *
+ * Formats and prints a warning message to stderr.
+ *
+ * @param format Printf-style format string
+ * @param ... Format arguments
+ */
 void config_warning(const char *format, ...) {
     char warning[256];
     va_list args;
@@ -2044,10 +2230,21 @@ void config_warning(const char *format, ...) {
     fprintf(stderr, "Config Warning: %s\n", warning);
 }
 
+/**
+ * @brief Get the last configuration error message
+ *
+ * @return Last error message string
+ */
 const char *config_get_last_error(void) { return last_error; }
 
 /**
- * Built-in command for configuration management
+ * @brief Built-in command for configuration management
+ *
+ * Implements the 'config' builtin with subcommands:
+ * show, set, get, reload, save, reset-defaults.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector
  */
 void builtin_config(int argc, char **argv) {
     if (argc < 2) {
@@ -2165,8 +2362,11 @@ void builtin_config(int argc, char **argv) {
 }
 
 /**
- * config_get_value:
- *      Get a single configuration value.
+ * @brief Get and print a single configuration value
+ *
+ * Looks up the configuration key and prints its current value.
+ *
+ * @param key Configuration key to look up
  */
 void config_get_value(const char *key) {
     // First try the exact key
@@ -2229,8 +2429,12 @@ void config_get_value(const char *key) {
 }
 
 /**
- * config_set_value:
- *      Set a single configuration value.
+ * @brief Set a single configuration value
+ *
+ * Updates the configuration option and applies the change immediately.
+ *
+ * @param key Configuration key to set
+ * @param value New value to assign
  */
 void config_set_value(const char *key, const char *value) {
     // First try the exact key
@@ -2339,8 +2543,9 @@ void config_set_value(const char *key, const char *value) {
 }
 
 /**
- * config_show_all:
- *      Show all configuration values.
+ * @brief Show all configuration values
+ *
+ * Prints all configuration sections and their values to stdout.
  */
 void config_show_all(void) {
     printf("LUSUSH Configuration:\n\n");
@@ -2371,8 +2576,11 @@ void config_show_all(void) {
 }
 
 /**
- * config_show_section:
- *      Show configuration values for a specific section.
+ * @brief Show configuration values for a specific section
+ *
+ * Prints all options in the given section to stdout.
+ *
+ * @param section Section to display
  */
 void config_show_section(config_section_t section) {
     for (int i = 0; i < num_config_options; i++) {
@@ -2426,8 +2634,10 @@ void config_show_section(config_section_t section) {
 }
 
 /**
- * config_cleanup:
- *      Clean up configuration resources.
+ * @brief Clean up configuration resources
+ *
+ * Frees all allocated memory used by the configuration system.
+ * Should be called during shell shutdown.
  */
 void config_cleanup(void) {
     if (config_ctx.user_config_path) {
@@ -2443,7 +2653,7 @@ void config_cleanup(void) {
         free(config.prompt_format);
     }
 
-    // Theme cleanup (Phase 3 Target 2)
+    // Theme cleanup
     if (config.theme_name) {
         free(config.theme_name);
     }

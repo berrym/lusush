@@ -1,29 +1,14 @@
-/*
- * Lusush Shell - Screen Buffer Management
- *
- * Copyright (C) 2021-2025  Michael Berry
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * ============================================================================
- *
- * SCREEN BUFFER SYSTEM
+/**
+ * @file screen_buffer.h
+ * @brief Screen buffer system - Virtual screen management
  *
  * Implements virtual screen buffer management for differential terminal
- * updates. This is the proven approach used by ZLE, Fish, and Replxx to handle
- * line wrapping reliably.
+ * updates. Maintains virtual representation of terminal state, compares
+ * old vs new screens, and generates minimal escape sequences.
  *
- * Architecture:
- * - Maintains virtual representation of terminal screen state
- * - Renders LLE buffer into virtual screen (prompt + command with wrapping)
- * - Compares old vs new virtual screens to find differences
- * - Generates minimal terminal escape sequences to apply changes
- *
- * Key Principle: LLE has zero terminal knowledge. Display system handles ALL
- * terminal interaction through screen buffer abstraction.
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ * @license GPL-3.0-or-later
  */
 
 #ifndef SCREEN_BUFFER_H

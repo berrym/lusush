@@ -10,7 +10,7 @@
 # Author: AI Assistant for Lusush v1.3.0 QA
 # =============================================================================
 
-LUSUSH="${1:-./builddir/lusush}"
+LUSUSH="${1:-./build/lusush}"
 TOTAL_TESTS=0
 PASSED_TESTS=0
 FAILED_TESTS=0

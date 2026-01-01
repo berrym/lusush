@@ -5,7 +5,7 @@
 
 set -e
 
-SHELL_PATH="${1:-./builddir/lusush}"
+SHELL_PATH="${1:-./build/lusush}"
 TEST_COUNT=0
 PASSED_COUNT=0
 FAILED_COUNT=0
@@ -25,7 +25,7 @@ echo ""
 # Check if shell exists
 if [[ ! -x "$SHELL_PATH" ]]; then
     echo "Error: Shell binary not found at $SHELL_PATH"
-    echo "Please build the shell first with: meson compile -C builddir"
+    echo "Please build the shell first with: meson compile -C build"
     exit 1
 fi
 

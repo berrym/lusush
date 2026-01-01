@@ -5,7 +5,7 @@
 
 set -e
 
-SHELL_PATH="./builddir/lusush"
+SHELL_PATH="./build/lusush"
 TEST_COUNT=0
 PASSED_COUNT=0
 FAILED_COUNT=0
@@ -29,7 +29,7 @@ echo
 # Check if shell exists
 if [ ! -x "$SHELL_PATH" ]; then
     echo -e "${RED}Error: Shell binary not found at $SHELL_PATH${NC}"
-    echo "Please build the shell first with: ninja -C builddir"
+    echo "Please build the shell first with: ninja -C build"
     exit 1
 fi
 

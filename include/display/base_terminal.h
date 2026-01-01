@@ -1,29 +1,14 @@
-/*
- * Lusush Shell - Layered Display Architecture
- * Base Terminal Layer Header - Foundation Terminal Abstraction
+/**
+ * @file base_terminal.h
+ * @brief Base terminal layer (Layer 1) - Foundation terminal abstraction
  *
- * Copyright (C) 2021-2025  Michael Berry
+ * Provides low-level terminal abstraction and raw I/O operations that all
+ * higher display layers depend on. Cross-platform terminal support with
+ * raw and canonical mode handling.
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- *
- * ============================================================================
- *
- * BASE TERMINAL LAYER (Layer 1) - API DEFINITION
- *
- * This header defines the API for the foundation layer of the Lusush Display
- * System. The base terminal layer provides low-level terminal abstraction
- * and raw I/O operations that all higher layers depend on.
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ * @license GPL-3.0-or-later
  *
  * Key Features:
  * - Cross-platform terminal abstraction

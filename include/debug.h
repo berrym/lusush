@@ -1,3 +1,14 @@
+/**
+ * @file debug.h
+ * @brief Shell debugging and profiling infrastructure
+ *
+ * Provides comprehensive debugging facilities including step execution,
+ * breakpoints, variable inspection, profiling, and execution tracing.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ */
+
 #ifndef DEBUG_H
 #define DEBUG_H
 

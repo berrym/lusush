@@ -1,29 +1,14 @@
-/*
- * Lusush Shell - Layered Display Architecture
- * Layer Events Header - Inter-Layer Communication System
+/**
+ * @file layer_events.h
+ * @brief Layer events system - Inter-layer communication protocol
  *
- * Copyright (C) 2021-2025  Michael Berry
+ * Provides event-driven communication between display layers using a
+ * publisher/subscriber pattern for loose coupling. Manages event queues
+ * and processing for the layered display architecture.
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- *
- * ============================================================================
- *
- * LAYER EVENTS SYSTEM (Layer Communication Protocol)
- *
- * This header defines the API for the layer events system of the Lusush
- * Display System. The layer events system provides event-driven communication
- * between display layers without creating direct dependencies.
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ * @license GPL-3.0-or-later
  *
  * Key Features:
  * - Publisher/Subscriber pattern for loose coupling

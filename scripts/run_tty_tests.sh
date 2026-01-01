@@ -14,12 +14,12 @@ cd /home/mberry/Lab/c/lusush
 
 echo "Test 1: editor_test_tty (basic editor operations)"
 echo "---------------------------------------------------"
-./builddir/src/lle/foundation/editor_test_tty
+./build/src/lle/foundation/editor_test_tty
 echo ""
 
 echo "Test 2: editor_advanced_test_tty (word/line operations)"
 echo "--------------------------------------------------------"
-./builddir/src/lle/foundation/editor_advanced_test_tty
+./build/src/lle/foundation/editor_advanced_test_tty
 echo ""
 
 echo "==================================================="

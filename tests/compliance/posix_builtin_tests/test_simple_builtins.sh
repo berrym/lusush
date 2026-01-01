@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Simple POSIX builtin test for debugging
-SHELL_PATH="./builddir/lusush"
+SHELL_PATH="./build/lusush"
 
 echo "Testing POSIX builtins in lusush..."
 echo "Shell: $SHELL_PATH"

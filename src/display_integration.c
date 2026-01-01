@@ -1,8 +1,13 @@
-/*
- * Lusush Shell - Display Controller Integration Wrapper
- * Week 8 Shell Integration Implementation
+/**
+ * @file display_integration.c
+ * @brief Display Controller Integration Wrapper for Lusush Shell
  *
- * Copyright (C) 2021-2025  Michael Berry
+ * Provides the integration layer between the shell and the layered
+ * display controller system. Handles prompt rendering, syntax highlighting,
+ * and display caching with performance monitoring.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -586,7 +591,7 @@ void display_integration_redisplay(void) {
         display_controller_set_theme_context(global_display_controller,
                                              theme_name, symbol_mode);
 
-        // Phase 2 Implementation: Modern Syntax Highlighting
+        // Modern Syntax Highlighting
         // Use command content during real-time typing, but not during prompt
         // display This enables syntax highlighting while preventing stale
         // command display
@@ -602,7 +607,7 @@ void display_integration_redisplay(void) {
         if (error == DISPLAY_CONTROLLER_SUCCESS) {
             integration_stats.layered_display_calls++;
 
-            // Phase 2 Implementation: Modern Syntax Highlighting
+            // Modern Syntax Highlighting
             // Always use layered display when system is enabled and output is
             // available
             if (output_buffer[0] != '\0') {
@@ -861,7 +866,7 @@ void display_integration_post_command_update(const char *executed_command) {
         display_controller_set_theme_context(global_display_controller,
                                              theme_name, symbol_mode);
 
-        // Phase 2.1: Command Layer Cache Integration for Post-Command Analysis
+        // Command Layer Cache Integration for Post-Command Analysis
         // Analyze the executed command for caching without affecting readline
         // display
         if (executed_command && strlen(executed_command) > 0) {
@@ -1188,7 +1193,7 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
         return false; // No layered display mode active
     }
 
-    // Phase 2: Full Display Controller Integration for Prompt Generation
+    // Full Display Controller Integration for Prompt Generation
     integration_stats.layered_display_calls++;
 
     // Enhanced Performance Monitoring: Start timing for prompt generation
@@ -1294,7 +1299,7 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
             theme_context_result);
     }
 
-    // Phase 2: Use display controller for sophisticated prompt caching and
+    // Use display controller for sophisticated prompt caching and
     // optimization
     char display_output[4096];
     char *current_command = ""; // Prompt generation has no active command
@@ -1820,19 +1825,19 @@ bool display_integration_clear_autosuggestions(void) {
 // ============================================================================
 
 // Global enhanced performance metrics
-static phase_2b_performance_metrics_t enhanced_perf_metrics = {0};
+static display_perf_metrics_t enhanced_perf_metrics = {0};
 static bool enhanced_perf_monitoring_initialized = false;
 
 /**
  * Initialize enhanced performance monitoring system.
  */
-bool display_integration_init_phase_2b_monitoring(void) {
+bool display_integration_perf_monitor_init(void) {
     if (enhanced_perf_monitoring_initialized) {
         return true; // Already initialized
     }
 
     // Initialize metrics structure
-    memset(&enhanced_perf_metrics, 0, sizeof(phase_2b_performance_metrics_t));
+    memset(&enhanced_perf_metrics, 0, sizeof(display_perf_metrics_t));
 
     // Set performance targets
     enhanced_perf_metrics.cache_hit_rate_target =
@@ -1862,8 +1867,8 @@ bool display_integration_init_phase_2b_monitoring(void) {
 /**
  * Get current enhanced performance metrics.
  */
-bool display_integration_get_phase_2b_metrics(
-    phase_2b_performance_metrics_t *metrics) {
+bool display_integration_perf_monitor_get_metrics(
+    display_perf_metrics_t *metrics) {
     if (!metrics || !enhanced_perf_monitoring_initialized) {
         return false;
     }
@@ -1993,7 +1998,7 @@ bool display_integration_establish_baseline(void) {
 /**
  * Check if enhanced performance targets are being met.
  */
-bool display_integration_check_phase_2b_targets(bool *cache_target_met,
+bool display_integration_perf_monitor_check_targets(bool *cache_target_met,
                                                 bool *timing_target_met) {
     if (!cache_target_met || !timing_target_met ||
         !enhanced_perf_monitoring_initialized) {
@@ -2150,7 +2155,7 @@ void display_integration_reset_layer_cache_stats(void) {
 /**
  * Generate enhanced performance report.
  */
-bool display_integration_generate_phase_2b_report(bool detailed) {
+bool display_integration_perf_monitor_report(bool detailed) {
     if (!enhanced_perf_monitoring_initialized) {
         printf("Enhanced Performance Monitoring: Not initialized\n");
         return false;
@@ -2250,7 +2255,7 @@ bool display_integration_generate_phase_2b_report(bool detailed) {
 /**
  * Reset enhanced performance metrics.
  */
-bool display_integration_reset_phase_2b_metrics(void) {
+bool display_integration_perf_monitor_reset(void) {
     if (!enhanced_perf_monitoring_initialized) {
         return false;
     }
@@ -2262,7 +2267,7 @@ bool display_integration_reset_phase_2b_metrics(void) {
     bool monitoring = enhanced_perf_metrics.monitoring_active;
 
     // Reset metrics
-    memset(&enhanced_perf_metrics, 0, sizeof(phase_2b_performance_metrics_t));
+    memset(&enhanced_perf_metrics, 0, sizeof(display_perf_metrics_t));
 
     // Restore configuration
     enhanced_perf_metrics.cache_hit_rate_target = cache_target;
@@ -2280,7 +2285,7 @@ bool display_integration_reset_phase_2b_metrics(void) {
 /**
  * Enable/disable real-time enhanced performance monitoring.
  */
-bool display_integration_set_phase_2b_monitoring(bool enable,
+bool display_integration_perf_monitor_set_active(bool enable,
                                                  uint32_t frequency_hz) {
     if (!enhanced_perf_monitoring_initialized) {
         return false;

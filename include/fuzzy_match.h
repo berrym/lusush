@@ -1,5 +1,6 @@
 /**
- * fuzzy_match.h - Unicode-Aware Fuzzy String Matching Library
+ * @file fuzzy_match.h
+ * @brief Unicode-aware fuzzy string matching library
  *
  * Provides fuzzy string matching algorithms with full Unicode support.
  * Used by both the shell's autocorrect system and LLE's completion/history
@@ -13,6 +14,9 @@
  * - Combined weighted scoring
  * - Unicode NFC normalization support
  * - Case-insensitive matching with Unicode case folding
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  */
 
 #ifndef FUZZY_MATCH_H

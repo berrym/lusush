@@ -1,29 +1,13 @@
-/*
- * Lusush Shell - Layered Display Architecture
- * Prompt Layer Header - Universal Prompt Rendering System
+/**
+ * @file prompt_layer.h
+ * @brief Prompt layer - Universal prompt rendering system
  *
- * Copyright (C) 2021-2025  Michael Berry
+ * Provides universal prompt rendering that works with any prompt structure
+ * without requiring parsing or modification. Integrates with the theme system.
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- *
- * ============================================================================
- *
- * PROMPT LAYER SYSTEM (Universal Prompt Compatibility)
- *
- * This header defines the API for the prompt layer of the Lusush Display
- * System. The prompt layer provides universal prompt rendering that works
- * with ANY prompt structure without requiring parsing or modification.
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ * @license GPL-3.0-or-later
  *
  * Key Features:
  * - Universal prompt structure compatibility

@@ -1,3 +1,14 @@
+/**
+ * @file alias.c
+ * @brief Shell alias management and expansion
+ *
+ * Implements alias creation, lookup, expansion, and management for the shell.
+ * Uses a hash table for efficient alias storage and retrieval.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ */
+
 #include "alias.h"
 
 #include "builtins.h"

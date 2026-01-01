@@ -39,7 +39,7 @@ echo ""
 
 echo "=========================================="
 echo "How to test:"
-echo "1. Run: ./builddir/lusush"
+echo "1. Run: ./build/lusush"
 echo "2. Copy/paste each line above"
 echo "3. Test cursor movement with arrow keys"
 echo "4. Test backspace - should delete entire character"

@@ -1,10 +1,12 @@
 /**
- * Auto-Correction System for Lusush Shell
+ * @file autocorrect.h
+ * @brief Auto-Correction System for Lusush Shell
  *
- * Phase 3 Target 1: Intelligent command spell checking and correction
- * suggestions Provides "Did you mean...?" functionality with user confirmation
- * prompts Integrates with existing completion algorithms and configuration
- * system
+ * Intelligent command spell checking and correction suggestions.
+ * Provides "Did you mean...?" functionality with user confirmation prompts.
+ * Integrates with existing completion algorithms and configuration system.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
  */
 
 #ifndef AUTOCORRECT_H

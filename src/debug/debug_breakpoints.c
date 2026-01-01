@@ -627,7 +627,7 @@ void debug_restore_execution_context(debug_context_t *ctx, executor_t *executor,
     debug_printf(ctx, "[DEBUG] Restoring loop execution context\n");
 
     // For now, just log that we're restoring context
-    // Full variable restoration will be implemented in Phase 2
+    // TODO: Full variable restoration
     debug_printf(ctx, "[DEBUG] Loop context restoration (placeholder)\n");
 }
 

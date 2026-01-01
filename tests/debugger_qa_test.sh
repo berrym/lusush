@@ -25,7 +25,7 @@
 set -euo pipefail
 
 # Configuration
-LUSUSH_BINARY="${1:-./builddir/lusush}"
+LUSUSH_BINARY="${1:-./build/lusush}"
 TEST_DIR="/tmp/lusush_debugger_qa_$$"
 TOTAL_TESTS=0
 PASSED_TESTS=0

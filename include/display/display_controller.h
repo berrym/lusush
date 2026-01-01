@@ -1,30 +1,13 @@
-/*
- * Lusush Shell - Layered Display Architecture
- * Display Controller Header - High-Level Display Management System
+/**
+ * @file display_controller.h
+ * @brief Display controller - High-level display management system
  *
- * Copyright (C) 2021-2025  Michael Berry
+ * Provides high-level coordination of all display layers, system-wide
+ * performance monitoring, and intelligent caching for optimal shell integration.
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- *
- * ============================================================================
- *
- * DISPLAY CONTROLLER SYSTEM (High-Level Display Management)
- *
- * This header defines the API for the display controller of the Lusush Display
- * System. The display controller provides high-level coordination of all
- * display layers, system-wide performance monitoring, and intelligent caching
- * for optimal shell integration.
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ * @license GPL-3.0-or-later
  *
  * Key Features:
  * - High-level coordination of all display layers

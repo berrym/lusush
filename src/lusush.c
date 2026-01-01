@@ -1,6 +1,13 @@
-/*
- * Lusush - A modern shell with GNU Readline integration
- * Copyright (C) 2021-2025  Michael Berry
+/**
+ * @file lusush.c
+ * @brief Lusush - A modern shell with GNU Readline integration
+ *
+ * Main entry point and REPL (Read-Eval-Print Loop) for the Lusush shell.
+ * Handles command line parsing, interactive mode, and script execution.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ * @license GPL-3.0-or-later
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -210,8 +217,8 @@ int main(int argc, char **argv) {
             lle_fire_post_command(line, exit_status, cmd_end_us - cmd_start_us);
         }
 
-        // Phase 1: Post-command display integration for layered display caching
-        // This enables the layered display system to handle post-command prompt
+        // Post-command display integration for layered display caching
+        // Enables the layered display system to handle post-command prompt
         // rendering and achieve >75% cache hit rate targets
         display_integration_post_command_update(line);
 

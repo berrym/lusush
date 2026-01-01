@@ -2,7 +2,7 @@
  * Lusush Shell - Memory Pool System Implementation
  * Enterprise-Grade Memory Management for Display Operations
  *
- * Copyright (C) 2021-2025  Michael Berry
+ * Copyright (C) 2021-2026  Michael Berry
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

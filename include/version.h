@@ -1,3 +1,13 @@
+/**
+ * @file version.h
+ * @brief Shell version information and identification
+ *
+ * Defines version numbers, name, and description for Lusush shell.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ */
+
 #ifndef VERSION_H
 #define VERSION_H
 

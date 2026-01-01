@@ -1,30 +1,14 @@
-/*
- * Lusush Shell - Display Controller Integration Wrapper Header
- * Week 8 Shell Integration Implementation
+/**
+ * @file display_integration.h
+ * @brief Display controller integration wrapper for shell display functions
  *
- * Copyright (C) 2021-2025  Michael Berry
+ * Defines the API for integrating the layered display controller with existing
+ * shell display functions. Provides seamless function replacement with backward
+ * compatibility, configuration management, and performance monitoring.
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- *
- * ============================================================================
- *
- * DISPLAY INTEGRATION WRAPPER HEADER
- *
- * This header defines the API for integrating the layered display controller
- * with existing shell display functions. It provides seamless function
- * replacement with backward compatibility, configuration management, and
- * performance monitoring integration.
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ * @license GPL-3.0-or-later
  *
  * Key Features:
  * - Seamless function replacement with zero regression
@@ -188,11 +172,11 @@ typedef struct {
 } display_integration_stats_t;
 
 /**
- * Phase 2B Enhanced Performance Monitoring.
+ * Enhanced Performance Monitoring Metrics.
  * Provides detailed metrics for cache efficiency and display timing validation.
  */
 typedef struct {
-    // Phase 2B Cache Performance Targets
+    // Cache Performance Targets
     uint64_t cache_operations_total; // Total cache operations performed
     uint64_t cache_hits_global;      // Global cache hits across all systems
     uint64_t cache_misses_global;    // Global cache misses across all systems
@@ -201,7 +185,7 @@ typedef struct {
         cache_hit_rate_target; // Target cache hit rate (>75% dev, >90% release)
     bool cache_target_achieved; // Whether cache target is being met
 
-    // Phase 2B Display Timing Targets
+    // Display Timing Targets
     uint64_t
         display_operations_measured; // Number of display operations measured
     uint64_t display_time_total_ns;  // Total display time in nanoseconds
@@ -227,7 +211,7 @@ typedef struct {
     double baseline_cache_hit_rate;     // Baseline cache hit rate
     double baseline_display_time_ms;    // Baseline display time
     time_t baseline_establishment_time; // When baseline was established
-} phase_2b_performance_metrics_t;
+} display_perf_metrics_t;
 
 // ============================================================================
 // INITIALIZATION AND CLEANUP
@@ -553,28 +537,28 @@ bool display_integration_init_autosuggestions(void);
 void display_integration_cleanup_autosuggestions(void);
 
 // ============================================================================
-// PHASE 2B PERFORMANCE MONITORING
+// PERFORMANCE MONITORING
 // ============================================================================
 
 /**
- * Initialize Phase 2B performance monitoring system.
+ * Initialize performance monitoring system.
  * Sets up enhanced metrics collection for cache efficiency and display timing.
  *
  * @return true on success, false on failure
  */
-bool display_integration_init_phase_2b_monitoring(void);
+bool display_integration_perf_monitor_init(void);
 
 /**
- * Get current Phase 2B performance metrics.
+ * Get current performance metrics.
  *
  * @param metrics Metrics structure to fill
  * @return true on success, false on failure
  */
-bool display_integration_get_phase_2b_metrics(
-    phase_2b_performance_metrics_t *metrics);
+bool display_integration_perf_monitor_get_metrics(
+    display_perf_metrics_t *metrics);
 
 /**
- * Record a display operation for Phase 2B timing analysis.
+ * Record a display operation for timing analysis.
  *
  * @param operation_time_ns Operation time in nanoseconds
  * @return true on success, false on failure
@@ -582,7 +566,7 @@ bool display_integration_get_phase_2b_metrics(
 bool display_integration_record_display_timing(uint64_t operation_time_ns);
 
 /**
- * Record cache operation for Phase 2B cache efficiency analysis.
+ * Record cache operation for cache efficiency analysis.
  *
  * @param was_hit true if cache hit, false if cache miss
  * @return true on success, false on failure
@@ -590,29 +574,29 @@ bool display_integration_record_display_timing(uint64_t operation_time_ns);
 bool display_integration_record_cache_operation(bool was_hit);
 
 /**
- * Establish performance baseline for Phase 2B monitoring.
+ * Establish performance baseline for monitoring.
  *
  * @return true on success, false on failure
  */
 bool display_integration_establish_baseline(void);
 
 /**
- * Check if Phase 2B performance targets are being met.
+ * Check if performance targets are being met.
  *
  * @param cache_target_met Output: whether cache hit rate target is met
  * @param timing_target_met Output: whether display timing target is met
  * @return true on success, false on failure
  */
-bool display_integration_check_phase_2b_targets(bool *cache_target_met,
-                                                bool *timing_target_met);
+bool display_integration_perf_monitor_check_targets(bool *cache_target_met,
+                                                    bool *timing_target_met);
 
 /**
- * Generate Phase 2B performance report.
+ * Generate performance report.
  *
  * @param detailed true for detailed report, false for summary
  * @return true on success, false on failure
  */
-bool display_integration_generate_phase_2b_report(bool detailed);
+bool display_integration_perf_monitor_report(bool detailed);
 
 /**
  * Record cache operation for specific layer (for detailed analysis).
@@ -635,20 +619,20 @@ void display_integration_print_layer_cache_report(void);
 void display_integration_reset_layer_cache_stats(void);
 
 /**
- * Reset Phase 2B performance metrics.
+ * Reset performance metrics.
  *
  * @return true on success, false on failure
  */
-bool display_integration_reset_phase_2b_metrics(void);
+bool display_integration_perf_monitor_reset(void);
 
 /**
- * Enable/disable real-time Phase 2B performance monitoring.
+ * Enable/disable real-time performance monitoring.
  *
  * @param enable true to enable, false to disable
  * @param frequency_hz Monitoring frequency in Hz (1-60)
  * @return true on success, false on failure
  */
-bool display_integration_set_phase_2b_monitoring(bool enable,
+bool display_integration_perf_monitor_set_active(bool enable,
                                                  uint32_t frequency_hz);
 
 // ============================================================================

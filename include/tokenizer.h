@@ -1,9 +1,12 @@
 /**
- * Tokenizer for POSIX Shell - Designed for Recursive Descent Parsing
+ * @file tokenizer.h
+ * @brief POSIX shell tokenizer for recursive descent parsing
  *
- * This tokenizer provides a clean, simple design that properly
- * supports recursive descent parsing with lookahead and proper token
- * boundaries.
+ * Provides clean token classification with lookahead support and proper
+ * token boundary handling for the recursive descent parser.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  */
 
 #ifndef TOKENIZER_H
@@ -107,25 +110,123 @@ typedef struct tokenizer {
     bool enable_keywords; // Whether to recognize keywords (context-sensitive)
 } tokenizer_t;
 
-// Tokenizer interface
+/* ============================================================================
+ * Tokenizer Lifecycle
+ * ============================================================================ */
+
+/**
+ * @brief Create a new tokenizer for input string
+ *
+ * @param input Shell command string to tokenize
+ * @return New tokenizer instance or NULL on failure
+ */
 tokenizer_t *tokenizer_new(const char *input);
+
+/**
+ * @brief Free a tokenizer and associated resources
+ *
+ * @param tokenizer Tokenizer to free
+ */
 void tokenizer_free(tokenizer_t *tokenizer);
 
-// Token operations
+/* ============================================================================
+ * Token Operations
+ * ============================================================================ */
+
+/**
+ * @brief Get the current token
+ *
+ * @param tokenizer Tokenizer context
+ * @return Current token or NULL if at end
+ */
 token_t *tokenizer_current(tokenizer_t *tokenizer);
+
+/**
+ * @brief Peek at the next token without consuming
+ *
+ * @param tokenizer Tokenizer context
+ * @return Next token (lookahead) or NULL
+ */
 token_t *tokenizer_peek(tokenizer_t *tokenizer);
+
+/**
+ * @brief Advance to the next token
+ *
+ * @param tokenizer Tokenizer context
+ */
 void tokenizer_advance(tokenizer_t *tokenizer);
+
+/**
+ * @brief Check if current token matches type
+ *
+ * @param tokenizer Tokenizer context
+ * @param type Token type to match
+ * @return True if current token matches type
+ */
 bool tokenizer_match(tokenizer_t *tokenizer, token_type_t type);
+
+/**
+ * @brief Match and consume a token of specified type
+ *
+ * @param tokenizer Tokenizer context
+ * @param type Token type to consume
+ * @return True if token was consumed, false otherwise
+ */
 bool tokenizer_consume(tokenizer_t *tokenizer, token_type_t type);
 
-// Token utility functions
+/* ============================================================================
+ * Token Utilities
+ * ============================================================================ */
+
+/**
+ * @brief Get human-readable name for token type
+ *
+ * @param type Token type
+ * @return String name of token type
+ */
 const char *token_type_name(token_type_t type);
+
+/**
+ * @brief Check if token type is a keyword
+ *
+ * @param type Token type to check
+ * @return True if type is a keyword token
+ */
 bool token_is_keyword(token_type_t type);
+
+/**
+ * @brief Check if token type is an operator
+ *
+ * @param type Token type to check
+ * @return True if type is an operator token
+ */
 bool token_is_operator(token_type_t type);
+
+/**
+ * @brief Check if token type is word-like
+ *
+ * @param type Token type to check
+ * @return True if type represents a word or string
+ */
 bool token_is_word_like(token_type_t type);
 
-// Token control
+/* ============================================================================
+ * Tokenizer Control
+ * ============================================================================ */
+
+/**
+ * @brief Enable or disable keyword recognition
+ *
+ * @param tokenizer Tokenizer context
+ * @param enable True to recognize keywords, false for all words
+ */
 void tokenizer_enable_keywords(tokenizer_t *tokenizer, bool enable);
+
+/**
+ * @brief Refresh tokenizer state from current position
+ *
+ * @param tokenizer Tokenizer context
+ */
 void tokenizer_refresh_from_position(tokenizer_t *tokenizer);
 
 #endif // TOKENIZER_H

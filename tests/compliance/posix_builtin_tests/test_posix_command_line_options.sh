@@ -7,7 +7,7 @@
 # Tests both short options (-x) and set builtin options (set -x)
 # ===============================================================================
 
-SHELL_PATH="$(pwd)/builddir/lusush"
+SHELL_PATH="$(pwd)/build/lusush"
 TEMP_DIR="/tmp/lusush_posix_options_tests"
 LOGFILE="$TEMP_DIR/posix_options_test.log"
 
@@ -458,7 +458,7 @@ main() {
     # Verify shell exists
     if [[ ! -x "$SHELL_PATH" ]]; then
         echo -e "${RED}ERROR: Shell not found at $SHELL_PATH${NC}"
-        echo "Please build the shell first: ninja -C builddir"
+        echo "Please build the shell first: ninja -C build"
         exit 1
     fi
 

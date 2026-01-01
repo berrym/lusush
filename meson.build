@@ -13,13 +13,14 @@ fs = import('fs')
 # ============================================================================
 # BUILD DIRECTORY ENFORCEMENT
 # ============================================================================
-# IMPORTANT: Always use 'builddir' as the build directory name.
-# This prevents confusion from multiple build directories with different binaries.
+# IMPORTANT: Always use 'build' as the build directory name.
+# This is the standard convention and enables automatic detection of
+# compile_commands.json by editors and tools.
 #
 # Correct usage:
-#   meson setup builddir
-#   meson compile -C builddir
-#   ./builddir/lusush
+#   meson setup build
+#   meson compile -C build
+#   ./build/lusush
 #
 # The check below will error if you use a different build directory name.
 # ============================================================================
@@ -28,10 +29,10 @@ fs = import('fs')
 build_dir_path = meson.current_build_dir()
 build_dir_name = build_dir_path.split('/')[-1]
 
-if build_dir_name != 'builddir'
-    error('Build directory must be named "builddir", not "' + build_dir_name + '".\n' +
-          'Please reconfigure with: meson setup builddir --wipe\n' +
-          'Then build with: meson compile -C builddir')
+if build_dir_name != 'build'
+    error('Build directory must be named "build", not "' + build_dir_name + '".\n' +
+          'Please reconfigure with: meson setup build --wipe\n' +
+          'Then build with: meson compile -C build')
 endif
 
 message('Build directory: ' + build_dir_name + ' ✓')

@@ -1,8 +1,12 @@
-/*
- * Lusush Shell - Layered Display Architecture
- * Terminal Control Layer - ANSI Sequences and Capabilities
+/**
+ * @file terminal_control.c
+ * @brief Terminal Control Layer - ANSI Sequences and Capabilities
  *
- * Copyright (C) 2021-2025  Michael Berry
+ * Part of the Lusush Shell Layered Display Architecture.
+ * Manages ANSI escape sequences and terminal capabilities.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

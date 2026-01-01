@@ -1,8 +1,12 @@
-/*
- * Lusush Shell - Layered Display Architecture
- * Composition Engine Implementation - Intelligent Layer Combination System
+/**
+ * @file composition_engine.c
+ * @brief Composition Engine - Intelligent Layer Combination System
  *
- * Copyright (C) 2021-2025  Michael Berry
+ * Part of the Lusush Shell Layered Display Architecture.
+ * Combines display layers with proper z-ordering and optimization.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -51,7 +55,7 @@
 #include <unistd.h>
 
 // ============================================================================
-// FORWARD DECLARATIONS (Phase 4B Multiline Support)
+// FORWARD DECLARATIONS (Multiline Support)
 // ============================================================================
 
 /**
@@ -1612,13 +1616,13 @@ composition_engine_set_screen_buffer(composition_engine_t *engine,
 }
 
 // ============================================================================
-// MULTILINE COMPOSITION HELPERS (Phase 4B)
+// MULTILINE COMPOSITION HELPERS
 // ============================================================================
 
 /**
  * Split command content by newlines
  *
- * This implements the line splitting logic from Phase 1 design:
+ * This implements the line splitting logic:
  * - Track byte offsets for each line
  * - Track length of each line
  * - Handle empty lines
@@ -1714,7 +1718,7 @@ build_continuation_prompts(composition_engine_t *engine,
 /**
  * Coordinate with screen_buffer to render multiline with prefixes
  *
- * This implements the screen buffer coordination from Phase 1 design:
+ * This implements the screen buffer coordination:
  * - Call screen_buffer_set_line_prefix() for each line
  * - Call screen_buffer_render_multiline_with_prefixes()
  *
@@ -1764,7 +1768,7 @@ static composition_engine_error_t coordinate_screen_buffer_rendering(
 /**
  * Translate cursor byte offset to screen position in multiline command
  *
- * This implements the cursor translation logic from Phase 1 design using
+ * This implements the cursor translation logic using
  * incremental character-by-character tracking (the proven approach from
  * Replxx/Fish/ZLE).
  *

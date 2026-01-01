@@ -1,3 +1,14 @@
+/**
+ * @file config.h
+ * @brief Shell configuration system and settings management
+ *
+ * Provides configuration file parsing, settings storage, and runtime
+ * configuration management for all shell subsystems.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ */
+
 #ifndef CONFIG_H
 #define CONFIG_H
 

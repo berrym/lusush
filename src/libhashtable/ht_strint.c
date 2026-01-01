@@ -1,9 +1,13 @@
-/* ht_strint.c - Type wrapped implementation of a string->int hash table.
+/**
+ * @file ht_strint.c
+ * @brief String to Int Hash Table Implementation
  *
- * Project: libashtable
+ * Project: libhashtable
  * URL: https://github.com/berrym/libhashtable
- * License: MIT
- * Copyright (c) Michael Berry <trismegustis@gmail.com> 2023
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (c) 2023 Michael Berry
+ * @license MIT
  */
 
 #include "ht.h"

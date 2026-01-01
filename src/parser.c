@@ -1,8 +1,11 @@
 /**
- * Modern POSIX Shell Parser Implementation
+ * @file parser.c
+ * @brief Modern POSIX Shell Parser Implementation
  *
  * Clean recursive descent parser that properly handles POSIX shell grammar
  * with correct token boundary management and error handling.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
  */
 
 #include "parser.h"
@@ -40,7 +43,15 @@ static char *collect_heredoc_content(parser_t *parser, const char *delimiter,
 static void set_parser_error(parser_t *parser, const char *message);
 static bool expect_token(parser_t *parser, token_type_t expected);
 
-// Create new parser
+/**
+ * @brief Create a new parser instance
+ *
+ * Allocates and initializes a parser with a tokenizer for the
+ * given input string.
+ *
+ * @param input Shell command string to parse
+ * @return New parser instance, or NULL on failure
+ */
 parser_t *parser_new(const char *input) {
     if (!input) {
         return NULL;
@@ -63,7 +74,13 @@ parser_t *parser_new(const char *input) {
     return parser;
 }
 
-// Free parser
+/**
+ * @brief Free a parser instance
+ *
+ * Frees the parser and its associated tokenizer.
+ *
+ * @param parser Parser to free
+ */
 void parser_free(parser_t *parser) {
     if (!parser) {
         return;
@@ -73,15 +90,30 @@ void parser_free(parser_t *parser) {
     free(parser);
 }
 
-// Check for errors
-// Error handling
+/**
+ * @brief Check if parser has encountered an error
+ *
+ * @param parser Parser instance
+ * @return true if an error has occurred
+ */
 bool parser_has_error(parser_t *parser) { return parser && parser->has_error; }
 
+/**
+ * @brief Get the parser error message
+ *
+ * @param parser Parser instance
+ * @return Error message string, or "Invalid parser" if NULL
+ */
 const char *parser_error(parser_t *parser) {
     return parser ? parser->error_message : "Invalid parser";
 }
 
-// Set parser error
+/**
+ * @brief Set parser error state with message
+ *
+ * @param parser Parser instance
+ * @param message Error message describing the problem
+ */
 static void set_parser_error(parser_t *parser, const char *message) {
     if (parser) {
         parser->error_message = message;
@@ -89,7 +121,15 @@ static void set_parser_error(parser_t *parser, const char *message) {
     }
 }
 
-// Expect specific token type
+/**
+ * @brief Expect and consume a specific token type
+ *
+ * Sets a parser error if the current token doesn't match expected type.
+ *
+ * @param parser Parser instance
+ * @param expected Token type to match
+ * @return true if token matched and was consumed
+ */
 static bool expect_token(parser_t *parser, token_type_t expected) {
     if (!tokenizer_match(parser->tokenizer, expected)) {
         char error_buf[256];
@@ -104,7 +144,15 @@ static bool expect_token(parser_t *parser, token_type_t expected) {
     return true;
 }
 
-// Main parsing entry point
+/**
+ * @brief Main parsing entry point
+ *
+ * Parses the entire input and returns an AST. Skips leading
+ * whitespace, comments, and newlines.
+ *
+ * @param parser Parser instance
+ * @return Root AST node, or NULL on empty/error
+ */
 node_t *parser_parse(parser_t *parser) {
     if (!parser) {
         return NULL;
@@ -124,12 +172,25 @@ node_t *parser_parse(parser_t *parser) {
     return parse_command_list(parser);
 }
 
-// Parse command line (sequence of commands)
+/**
+ * @brief Parse a command line
+ *
+ * Entry point for parsing a sequence of commands.
+ *
+ * @param parser Parser instance
+ * @return AST for the command line
+ */
 node_t *parser_parse_command_line(parser_t *parser) {
     return parse_command_list(parser);
 }
 
-// Helper function to skip separators (semicolons, newlines, whitespace)
+/**
+ * @brief Skip command separators
+ *
+ * Advances past semicolons, newlines, whitespace, and comments.
+ *
+ * @param parser Parser instance
+ */
 static void skip_separators(parser_t *parser) {
     while (tokenizer_match(parser->tokenizer, TOK_SEMICOLON) ||
            tokenizer_match(parser->tokenizer, TOK_NEWLINE) ||
@@ -139,8 +200,16 @@ static void skip_separators(parser_t *parser) {
     }
 }
 
-// Parse command body for control structures - parses multiple commands until
-// terminator
+/**
+ * @brief Parse command body until terminator
+ *
+ * Parses multiple commands for control structure bodies (while, for, etc.)
+ * until the specified terminator token is reached.
+ *
+ * @param parser Parser instance
+ * @param terminator Token type that ends the body (e.g., TOK_DONE)
+ * @return First command in linked list, or NULL on error
+ */
 static node_t *parse_command_body(parser_t *parser, token_type_t terminator) {
     node_t *first_command = NULL;
     node_t *current = NULL;
@@ -178,7 +247,15 @@ static node_t *parse_command_body(parser_t *parser, token_type_t terminator) {
     return first_command;
 }
 
-// Parse command body for IF statements - stops at else, elif, or fi
+/**
+ * @brief Parse if statement body
+ *
+ * Parses commands for if/elif bodies, stopping at else, elif, or fi.
+ * Returns a NODE_COMMAND_LIST containing all commands.
+ *
+ * @param parser Parser instance
+ * @return Command list node, or NULL on error
+ */
 static node_t *parse_if_body(parser_t *parser) {
     // Create a command list node to hold all commands
     node_t *command_list = new_node(NODE_COMMAND_LIST);
@@ -221,7 +298,15 @@ static node_t *parse_if_body(parser_t *parser) {
     return command_list;
 }
 
-// Parse logical operators (and_or level)
+/**
+ * @brief Parse logical operators (&& and ||)
+ *
+ * Handles the and_or grammar level, creating NODE_LOGICAL_AND
+ * or NODE_LOGICAL_OR nodes for compound commands.
+ *
+ * @param parser Parser instance
+ * @return AST node for logical expression
+ */
 static node_t *parse_logical_expression(parser_t *parser) {
     node_t *left = parse_pipeline(parser);
     if (!left) {
@@ -260,7 +345,15 @@ static node_t *parse_logical_expression(parser_t *parser) {
     return left;
 }
 
-// Parse command list (commands separated by ; or newlines)
+/**
+ * @brief Parse a list of commands
+ *
+ * Parses commands separated by semicolons or newlines into
+ * a sibling chain of AST nodes.
+ *
+ * @param parser Parser instance
+ * @return First command in sibling chain, or NULL on error
+ */
 static node_t *parse_command_list(parser_t *parser) {
     node_t *first_command = NULL;
     node_t *current = NULL;
@@ -307,7 +400,15 @@ static node_t *parse_command_list(parser_t *parser) {
     return first_command;
 }
 
-// Parse pipeline (commands connected by |)
+/**
+ * @brief Parse a pipeline
+ *
+ * Parses commands connected by | operators, creating NODE_PIPE
+ * nodes. Also handles background execution (&).
+ *
+ * @param parser Parser instance
+ * @return Pipeline AST node
+ */
 static node_t *parse_pipeline(parser_t *parser) {
     node_t *left = parse_simple_command(parser);
     if (!left) {
@@ -358,7 +459,18 @@ static node_t *parse_pipeline(parser_t *parser) {
     return left;
 }
 
-// Parse simple command or control structure
+/**
+ * @brief Parse a simple command or control structure
+ *
+ * Dispatches to appropriate parser based on current token:
+ * - Brace groups, subshells
+ * - Control structures (if, while, for, case, function)
+ * - Variable assignments
+ * - Regular commands with arguments and redirections
+ *
+ * @param parser Parser instance
+ * @return Command AST node
+ */
 static node_t *parse_simple_command(parser_t *parser) {
     token_t *current = tokenizer_current(parser->tokenizer);
     if (!current) {
@@ -646,7 +758,14 @@ static node_t *parse_simple_command(parser_t *parser) {
     return command;
 }
 
-// Parse brace group { commands; }
+/**
+ * @brief Parse a brace group { commands; }
+ *
+ * Creates NODE_BRACE_GROUP containing the enclosed commands.
+ *
+ * @param parser Parser instance
+ * @return Brace group AST node
+ */
 static node_t *parse_brace_group(parser_t *parser) {
     token_t *current = tokenizer_current(parser->tokenizer);
     if (!current || current->type != TOK_LBRACE) {
@@ -695,7 +814,14 @@ static node_t *parse_brace_group(parser_t *parser) {
     return group_node;
 }
 
-// Parse subshell ( commands )
+/**
+ * @brief Parse a subshell ( commands )
+ *
+ * Creates NODE_SUBSHELL containing the enclosed commands.
+ *
+ * @param parser Parser instance
+ * @return Subshell AST node
+ */
 static node_t *parse_subshell(parser_t *parser) {
     token_t *current = tokenizer_current(parser->tokenizer);
     if (!current || current->type != TOK_LPAREN) {
@@ -744,7 +870,15 @@ static node_t *parse_subshell(parser_t *parser) {
     return subshell_node;
 }
 
-// Parse redirection
+/**
+ * @brief Parse a redirection operator and target
+ *
+ * Handles all redirection types: >, <, >>, <<, <<<, 2>, &>, etc.
+ * For here-documents, collects content until delimiter.
+ *
+ * @param parser Parser instance
+ * @return Redirection AST node with target as child
+ */
 static node_t *parse_redirection(parser_t *parser) {
     token_t *redir_token = tokenizer_current(parser->tokenizer);
     if (!redir_token) {
@@ -942,7 +1076,19 @@ static node_t *parse_redirection(parser_t *parser) {
     }
 }
 
-// Collect here document content until delimiter is found
+/**
+ * @brief Collect here-document content
+ *
+ * Scans input for lines until the delimiter is found alone on a line.
+ * Handles <<- (strip leading tabs) variant. Updates tokenizer position
+ * to after the here-document.
+ *
+ * @param parser Parser instance
+ * @param delimiter End delimiter string
+ * @param strip_tabs If true, strip leading tabs from each line
+ * @param expand_variables If true, variables will be expanded during execution
+ * @return Collected content string (caller must free)
+ */
 static char *collect_heredoc_content(parser_t *parser, const char *delimiter,
                                      bool strip_tabs, bool expand_variables) {
     (void)expand_variables; /* Expansion handled during execution phase */
@@ -1142,7 +1288,14 @@ static char *collect_heredoc_content(parser_t *parser, const char *delimiter,
     return content;
 }
 
-// Parse if statement
+/**
+ * @brief Parse an if statement
+ *
+ * Parses: if condition; then body [elif condition; then body]* [else body] fi
+ *
+ * @param parser Parser instance
+ * @return If statement AST node
+ */
 static node_t *parse_if_statement(parser_t *parser) {
     if (!expect_token(parser, TOK_IF)) {
         return NULL;
@@ -1259,7 +1412,14 @@ static node_t *parse_if_statement(parser_t *parser) {
     return if_node;
 }
 
-// Parse while statement
+/**
+ * @brief Parse a while statement
+ *
+ * Parses: while condition; do body done
+ *
+ * @param parser Parser instance
+ * @return While loop AST node
+ */
 static node_t *parse_while_statement(parser_t *parser) {
     if (!expect_token(parser, TOK_WHILE)) {
         return NULL;
@@ -1321,7 +1481,14 @@ static node_t *parse_while_statement(parser_t *parser) {
     return while_node;
 }
 
-// Parse until statement
+/**
+ * @brief Parse an until statement
+ *
+ * Parses: until condition; do body done
+ *
+ * @param parser Parser instance
+ * @return Until loop AST node
+ */
 static node_t *parse_until_statement(parser_t *parser) {
     if (!expect_token(parser, TOK_UNTIL)) {
         return NULL;
@@ -1382,7 +1549,14 @@ static node_t *parse_until_statement(parser_t *parser) {
     return until_node;
 }
 
-// Parse for statement
+/**
+ * @brief Parse a for statement
+ *
+ * Parses: for var in wordlist; do body done
+ *
+ * @param parser Parser instance
+ * @return For loop AST node with variable name in val.str
+ */
 static node_t *parse_for_statement(parser_t *parser) {
     if (!expect_token(parser, TOK_FOR)) {
         return NULL;
@@ -1490,7 +1664,15 @@ static node_t *parse_for_statement(parser_t *parser) {
     return for_node;
 }
 
-// Parse case statement: case WORD in pattern) commands ;; ... esac
+/**
+ * @brief Parse a case statement
+ *
+ * Parses: case word in pattern) commands ;; [pattern) commands ;;]* esac
+ * Patterns can use | for alternation.
+ *
+ * @param parser Parser instance
+ * @return Case statement AST node
+ */
 static node_t *parse_case_statement(parser_t *parser) {
     if (!expect_token(parser, TOK_CASE)) {
         return NULL;
@@ -1721,7 +1903,14 @@ static node_t *parse_case_statement(parser_t *parser) {
     return case_node;
 }
 
-// Helper function to check if current position is a function definition
+/**
+ * @brief Check if current position is a function definition
+ *
+ * Looks for word() pattern indicating a function definition.
+ *
+ * @param parser Parser instance
+ * @return true if function definition syntax detected
+ */
 static bool is_function_definition(parser_t *parser) {
     if (!parser || !parser->tokenizer) {
         return false;
@@ -1741,7 +1930,15 @@ static bool is_function_definition(parser_t *parser) {
     return true;
 }
 
-// Validate function name for POSIX compliance
+/**
+ * @brief Validate function name for POSIX compliance
+ *
+ * Function names must start with letter/underscore and contain
+ * only alphanumeric characters and underscores.
+ *
+ * @param name Function name to validate
+ * @return true if name is valid POSIX function name
+ */
 static bool is_valid_posix_function_name(const char *name) {
     if (!name || !*name) {
         return false;
@@ -1762,8 +1959,18 @@ static bool is_valid_posix_function_name(const char *name) {
     return true;
 }
 
-// Parse function definition: name() { commands; } or function name() {
-// commands; }
+/**
+ * @brief Parse a function definition
+ *
+ * Parses both forms:
+ * - name() { commands; }
+ * - function name() { commands; }
+ *
+ * Supports optional parameters with default values (non-POSIX extension).
+ *
+ * @param parser Parser instance
+ * @return Function definition AST node
+ */
 static node_t *parse_function_definition(parser_t *parser) {
     token_t *current = tokenizer_current(parser->tokenizer);
 

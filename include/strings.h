@@ -1,3 +1,15 @@
+/**
+ * @file strings.h
+ * @brief String manipulation utilities for shell operations
+ *
+ * Provides string allocation, manipulation, and parsing utilities used
+ * throughout the shell including quote handling, whitespace processing,
+ * and escape sequence processing.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ */
+
 #ifndef STRINGS_H
 #define STRINGS_H
 

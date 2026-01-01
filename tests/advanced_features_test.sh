@@ -20,7 +20,7 @@
 
 set -euo pipefail
 
-LUSUSH="${1:-./builddir/lusush}"
+LUSUSH="${1:-./build/lusush}"
 TEST_DIR="/tmp/lusush_advanced_test_$$"
 TOTAL_TESTS=0
 PASSED_TESTS=0

@@ -1,5 +1,6 @@
-/*
- * input.c - Lusush Input System using GNU Readline
+/**
+ * @file input.c
+ * @brief Lusush Input System using GNU Readline
  *
  * This module provides unified input handling for both interactive and
  * non-interactive modes, with complete GNU readline integration for
@@ -10,6 +11,8 @@
  * characters. While shell syntax characters (quotes, brackets, etc.) are
  * all ASCII, we must properly skip over UTF-8 multi-byte sequences to
  * avoid misinterpreting continuation bytes as syntax characters.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
  */
 
 #include "input.h"

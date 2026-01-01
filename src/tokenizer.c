@@ -1,3 +1,13 @@
+/**
+ * @file tokenizer.c
+ * @brief Shell Command Tokenizer Implementation
+ *
+ * Lexical analyzer for POSIX shell syntax. Handles tokenization of
+ * shell commands including operators, keywords, quoting, and escapes.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ */
+
 #include "tokenizer.h"
 #include "lle/utf8_support.h"
 
@@ -32,7 +42,15 @@ static bool is_operator_char(char c);
 static bool is_word_char(char c);
 static void skip_whitespace(tokenizer_t *tokenizer);
 
-// Create new tokenizer
+/**
+ * @brief Create a new tokenizer instance
+ *
+ * Initializes a tokenizer for the given input string and
+ * pre-tokenizes the first two tokens (current and lookahead).
+ *
+ * @param input Shell command string to tokenize
+ * @return New tokenizer instance, or NULL on failure
+ */
 tokenizer_t *tokenizer_new(const char *input) {
     if (!input) {
         return NULL;
@@ -59,7 +77,13 @@ tokenizer_t *tokenizer_new(const char *input) {
     return tokenizer;
 }
 
-// Free tokenizer
+/**
+ * @brief Free a tokenizer instance
+ *
+ * Frees the tokenizer and any associated tokens.
+ *
+ * @param tokenizer Tokenizer to free
+ */
 void tokenizer_free(tokenizer_t *tokenizer) {
     if (!tokenizer) {
         return;
@@ -75,17 +99,34 @@ void tokenizer_free(tokenizer_t *tokenizer) {
     free(tokenizer);
 }
 
-// Get current token
+/**
+ * @brief Get the current token
+ *
+ * @param tokenizer Tokenizer instance
+ * @return Current token, or NULL if tokenizer is NULL
+ */
 token_t *tokenizer_current(tokenizer_t *tokenizer) {
     return tokenizer ? tokenizer->current : NULL;
 }
 
-// Peek at next token
+/**
+ * @brief Peek at the next token without consuming
+ *
+ * @param tokenizer Tokenizer instance
+ * @return Lookahead token, or NULL if tokenizer is NULL
+ */
 token_t *tokenizer_peek(tokenizer_t *tokenizer) {
     return tokenizer ? tokenizer->lookahead : NULL;
 }
 
-// Advance to next token
+/**
+ * @brief Advance to the next token
+ *
+ * Frees the current token, moves lookahead to current,
+ * and tokenizes the next lookahead.
+ *
+ * @param tokenizer Tokenizer instance
+ */
 void tokenizer_advance(tokenizer_t *tokenizer) {
     if (!tokenizer) {
         return;
@@ -103,7 +144,13 @@ void tokenizer_advance(tokenizer_t *tokenizer) {
     tokenizer->lookahead = tokenize_next(tokenizer);
 }
 
-// Check if current token matches expected type
+/**
+ * @brief Check if current token matches expected type
+ *
+ * @param tokenizer Tokenizer instance
+ * @param type Token type to match
+ * @return true if current token matches type
+ */
 bool tokenizer_match(tokenizer_t *tokenizer, token_type_t type) {
     if (!tokenizer || !tokenizer->current) {
         return false;
@@ -111,7 +158,16 @@ bool tokenizer_match(tokenizer_t *tokenizer, token_type_t type) {
     return tokenizer->current->type == type;
 }
 
-// Consume expected token type
+/**
+ * @brief Consume a token if it matches expected type
+ *
+ * Advances past the token if it matches, otherwise leaves
+ * the tokenizer state unchanged.
+ *
+ * @param tokenizer Tokenizer instance
+ * @param type Token type to match and consume
+ * @return true if token was matched and consumed
+ */
 bool tokenizer_consume(tokenizer_t *tokenizer, token_type_t type) {
     if (tokenizer_match(tokenizer, type)) {
         tokenizer_advance(tokenizer);
@@ -120,7 +176,15 @@ bool tokenizer_consume(tokenizer_t *tokenizer, token_type_t type) {
     return false;
 }
 
-// Get token type name for debugging
+/**
+ * @brief Get human-readable name for token type
+ *
+ * Returns a string representation of the token type
+ * for debugging and error messages.
+ *
+ * @param type Token type
+ * @return String name of token type
+ */
 const char *token_type_name(token_type_t type) {
     switch (type) {
     case TOK_EOF:
@@ -244,32 +308,71 @@ const char *token_type_name(token_type_t type) {
     }
 }
 
-// Check if token is a keyword
+/**
+ * @brief Check if token type is a shell keyword
+ *
+ * Keywords include: if, then, else, elif, fi, while, do, done,
+ * for, in, case, esac, until, function.
+ *
+ * @param type Token type to check
+ * @return true if token is a keyword
+ */
 bool token_is_keyword(token_type_t type) {
     return type >= TOK_IF && type <= TOK_FUNCTION;
 }
 
-// Check if token is an operator
+/**
+ * @brief Check if token type is an operator
+ *
+ * Operators include: ;, |, &, &&, ||, <, >, >>, <<, =, etc.
+ *
+ * @param type Token type to check
+ * @return true if token is an operator
+ */
 bool token_is_operator(token_type_t type) {
     return (type >= TOK_SEMICOLON && type <= TOK_REDIRECT_CLOBBER) ||
            (type >= TOK_ASSIGN && type <= TOK_BACKQUOTE);
 }
 
-// Check if token is word-like (can be part of command/argument)
+/**
+ * @brief Check if token can be part of a command/argument
+ *
+ * Word-like tokens include: WORD, STRING, EXPANDABLE_STRING,
+ * NUMBER, and VARIABLE.
+ *
+ * @param type Token type to check
+ * @return true if token is word-like
+ */
 bool token_is_word_like(token_type_t type) {
     return type == TOK_WORD || type == TOK_STRING ||
            type == TOK_EXPANDABLE_STRING || type == TOK_NUMBER ||
            type == TOK_VARIABLE;
 }
 
-// Enable/disable keyword recognition
+/**
+ * @brief Enable or disable keyword recognition
+ *
+ * When disabled, keywords like 'if', 'while' are treated as
+ * regular words. Useful in certain parsing contexts.
+ *
+ * @param tokenizer Tokenizer instance
+ * @param enable true to enable keyword recognition
+ */
 void tokenizer_enable_keywords(tokenizer_t *tokenizer, bool enable) {
     if (tokenizer) {
         tokenizer->enable_keywords = enable;
     }
 }
 
-// Refresh tokenizer from current position (for error recovery)
+/**
+ * @brief Refresh tokenizer from current position
+ *
+ * Discards current and lookahead tokens and re-tokenizes
+ * from the current input position. Used for error recovery
+ * and after manually advancing the position (e.g., here-documents).
+ *
+ * @param tokenizer Tokenizer instance
+ */
 void tokenizer_refresh_from_position(tokenizer_t *tokenizer) {
     if (!tokenizer) {
         return;
@@ -290,9 +393,21 @@ void tokenizer_refresh_from_position(tokenizer_t *tokenizer) {
     tokenizer->lookahead = tokenize_next(tokenizer);
 }
 
-// Helper functions implementation
+/* ========== Helper Functions ========== */
 
-// Create new token
+/**
+ * @brief Create a new token
+ *
+ * Allocates and initializes a token with the given properties.
+ *
+ * @param type Token type
+ * @param text Token text (will be copied)
+ * @param length Length of text
+ * @param line Source line number
+ * @param column Source column number
+ * @param position Byte offset in input
+ * @return New token, or NULL on failure
+ */
 static token_t *token_new(token_type_t type, const char *text, size_t length,
                           size_t line, size_t column, size_t position) {
     token_t *token = malloc(sizeof(token_t));
@@ -328,7 +443,11 @@ static token_t *token_new(token_type_t type, const char *text, size_t length,
     return token;
 }
 
-// Free token
+/**
+ * @brief Free a token
+ *
+ * @param token Token to free
+ */
 static void token_free(token_t *token) {
     if (!token) {
         return;
@@ -340,7 +459,16 @@ static void token_free(token_t *token) {
     free(token);
 }
 
-// Classify word as keyword or regular word
+/**
+ * @brief Classify a word as keyword or regular word
+ *
+ * Checks the word against the keyword lookup table.
+ *
+ * @param text Word text
+ * @param length Word length
+ * @param enable_keywords If false, always returns TOK_WORD
+ * @return Token type (keyword type or TOK_WORD)
+ */
 static token_type_t classify_word(const char *text, size_t length,
                                   bool enable_keywords) {
     if (!enable_keywords || !text || length == 0) {
@@ -358,17 +486,38 @@ static token_type_t classify_word(const char *text, size_t length,
     return TOK_WORD;
 }
 
-// Check if character can be part of an operator
+/**
+ * @brief Check if character can start/be part of an operator
+ *
+ * @param c Character to check
+ * @return true if character is an operator character
+ */
 static bool is_operator_char(char c) {
     return strchr(";|&<>=+*%?(){}[]#!", c) != NULL;
 }
 
-// Check if character can be part of a word (byte-based, for ASCII)
+/**
+ * @brief Check if ASCII character can be part of a word
+ *
+ * Word characters include alphanumerics and: _.-/~:@*?[]+%
+ *
+ * @param c Character to check
+ * @return true if character can be part of a word
+ */
 static bool is_word_char(char c) {
     return isalnum(c) || strchr("_.-/~:@*?[]+%", c) != NULL;
 }
 
-// Check if Unicode codepoint can be part of a word (UTF-8 aware)
+/**
+ * @brief Check if Unicode codepoint can be part of a word
+ *
+ * For ASCII (< 0x80), uses traditional shell word character logic.
+ * For non-ASCII, all Unicode codepoints are valid word characters,
+ * allowing filenames with international characters.
+ *
+ * @param codepoint Unicode codepoint
+ * @return true if codepoint can be part of a word
+ */
 static bool is_word_codepoint(uint32_t codepoint) {
     // ASCII range: Use traditional shell word character logic
     if (codepoint < 0x80) {
@@ -392,7 +541,14 @@ static bool is_word_codepoint(uint32_t codepoint) {
     return true;
 }
 
-// Skip whitespace (except newlines)
+/**
+ * @brief Skip whitespace characters
+ *
+ * Advances past spaces and tabs, but not newlines
+ * (which are significant in shell syntax).
+ *
+ * @param tokenizer Tokenizer instance
+ */
 static void skip_whitespace(tokenizer_t *tokenizer) {
     while (tokenizer->position < tokenizer->input_length) {
         char c = tokenizer->input[tokenizer->position];
@@ -405,7 +561,21 @@ static void skip_whitespace(tokenizer_t *tokenizer) {
     }
 }
 
-// Main tokenization function
+/**
+ * @brief Tokenize the next token from input
+ *
+ * Main tokenization function that handles:
+ * - Newlines and comments
+ * - Single and double quoted strings
+ * - Variable references ($var, ${var}, $(cmd), $((expr)))
+ * - Backtick command substitution
+ * - All operators and redirections
+ * - Keywords and words (UTF-8 aware)
+ * - Numbered file descriptor redirections
+ *
+ * @param tokenizer Tokenizer instance
+ * @return Next token, or TOK_EOF at end of input
+ */
 static token_t *tokenize_next(tokenizer_t *tokenizer) {
     if (!tokenizer || tokenizer->position >= tokenizer->input_length) {
         return token_new(TOK_EOF, NULL, 0, tokenizer ? tokenizer->line : 1,

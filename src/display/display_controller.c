@@ -1,8 +1,12 @@
-/*
- * Lusush Shell - Layered Display Architecture
- * Display Controller Implementation - High-Level Display Management System
+/**
+ * @file display_controller.c
+ * @brief Display Controller - High-Level Display Management System
  *
- * Copyright (C) 2021-2025  Michael Berry
+ * Part of the Lusush Shell Layered Display Architecture.
+ * Manages display layers, caching, and terminal output coordination.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -1724,7 +1728,7 @@ display_controller_display(display_controller_t *controller,
             uint64_t operation_time = dc_time_diff_ns(&start_time, &end_time);
             dc_update_performance_history(controller, operation_time);
 
-            // Phase 2B Performance Monitoring: Record cache hit and timing
+            // Performance Monitoring: Record cache hit and timing
             display_integration_record_layer_cache_operation(
                 "display_controller", true);
             display_integration_record_display_timing(operation_time);
@@ -1735,7 +1739,7 @@ display_controller_display(display_controller_t *controller,
         } else {
             controller->performance.cache_misses++;
 
-            // Phase 2B Performance Monitoring: Record cache miss
+            // Performance Monitoring: Record cache miss
             display_integration_record_layer_cache_operation(
                 "display_controller", false);
             DC_DEBUG("Cache miss for state hash: %s", state_hash);
@@ -1932,7 +1936,7 @@ display_controller_display(display_controller_t *controller,
     gettimeofday(&end_time, NULL);
     uint64_t operation_time = dc_time_diff_ns(&start_time, &end_time);
 
-    // Phase 2B Performance Monitoring: Record display timing for new
+    // Performance Monitoring: Record display timing for new
     // compositions
     display_integration_record_display_timing(operation_time);
 

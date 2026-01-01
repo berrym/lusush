@@ -1,17 +1,18 @@
-/*
- * screen_buffer_menu.c - Completion Menu Rendering Through Screen Buffer
+/**
+ * @file screen_buffer_menu.c
+ * @brief Completion Menu Rendering Through Screen Buffer
  *
- * This provides a separate screen_buffer_render_menu() function that properly
- * handles completion menu rendering through the virtual layout system.
+ * Provides screen_buffer_render_menu() for completion menu rendering
+ * through the virtual layout system.
  *
- * This ensures:
+ * Features:
  * - Proper ANSI code handling (menu has syntax highlighting)
  * - Correct column width calculations (no shifting)
  * - Terminal width awareness
  * - UTF-8 and wide character support
  *
- * Kept separate from main screen_buffer_render() to avoid breaking existing
- * code.
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  */
 
 #include "display/screen_buffer.h"

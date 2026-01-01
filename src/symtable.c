@@ -58,8 +58,18 @@ struct symtable_manager {
 // METADATA SERIALIZATION UTILITIES
 // ============================================================================
 
-// Serialize variable metadata into a string format
-// Format: "value|type|flags|scope_level"
+/**
+ * @brief Serialize variable metadata into a string format
+ *
+ * Creates a serialized representation of variable data in the format:
+ * "value|type|flags|scope_level" for storage in the hash table.
+ *
+ * @param value Variable value (NULL treated as empty string)
+ * @param type Variable type (string, integer, array, etc.)
+ * @param flags Variable flags (exported, readonly, local, etc.)
+ * @param scope_level Scope level where variable is defined
+ * @return Allocated serialized string, or NULL on allocation failure
+ */
 static char *serialize_variable(const char *value, symvar_type_t type,
                                 symvar_flags_t flags, size_t scope_level) {
     if (!value) {
@@ -82,8 +92,16 @@ static char *serialize_variable(const char *value, symvar_type_t type,
     return serialized;
 }
 
-// Deserialize variable metadata from string format
-// Returns allocated symvar_t structure
+/**
+ * @brief Deserialize variable metadata from string format
+ *
+ * Parses a serialized variable string and creates a symvar_t structure.
+ * Handles empty fields correctly by parsing separators manually.
+ *
+ * @param name Variable name to associate with the result
+ * @param serialized Serialized string in "value|type|flags|scope_level" format
+ * @return Allocated symvar_t structure, or NULL on failure
+ */
 static symvar_t *deserialize_variable(const char *name,
                                       const char *serialized) {
     if (!serialized || !name) {
@@ -151,7 +169,14 @@ static symvar_t *deserialize_variable(const char *name,
     return var;
 }
 
-// Free deserialized variable
+/**
+ * @brief Free a deserialized variable structure
+ *
+ * Frees all memory associated with a symvar_t structure including
+ * the name and value strings.
+ *
+ * @param var Variable structure to free (NULL is safe)
+ */
 static void free_symvar(symvar_t *var) {
     if (!var) {
         return;
@@ -165,7 +190,14 @@ static void free_symvar(symvar_t *var) {
 // CORE IMPLEMENTATION
 // ============================================================================
 
-// Create symbol table manager
+/**
+ * @brief Create a new symbol table manager
+ *
+ * Allocates and initializes a symbol table manager with a global scope.
+ * The global scope uses libhashtable with FNV1A hashing for performance.
+ *
+ * @return Newly allocated manager, or NULL on allocation failure
+ */
 symtable_manager_t *symtable_manager_new(void) {
     symtable_manager_t *manager = calloc(1, sizeof(symtable_manager_t));
     if (!manager) {
@@ -203,7 +235,14 @@ symtable_manager_t *symtable_manager_new(void) {
     return manager;
 }
 
-// Free symbol table manager
+/**
+ * @brief Free a symbol table manager and all its scopes
+ *
+ * Pops all scopes from the scope chain and frees all associated memory
+ * including hash tables and scope names.
+ *
+ * @param manager Manager to free (NULL is safe)
+ */
 void symtable_manager_free(symtable_manager_t *manager) {
     if (!manager) {
         return;
@@ -234,14 +273,31 @@ void symtable_manager_free(symtable_manager_t *manager) {
     free(manager);
 }
 
-// Set debug mode
+/**
+ * @brief Enable or disable debug mode for the manager
+ *
+ * When debug mode is enabled, scope push/pop and variable set operations
+ * print diagnostic messages to stdout/stderr.
+ *
+ * @param manager Manager to configure
+ * @param debug True to enable debug output, false to disable
+ */
 void symtable_manager_set_debug(symtable_manager_t *manager, bool debug) {
     if (manager) {
         manager->debug_mode = debug;
     }
 }
 
-// Find variable in scope chain
+/**
+ * @brief Find a variable in the scope chain
+ *
+ * Searches from the given scope up through parent scopes until a variable
+ * with the given name is found. Skips variables marked as unset.
+ *
+ * @param scope Starting scope for the search
+ * @param name Variable name to find
+ * @return Allocated symvar_t if found, NULL otherwise
+ */
 static symvar_t *find_var(symtable_scope_t *scope, const char *name) {
     if (!scope || !name) {
         return NULL;
@@ -262,7 +318,18 @@ static symvar_t *find_var(symtable_scope_t *scope, const char *name) {
     return NULL;
 }
 
-// Push new scope
+/**
+ * @brief Push a new scope onto the scope stack
+ *
+ * Creates a new scope with its own hash table and links it as the
+ * current scope. The new scope inherits from parent scopes for variable
+ * lookups but has its own storage for local variables.
+ *
+ * @param manager Symbol table manager
+ * @param type Type of scope (global, function, loop, subshell, conditional)
+ * @param name Human-readable name for debugging
+ * @return 0 on success, -1 on failure or max depth exceeded
+ */
 int symtable_push_scope(symtable_manager_t *manager, scope_type_t type,
                         const char *name) {
     if (!manager || !name) {
@@ -309,7 +376,15 @@ int symtable_push_scope(symtable_manager_t *manager, scope_type_t type,
     return 0;
 }
 
-// Pop current scope
+/**
+ * @brief Pop the current scope from the scope stack
+ *
+ * Removes the current scope, freeing its hash table and memory,
+ * and restores the parent scope as current. Cannot pop the global scope.
+ *
+ * @param manager Symbol table manager
+ * @return 0 on success, -1 if at global scope or invalid manager
+ */
 int symtable_pop_scope(symtable_manager_t *manager) {
     if (!manager || !manager->current_scope ||
         manager->current_scope == manager->global_scope) {
@@ -331,7 +406,15 @@ int symtable_pop_scope(symtable_manager_t *manager) {
     return 0;
 }
 
-// Get current scope level
+/**
+ * @brief Get the current scope nesting level
+ *
+ * Returns the depth of the current scope in the scope chain.
+ * Global scope is level 0, first nested scope is level 1, etc.
+ *
+ * @param manager Symbol table manager
+ * @return Current scope level, or 0 if manager is invalid
+ */
 size_t symtable_current_level(symtable_manager_t *manager) {
     if (!manager || !manager->current_scope) {
         return 0;
@@ -339,7 +422,14 @@ size_t symtable_current_level(symtable_manager_t *manager) {
     return manager->current_scope->level;
 }
 
-// Get current scope name
+/**
+ * @brief Get the name of the current scope
+ *
+ * Returns the human-readable name assigned when the scope was created.
+ *
+ * @param manager Symbol table manager
+ * @return Scope name string, or "unknown" if manager is invalid
+ */
 const char *symtable_current_scope_name(symtable_manager_t *manager) {
     if (!manager || !manager->current_scope) {
         return "unknown";
@@ -347,7 +437,18 @@ const char *symtable_current_scope_name(symtable_manager_t *manager) {
     return manager->current_scope->scope_name;
 }
 
-// Set variable
+/**
+ * @brief Set a variable in the current scope
+ *
+ * Serializes the variable data and stores it in the current scope's
+ * hash table. Overwrites any existing variable with the same name.
+ *
+ * @param manager Symbol table manager
+ * @param name Variable name
+ * @param value Variable value (NULL is allowed)
+ * @param flags Variable flags (exported, readonly, local, etc.)
+ * @return 0 on success, -1 on failure
+ */
 int symtable_set_var(symtable_manager_t *manager, const char *name,
                      const char *value, symvar_flags_t flags) {
     if (!manager || !name) {
@@ -373,13 +474,32 @@ int symtable_set_var(symtable_manager_t *manager, const char *name,
     return 0;
 }
 
-// Set local variable
+/**
+ * @brief Set a local variable in the current scope
+ *
+ * Convenience wrapper that sets a variable with the SYMVAR_LOCAL flag.
+ *
+ * @param manager Symbol table manager
+ * @param name Variable name
+ * @param value Variable value
+ * @return 0 on success, -1 on failure
+ */
 int symtable_set_local_var(symtable_manager_t *manager, const char *name,
                            const char *value) {
     return symtable_set_var(manager, name, value, SYMVAR_LOCAL);
 }
 
-// Set global variable
+/**
+ * @brief Set a variable in the global scope
+ *
+ * Temporarily switches to global scope to set the variable, then
+ * restores the original current scope.
+ *
+ * @param manager Symbol table manager
+ * @param name Variable name
+ * @param value Variable value
+ * @return 0 on success, -1 on failure
+ */
 int symtable_set_global_var(symtable_manager_t *manager, const char *name,
                             const char *value) {
     if (!manager || !name) {
@@ -398,7 +518,16 @@ int symtable_set_global_var(symtable_manager_t *manager, const char *name,
     return result;
 }
 
-// Get variable
+/**
+ * @brief Get a variable's value from the scope chain
+ *
+ * Searches from the current scope up through parent scopes to find
+ * the variable. Returns a copy of the value that must be freed.
+ *
+ * @param manager Symbol table manager
+ * @param name Variable name to look up
+ * @return Allocated copy of value, or NULL if not found
+ */
 char *symtable_get_var(symtable_manager_t *manager, const char *name) {
     if (!manager || !name) {
         return NULL;
@@ -415,7 +544,16 @@ char *symtable_get_var(symtable_manager_t *manager, const char *name) {
     return result;
 }
 
-// Unset variable
+/**
+ * @brief Unset a variable
+ *
+ * Marks the variable as unset rather than removing it from the hash table.
+ * This allows proper scoping behavior where an unset shadows parent values.
+ *
+ * @param manager Symbol table manager
+ * @param name Variable name to unset
+ * @return 0 on success, -1 on failure
+ */
 int symtable_unset_var(symtable_manager_t *manager, const char *name) {
     if (!manager || !name) {
         return -1;
@@ -425,7 +563,16 @@ int symtable_unset_var(symtable_manager_t *manager, const char *name) {
     return symtable_set_var(manager, name, "", SYMVAR_UNSET);
 }
 
-// Check if variable exists
+/**
+ * @brief Check if a variable exists in the scope chain
+ *
+ * Searches from the current scope through parent scopes. Variables
+ * marked as unset are not considered to exist.
+ *
+ * @param manager Symbol table manager
+ * @param name Variable name to check
+ * @return True if variable exists and is not unset, false otherwise
+ */
 bool symtable_var_exists(symtable_manager_t *manager, const char *name) {
     if (!manager || !name) {
         return false;
@@ -439,7 +586,16 @@ bool symtable_var_exists(symtable_manager_t *manager, const char *name) {
     return false;
 }
 
-// Export variable
+/**
+ * @brief Export a variable to the environment
+ *
+ * Marks the variable as exported and calls setenv() to add it to
+ * the system environment for child processes.
+ *
+ * @param manager Symbol table manager
+ * @param name Variable name to export
+ * @return 0 on success, -1 if variable doesn't exist or on failure
+ */
 int symtable_export_var(symtable_manager_t *manager, const char *name) {
     if (!manager || !name) {
         return -1;
@@ -464,7 +620,15 @@ int symtable_export_var(symtable_manager_t *manager, const char *name) {
     return result;
 }
 
-// Get environment array (basic implementation)
+/**
+ * @brief Get the environment as a NULL-terminated string array
+ *
+ * Creates an array of "name=value" strings for exported variables.
+ * Currently returns an empty environment (TODO: implement full export).
+ *
+ * @param manager Symbol table manager
+ * @return Allocated environment array, must be freed with symtable_free_environ
+ */
 char **symtable_get_environ(symtable_manager_t *manager) {
     (void)manager; // TODO: Implement environment export
 
@@ -476,7 +640,13 @@ char **symtable_get_environ(symtable_manager_t *manager) {
     return env;
 }
 
-// Free environment array
+/**
+ * @brief Free an environment array
+ *
+ * Frees each string in the array and the array itself.
+ *
+ * @param environ Environment array to free (NULL is safe)
+ */
 void symtable_free_environ(char **environ) {
     if (!environ) {
         return;
@@ -488,7 +658,15 @@ void symtable_free_environ(char **environ) {
     free(environ);
 }
 
-// Debug dump scope (stub)
+/**
+ * @brief Dump variables in a specific scope type for debugging
+ *
+ * Finds the first scope of the given type in the scope chain and
+ * prints all variables in that scope to stdout.
+ *
+ * @param manager Symbol table manager
+ * @param scope Scope type to dump (global, function, loop, etc.)
+ */
 void symtable_dump_scope(symtable_manager_t *manager, scope_type_t scope) {
     if (!manager) {
         printf("DEBUG: No manager provided\n");
@@ -561,7 +739,14 @@ void symtable_dump_scope(symtable_manager_t *manager, scope_type_t scope) {
     ht_strstr_enum_destroy(enum_iter);
 }
 
-// Debug dump all scopes
+/**
+ * @brief Dump all scopes in the scope chain for debugging
+ *
+ * Walks the scope chain from current to global, printing each scope's
+ * name, type, level, and all variables it contains.
+ *
+ * @param manager Symbol table manager
+ */
 void symtable_dump_all_scopes(symtable_manager_t *manager) {
     if (!manager) {
         printf("DEBUG: No manager provided\n");
@@ -640,10 +825,23 @@ void symtable_dump_all_scopes(symtable_manager_t *manager) {
 // CONVENIENCE API (High-level functions for common operations)
 // ============================================================================
 
-// Get access to the global symbol table manager
+/**
+ * @brief Get access to the global symbol table manager
+ *
+ * Returns the singleton global manager used throughout the shell.
+ *
+ * @return Global manager instance, or NULL if not initialized
+ */
 symtable_manager_t *symtable_get_global_manager(void) { return global_manager; }
 
-// Basic variable operations (global scope)
+/**
+ * @brief Get a variable from the global scope
+ *
+ * Convenience function that uses the global manager.
+ *
+ * @param name Variable name
+ * @return Allocated copy of value, or NULL if not found
+ */
 char *symtable_get_global(const char *name) {
     if (!global_manager) {
         return NULL;
@@ -651,6 +849,16 @@ char *symtable_get_global(const char *name) {
     return symtable_get_var(global_manager, name);
 }
 
+/**
+ * @brief Get a variable with a default fallback value
+ *
+ * Returns the variable value if it exists, otherwise returns a copy
+ * of the default value.
+ *
+ * @param name Variable name
+ * @param default_value Value to return if variable is not set
+ * @return Allocated string (value or default), must be freed
+ */
 char *symtable_get_global_default(const char *name, const char *default_value) {
     char *value = symtable_get_global(name);
     if (!value && default_value) {
@@ -659,6 +867,15 @@ char *symtable_get_global_default(const char *name, const char *default_value) {
     return value;
 }
 
+/**
+ * @brief Set a variable in the global scope
+ *
+ * Convenience function that uses the global manager.
+ *
+ * @param name Variable name
+ * @param value Variable value
+ * @return 0 on success, -1 on failure
+ */
 int symtable_set_global(const char *name, const char *value) {
     if (!global_manager) {
         return -1;
@@ -666,6 +883,12 @@ int symtable_set_global(const char *name, const char *value) {
     return symtable_set_global_var(global_manager, name, value);
 }
 
+/**
+ * @brief Check if a variable exists in global scope
+ *
+ * @param name Variable name to check
+ * @return True if variable exists, false otherwise
+ */
 bool symtable_exists_global(const char *name) {
     if (!global_manager) {
         return false;
@@ -673,6 +896,12 @@ bool symtable_exists_global(const char *name) {
     return symtable_var_exists(global_manager, name);
 }
 
+/**
+ * @brief Unset a variable in global scope
+ *
+ * @param name Variable name to unset
+ * @return 0 on success, -1 on failure
+ */
 int symtable_unset_global(const char *name) {
     if (!global_manager) {
         return -1;
@@ -680,7 +909,15 @@ int symtable_unset_global(const char *name) {
     return symtable_unset_var(global_manager, name);
 }
 
-// Integer variable operations
+/**
+ * @brief Get a variable as an integer
+ *
+ * Parses the variable value as an integer using atoi().
+ *
+ * @param name Variable name
+ * @param default_value Value to return if variable is not set
+ * @return Integer value, or default_value if not found
+ */
 int symtable_get_global_int(const char *name, int default_value) {
     char *value = symtable_get_global(name);
     if (!value) {
@@ -692,13 +929,30 @@ int symtable_get_global_int(const char *name, int default_value) {
     return result;
 }
 
+/**
+ * @brief Set a variable to an integer value
+ *
+ * Converts the integer to a string and stores it.
+ *
+ * @param name Variable name
+ * @param value Integer value to set
+ * @return 0 on success, -1 on failure
+ */
 int symtable_set_global_int(const char *name, int value) {
     char buffer[32];
     snprintf(buffer, sizeof(buffer), "%d", value);
     return symtable_set_global(name, buffer);
 }
 
-// Boolean variable operations
+/**
+ * @brief Get a variable as a boolean
+ *
+ * Returns true if the value is "1" or "true", false otherwise.
+ *
+ * @param name Variable name
+ * @param default_value Value to return if variable is not set
+ * @return Boolean value, or default_value if not found
+ */
 bool symtable_get_global_bool(const char *name, bool default_value) {
     char *value = symtable_get_global(name);
     if (!value) {
@@ -710,11 +964,25 @@ bool symtable_get_global_bool(const char *name, bool default_value) {
     return result;
 }
 
+/**
+ * @brief Set a variable to a boolean value
+ *
+ * Stores "1" for true, "0" for false.
+ *
+ * @param name Variable name
+ * @param value Boolean value to set
+ * @return 0 on success, -1 on failure
+ */
 int symtable_set_global_bool(const char *name, bool value) {
     return symtable_set_global(name, value ? "1" : "0");
 }
 
-// Export/environment operations
+/**
+ * @brief Export a global variable to the environment
+ *
+ * @param name Variable name to export
+ * @return 0 on success, -1 on failure
+ */
 int symtable_export_global(const char *name) {
     if (!global_manager) {
         return -1;
@@ -722,6 +990,14 @@ int symtable_export_global(const char *name) {
     return symtable_export_var(global_manager, name);
 }
 
+/**
+ * @brief Remove export flag from a global variable
+ *
+ * Re-sets the variable without the export flag.
+ *
+ * @param name Variable name to unexport
+ * @return 0 on success, -1 on failure
+ */
 int symtable_unexport_global(const char *name) {
     // Get current value and reset without export flag
     char *value = symtable_get_global(name);
@@ -734,7 +1010,15 @@ int symtable_unexport_global(const char *name) {
     return result;
 }
 
-// Special variable operations
+/**
+ * @brief Set a special shell variable
+ *
+ * Special variables like $?, $!, $$ have the SYMVAR_SPECIAL_VAR flag.
+ *
+ * @param name Variable name
+ * @param value Variable value
+ * @return 0 on success, -1 on failure
+ */
 int symtable_set_special_global(const char *name, const char *value) {
     if (!global_manager) {
         return -1;
@@ -742,11 +1026,25 @@ int symtable_set_special_global(const char *name, const char *value) {
     return symtable_set_var(global_manager, name, value, SYMVAR_SPECIAL_VAR);
 }
 
+/**
+ * @brief Get a special shell variable
+ *
+ * @param name Variable name
+ * @return Allocated copy of value, or NULL if not found
+ */
 char *symtable_get_special_global(const char *name) {
     return symtable_get_global(name);
 }
 
-// Read-only variable operations
+/**
+ * @brief Set a read-only variable
+ *
+ * Read-only variables cannot be modified or unset after being set.
+ *
+ * @param name Variable name
+ * @param value Variable value
+ * @return 0 on success, -1 on failure
+ */
 int symtable_set_readonly_global(const char *name, const char *value) {
     if (!global_manager) {
         return -1;
@@ -754,20 +1052,37 @@ int symtable_set_readonly_global(const char *name, const char *value) {
     return symtable_set_var(global_manager, name, value, SYMVAR_READONLY);
 }
 
-// Debugging and introspection
+/**
+ * @brief Dump global scope variables for debugging
+ *
+ * Convenience wrapper that calls symtable_dump_scope with SCOPE_GLOBAL.
+ */
 void symtable_debug_dump_global_scope(void) {
     if (global_manager) {
         symtable_dump_scope(global_manager, SCOPE_GLOBAL);
     }
 }
 
+/**
+ * @brief Dump all scopes for debugging
+ *
+ * Convenience wrapper that calls symtable_dump_all_scopes.
+ */
 void symtable_debug_dump_all_scopes(void) {
     if (global_manager) {
         symtable_dump_all_scopes(global_manager);
     }
 }
 
-// Debug enumeration function for external access to variables
+/**
+ * @brief Enumerate all global variables with a callback
+ *
+ * Iterates over all variables in the global scope and calls the
+ * provided callback function for each one.
+ *
+ * @param callback Function to call for each variable
+ * @param userdata User data to pass to the callback
+ */
 void symtable_debug_enumerate_global_vars(void (*callback)(const char *key,
                                                            const char *value,
                                                            void *userdata),
@@ -791,12 +1106,23 @@ void symtable_debug_enumerate_global_vars(void (*callback)(const char *key,
     ht_strstr_enum_destroy(enum_iter);
 }
 
+/**
+ * @brief Count the number of global variables
+ *
+ * @return Number of variables in global scope (currently unimplemented)
+ */
 size_t symtable_count_global_vars(void) {
     // TODO: Implement variable counting
     return 0;
 }
 
-// Environment array operations
+/**
+ * @brief Get the environment as an array
+ *
+ * Returns a NULL-terminated array of "name=value" strings.
+ *
+ * @return Allocated environment array, must be freed with symtable_free_environment_array
+ */
 char **symtable_get_environment_array(void) {
     if (!global_manager) {
         return NULL;
@@ -804,13 +1130,23 @@ char **symtable_get_environment_array(void) {
     return symtable_get_environ(global_manager);
 }
 
+/**
+ * @brief Free an environment array
+ *
+ * @param env Environment array to free
+ */
 void symtable_free_environment_array(char **env) { symtable_free_environ(env); }
 
 // ============================================================================
 // SYSTEM INTERFACE (Essential functions for shell operation)
 // ============================================================================
 
-// Shell initialization and cleanup
+/**
+ * @brief Initialize the global symbol table
+ *
+ * Creates the global symbol table manager. Should be called once
+ * during shell startup. Safe to call multiple times.
+ */
 void init_symtable(void) {
     if (global_manager) {
         return; // Already initialized
@@ -823,6 +1159,12 @@ void init_symtable(void) {
     }
 }
 
+/**
+ * @brief Free the global symbol table
+ *
+ * Releases all resources associated with the global symbol table manager.
+ * Should be called during shell shutdown.
+ */
 void free_global_symtable(void) {
     if (global_manager) {
         symtable_manager_free(global_manager);
@@ -830,7 +1172,13 @@ void free_global_symtable(void) {
     }
 }
 
-// Special variable management
+/**
+ * @brief Set the exit status special variable
+ *
+ * Updates both the $? special variable and the global last_exit_status.
+ *
+ * @param status Exit status value (0-255)
+ */
 void set_exit_status(int status) {
     char status_str[16];
     snprintf(status_str, sizeof(status_str), "%d", status);
@@ -840,21 +1188,44 @@ void set_exit_status(int status) {
     last_exit_status = status;
 }
 
-// Environment interface
+/**
+ * @brief Get environment array for child processes
+ *
+ * @return Allocated environment array
+ */
 char **get_environ_array(void) { return symtable_get_environment_array(); }
 
+/**
+ * @brief Free environment array
+ *
+ * @param env Environment array to free
+ */
 void free_environ_array(char **env) { symtable_free_environment_array(env); }
 
 // ============================================================================
 // LEGACY COMPATIBILITY (For string management and other subsystems)
 // ============================================================================
 
-// Legacy functions (for string management system)
+/**
+ * @brief Create a new symbol table (legacy compatibility)
+ *
+ * Returns a dummy symbol table for legacy API compatibility.
+ *
+ * @param level Scope level (ignored)
+ * @return Pointer to dummy symbol table
+ */
 symtable_t *new_symtable(size_t level) {
     (void)level;
     return &dummy_symtable;
 }
 
+/**
+ * @brief Push a scope onto the stack (legacy compatibility)
+ *
+ * Creates a new function scope using the modern API.
+ *
+ * @return Pointer to dummy symbol table
+ */
 symtable_t *symtable_stack_push(void) {
     if (global_manager) {
         symtable_push_scope(global_manager, SCOPE_FUNCTION, "legacy-scope");
@@ -862,6 +1233,13 @@ symtable_t *symtable_stack_push(void) {
     return &dummy_symtable;
 }
 
+/**
+ * @brief Pop a scope from the stack (legacy compatibility)
+ *
+ * Pops the current scope using the modern API.
+ *
+ * @return Pointer to dummy symbol table
+ */
 symtable_t *symtable_stack_pop(void) {
     if (global_manager) {
         symtable_pop_scope(global_manager);
@@ -869,12 +1247,29 @@ symtable_t *symtable_stack_pop(void) {
     return &dummy_symtable;
 }
 
+/**
+ * @brief Remove entry from symbol table (legacy compatibility)
+ *
+ * No-op for legacy API compatibility.
+ *
+ * @param symtable Symbol table (ignored)
+ * @param entry Entry to remove (ignored)
+ * @return Always returns 0
+ */
 int remove_from_symtable(symtable_t *symtable, symtable_entry_t *entry) {
     (void)symtable;
     (void)entry;
     return 0;
 }
 
+/**
+ * @brief Add entry to symbol table (legacy compatibility)
+ *
+ * Sets an empty variable if it doesn't exist.
+ *
+ * @param name Variable name
+ * @return Non-NULL dummy pointer on success, NULL on failure
+ */
 symtable_entry_t *add_to_symtable(char *name) {
     if (!global_manager || !name) {
         return NULL;
@@ -889,6 +1284,15 @@ symtable_entry_t *add_to_symtable(char *name) {
     return (symtable_entry_t *)1;
 }
 
+/**
+ * @brief Look up a symbol in the table (legacy compatibility)
+ *
+ * Checks if a variable exists using the modern API.
+ *
+ * @param symtable Symbol table (ignored)
+ * @param name Variable name to look up
+ * @return Non-NULL dummy pointer if found, NULL otherwise
+ */
 symtable_entry_t *lookup_symbol(symtable_t *symtable, const char *name) {
     (void)symtable;
 
@@ -903,6 +1307,12 @@ symtable_entry_t *lookup_symbol(symtable_t *symtable, const char *name) {
     return NULL;
 }
 
+/**
+ * @brief Get a symbol table entry by name (legacy compatibility)
+ *
+ * @param name Variable name
+ * @return Non-NULL dummy pointer if found, NULL otherwise
+ */
 symtable_entry_t *get_symtable_entry(const char *name) {
     if (!global_manager || !name) {
         return NULL;
@@ -915,18 +1325,48 @@ symtable_entry_t *get_symtable_entry(const char *name) {
     return NULL;
 }
 
+/**
+ * @brief Get the local symbol table (legacy compatibility)
+ *
+ * @return Pointer to dummy symbol table
+ */
 symtable_t *get_local_symtable(void) { return &dummy_symtable; }
 
+/**
+ * @brief Get the global symbol table (legacy compatibility)
+ *
+ * @return Pointer to dummy symbol table
+ */
 symtable_t *get_global_symtable(void) { return &dummy_symtable; }
 
+/**
+ * @brief Get the symbol table stack (legacy compatibility)
+ *
+ * @return Pointer to static dummy stack structure
+ */
 symtable_stack_t *get_symtable_stack(void) {
     static symtable_stack_t dummy_stack = {
         1, {&dummy_symtable}, &dummy_symtable, &dummy_symtable};
     return &dummy_stack;
 }
 
+/**
+ * @brief Free a symbol table (legacy compatibility)
+ *
+ * No-op since we use the global manager.
+ *
+ * @param symtable Symbol table to free (ignored)
+ */
 void free_symtable(symtable_t *symtable) { (void)symtable; }
 
+/**
+ * @brief Set entry value (legacy compatibility)
+ *
+ * No-op for legacy API compatibility.
+ *
+ * @param entry Entry to modify (ignored)
+ * @param val Value to set (ignored)
+ */
 void symtable_entry_setval(symtable_entry_t *entry, char *val) {
     (void)entry;
     (void)val;
@@ -936,20 +1376,51 @@ void symtable_entry_setval(symtable_entry_t *entry, char *val) {
 // ENHANCED API COMPATIBILITY
 // ============================================================================
 
+/**
+ * @brief Check if libhashtable implementation is available
+ *
+ * Always returns true since this is the main implementation.
+ *
+ * @return Always true
+ */
 bool symtable_libht_available(void) {
     return true; // Always available since this is the main implementation
 }
 
+/**
+ * @brief Get implementation info string
+ *
+ * @return Description of the symbol table implementation
+ */
 const char *symtable_implementation_info(void) {
     return "Optimized libhashtable implementation (ht_strstr_t, FNV1A hash)";
 }
 
+/**
+ * @brief Initialize libhashtable symbol table (alias)
+ */
 void init_symtable_libht(void) { init_symtable(); }
 
+/**
+ * @brief Free libhashtable symbol table (alias)
+ */
 void free_symtable_libht(void) { free_global_symtable(); }
 
+/**
+ * @brief Get the libhashtable manager (opaque pointer)
+ *
+ * @return Pointer to global manager cast to void*
+ */
 void *get_libht_manager(void) { return (void *)global_manager; }
 
+/**
+ * @brief Set variable with flags (enhanced API)
+ *
+ * @param name Variable name
+ * @param value Variable value
+ * @param flags Variable flags
+ * @return 0 on success, -1 on failure
+ */
 int symtable_set_var_enhanced(const char *name, const char *value,
                               symvar_flags_t flags) {
     if (!global_manager) {
@@ -961,6 +1432,12 @@ int symtable_set_var_enhanced(const char *name, const char *value,
     return symtable_set_var(global_manager, name, value, flags);
 }
 
+/**
+ * @brief Get variable value (enhanced API)
+ *
+ * @param name Variable name
+ * @return Allocated copy of value, or NULL if not found
+ */
 char *symtable_get_var_enhanced(const char *name) {
     if (!global_manager) {
         return NULL;
@@ -968,6 +1445,13 @@ char *symtable_get_var_enhanced(const char *name) {
     return symtable_get_var(global_manager, name);
 }
 
+/**
+ * @brief Push scope (enhanced API)
+ *
+ * @param type Scope type
+ * @param name Scope name
+ * @return 0 on success, -1 on failure
+ */
 int symtable_push_scope_enhanced(scope_type_t type, const char *name) {
     if (!global_manager) {
         init_symtable();
@@ -978,6 +1462,11 @@ int symtable_push_scope_enhanced(scope_type_t type, const char *name) {
     return symtable_push_scope(global_manager, type, name);
 }
 
+/**
+ * @brief Pop scope (enhanced API)
+ *
+ * @return 0 on success, -1 on failure
+ */
 int symtable_pop_scope_enhanced(void) {
     if (!global_manager) {
         return -1;
@@ -985,12 +1474,26 @@ int symtable_pop_scope_enhanced(void) {
     return symtable_pop_scope(global_manager);
 }
 
+/**
+ * @brief Run benchmark comparison (stub)
+ *
+ * Prints a message since this is the main implementation.
+ *
+ * @param iterations Number of iterations (ignored)
+ */
 void symtable_benchmark_comparison(int iterations) {
     (void)iterations;
     printf(
         "Optimized libhashtable implementation is the main implementation\n");
 }
 
+/**
+ * @brief Run symbol table self-test
+ *
+ * Tests basic set/get operations and prints results.
+ *
+ * @return 0 on success, -1 on failure
+ */
 int symtable_libht_test(void) {
     printf("Testing main symbol table implementation...\n");
 
@@ -1017,37 +1520,93 @@ int symtable_libht_test(void) {
     return 0;
 }
 
-// Optimized API compatibility (this IS the optimized implementation)
+/**
+ * @brief Check if optimized implementation is available
+ *
+ * @return Always true
+ */
 bool symtable_opt_available(void) { return true; }
 
+/**
+ * @brief Get optimized implementation info (alias)
+ *
+ * @return Implementation description string
+ */
 const char *symtable_opt_implementation_info(void) {
     return symtable_implementation_info();
 }
 
+/**
+ * @brief Initialize optimized symbol table (alias)
+ */
 void init_symtable_opt(void) { init_symtable(); }
 
+/**
+ * @brief Free optimized symbol table (alias)
+ */
 void free_symtable_opt(void) { free_global_symtable(); }
 
+/**
+ * @brief Get optimized manager (alias)
+ *
+ * @return Pointer to global manager
+ */
 void *get_opt_manager(void) { return (void *)global_manager; }
 
+/**
+ * @brief Set variable (optimized API alias)
+ *
+ * @param name Variable name
+ * @param value Variable value
+ * @param flags Variable flags
+ * @return 0 on success, -1 on failure
+ */
 int symtable_set_var_opt_api(const char *name, const char *value,
                              symvar_flags_t flags) {
     return symtable_set_var_enhanced(name, value, flags);
 }
 
+/**
+ * @brief Get variable (optimized API alias)
+ *
+ * @param name Variable name
+ * @return Allocated copy of value, or NULL if not found
+ */
 char *symtable_get_var_opt_api(const char *name) {
     return symtable_get_var_enhanced(name);
 }
 
+/**
+ * @brief Push scope (optimized API alias)
+ *
+ * @param type Scope type
+ * @param name Scope name
+ * @return 0 on success, -1 on failure
+ */
 int symtable_push_scope_opt_api(scope_type_t type, const char *name) {
     return symtable_push_scope_enhanced(type, name);
 }
 
+/**
+ * @brief Pop scope (optimized API alias)
+ *
+ * @return 0 on success, -1 on failure
+ */
 int symtable_pop_scope_opt_api(void) { return symtable_pop_scope_enhanced(); }
 
+/**
+ * @brief Run optimized benchmark (stub)
+ *
+ * @param iterations Number of iterations (ignored)
+ */
 void symtable_benchmark_opt_comparison(int iterations) {
     (void)iterations;
     printf("This IS the optimized implementation\n");
 }
 
+/**
+ * @brief Run optimized self-test (alias)
+ *
+ * @return 0 on success, -1 on failure
+ */
 int symtable_opt_test(void) { return symtable_libht_test(); }

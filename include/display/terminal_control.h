@@ -1,29 +1,13 @@
-/*
- * Lusush Shell - Layered Display Architecture
- * Terminal Control Layer Header - ANSI Sequences and Capabilities
+/**
+ * @file terminal_control.h
+ * @brief Terminal control layer (Layer 2) - ANSI sequences and capabilities
  *
- * Copyright (C) 2021-2025  Michael Berry
+ * Provides ANSI sequence management, terminal capability detection, and
+ * low-level terminal control operations for the display system.
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- *
- * ============================================================================
- *
- * TERMINAL CONTROL LAYER (Layer 2) - API DEFINITION
- *
- * This header defines the API for the terminal control layer of the Lusush
- * Display System. The terminal control layer provides ANSI sequence management,
- * terminal capability detection, and low-level terminal control operations.
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ * @license GPL-3.0-or-later
  *
  * Key Features:
  * - ANSI escape sequence generation and management

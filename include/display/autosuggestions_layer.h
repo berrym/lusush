@@ -1,30 +1,14 @@
-/*
- * Lusush Shell - Layered Display Architecture
- * Autosuggestions Layer Header - Fish-like Autosuggestions Integration
+/**
+ * @file autosuggestions_layer.h
+ * @brief Autosuggestions layer (Layer 7) - Fish-like autosuggestions
  *
- * Copyright (C) 2021-2025  Michael Berry
+ * Provides Fish-like autosuggestions integrated with the layered display
+ * architecture. Eliminates display corruption and provides enterprise-grade
+ * autosuggestion capabilities.
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- *
- * ============================================================================
- *
- * AUTOSUGGESTIONS LAYER (Layer 7)
- *
- * This header defines the API for the autosuggestions layer of the Lusush
- * Display System. This layer provides Fish-like autosuggestions that integrate
- * seamlessly with the layered display architecture, eliminating display
- * corruption and providing enterprise-grade autosuggestion capabilities.
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ * @license GPL-3.0-or-later
  *
  * Key Features:
  * - Seamless integration with layered display architecture

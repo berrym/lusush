@@ -1,3 +1,15 @@
+/**
+ * @file input.h
+ * @brief Shell input handling and line reading
+ *
+ * Provides core input functions for reading commands from various sources
+ * including interactive terminals, files, and pipes. Supports multiline
+ * input with continuation prompts.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ */
+
 #ifndef INPUT_H
 #define INPUT_H
 

@@ -1,9 +1,12 @@
 /**
- * Execution Engine for POSIX Shell
+ * @file executor.h
+ * @brief POSIX shell command execution engine
  *
- * This execution engine is designed specifically to work with the
- * tokenizer and parser. It handles the AST structure and provides
- * clean, efficient execution of shell commands and control structures.
+ * Handles AST execution including commands, pipelines, control structures,
+ * functions, and job control. Works with the tokenizer and parser.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  */
 
 #ifndef EXECUTOR_H
@@ -87,55 +90,269 @@ typedef struct executor {
 
 } executor_t;
 
-// Global executor instance
+/** Global executor instance */
 extern executor_t *current_executor;
 
-// Main execution interface
+/* ============================================================================
+ * Executor Lifecycle
+ * ============================================================================ */
+
+/**
+ * @brief Create a new executor with global symbol table
+ *
+ * @return New executor instance or NULL on failure
+ */
 executor_t *executor_new(void);
+
+/**
+ * @brief Create a new executor with specified symbol table
+ *
+ * @param symtable Symbol table manager to use
+ * @return New executor instance or NULL on failure
+ */
 executor_t *executor_new_with_symtable(symtable_manager_t *symtable);
+
+/**
+ * @brief Free an executor and all associated resources
+ *
+ * @param executor Executor to free
+ */
 void executor_free(executor_t *executor);
 
-// Primary execution functions
+/* ============================================================================
+ * Primary Execution
+ * ============================================================================ */
+
+/**
+ * @brief Execute an AST node
+ *
+ * @param executor Executor context
+ * @param ast Abstract syntax tree to execute
+ * @return Exit status of executed command
+ */
 int executor_execute(executor_t *executor, node_t *ast);
+
+/**
+ * @brief Parse and execute a command line string
+ *
+ * @param executor Executor context
+ * @param input Command line to execute
+ * @return Exit status of executed command
+ */
 int executor_execute_command_line(executor_t *executor, const char *input);
 
-// Configuration
+/* ============================================================================
+ * Configuration
+ * ============================================================================ */
+
+/**
+ * @brief Enable or disable debug mode
+ *
+ * @param executor Executor context
+ * @param debug True to enable debug output
+ */
 void executor_set_debug(executor_t *executor, bool debug);
+
+/**
+ * @brief Set interactive mode flag
+ *
+ * @param executor Executor context
+ * @param interactive True for interactive shell mode
+ */
 void executor_set_interactive(executor_t *executor, bool interactive);
+
+/**
+ * @brief Set the symbol table manager
+ *
+ * @param executor Executor context
+ * @param symtable Symbol table manager to use
+ */
 void executor_set_symtable(executor_t *executor, symtable_manager_t *symtable);
 
-// Error handling
+/* ============================================================================
+ * Error Handling
+ * ============================================================================ */
+
+/**
+ * @brief Check if executor has an error
+ *
+ * @param executor Executor context
+ * @return True if an error occurred
+ */
 bool executor_has_error(executor_t *executor);
+
+/**
+ * @brief Get the last error message
+ *
+ * @param executor Executor context
+ * @return Error message string or NULL
+ */
 const char *executor_error(executor_t *executor);
 
-// Variable expansion functions
+/* ============================================================================
+ * Variable Expansion
+ * ============================================================================ */
+
+/**
+ * @brief Expand variables in text if needed
+ *
+ * @param executor Executor context
+ * @param text Text potentially containing variables
+ * @return Expanded string (caller must free) or NULL on error
+ */
 char *expand_if_needed(executor_t *executor, const char *text);
 
-// Job control functions
+/* ============================================================================
+ * Job Control
+ * ============================================================================ */
+
+/**
+ * @brief Execute a command in the background
+ *
+ * @param executor Executor context
+ * @param command Command node to execute
+ * @return Exit status (0 on success)
+ */
 int executor_execute_background(executor_t *executor, node_t *command);
+
+/**
+ * @brief Add a job to the job list
+ *
+ * @param executor Executor context
+ * @param pgid Process group ID of the job
+ * @param command_line Original command line string
+ * @return New job structure or NULL on failure
+ */
 job_t *executor_add_job(executor_t *executor, pid_t pgid,
                         const char *command_line);
+
+/**
+ * @brief Update status of all jobs
+ *
+ * @param executor Executor context
+ */
 void executor_update_job_status(executor_t *executor);
+
+/**
+ * @brief Find a job by ID
+ *
+ * @param executor Executor context
+ * @param job_id Job ID to find
+ * @return Job structure or NULL if not found
+ */
 job_t *executor_find_job(executor_t *executor, int job_id);
+
+/**
+ * @brief Remove a job from the job list
+ *
+ * @param executor Executor context
+ * @param job_id Job ID to remove
+ */
 void executor_remove_job(executor_t *executor, int job_id);
+
+/**
+ * @brief Built-in jobs command implementation
+ *
+ * @param executor Executor context
+ * @param argv Command arguments
+ * @return Exit status
+ */
 int executor_builtin_jobs(executor_t *executor, char **argv);
+
+/**
+ * @brief Built-in fg command implementation
+ *
+ * @param executor Executor context
+ * @param argv Command arguments
+ * @return Exit status
+ */
 int executor_builtin_fg(executor_t *executor, char **argv);
+
+/**
+ * @brief Built-in bg command implementation
+ *
+ * @param executor Executor context
+ * @param argv Command arguments
+ * @return Exit status
+ */
 int executor_builtin_bg(executor_t *executor, char **argv);
+
+/**
+ * @brief Count number of jobs
+ *
+ * @param executor Executor context
+ * @return Number of jobs in job list
+ */
 int executor_count_jobs(executor_t *executor);
 
-// Function parameter management utilities
+/* ============================================================================
+ * Function Parameters
+ * ============================================================================ */
+
+/**
+ * @brief Create a function parameter definition
+ *
+ * @param name Parameter name
+ * @param default_value Default value or NULL if required
+ * @return New parameter structure or NULL on failure
+ */
 function_param_t *create_function_param(const char *name,
                                         const char *default_value);
+
+/**
+ * @brief Free a function parameter list
+ *
+ * @param params Parameter list to free
+ */
 void free_function_params(function_param_t *params);
 
-// Script context management for debugging
+/* ============================================================================
+ * Script Context (Debugging)
+ * ============================================================================ */
+
+/**
+ * @brief Set script execution context for debugging
+ *
+ * @param executor Executor context
+ * @param script_file Script file path
+ * @param line_number Current line number
+ */
 void executor_set_script_context(executor_t *executor, const char *script_file,
                                  int line_number);
+
+/**
+ * @brief Clear script execution context
+ *
+ * @param executor Executor context
+ */
 void executor_clear_script_context(executor_t *executor);
+
+/**
+ * @brief Get current script file path
+ *
+ * @param executor Executor context
+ * @return Script file path or NULL
+ */
 const char *executor_get_current_script_file(executor_t *executor);
+
+/**
+ * @brief Get current script line number
+ *
+ * @param executor Executor context
+ * @return Line number or 0 if not in script
+ */
 int executor_get_current_script_line(executor_t *executor);
 
-// Privileged mode security functions
+/* ============================================================================
+ * Security
+ * ============================================================================ */
+
+/**
+ * @brief Check if redirection target is allowed in privileged mode
+ *
+ * @param target Redirection target path
+ * @return True if allowed, false otherwise
+ */
 bool is_privileged_redirection_allowed(const char *target);
 
 #endif // EXECUTOR_H

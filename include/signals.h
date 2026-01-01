@@ -1,3 +1,14 @@
+/**
+ * @file signals.h
+ * @brief Signal handling and trap management
+ *
+ * Provides signal handler setup, trap command management, and coordination
+ * between the shell and LLE for proper interrupt handling.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ */
+
 #ifndef SIGNALS_H
 #define SIGNALS_H
 
