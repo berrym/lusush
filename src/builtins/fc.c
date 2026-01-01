@@ -19,6 +19,7 @@
 #include "executor.h"
 #include "lle/history.h"
 #include "lle/lle_editor.h"
+#include "lle/lle_shell_integration.h"
 #include "symtable.h"
 
 #include <ctype.h>
@@ -30,9 +31,6 @@
 
 /* Maximum editor command length */
 #define FC_MAX_EDITOR_COMMAND 4096
-
-/* External function to get the global LLE editor */
-extern lle_editor_t *lle_get_global_editor(void);
 
 /* fc command options */
 typedef struct fc_options {

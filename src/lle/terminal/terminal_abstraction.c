@@ -17,6 +17,7 @@
  */
 
 #include "lle/terminal_abstraction.h"
+#include "lle/memory_management.h"
 #include <stdlib.h>
 
 /* ============================================================================
@@ -64,7 +65,6 @@ lle_terminal_abstraction_init(lle_terminal_abstraction_t **abstraction,
 
     /* Step 3.5: Initialize sequence parser now that capabilities are available
      */
-    extern lusush_memory_pool_t *global_memory_pool;
     result = lle_unix_interface_init_sequence_parser(
         abs->unix_interface, abs->capabilities,
         (lle_memory_pool_t *)global_memory_pool);

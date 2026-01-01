@@ -623,9 +623,6 @@ void config_set_shell_option(const char *option_name, bool value) {
     // Remove "shell." prefix to get the actual option name
     const char *opt_name = option_name + 6; // Skip "shell."
 
-    // Use existing POSIX option infrastructure - same logic as builtin_set
-    extern shell_options_t shell_opts; // From lusush.h
-
     // Map to existing shell option flags using the same names as builtin_set
     if (strcmp(opt_name, "errexit") == 0) {
         shell_opts.exit_on_error = value;
@@ -692,10 +689,7 @@ bool config_get_shell_option(const char *option_name) {
     // Remove "shell." prefix to get the actual option name
     const char *opt_name = option_name + 6; // Skip "shell."
 
-    // Use existing shell option flags - same logic as builtin_set status
-    // display
-    extern shell_options_t shell_opts; // From lusush.h
-
+    // Use existing shell option flags - same logic as builtin_set status display
     if (strcmp(opt_name, "errexit") == 0) {
         return shell_opts.exit_on_error;
     } else if (strcmp(opt_name, "xtrace") == 0) {
@@ -894,7 +888,6 @@ int config_execute_script_file(const char *path) {
         }
 
         // Parse and execute the line
-        extern int parse_and_execute(const char *command);
         int line_result = parse_and_execute(line);
         if (line_result != 0) {
             result = line_result;

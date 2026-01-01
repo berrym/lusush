@@ -35,10 +35,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-// External declarations from shell
-extern builtin builtins[];
-extern const size_t builtins_count;
-extern ht_strstr_t *aliases;
+// POSIX system variable
 extern char **environ;
 
 // ============================================================================

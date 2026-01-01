@@ -13,9 +13,6 @@
 // Global debug context
 debug_context_t *g_debug_context = NULL;
 
-// External reference to current executor for function introspection
-extern executor_t *current_executor;
-
 // Initialize debug context
 debug_context_t *debug_init(void) {
     debug_context_t *ctx = malloc(sizeof(debug_context_t));

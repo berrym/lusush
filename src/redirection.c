@@ -33,9 +33,6 @@
 static int handle_redirection_node(executor_t *executor, node_t *redir_node);
 static int setup_here_document(const char *delimiter, bool strip_tabs);
 static int setup_here_document_with_content(const char *content);
-
-// External function from executor.c
-extern bool is_privileged_redirection_allowed(const char *target);
 static int setup_here_document_with_processing(executor_t *executor,
                                                const char *content,
                                                bool strip_tabs,
@@ -43,9 +40,6 @@ static int setup_here_document_with_processing(executor_t *executor,
 static int setup_here_string(executor_t *executor, const char *content);
 static char *expand_redirection_target(executor_t *executor,
                                        const char *target);
-
-// External function from executor_modern.c
-extern char *expand_if_needed(executor_t *executor, const char *text);
 
 // Forward declaration for file descriptor redirection
 static int setup_fd_redirection(const char *redir_text);

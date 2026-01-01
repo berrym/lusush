@@ -55,7 +55,6 @@ lle_result_t lle_editor_create(lle_editor_t **editor,
 
     /* Use global pool if none provided */
     if (!pool) {
-        extern lusush_memory_pool_t *global_memory_pool;
         pool = global_memory_pool;
     }
 

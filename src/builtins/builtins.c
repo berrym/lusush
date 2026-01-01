@@ -1266,7 +1266,6 @@ int bin_source(int argc, char **argv) {
     // Set script execution context for debugging
     executor_set_script_context(executor, argv[1], 1);
 
-    extern char *get_input_complete(FILE * in);
     char *complete_input;
     int result = 0;
     int construct_number = 1;
@@ -1710,9 +1709,6 @@ int bin_set(int argc, char **argv) {
     return builtin_set(argv);
 }
 
-// Global executor pointer for job control builtins
-extern executor_t *current_executor;
-
 /**
  * bin_jobs:
  *      List active jobs
@@ -1770,10 +1766,6 @@ int bin_shift(int argc, char **argv) {
         }
     }
 
-    // Get current positional parameters
-    extern int shell_argc;
-    extern char **shell_argv;
-
     // Calculate available parameters to shift (excluding script name at
     // argv[0])
     int available_params = shell_argc > 1 ? shell_argc - 1 : 0;
@@ -1821,9 +1813,6 @@ int bin_shift(int argc, char **argv) {
  *      Break out of enclosing loop
  */
 int bin_break(int argc, char **argv) {
-    // Get the current executor to set loop control state
-    extern executor_t *current_executor;
-
     if (!current_executor) {
         fprintf(stderr, "break: not currently in a loop\n");
         return 1;
@@ -1865,9 +1854,6 @@ int bin_break(int argc, char **argv) {
  *      Continue to next iteration of enclosing loop
  */
 int bin_continue(int argc, char **argv) {
-    // Get the current executor to set loop control state
-    extern executor_t *current_executor;
-
     if (!current_executor) {
         fprintf(stderr, "continue: not currently in a loop\n");
         return 1;
@@ -1951,7 +1937,6 @@ int bin_return(int argc, char **argv) {
     }
 
     // Set the last exit status to the return code
-    extern int last_exit_status;
     last_exit_status = return_code;
 
     // Return a special exit code that the executor can recognize as "function
@@ -2122,8 +2107,6 @@ int bin_exec(int argc, char **argv) {
    */
 int bin_wait(int argc, char **argv) {
     // Get the current executor to access job control
-    extern executor_t *current_executor;
-
     if (!current_executor) {
         // If no executor, there are no jobs to wait for
         return 0;
@@ -3943,8 +3926,6 @@ int bin_display(int argc, char **argv) {
         const char *lle_cmd = argv[2];
 
         if (strcmp(lle_cmd, "status") == 0) {
-            extern config_values_t config;
-            extern lle_editor_t *lle_get_global_editor(void);
             lle_editor_t *editor = lle_get_global_editor();
 
             printf("LLE Status:\n");
@@ -3972,8 +3953,6 @@ int bin_display(int argc, char **argv) {
             return 0;
 
         } else if (strcmp(lle_cmd, "history-import") == 0) {
-            /* Get the global LLE editor */
-            extern lle_editor_t *lle_get_global_editor(void);
             lle_editor_t *editor = lle_get_global_editor();
 
             if (!editor || !editor->history_system) {
@@ -4017,7 +3996,6 @@ int bin_display(int argc, char **argv) {
 
         } else if (strcmp(lle_cmd, "keybindings") == 0) {
             /* Keybinding management commands */
-            extern lle_editor_t *lle_get_global_editor(void);
             lle_editor_t *editor = lle_get_global_editor();
 
             /* Check for subcommand */
@@ -4275,8 +4253,6 @@ int bin_display(int argc, char **argv) {
 
         } else if (strcmp(lle_cmd, "autosuggestions") == 0) {
             /* Control autosuggestions */
-            extern config_values_t config;
-
             if (argc < 4) {
                 printf("Autosuggestions: %s\n",
                        config.display_autosuggestions ? "enabled" : "disabled");
@@ -4303,8 +4279,6 @@ int bin_display(int argc, char **argv) {
 
         } else if (strcmp(lle_cmd, "syntax") == 0) {
             /* Control syntax highlighting */
-            extern config_values_t config;
-
             if (argc < 4) {
                 printf("Syntax highlighting: %s\n",
                        config.display_syntax_highlighting ? "enabled"
@@ -4332,8 +4306,6 @@ int bin_display(int argc, char **argv) {
 
         } else if (strcmp(lle_cmd, "transient") == 0) {
             /* Control transient prompts (Spec 25 Section 12) */
-            extern config_values_t config;
-
             if (argc < 4) {
                 printf("Transient prompts: %s\n",
                        config.display_transient_prompt ? "enabled"
@@ -4375,8 +4347,6 @@ int bin_display(int argc, char **argv) {
 
         } else if (strcmp(lle_cmd, "newline-before") == 0) {
             /* Control newline before prompt for visual separation */
-            extern config_values_t config;
-
             if (argc < 4) {
                 printf("Newline before prompt: %s\n",
                        config.display_newline_before_prompt ? "enabled"
@@ -4416,8 +4386,6 @@ int bin_display(int argc, char **argv) {
 
         } else if (strcmp(lle_cmd, "multiline") == 0) {
             /* Control multiline editing */
-            extern config_values_t config;
-
             if (argc < 4) {
                 printf("Multiline editing: %s\n",
                        config.lle_enable_multiline_editing ? "enabled"
@@ -4445,8 +4413,6 @@ int bin_display(int argc, char **argv) {
 
         } else if (strcmp(lle_cmd, "diagnostics") == 0) {
             /* Show LLE diagnostics */
-            extern config_values_t config;
-            extern lle_editor_t *lle_get_global_editor(void);
             lle_editor_t *editor = lle_get_global_editor();
 
             printf("LLE Diagnostics\n");

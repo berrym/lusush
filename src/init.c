@@ -38,7 +38,6 @@
 #endif
 
 extern char **environ;
-extern posix_history_manager_t *global_posix_history;
 
 // POSIX-compliant shell type tracking
 static int SHELL_TYPE;
@@ -475,8 +474,6 @@ int init(int argc, char **argv, FILE **in) {
         symtable_set_global("0", argv[optind]); // Script name
 
         // Update global shell_argc and shell_argv for script arguments
-        extern int shell_argc;
-        extern char **shell_argv;
         shell_argc =
             argc - optind; // Number of script args (including script name)
         shell_argv = &argv[optind]; // Pointer to script args

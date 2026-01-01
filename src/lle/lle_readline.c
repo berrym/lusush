@@ -82,18 +82,12 @@
 lle_result_t lle_history_previous(lle_editor_t *editor);
 lle_result_t lle_history_next(lle_editor_t *editor);
 
-/* Forward declaration for config */
-extern config_values_t config;
-
 #include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-/* External global memory pool */
-extern lusush_memory_pool_t *global_memory_pool;
 
 /* Global LLE editor instance (proper architecture) */
 static lle_editor_t *global_lle_editor = NULL;

@@ -1,9 +1,66 @@
-# AI Assistant Handoff Document - Session 92
+# AI Assistant Handoff Document - Session 93
 
-**Date**: 2025-12-31
-**Session Type**: Linux Build Verification After Readline Removal
+**Date**: 2026-01-01
+**Session Type**: Inline Extern Cleanup - Code Quality Improvement
 **Status**: COMPLETE
 **Branch**: `feature/lle`
+
+---
+
+## Session 93: Inline Extern Cleanup
+
+Removed ~40+ redundant inline extern declarations scattered throughout source files, moving them to proper header files. This eliminates "code smell" patterns and improves maintainability.
+
+### Problem Addressed
+
+Inline extern declarations inside `.c` files instead of proper header includes create:
+- Duplicate declarations (already in headers)
+- Maintenance burden (must update multiple places)
+- Potential type mismatches
+- Unclear dependency relationships
+
+### Headers Updated (5 files)
+
+| File | Additions |
+|------|-----------|
+| `include/builtins.h` | `#include "libhashtable/ht.h"`, `find_command_in_path()`, `extern ht_strstr_t *command_hash;` |
+| `include/lle/lle_shell_integration.h` | `lle_get_global_editor()` declaration |
+| `include/alias.h` | `#include "libhashtable/ht.h"`, `extern ht_strstr_t *aliases;` |
+| `include/executor.h` | `extern executor_t *current_executor;` |
+| `include/posix_history.h` | `extern posix_history_manager_t *global_posix_history;` |
+
+### Source Files Cleaned (16 files)
+
+| File | Externs Removed |
+|------|-----------------|
+| `src/executor.c` | ~15 externs for globals/functions |
+| `src/config.c` | `shell_opts` (2x), `parse_and_execute` |
+| `src/init.c` | `global_posix_history`, `shell_argc`, `shell_argv` |
+| `src/symtable.c` | `last_exit_status` (added `lusush.h` include) |
+| `src/arithmetic.c` | `symtable_get_global_manager` |
+| `src/builtins/builtins.c` | ~15 externs for `config`, `lle_get_global_editor`, `current_executor`, etc. |
+| `src/builtins/fc.c` | `lle_get_global_editor` (added proper include) |
+| `src/lle/lle_readline.c` | `config`, `global_memory_pool` |
+| `src/lle/lle_editor.c` | `global_memory_pool` |
+| `src/lle/lle_shell_integration.c` | `global_memory_pool`, `config`, `shell_opts` |
+| `src/lle/terminal/terminal_abstraction.c` | `global_memory_pool` |
+| `src/lle/completion/completion_sources.c` | `builtins[]`, `builtins_count`, `aliases` |
+| `src/debug/debug_core.c` | `current_executor` |
+| `src/debug/debug_trace.c` | `current_executor` (2x) |
+| `src/redirection.c` | `is_privileged_redirection_allowed`, `expand_if_needed` |
+
+### Legitimate Externs Preserved
+
+- `extern char **environ;` - POSIX system variable (kept in multiple files)
+- `extern int strncasecmp(...)` - Platform compatibility
+
+### Results
+
+- **Build**: ✅ Successful (353 targets)
+- **Tests**: ✅ 58/58 passing
+- **~40+ inline externs removed** from source files
+- **~5 declarations added** to proper headers
+- **Cleaner architecture** with proper header dependencies
 
 ---
 

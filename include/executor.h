@@ -87,6 +87,9 @@ typedef struct executor {
 
 } executor_t;
 
+// Global executor instance
+extern executor_t *current_executor;
+
 // Main execution interface
 executor_t *executor_new(void);
 executor_t *executor_new_with_symtable(symtable_manager_t *symtable);

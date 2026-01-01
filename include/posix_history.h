@@ -628,6 +628,15 @@ void enhanced_history_save(void);
  */
 void enhanced_history_cleanup(void);
 
+// ============================================================================
+// Global Instance
+// ============================================================================
+
+/**
+ * @brief Global POSIX history manager instance
+ */
+extern posix_history_manager_t *global_posix_history;
+
 #ifdef __cplusplus
 }
 #endif

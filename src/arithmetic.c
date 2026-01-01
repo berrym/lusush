@@ -26,9 +26,6 @@
 #include <string.h>
 #include <sys/types.h>
 
-// Get global symbol table manager (defined in symtable.c)
-extern symtable_manager_t *symtable_get_global_manager(void);
-
 #define MAXOPSTACK 64
 #define MAXNUMSTACK 64
 #define MAXBASE 36

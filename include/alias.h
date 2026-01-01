@@ -4,6 +4,10 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#include "libhashtable/ht.h"
+
+extern ht_strstr_t *aliases;
+
 void init_aliases(void);
 void free_aliases(void);
 char *lookup_alias(const char *);

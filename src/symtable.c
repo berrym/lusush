@@ -17,6 +17,7 @@
 #include "symtable.h"
 
 #include "ht.h"
+#include "lusush.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -836,7 +837,6 @@ void set_exit_status(int status) {
     symtable_set_special_global("?", status_str);
 
     // Also update the global variable for consistency
-    extern int last_exit_status;
     last_exit_status = status;
 }
 

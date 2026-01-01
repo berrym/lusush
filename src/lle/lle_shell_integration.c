@@ -40,12 +40,6 @@
 /** Global shell integration instance */
 lle_shell_integration_t *g_lle_integration = NULL;
 
-/** External global memory pool from Lusush */
-extern lusush_memory_pool_t *global_memory_pool;
-
-/** External config for history settings */
-extern config_values_t config;
-
 /** Flag to prevent double atexit registration */
 static bool atexit_registered = false;
 
@@ -663,7 +657,6 @@ void lusush_update_editing_mode(void) {
         return;
     }
 
-    extern shell_options_t shell_opts;
     lle_editor_t *editor = g_lle_integration->editor;
 
     if (shell_opts.vi_mode) {

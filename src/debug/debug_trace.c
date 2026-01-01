@@ -264,8 +264,6 @@ void debug_inspect_variable(debug_context_t *ctx, const char *name) {
     // Clean variable name (remove $ prefix if present)
     const char *clean_name = (name[0] == '$') ? name + 1 : name;
 
-    // Get current executor to access symtable
-    extern executor_t *current_executor;
     if (!current_executor) {
         debug_printf(ctx, "  Error: No executor context available\n");
         return;
@@ -394,8 +392,6 @@ void debug_inspect_all_variables(debug_context_t *ctx) {
 
     debug_print_header(ctx, "Variable Inspection");
 
-    // Get current executor to access symtable
-    extern executor_t *current_executor;
     if (!current_executor) {
         debug_printf(ctx, "No executor context available\n");
         return;

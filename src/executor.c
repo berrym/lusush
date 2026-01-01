@@ -812,7 +812,6 @@ static int execute_command(executor_t *executor, node_t *command) {
     int result;
 
     // Get debug context for profiling and frame management
-    extern debug_context_t *g_debug_context;
     const char *command_name = filtered_argv[0];
 
     // Push debug frame and start profiling for this command
@@ -1364,9 +1363,6 @@ static int execute_for(executor_t *executor, node_t *for_node) {
                 if (strcmp(word->val.str, "\"$@\"") == 0 ||
                     strcmp(word->val.str, "$@") == 0) {
                     // Handle quoted "$@" - preserve word boundaries
-                    extern int shell_argc;
-                    extern char **shell_argv;
-
                     for (int i = 1; i < shell_argc; i++) {
                         if (shell_argv[i]) {
                             // Resize array if needed
@@ -2089,10 +2085,6 @@ static int execute_external_command_with_redirection(executor_t *executor,
 
     // If hashall is enabled, remember this command's location before forking
     if (shell_opts.hash_commands && !strchr(argv[0], '/')) {
-        extern char *find_command_in_path(const char *command);
-        extern ht_strstr_t *command_hash;
-        extern void init_command_hash(void);
-
         char *full_path = find_command_in_path(argv[0]);
         if (full_path) {
             init_command_hash();
@@ -2518,10 +2510,6 @@ static int execute_external_command_with_setup(executor_t *executor,
 
     // If hashall is enabled, remember this command's location before forking
     if (shell_opts.hash_commands && !strchr(argv[0], '/')) {
-        extern char *find_command_in_path(const char *command);
-        extern ht_strstr_t *command_hash;
-        extern void init_command_hash(void);
-
         char *full_path = find_command_in_path(argv[0]);
         if (full_path) {
             init_command_hash();
@@ -4150,12 +4138,6 @@ static char *parse_parameter_expansion(executor_t *executor,
     // No operator found, just get the variable value
     // First check for special variables that aren't in the symbol table
     if (strlen(expansion) == 1) {
-        extern int shell_argc;
-        extern char **shell_argv;
-        extern int last_exit_status;
-        extern pid_t shell_pid;
-        extern pid_t last_background_pid;
-
         char buffer[1024];
 
         switch (expansion[0]) {
@@ -4284,7 +4266,6 @@ static char *expand_variable(executor_t *executor, const char *var_text) {
 
     // Special case: if var_text is exactly "$$", treat it as shell PID
     if (strcmp(var_text, "$$") == 0) {
-        extern pid_t shell_pid;
         char buffer[32];
         snprintf(buffer, sizeof(buffer), "%d", (int)shell_pid);
         return strdup(buffer);
@@ -4292,7 +4273,6 @@ static char *expand_variable(executor_t *executor, const char *var_text) {
 
     // Special case: if var_text is exactly "$", treat it as shell PID
     if (strcmp(var_text, "$") == 0) {
-        extern pid_t shell_pid;
         char buffer[32];
         snprintf(buffer, sizeof(buffer), "%d", (int)shell_pid);
         return strdup(buffer);
@@ -4300,7 +4280,6 @@ static char *expand_variable(executor_t *executor, const char *var_text) {
 
     // Special case: if var_text is exactly "$?", treat it as exit status
     if (strcmp(var_text, "$?") == 0) {
-        extern int last_exit_status;
         char buffer[32];
         snprintf(buffer, sizeof(buffer), "%d", last_exit_status);
         return strdup(buffer);
@@ -4371,12 +4350,6 @@ static char *expand_variable(executor_t *executor, const char *var_text) {
                 // If not found in symbol table and it's a special variable,
                 // handle it directly
                 if (!value && name_len == 1) {
-                    extern int shell_argc;
-                    extern char **shell_argv;
-                    extern int last_exit_status;
-                    extern pid_t shell_pid;
-                    extern pid_t last_background_pid;
-
                     char buffer[1024];
 
                     switch (name[0]) {
@@ -4675,10 +4648,6 @@ static char *expand_tilde(const char *text) {
     }
 }
 
-// Modern arithmetic expansion using extracted and modernized shunting yard
-// algorithm
-extern char *arithm_expand(const char *orig_expr);
-
 // Expand arithmetic expression using modern implementation
 static char *expand_arithmetic(executor_t *executor, const char *arith_text) {
     if (!executor || !arith_text) {
@@ -4694,9 +4663,6 @@ static char *expand_arithmetic(executor_t *executor, const char *arith_text) {
 
     // If arithm_expand returns NULL, there was an error (like division by zero)
     // Print error message and set exit status to indicate error
-    extern bool arithm_error_flag;
-    extern char *arithm_error_message;
-
     if (arithm_error_flag && arithm_error_message) {
         fprintf(stderr, "lusush: arithmetic: %s\n", arithm_error_message);
     } else {
@@ -5501,7 +5467,6 @@ int executor_execute_background(executor_t *executor, node_t *command) {
             exit(result);
         } else {
             // Parent process - store background PID but no job tracking
-            extern pid_t last_background_pid;
             last_background_pid = pid;
             return 0;
         }
@@ -5531,7 +5496,6 @@ int executor_execute_background(executor_t *executor, node_t *command) {
         setpgid(pid, pid); // Set child's process group
 
         // Store the background PID for $! variable
-        extern pid_t last_background_pid;
         last_background_pid = pid;
 
         job_t *job = executor_add_job(executor, pid, command_line);

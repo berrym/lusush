@@ -171,6 +171,16 @@ lle_shell_integration_t *lle_get_shell_integration(void);
 bool lle_is_active(void);
 
 /**
+ * @brief Get the global LLE editor instance
+ *
+ * Returns the global LLE editor instance used by the shell.
+ * The editor is created during shell initialization and destroyed on exit.
+ *
+ * @return The global editor instance, or NULL if LLE is not initialized
+ */
+lle_editor_t *lle_get_global_editor(void);
+
+/**
  * @brief Update the shell prompt
  *
  * Renders the prompt using the LLE prompt composer and updates PS1/PS2

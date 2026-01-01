@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#include "libhashtable/ht.h"
+
 typedef struct builtin_s {
     const char *name;
     const char *doc;
@@ -53,5 +55,8 @@ int bin_debug(int, char **);
 void init_command_hash(void);
 void free_command_hash(void);
 bool is_builtin(const char *);
+char *find_command_in_path(const char *cmd);
+
+extern ht_strstr_t *command_hash;
 
 #endif
