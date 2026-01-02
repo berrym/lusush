@@ -295,6 +295,16 @@ static size_t skip_whitespace(const char *input, size_t pos, size_t len) {
 /* Use is_alias() from alias.h (already included above) */
 
 /**
+ * @brief Check if a path exists on the filesystem
+ *
+ * Forward declaration - implementation below tokenizer section.
+ *
+ * @param path Path to check
+ * @return true if path exists, false otherwise
+ */
+static bool path_exists(const char *path);
+
+/**
  * @brief Check if a command exists in PATH
  * @param command Command name to check
  * @return true if command is found and executable
@@ -357,6 +367,64 @@ lle_syntax_check_command(lle_syntax_highlighter_t *highlighter,
         type = LLE_TOKEN_COMMAND_BUILTIN;
     } else if (lookup_alias(command) != NULL) {
         type = LLE_TOKEN_COMMAND_ALIAS;
+    } else if (command[0] == '/' || command[0] == '.') {
+        /* Absolute or relative path - check if file exists */
+        type = path_exists(command) ? LLE_TOKEN_COMMAND_VALID
+                                    : LLE_TOKEN_COMMAND_INVALID;
+    } else if (command[0] == '~') {
+        /* Home directory path - expand and check */
+        const char *home = getenv("HOME");
+        if (home) {
+            char expanded[4096];
+            snprintf(expanded, sizeof(expanded), "%s%s", home, command + 1);
+            type = path_exists(expanded) ? LLE_TOKEN_COMMAND_VALID
+                                         : LLE_TOKEN_COMMAND_INVALID;
+        } else {
+            type = LLE_TOKEN_COMMAND_INVALID;
+        }
+    } else if (command[0] == '$' && strchr(command, '/')) {
+        /* Variable path (e.g., $HOME/bin/script) - expand and check */
+        char expanded[4096];
+        const char *var_start = command + 1;
+        const char *var_end = var_start;
+        const char *rest = NULL;
+
+        if (var_start[0] == '{') {
+            /* ${VAR} format */
+            var_start++;
+            var_end = strchr(var_start, '}');
+            if (var_end) {
+                rest = var_end + 1;
+            }
+        } else {
+            /* $VAR format */
+            while (*var_end && (isalnum((unsigned char)*var_end) ||
+                                *var_end == '_')) {
+                var_end++;
+            }
+            rest = var_end;
+        }
+
+        if (var_end && var_end > var_start && rest) {
+            size_t var_len = (size_t)(var_end - var_start);
+            char var_name[256];
+            if (var_len < sizeof(var_name)) {
+                memcpy(var_name, var_start, var_len);
+                var_name[var_len] = '\0';
+                const char *value = getenv(var_name);
+                if (value) {
+                    snprintf(expanded, sizeof(expanded), "%s%s", value, rest);
+                    type = path_exists(expanded) ? LLE_TOKEN_COMMAND_VALID
+                                                 : LLE_TOKEN_COMMAND_INVALID;
+                } else {
+                    type = LLE_TOKEN_COMMAND_INVALID;
+                }
+            } else {
+                type = LLE_TOKEN_COMMAND_INVALID;
+            }
+        } else {
+            type = LLE_TOKEN_COMMAND_INVALID;
+        }
     } else if (command_exists_in_path(command)) {
         type = LLE_TOKEN_COMMAND_VALID;
     } else {

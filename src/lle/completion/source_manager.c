@@ -50,13 +50,63 @@ external_command_source_applicable(const lle_context_analyzer_t *context) {
 }
 
 /**
+ * @brief Check if prefix indicates a path for local executable
+ *
+ * Detects prefixes that indicate the user wants to run a local file:
+ *   ./        - current directory
+ *   ../       - parent directory
+ *   ~/        - home directory
+ *   /         - absolute path
+ *   $VAR/     - variable expansion (e.g., $HOME/)
+ *
+ * @param prefix Prefix string to check
+ * @return true if path prefix detected
+ */
+static bool is_path_prefix(const char *prefix) {
+    if (!prefix || !prefix[0]) {
+        return false;
+    }
+    /* Absolute path */
+    if (prefix[0] == '/') {
+        return true;
+    }
+    /* Home directory */
+    if (prefix[0] == '~') {
+        return true;
+    }
+    /* Variable expansion containing slash (e.g., $HOME/) */
+    if (prefix[0] == '$' && strchr(prefix, '/')) {
+        return true;
+    }
+    /* Relative paths: ./ or ../ */
+    if (prefix[0] == '.') {
+        if (prefix[1] == '/') {
+            return true;
+        }
+        if (prefix[1] == '.' && prefix[2] == '/') {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
  * @brief Check if file source is applicable
  * @param context Context to check
- * @return true if argument or redirect context
+ * @return true if argument, redirect, or command with path prefix
  */
 static bool file_source_applicable(const lle_context_analyzer_t *context) {
-    return context->type == LLE_CONTEXT_ARGUMENT ||
-           context->type == LLE_CONTEXT_REDIRECT;
+    /* Always applicable for arguments and redirects */
+    if (context->type == LLE_CONTEXT_ARGUMENT ||
+        context->type == LLE_CONTEXT_REDIRECT) {
+        return true;
+    }
+    /* Also applicable at command position if prefix indicates a path */
+    if (context->type == LLE_CONTEXT_COMMAND &&
+        is_path_prefix(context->partial_word)) {
+        return true;
+    }
+    return false;
 }
 
 /**

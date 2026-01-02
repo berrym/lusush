@@ -1,9 +1,56 @@
-# AI Assistant Handoff Document - Session 101
+# AI Assistant Handoff Document - Session 102
 
-**Date**: 2026-01-01
-**Session Type**: POSIX Builtins
+**Date**: 2026-01-02
+**Session Type**: LLE Completion Enhancement
 **Status**: COMPLETE
 **Branch**: `feature/lle`
+
+---
+
+## Session 102: Path-Based Completion and Highlighting at Command Position
+
+Extended LLE completion and syntax highlighting to support path prefixes at command position (start of line). Previously, paths like `./script.sh`, `~/bin/cmd`, and `$HOME/bin/cmd` only worked as arguments, not as commands.
+
+### Features Implemented
+
+#### Path-Based Tab Completion at Command Position
+
+**Problem**: Typing `./scr<TAB>` or `~/bin/<TAB>` at the start of a line did not trigger file completion because the file source was only enabled for argument and redirect contexts.
+
+**Solution**: Modified `file_source_applicable()` to also trigger when the prefix indicates a path.
+
+**Supported Prefixes**:
+- `./` - current directory
+- `../` - parent directory
+- `~/` - home directory
+- `/` - absolute path
+- `$VAR/` - variable expansion (e.g., `$HOME/`)
+
+**Implementation** (`src/lle/completion/source_manager.c`):
+- Added `is_path_prefix()` helper function to detect path indicators
+- Modified `file_source_applicable()` to return true for path prefixes at command position
+
+#### Path-Based Syntax Highlighting at Command Position
+
+**Problem**: `~/bin/script` showed red (invalid command) even when the file exists, because the syntax highlighter only checked PATH, builtins, and aliases.
+
+**Solution**: Extended `lle_syntax_check_command()` to validate path-based commands.
+
+**Implementation** (`src/lle/display/syntax_highlighting.c`):
+- Added forward declaration for `path_exists()` with Doxygen documentation
+- Absolute paths (`/`) and relative paths (`./`, `../`) checked directly with `path_exists()`
+- Home paths (`~/`) expanded to `$HOME` before checking
+- Variable paths (`$VAR/`, `${VAR}/`) expanded before checking
+- Valid paths show green, invalid paths show red
+
+**Files Modified**:
+- `src/lle/completion/source_manager.c` - Path prefix detection for completion
+- `src/lle/display/syntax_highlighting.c` - Path validation for highlighting
+
+### Test Results
+
+- **Build**: ✅ All targets compile
+- **Meson Tests**: ✅ 54/54 tests pass
 
 ---
 
