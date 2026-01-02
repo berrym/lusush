@@ -1,9 +1,67 @@
-# AI Assistant Handoff Document - Session 104
+# AI Assistant Handoff Document - Session 105
 
 **Date**: 2026-01-02
-**Session Type**: macOS Memory Leak Fixes
+**Session Type**: Linux Memory Leak Regression Fix
 **Status**: COMPLETE
 **Branch**: `feature/lle`
+
+---
+
+## Session 105: Linux Memory Leak Regression After macOS Fixes
+
+Fixed memory leak regression on Linux caused by Session 104's macOS memory leak fixes. The Session 104 changes exposed a pre-existing bug in `lle_completion_system_clear()`.
+
+### Bug Fixed
+
+#### Completion Menu Not Freed in lle_completion_system_clear()
+
+**Symptom**: After pulling Session 104 changes, Linux valgrind showed 81,451 bytes "definitely lost" when using tab completion.
+
+**Root Cause**: `lle_completion_system_clear()` was only calling `lle_completion_state_free()` but was setting `system->menu = NULL` without actually freeing the menu first. This caused:
+- 62KB: Completion item text strings (5,596 blocks)
+- 11KB: Completion item descriptions (5,596 blocks)
+- Plus various smaller leaks from menu/state structures
+
+The bug was exposed by Session 104's malloc fallback tracking, which now properly detects when pool fallback allocations aren't freed.
+
+**Fix**: Modified `lle_completion_system_clear()` to free the menu before setting it to NULL:
+```c
+void lle_completion_system_clear(lle_completion_system_t *system) {
+    if (!system) return;
+
+    /* Free menu first (must be freed before state since menu references
+     * result owned by state) */
+    if (system->menu) {
+        lle_completion_menu_state_free(system->menu);
+        system->menu = NULL;
+    }
+
+    if (system->current_state) {
+        lle_completion_state_free(system->current_state);
+        system->current_state = NULL;
+    }
+}
+```
+
+**Files Modified**:
+- `src/lle/completion/completion_system.c`
+
+### Verification
+
+```
+Before fix:
+==1497184== definitely lost: 81,451 bytes in 11,241 blocks
+
+After fix:
+==1499144== definitely lost: 0 bytes in 0 blocks
+==1499144== still reachable: 680 bytes in 18 blocks
+```
+
+### Test Results
+
+- **Build**: ✅ All targets compile
+- **Meson Tests**: ✅ 54/54 tests pass
+- **Valgrind**: ✅ 0 bytes definitely lost
 
 ---
 
