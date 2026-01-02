@@ -78,11 +78,9 @@ bool lle_shell_is_alias(const char *text) {
         return false;
     }
 
-    char *alias_value = lookup_alias(text);
-    bool is_alias = (alias_value != NULL);
-    free(alias_value);
-
-    return is_alias;
+    /* lookup_alias returns pointer into hash table, do NOT free */
+    const char *alias_value = lookup_alias(text);
+    return (alias_value != NULL);
 }
 
 /* ============================================================================

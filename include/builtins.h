@@ -330,6 +330,23 @@ int bin_fc(int argc, char **argv);
  */
 int bin_debug(int argc, char **argv);
 
+/**
+ * @brief Execute command bypassing shell functions and builtins
+ *
+ * POSIX command builtin. With no options, executes the specified command
+ * bypassing any shell functions, aliases, or builtins of the same name.
+ *
+ * Options:
+ *   -v  Print command path (like 'which')
+ *   -V  Print verbose command description (like 'type')
+ *   -p  Use default PATH for command search
+ *
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return Command exit status, or 127 if command not found
+ */
+int bin_command(int argc, char **argv);
+
 /* ============================================================================
  * Command Hash Table
  * ============================================================================ */

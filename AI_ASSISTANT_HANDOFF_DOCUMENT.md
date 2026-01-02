@@ -1,9 +1,58 @@
-# AI Assistant Handoff Document - Session 100
+# AI Assistant Handoff Document - Session 101
 
 **Date**: 2026-01-01
-**Session Type**: Completion System Enhancements
+**Session Type**: POSIX Builtins
 **Status**: COMPLETE
 **Branch**: `feature/lle`
+
+---
+
+## Session 101: POSIX `command` Builtin Implementation
+
+Implemented the POSIX `command` builtin, which allows users to execute external commands bypassing shell builtins, aliases, and functions.
+
+### Feature Implemented
+
+#### POSIX `command` Builtin
+
+**Purpose**: Execute a command, bypassing shell functions, aliases, and builtins of the same name.
+
+**Options**:
+- `-v`: Print command path (like `which`) - prints just the path for external commands, or "alias name='value'" for aliases
+- `-V`: Verbose description (like `type`) - prints "name is a shell builtin", "name is aliased to '...'", or "name is /path/to/name"
+- `-p`: Use default PATH (`/usr/bin:/bin:/usr/sbin:/sbin`) for command search
+
+**Usage Examples**:
+```bash
+command echo hello          # Uses /bin/echo, not builtin echo
+command -v ls               # Prints /bin/ls or alias definition
+command -V echo             # Prints "echo is a shell builtin"
+command -p ls               # Search ls in default POSIX PATH only
+```
+
+**Implementation** (`src/builtins/builtins.c`):
+- Added `bin_command()` function with full option parsing
+- Properly forks and executes external commands with signal handling
+- Returns correct exit codes (127 for not found, 126 for exec failure)
+
+**Files Modified**:
+- `include/builtins.h` - Added `bin_command` declaration
+- `src/builtins/builtins.c` - Added `bin_command` implementation and table entry
+
+### Bug Fix
+
+#### `lookup_alias` Memory Management Bug
+
+**Problem**: `lookup_alias()` returns a pointer directly from the hash table, NOT a newly allocated string. Code in `lle_shell_is_alias()` was incorrectly calling `free()` on this pointer, causing potential memory corruption.
+
+**Fix**: Removed incorrect `free()` calls in:
+- `src/lle/completion/completion_sources.c` - `lle_shell_is_alias()` function
+
+### Test Results
+
+- **Build**: ✅ All targets compile
+- **Meson Tests**: ✅ 54/54 tests pass
+- **Compliance Tests**: ✅ 139/139 tests pass (100%)
 
 ---
 
