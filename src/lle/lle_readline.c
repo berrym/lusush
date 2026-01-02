@@ -2451,6 +2451,40 @@ static lle_result_t execute_keybinding_action(
 char *lle_readline(const char *prompt) {
     lle_result_t result;
 
+    /*
+     * CRITICAL: Check if stdin is a TTY before attempting raw mode.
+     *
+     * When the shell is forced into interactive mode with -i but stdin is
+     * a pipe or file, we cannot use raw mode terminal features. Fall back
+     * to simple getline() for input while still showing the prompt.
+     *
+     * This handles: echo "cmd" | lusush -i
+     */
+    if (!isatty(STDIN_FILENO)) {
+        /* Print prompt to stdout if provided */
+        if (prompt && *prompt) {
+            fputs(prompt, stdout);
+            fflush(stdout);
+        }
+
+        /* Use simple getline for non-TTY stdin */
+        char *line = NULL;
+        size_t len = 0;
+        ssize_t read = getline(&line, &len, stdin);
+
+        if (read == -1) {
+            free(line);
+            return NULL; /* EOF or error */
+        }
+
+        /* Remove trailing newline */
+        if (read > 0 && line[read - 1] == '\n') {
+            line[read - 1] = '\0';
+        }
+
+        return line;
+    }
+
     /* Reset prompt display state for new input session */
     dc_reset_prompt_display_state();
 

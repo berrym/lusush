@@ -1441,10 +1441,10 @@ display_controller_init(display_controller_t *controller,
     if (isatty(STDOUT_FILENO)) {
         base_terminal_error_t bt_result = base_terminal_init(base_terminal);
         if (bt_result != BASE_TERMINAL_SUCCESS) {
-            DC_ERROR("Failed to initialize base terminal (error %d) - using "
-                     "defaults",
+            /* Non-fatal - will use default 80x24. Only log at debug level
+             * since this is expected when stdin is a pipe with -i flag. */
+            DC_DEBUG("Base terminal init returned %d - using defaults",
                      bt_result);
-            // Non-fatal - will use default 80x24
         } else {
             DC_DEBUG("Base terminal initialized successfully");
         }

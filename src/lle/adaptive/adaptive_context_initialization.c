@@ -24,6 +24,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 /* Forward declarations from controller implementations */
 extern lle_result_t
@@ -436,6 +438,30 @@ bool lle_adaptive_should_shell_be_interactive(bool forced_interactive,
     /* Stdin mode typically disables interactive features */
     if (stdin_mode) {
         return false;
+    }
+
+    /*
+     * CRITICAL: Check if stdin is a pipe or regular file BEFORE calling
+     * comprehensive detection. Piped input (echo "cmd" | lusush) must
+     * NEVER be treated as interactive, even if stdout is a TTY.
+     *
+     * The comprehensive detection is designed for editor terminals
+     * (VS Code, Zed, Cursor) which have non-TTY stdin but should still
+     * be interactive. However, those cases are detected via terminal
+     * signature matching and environment variables, not just TTY status.
+     *
+     * A simple pipe has no such signatures, so we check for pipes first.
+     */
+    struct stat stdin_stat;
+    if (fstat(STDIN_FILENO, &stdin_stat) == 0) {
+        /* Pipes and FIFOs are never interactive */
+        if (S_ISFIFO(stdin_stat.st_mode)) {
+            return false;
+        }
+        /* Regular files (redirected input) are never interactive */
+        if (S_ISREG(stdin_stat.st_mode)) {
+            return false;
+        }
     }
 
     /* Use enhanced detection for final decision */

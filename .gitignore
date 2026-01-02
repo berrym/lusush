@@ -74,6 +74,7 @@ tests/**/test_*
 # Documentation build artifacts
 docs/_build/
 docs/.doctrees/
+docs/doxygen/
 
 # Profiling and performance files
 *.prof
