@@ -74,6 +74,7 @@ lle_result_t lle_display_content_create(lle_display_content_t **content,
     }
 
     dc->line_count = 0;
+    dc->line_capacity = line_capacity; /* Store for proper cleanup */
     dc->cursor_line = 0;
     dc->cursor_column = 0;
     dc->cursor_visible = true;
@@ -95,9 +96,10 @@ void lle_display_content_destroy(lle_display_content_t *content) {
         return;
     }
 
-    /* Free all lines */
+    /* Free all lines - use line_capacity, not line_count, since all lines
+     * up to capacity have content buffers allocated during creation */
     if (content->lines) {
-        for (size_t i = 0; i < content->line_count; i++) {
+        for (size_t i = 0; i < content->line_capacity; i++) {
             if (content->lines[i].content) {
                 free(content->lines[i].content);
             }

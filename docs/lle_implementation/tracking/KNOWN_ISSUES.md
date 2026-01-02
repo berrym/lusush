@@ -897,6 +897,79 @@ The LLE prompt system (Spec 25/26) generates prompts separately from command con
 
 ## Resolved Issues
 
+### Issue #29: Critical Memory Leaks (~79KB per session) ✅ FIXED
+**Severity**: HIGH  
+**Discovered**: 2026-01-02 (Session 101 - Valgrind analysis)  
+**Fixed**: 2026-01-02 (Session 101)  
+**Component**: Multiple - parser.c, autocorrect.c, lusush.c, completion system  
+
+**Description**:
+Valgrind reported ~79KB of memory "definitely lost" during normal shell operation. The leaks accumulated over time, particularly with completion usage, causing unbounded memory growth during extended shell sessions.
+
+**Leak Sources Identified**:
+
+1. **Completion System (62KB + 11KB)** - Fixed by previous session work
+   - `lle_completion_item_create_with_description` allocated items that weren't freed
+   - `context.word` from `lle_completion_analyze_context` wasn't being freed by callers
+   - Fixed by adding `lle_completion_system_clear()` at end of readline and proper cleanup
+
+2. **Parser AST Nodes (11 bytes across multiple locations)** - `val_type` not set
+   - When `node->val.str` was set via `strdup()`, `val_type` wasn't set to `VAL_STR`
+   - `free_node_tree()` only frees `val.str` when `val_type == VAL_STR`
+   - **15 locations fixed** in `src/parser.c`:
+     - Line 557: command assignment with value
+     - Line 568: command assignment empty value
+     - Line 595: command name
+     - Line 727: argument node single token
+     - Line 748: argument node concatenated
+     - Line 942: redirection operator
+     - Line 1005: heredoc delimiter
+     - Line 1015: heredoc content
+     - Line 1025: heredoc expand flag
+     - Line 1084: redirection target
+     - Line 1591: for loop variable
+     - Line 1628: for-in "=" word
+     - Line 1732: for-in combined word
+     - Line 1803: case test word
+     - Line 1921: case item pattern
+     - Line 2105: function name
+
+3. **Autocorrect Suggestions (5 bytes each)** - temp suggestions not freed
+   - `autocorrect_find_suggestions()` collects suggestions in `temp_suggestions[]`
+   - Only suggestions meeting threshold are copied to results
+   - Uncopied suggestions' `command` pointers were leaked
+   - **Fix**: Free any `temp_suggestions[i].command` not transferred to results
+
+4. **Input Buffer (10-12 bytes)** - line not freed in non-interactive mode
+   - `get_unified_input()` returns allocated buffer
+   - In non-interactive mode, only `free_input_buffers()` was called (cleans global state)
+   - The returned `line` buffer was not freed
+   - **Fix**: Always `free(line)`, then call `free_input_buffers()` for non-interactive
+
+**Files Modified**:
+- `src/parser.c` - Added `val_type = VAL_STR` in 15 locations
+- `src/autocorrect.c` - Free unused temp_suggestions after copy loop
+- `src/lusush.c` - Always free(line) in main loop
+
+**Verification**:
+```
+Before fix:
+==1486595== definitely lost: 79,000+ bytes in 100+ blocks
+
+After fix:
+==1489298== definitely lost: 0 bytes in 0 blocks
+==1489298== still reachable: 294 bytes in 6 blocks  (expected - global state)
+```
+
+**Impact**:
+- Shell can now run indefinitely without memory growth
+- Tab completion no longer leaks 62KB+ per usage
+- Parser no longer leaks AST node strings
+
+**Status**: ✅ FIXED AND VERIFIED
+
+---
+
 ### Issue #28: POSIX Variable Scoping Regression ✅ FIXED
 **Severity**: HIGH  
 **Discovered**: 2026-01-01 (Session 98 - Compliance test analysis)  

@@ -44,6 +44,7 @@ lle_sources += files(
 lle_sources += files(
   'core/error_handling.c',
   'core/memory_management.c',
+  'core/arena.c',
   'core/performance.c',
   'core/testing.c',
   'core/hashtable.c',

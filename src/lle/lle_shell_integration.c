@@ -15,6 +15,7 @@
 #include "lle/lle_shell_integration.h"
 #include "config.h"
 #include "executor.h"
+#include "lle/arena.h"
 #include "lle/history.h"
 #include "lle/lle_editor.h"
 #include "lle/lle_readline.h"
@@ -159,48 +160,59 @@ lle_result_t lle_shell_integration_init(void) {
         return LLE_SUCCESS;
     }
 
-    /* Allocate integration structure */
-    lle_shell_integration_t *integ = calloc(1, sizeof(lle_shell_integration_t));
-    if (!integ) {
+    /* Step 1: Verify global memory pool exists */
+    if (!global_memory_pool) {
+        return LLE_ERROR_NOT_INITIALIZED;
+    }
+
+    /* Step 2: Create session arena - root of arena hierarchy
+     * The session arena owns all LLE memory for the shell session.
+     * 64KB initial size, grows as needed. */
+    lle_arena_t *session_arena =
+        lle_arena_create(NULL, "session", 64 * 1024);
+    if (!session_arena) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
 
-    integ->init_time_us = get_timestamp_us();
-
-    /* Step 1: Verify global memory pool exists */
-    if (!global_memory_pool) {
-        free(integ);
-        return LLE_ERROR_NOT_INITIALIZED;
+    /* Allocate integration structure from session arena */
+    lle_shell_integration_t *integ =
+        lle_arena_calloc(session_arena, 1, sizeof(lle_shell_integration_t));
+    if (!integ) {
+        lle_arena_destroy(session_arena);
+        return LLE_ERROR_OUT_OF_MEMORY;
     }
+
+    integ->session_arena = session_arena;
+    integ->init_time_us = get_timestamp_us();
     integ->init_state.memory_pool_verified = true;
 
-    /* Step 2: Verify terminal detection is complete
+    /* Step 3: Verify terminal detection is complete
      * Terminal detection is handled by Lusush's display system,
      * so we just verify it has been initialized */
     integ->init_state.terminal_detected = true;
 
-    /* Step 3: Create shell event hub */
+    /* Step 4: Create shell event hub */
     lle_result_t result = lle_shell_event_hub_create(&integ->event_hub);
     if (result != LLE_SUCCESS) {
-        free(integ);
+        lle_arena_destroy(session_arena);
         return result;
     }
     integ->init_state.event_hub_initialized = true;
 
-    /* Step 4: Create and configure LLE editor */
+    /* Step 5: Create and configure LLE editor */
     result = create_and_configure_editor(integ);
     if (result != LLE_SUCCESS) {
         lle_shell_event_hub_destroy(integ->event_hub);
-        free(integ);
+        lle_arena_destroy(session_arena);
         return result;
     }
     integ->init_state.editor_initialized = true;
 
-    /* Step 5: Initialize history (already done in create_and_configure_editor)
+    /* Step 6: Initialize history (already done in create_and_configure_editor)
      */
     integ->init_state.history_initialized = true;
 
-    /* Step 6: Create and configure prompt composer (Spec 25) */
+    /* Step 7: Create and configure prompt composer (Spec 25) */
     result = create_and_configure_prompt_composer(integ);
     if (result != LLE_SUCCESS) {
         /* Prompt composer is optional - log warning but continue */
@@ -209,7 +221,7 @@ lle_result_t lle_shell_integration_init(void) {
         integ->init_state.prompt_initialized = true;
     }
 
-    /* Step 7: Register atexit handler for cleanup */
+    /* Step 8: Register atexit handler for cleanup */
     if (!atexit_registered) {
         if (atexit(lle_shell_integration_atexit_handler) == 0) {
             atexit_registered = true;
@@ -217,7 +229,7 @@ lle_result_t lle_shell_integration_init(void) {
         }
     }
 
-    /* Step 8: Initialize watchdog subsystem for deadlock detection */
+    /* Step 9: Initialize watchdog subsystem for deadlock detection */
     result = lle_watchdog_init();
     if (result != LLE_SUCCESS) {
         /* Watchdog is optional - log warning but continue */
@@ -274,11 +286,15 @@ void lle_shell_integration_shutdown(void) {
     /* Cleanup watchdog subsystem */
     lle_watchdog_cleanup();
 
-    /* Clear global pointer */
+    /* Clear global pointer before destroying arena
+     * (integ is allocated from session_arena) */
     g_lle_integration = NULL;
 
-    /* Free integration structure */
-    free(integ);
+    /* Destroy session arena - frees ALL LLE memory including integ itself */
+    if (integ->session_arena) {
+        lle_arena_destroy(integ->session_arena);
+    }
+    /* Note: integ is now invalid - do not access after this point */
 }
 
 /**

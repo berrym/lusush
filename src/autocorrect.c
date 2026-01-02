@@ -200,7 +200,16 @@ int autocorrect_find_suggestions(executor_t *executor, const char *command,
         if (temp_suggestions[i].score >=
             autocorrect_config.similarity_threshold) {
             results->suggestions[results->count] = temp_suggestions[i];
+            temp_suggestions[i].command = NULL; // Transferred ownership
             results->count++;
+        }
+    }
+
+    // Free any temp_suggestions that were not copied to results
+    for (int i = 0; i < temp_count; i++) {
+        if (temp_suggestions[i].command) {
+            free(temp_suggestions[i].command);
+            temp_suggestions[i].command = NULL;
         }
     }
 

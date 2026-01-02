@@ -14,6 +14,8 @@
  */
 
 #include "lle/completion/completion_state.h"
+#include "lle/completion/completion_types.h"
+#include "lle/completion/context_analyzer.h"
 #include <string.h>
 
 // ============================================================================
@@ -90,9 +92,23 @@ void lle_completion_state_free(lle_completion_state_t *state) {
         return;
     }
 
-    /* Memory is pool-allocated, will be freed with pool */
-    /* Just mark as inactive */
+    /* Free the completion results - the state owns them */
+    if (state->results) {
+        lle_completion_result_free(state->results);
+        state->results = NULL;
+    }
+
+    /* Free the context analyzer */
+    if (state->context) {
+        lle_context_analyzer_free(state->context);
+        state->context = NULL;
+    }
+
+    /* Mark as inactive */
     state->active = false;
+
+    /* Note: The state structure itself and string fields (buffer_snapshot,
+     * original_word) are pool-allocated and will be freed with the pool */
 }
 
 /**

@@ -17,6 +17,8 @@
  */
 
 #include "lle/terminal_abstraction.h"
+#include "lle/arena.h"
+#include "lle/lle_shell_integration.h"
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -54,6 +56,18 @@ lle_result_t lle_input_processor_init(lle_input_processor_t **processor,
     proc->next_sequence_number = 1;
     proc->total_processing_time_us = 0;
 
+    /* Create event arena for per-event allocations.
+     * Child of session arena if available. 1KB is enough for input events.
+     * This arena is reset after each event is consumed, preventing the
+     * per-keystroke memory leak that previously occurred with calloc(). */
+    lle_arena_t *parent_arena = NULL;
+    if (g_lle_integration && g_lle_integration->session_arena) {
+        parent_arena = g_lle_integration->session_arena;
+    }
+    proc->event_arena = lle_arena_create(parent_arena, "event", 1024);
+    /* Note: event_arena may be NULL if arena creation fails, which is handled
+     * gracefully in read_next_event by falling back to calloc */
+
     *processor = proc;
     return LLE_SUCCESS;
 }
@@ -66,6 +80,12 @@ lle_result_t lle_input_processor_init(lle_input_processor_t **processor,
 void lle_input_processor_destroy(lle_input_processor_t *processor) {
     if (!processor) {
         return;
+    }
+
+    /* Destroy event arena if it exists */
+    if (processor->event_arena) {
+        lle_arena_destroy(processor->event_arena);
+        processor->event_arena = NULL;
     }
 
     free(processor);
@@ -169,6 +189,11 @@ lle_result_t lle_input_processor_process_event(lle_input_processor_t *processor,
 /**
  * @brief Read next input event from Unix interface
  *
+ * Uses arena allocation for events to prevent per-keystroke memory leaks.
+ * The event arena is reset at the start of each call, effectively freeing
+ * the previous event. This is safe because events are only valid until the
+ * next call to this function.
+ *
  * @param processor Input processor instance
  * @param event Output pointer for read event
  * @param timeout_ms Timeout in milliseconds
@@ -182,8 +207,24 @@ lle_input_processor_read_next_event(lle_input_processor_t *processor,
         return LLE_ERROR_INVALID_PARAMETER;
     }
 
-    /* Allocate event structure */
-    lle_input_event_t *new_event = calloc(1, sizeof(lle_input_event_t));
+    /* Reset event arena to reclaim memory from previous event.
+     * This is the key to fixing the per-keystroke memory leak:
+     * instead of allocating with calloc() and never freeing,
+     * we reset the arena each iteration which is O(1). */
+    if (processor->event_arena) {
+        lle_arena_reset(processor->event_arena);
+    }
+
+    /* Allocate event structure from arena (or fallback to calloc) */
+    lle_input_event_t *new_event = NULL;
+    if (processor->event_arena) {
+        new_event = lle_arena_calloc(processor->event_arena, 1,
+                                     sizeof(lle_input_event_t));
+    } else {
+        /* Fallback if arena not available - still leaks but maintains
+         * compatibility */
+        new_event = calloc(1, sizeof(lle_input_event_t));
+    }
     if (!new_event) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
@@ -192,14 +233,14 @@ lle_input_processor_read_next_event(lle_input_processor_t *processor,
     lle_result_t result = lle_unix_interface_read_event(
         processor->unix_interface, new_event, timeout_ms);
     if (result != LLE_SUCCESS) {
-        free(new_event);
+        /* No need to free - arena will be reset on next call */
         return result;
     }
 
     /* Process (validate and track) the event */
     result = lle_input_processor_process_event(processor, new_event);
     if (result != LLE_SUCCESS) {
-        free(new_event);
+        /* No need to free - arena will be reset on next call */
         return result;
     }
 

@@ -1189,6 +1189,19 @@ composition_engine_cleanup(composition_engine_t *engine) {
         engine->composed_output_size = 0;
     }
 
+    // Free owned layers - composition engine takes ownership after init
+    if (engine->command_layer) {
+        command_layer_cleanup(engine->command_layer);
+        command_layer_destroy(engine->command_layer);
+        engine->command_layer = NULL;
+    }
+
+    if (engine->prompt_layer) {
+        prompt_layer_cleanup(engine->prompt_layer);
+        prompt_layer_destroy(engine->prompt_layer);
+        engine->prompt_layer = NULL;
+    }
+
     // Reset state
     memset(&engine->current_analysis, 0, sizeof(engine->current_analysis));
     memset(&engine->current_positioning, 0,

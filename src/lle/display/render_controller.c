@@ -16,8 +16,10 @@
  */
 
 #include "lle/buffer_management.h"
+#include "lle/arena.h"
 #include "lle/display_integration.h"
 #include "lle/error_handling.h"
+#include "lle/lle_shell_integration.h"
 #include "lle/memory_management.h"
 #include <stdio.h>
 #include <string.h>
@@ -163,6 +165,18 @@ lle_result_t lle_render_controller_init(lle_render_controller_t **controller,
      * implemented */
     ctrl->pipeline = NULL;
 
+    /* Step 10: Create frame arena for per-frame allocations.
+     * Child of session arena if available. 4KB is enough for render output.
+     * This arena is reset at the start of each render operation to reclaim
+     * memory from temporary buffers. */
+    lle_arena_t *parent_arena = NULL;
+    if (g_lle_integration && g_lle_integration->session_arena) {
+        parent_arena = g_lle_integration->session_arena;
+    }
+    ctrl->frame_arena = lle_arena_create(parent_arena, "frame", 4096);
+    /* Note: frame_arena may be NULL if arena creation fails, which is handled
+     * gracefully in render functions by falling back to pool allocation */
+
     /* Success - return initialized controller */
     *controller = ctrl;
     return LLE_SUCCESS;
@@ -229,6 +243,12 @@ lle_render_controller_cleanup(lle_render_controller_t *controller) {
     if (controller->pipeline) {
         /* Pipeline cleanup will be implemented in future phase */
         controller->pipeline = NULL;
+    }
+
+    /* Step 8: Clean up frame arena */
+    if (controller->frame_arena) {
+        lle_arena_destroy(controller->frame_arena);
+        controller->frame_arena = NULL;
     }
 
     /* Clear references (not owned by controller) */

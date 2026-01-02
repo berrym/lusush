@@ -70,12 +70,20 @@ void lle_completion_system_destroy(lle_completion_system_t *system) {
         lle_source_manager_free(system->source_manager);
     }
 
-    /* Free current state */
-    if (system->current_state) {
-        lle_completion_state_free(system->current_state);
+    /* Free menu state (must be freed before current_state since menu
+     * references result owned by current_state) */
+    if (system->menu) {
+        lle_completion_menu_state_free(system->menu);
+        system->menu = NULL;
     }
 
-    /* Memory is pool-allocated */
+    /* Free current state (this also frees the results and context) */
+    if (system->current_state) {
+        lle_completion_state_free(system->current_state);
+        system->current_state = NULL;
+    }
+
+    /* Note: system structure itself is pool-allocated */
 }
 
 /**
@@ -276,9 +284,10 @@ lle_completion_system_generate(lle_completion_system_t *system,
         res = lle_completion_menu_state_create(system->pool, result,
                                                &menu_config, &menu);
         if (res != LLE_SUCCESS) {
+            /* state owns result and context, so freeing state frees them too.
+             * Do NOT call result_free or context_free separately - that would
+             * be a double-free. */
             lle_completion_state_free(state);
-            lle_completion_result_free(result);
-            lle_context_analyzer_free(context);
             return res;
         }
     }

@@ -554,6 +554,7 @@ static node_t *parse_simple_command(parser_t *parser) {
                     strcat(assignment, "=");
                     strcat(assignment, value->text);
                     command->val.str = assignment;
+                    command->val_type = VAL_STR;
                 }
                 tokenizer_advance(parser->tokenizer); // consume value
             } else {
@@ -564,6 +565,7 @@ static node_t *parse_simple_command(parser_t *parser) {
                     strcpy(assignment, var_name);
                     strcat(assignment, "=");
                     command->val.str = assignment;
+                    command->val_type = VAL_STR;
                 }
             }
 
@@ -590,6 +592,7 @@ static node_t *parse_simple_command(parser_t *parser) {
 
     // Set command name
     command->val.str = strdup(current->text);
+    command->val_type = VAL_STR;
     tokenizer_advance(parser->tokenizer);
 
     // Parse arguments and redirections
@@ -720,6 +723,7 @@ static node_t *parse_simple_command(parser_t *parser) {
 
                 if (arg_node) {
                     arg_node->val.str = strdup(collected_tokens[0].text);
+                    arg_node->val_type = VAL_STR;
                     add_child_node(command, arg_node);
                 }
             } else if (token_count > 1) {
@@ -739,6 +743,7 @@ static node_t *parse_simple_command(parser_t *parser) {
                     node_t *arg_node = new_node(NODE_STRING_EXPANDABLE);
                     if (arg_node) {
                         arg_node->val.str = concatenated;
+                        arg_node->val_type = VAL_STR;
                         add_child_node(command, arg_node);
                     } else {
                         free(concatenated);
@@ -933,6 +938,7 @@ static node_t *parse_redirection(parser_t *parser) {
 
     // Store the redirection operator
     redir_node->val.str = strdup(redir_token->text);
+    redir_node->val_type = VAL_STR;
     tokenizer_advance(parser->tokenizer);
 
     // Parse the target (filename or here document content)
@@ -996,6 +1002,7 @@ static node_t *parse_redirection(parser_t *parser) {
 
         // Store delimiter in the redirection node value
         redir_node->val.str = delimiter; // Transfer ownership
+        redir_node->val_type = VAL_STR;
 
         // Create content node with the collected content
         node_t *content_node = new_node(NODE_VAR);
@@ -1005,6 +1012,7 @@ static node_t *parse_redirection(parser_t *parser) {
             return NULL;
         }
         content_node->val.str = content; // Transfer ownership
+        content_node->val_type = VAL_STR;
         add_child_node(redir_node, content_node);
 
         // Create a second child node to store the expand_variables flag
@@ -1014,6 +1022,7 @@ static node_t *parse_redirection(parser_t *parser) {
             return NULL;
         }
         expand_flag_node->val.str = strdup(expand_variables ? "1" : "0");
+        expand_flag_node->val_type = VAL_STR;
         add_child_node(redir_node, expand_flag_node);
 
         return redir_node;
@@ -1071,6 +1080,7 @@ static node_t *parse_redirection(parser_t *parser) {
             return NULL;
         }
         target_node->val.str = concatenated_target;
+        target_node->val_type = VAL_STR;
         add_child_node(redir_node, target_node);
 
         return redir_node;
@@ -1577,6 +1587,7 @@ static node_t *parse_for_statement(parser_t *parser) {
 
     token_t *var_token = tokenizer_current(parser->tokenizer);
     for_node->val.str = strdup(var_token->text);
+    for_node->val_type = VAL_STR;
     tokenizer_advance(parser->tokenizer);
 
     if (!expect_token(parser, TOK_IN)) {
@@ -1611,6 +1622,7 @@ static node_t *parse_for_statement(parser_t *parser) {
                 return NULL;
             }
             word_node->val.str = strdup("=");
+            word_node->val_type = VAL_STR;
             add_child_node(word_list, word_node);
             tokenizer_advance(parser->tokenizer);
             continue;
@@ -1715,6 +1727,7 @@ static node_t *parse_for_statement(parser_t *parser) {
             }
 
             word_node->val.str = combined;
+            word_node->val_type = VAL_STR;
             add_child_node(word_list, word_node);
         } else {
             break;
@@ -1784,6 +1797,7 @@ static node_t *parse_case_statement(parser_t *parser) {
 
     // Store the test word
     case_node->val.str = strdup(word_token->text);
+    case_node->val_type = VAL_STR;
     if (!case_node->val.str) {
         free_node_tree(case_node);
         return NULL;
@@ -1902,6 +1916,7 @@ static node_t *parse_case_statement(parser_t *parser) {
 
         // Store pattern in case item
         case_item->val.str = pattern;
+        case_item->val_type = VAL_STR;
 
         // Expect )
         if (!tokenizer_match(parser->tokenizer, TOK_RPAREN)) {
@@ -2083,6 +2098,7 @@ static node_t *parse_function_definition(parser_t *parser) {
 
     // Store function name
     function_node->val.str = strdup(current->text);
+    function_node->val_type = VAL_STR;
     if (!function_node->val.str) {
         free_node_tree(function_node);
         return NULL;

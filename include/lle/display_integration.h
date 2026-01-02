@@ -33,6 +33,7 @@
 #include <time.h>
 
 /* LLE Core Dependencies */
+#include "lle/arena.h"
 #include "lle/buffer_management.h"
 #include "lle/error_handling.h"
 #include "lle/memory_management.h"
@@ -399,6 +400,10 @@ struct lle_render_controller_t {
     lle_syntax_color_table_t *theme_colors;   /**< Theme syntax colors */
     lle_cursor_colors_t *cursor_theme_colors; /**< Theme cursor colors */
     lle_memory_pool_t *memory_pool;           /**< Memory pool for rendering */
+
+    /* Frame arena for per-frame allocations.
+     * Reset at start of each render to reclaim temporary buffers. */
+    lle_arena_t *frame_arena;
 };
 
 /* ========================================================================== */

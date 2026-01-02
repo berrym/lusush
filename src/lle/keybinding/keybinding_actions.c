@@ -400,6 +400,7 @@ static void update_inline_completion(lle_editor_t *editor,
 
     /* Find CURRENT word boundaries - not the stale ones from initial context */
     lle_completion_context_info_t current_context;
+    memset(&current_context, 0, sizeof(current_context));
     lle_result_t ctx_result = lle_completion_analyze_context(
         editor->buffer->data, editor->buffer->cursor.byte_offset,
         &current_context);
@@ -407,6 +408,11 @@ static void update_inline_completion(lle_editor_t *editor,
     if (ctx_result == LLE_SUCCESS) {
         replace_word_at_cursor(editor, current_context.word_start,
                                current_context.word_length, insert_text);
+    }
+
+    /* Free the word allocated by lle_completion_analyze_context */
+    if (current_context.word) {
+        lle_pool_free((void *)current_context.word);
     }
 }
 
@@ -2345,18 +2351,21 @@ lle_result_t lle_complete(lle_editor_t *editor) {
         return LLE_SUCCESS; /* No completions - not an error */
     }
 
-    /* If no items, clean up and return */
+    /* If no items, clean up and return.
+     * NOTE: result is owned by completion_system->current_state, so we call
+     * lle_completion_system_clear() to properly free it - NOT result_free. */
     if (result->count == 0) {
-        lle_completion_result_free(result);
+        lle_completion_system_clear(editor->completion_system);
         return LLE_SUCCESS;
     }
 
     /* Extract word being completed */
     lle_completion_context_info_t context;
+    memset(&context, 0, sizeof(context));
     lle_result_t ctx_result =
         lle_completion_analyze_context(buffer, cursor_pos, &context);
     if (ctx_result != LLE_SUCCESS) {
-        lle_completion_result_free(result);
+        lle_completion_system_clear(editor->completion_system);
         return LLE_SUCCESS;
     }
 
@@ -2373,12 +2382,18 @@ lle_result_t lle_complete(lle_editor_t *editor) {
 
         lle_result_t replace_result = replace_word_at_cursor(
             editor, context.word_start, context.word_length, completion_text);
-        lle_completion_result_free(result);
+
+        /* Free context.word allocated by lle_completion_analyze_context */
+        if (context.word) {
+            lle_pool_free((void *)context.word);
+        }
 
         /* Clear completion system state since we auto-inserted the single
          * completion. Without this, the state remains active (is_active=true)
          * but with no menu, causing subsequent TAB presses to not regenerate
-         * completions. */
+         * completions.
+         * NOTE: This also frees the result - we don't call result_free
+         * separately since current_state owns the result. */
         lle_completion_system_clear(editor->completion_system);
 
         /* Trigger display refresh */
@@ -2397,10 +2412,13 @@ lle_result_t lle_complete(lle_editor_t *editor) {
     lle_completion_menu_state_t *menu =
         lle_completion_system_get_menu(editor->completion_system);
     if (!menu) {
+        /* Free context.word before returning */
+        if (context.word) {
+            lle_pool_free((void *)context.word);
+        }
         /* No menu despite multiple completions - clear state to avoid stuck
-         * active flag */
+         * active flag. This also frees the result since current_state owns it. */
         lle_completion_system_clear(editor->completion_system);
-        lle_completion_result_free(result);
         return LLE_SUCCESS;
     }
 
@@ -2423,6 +2441,18 @@ lle_result_t lle_complete(lle_editor_t *editor) {
              * event → dc_handle_redraw_needed → menu rendered
              */
         }
+    }
+
+    /* NOTE: Do NOT free the result here - the menu stores a pointer to it.
+     * The result is owned by the completion_state which is managed by the
+     * completion_system. It will be freed when:
+     * - lle_completion_system_clear() is called, or
+     * - A new completion is generated (replaces the old state)
+     */
+
+    /* Free context.word allocated by lle_completion_analyze_context */
+    if (context.word) {
+        lle_pool_free((void *)context.word);
     }
 
     return LLE_SUCCESS;

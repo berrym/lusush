@@ -31,6 +31,7 @@
 #ifndef LLE_SHELL_INTEGRATION_H
 #define LLE_SHELL_INTEGRATION_H
 
+#include "lle/arena.h"
 #include "lle/error_handling.h"
 #include "lle/lle_editor.h"
 #include "lle/lle_shell_event_hub.h"
@@ -82,6 +83,9 @@ typedef struct lle_init_state {
 typedef struct lle_shell_integration {
     /* Initialization state */
     lle_init_state_t init_state; /**< Which subsystems are initialized */
+
+    /* Memory management - session arena is root of arena hierarchy */
+    lle_arena_t *session_arena; /**< Session-lifetime arena (root) */
 
     /* Core components */
     lle_editor_t *editor;                   /**< LLE editor instance */

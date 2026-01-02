@@ -35,6 +35,7 @@
 #include <unistd.h>
 
 /* Include LLE dependencies */
+#include "lle/arena.h"
 #include "lle/error_handling.h"
 #include "lle/memory_management.h"
 #include "lle/performance.h"
@@ -308,6 +309,7 @@ typedef struct lle_display_content {
     /* Complete display lines */
     lle_display_line_t *lines;
     size_t line_count;
+    size_t line_capacity; /* Total allocated lines for proper cleanup */
 
     /* Cursor position information */
     size_t cursor_line;
@@ -443,6 +445,10 @@ typedef struct lle_input_processor {
 
     /* Performance tracking */
     uint64_t total_processing_time_us;
+
+    /* Event arena for per-event allocations (fixes memory leak).
+     * Reset after each event is consumed to reclaim memory. */
+    lle_arena_t *event_arena;
 } lle_input_processor_t;
 
 /**

@@ -1001,11 +1001,13 @@ static int execute_command(executor_t *executor, node_t *command) {
 
             result = execute_builtin_command(executor, filtered_argv);
 
+            // Flush output streams after builtin execution
+            // This ensures output appears immediately, especially under valgrind/piping
+            fflush(stdout);
+            fflush(stderr);
+
             // Restore file descriptors after builtin execution
             if (has_redirections) {
-                // Flush output streams before restoring file descriptors
-                fflush(stdout);
-                fflush(stderr);
                 restore_file_descriptors(&redir_state);
             }
         }
@@ -1087,6 +1089,8 @@ static int execute_command(executor_t *executor, node_t *command) {
                             if (is_builtin_command(filtered_argv[0])) {
                                 result = execute_builtin_command(executor,
                                                                  filtered_argv);
+                                fflush(stdout);
+                                fflush(stderr);
                             } else if (is_function_defined(executor,
                                                            filtered_argv[0])) {
                                 result = execute_function_call(

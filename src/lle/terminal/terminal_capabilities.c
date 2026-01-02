@@ -461,6 +461,11 @@ void lle_capabilities_destroy(lle_terminal_capabilities_t *caps) {
         free((char *)caps->terminal_program);
     }
 
+    /* Cleanup ncurses terminfo data allocated by setupterm() */
+    if (cur_term) {
+        del_curterm(cur_term);
+    }
+
     /* Free structure itself */
     free(caps);
 }

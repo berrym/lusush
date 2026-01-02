@@ -243,9 +243,10 @@ int main(int argc, char **argv) {
             exit_flag = true;
         }
 
-        if (is_interactive_shell()) {
-            free(line);
-        } else {
+        // Free the line buffer (returned by get_unified_input)
+        free(line);
+        if (!is_interactive_shell()) {
+            // Also cleanup global input state for non-interactive mode
             free_input_buffers();
         }
     }
@@ -297,9 +298,15 @@ int parse_and_execute(const char *command) {
 
     int exit_status = executor_execute_command_line(global_executor, command);
 
+    // Flush output streams after command execution
+    // This ensures output appears immediately, especially under valgrind/piping
+    fflush(stdout);
+    fflush(stderr);
+
     // Print error messages to stderr if there were any errors
     if (executor_has_error(global_executor)) {
         fprintf(stderr, "lusush: %s\n", executor_error(global_executor));
+        fflush(stderr);
     }
 
     return exit_status;

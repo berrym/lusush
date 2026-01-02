@@ -2463,6 +2463,12 @@ display_controller_cleanup(display_controller_t *controller) {
     }
     controller->autosuggestions_enabled = false;
 
+    // Clean up event system (we own it - passed to us during init)
+    if (controller->event_system) {
+        layer_events_destroy(controller->event_system);
+        controller->event_system = NULL;
+    }
+
     controller->is_initialized = false;
 
     DC_DEBUG("Display controller cleanup completed");

@@ -61,6 +61,7 @@
 #include "display/prompt_layer.h"
 #include "display_integration.h" /* Lusush display integration */
 #include "input_continuation.h"
+#include "lle/arena.h" /* Hierarchical arena allocator */
 #include "lle/buffer_management.h"
 #include "lle/completion/completion_system.h" /* Completion system for menu visibility */
 #include "lle/display_integration.h" /* Spec 08: Complete display integration */
@@ -201,6 +202,9 @@ typedef struct readline_context {
         *continuation_state; /* Step 6: Shared multiline parser state */
     char *kill_buffer; /* Step 5 enhancement: Simple kill buffer for yank */
     size_t kill_buffer_size; /* Allocated size of kill buffer */
+
+    /* Memory management - edit arena for per-readline allocations */
+    lle_arena_t *edit_arena; /* Edit-session arena (child of session arena) */
 
     /* LLE Editor - proper architecture */
     lle_editor_t *editor; /* Full LLE editor context */
@@ -2553,8 +2557,20 @@ char *lle_readline(const char *prompt) {
     continuation_state_t continuation_state;
     continuation_state_init(&continuation_state);
 
+    /* === STEP 5.55: Create edit-session arena === */
+    /* Arena for per-readline allocations (kill buffer, suggestions, etc.)
+     * Child of session arena - automatically freed when session ends,
+     * but we explicitly destroy it at end of lle_readline() for prompt cleanup.
+     * 8KB initial size is sufficient for typical editing session. */
+    lle_arena_t *edit_arena = NULL;
+    if (g_lle_integration && g_lle_integration->session_arena) {
+        edit_arena = lle_arena_create(g_lle_integration->session_arena,
+                                      "edit", 8 * 1024);
+    }
+
     /* === STEP 5.6: Create kill buffer === */
-    /* Step 5 enhancement: Initialize kill buffer for yank operations */
+    /* Step 5 enhancement: Initialize kill buffer for yank operations
+     * Allocated from edit_arena if available, otherwise falls back to malloc */
     char *kill_buffer = NULL;
     size_t kill_buffer_size = 0;
 
@@ -2716,6 +2732,9 @@ char *lle_readline(const char *prompt) {
         .continuation_state = &continuation_state,
         .kill_buffer = kill_buffer,
         .kill_buffer_size = kill_buffer_size,
+
+        /* Memory management - edit arena for per-readline allocations */
+        .edit_arena = edit_arena,
 
         /* LLE Editor - proper architecture (Spec 26: prefer shell integration)
          */
@@ -3062,6 +3081,9 @@ char *lle_readline(const char *prompt) {
 
                 /* Dispatch event - handler will modify buffer */
                 lle_event_dispatch(event_system, lle_event);
+
+                /* Destroy event after dispatch to prevent memory leak */
+                lle_event_destroy(event_system, lle_event);
             }
             break;
         }
@@ -3362,11 +3384,26 @@ char *lle_readline(const char *prompt) {
         lle_keybinding_manager_destroy(keybinding_manager);
     }
 
+    /* Clear completion system state at end of readline to prevent memory leaks.
+     * Any active completion results from TAB presses during this edit session
+     * need to be freed before the next readline call or shell exit. */
+    if (editor_to_use && editor_to_use->completion_system) {
+        lle_completion_system_clear(editor_to_use->completion_system);
+    }
+
     /* Step 6: Cleanup continuation state, destroy event system, buffer, and
      * terminal */
     continuation_state_cleanup(&continuation_state);
     lle_event_system_destroy(event_system);
     lle_buffer_destroy(buffer);
+
+    /* Destroy edit-session arena - frees all per-readline allocations.
+     * Currently kill_buffer and current_suggestion are still using malloc,
+     * but future allocations can use lle_arena_alloc(edit_arena, ...) and
+     * will be automatically freed here. */
+    if (edit_arena) {
+        lle_arena_destroy(edit_arena);
+    }
 
     /* Clear editor's buffer pointer to prevent double-free on shell exit.
      * The buffer was created per-readline call and assigned to the persistent
