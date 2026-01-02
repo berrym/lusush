@@ -714,92 +714,51 @@ if (ch == '\t') {
 
 ---
 
-### Issue #7: Completion Menu - Category Disambiguation Not Implemented
+### Issue #7: Completion Menu - Category Disambiguation Not Implemented ✅ FIXED
 **Severity**: MEDIUM  
 **Discovered**: 2025-11-22 (Session 23 Part 2)  
-**Status**: Not yet fixed (documented for future work)  
-**Component**: Completion system v2 / source manager  
+**Fixed**: 2026-01-01 (Session 100)  
+**Component**: Completion system / source manager  
 
 **Description**:
-When the same command exists in multiple categories (e.g., builtin `echo` vs external `/usr/bin/echo`, or alias `ls` vs external `ls`), the completion system currently deduplicates based on text only, not considering the type/category. This means only one entry appears in the menu, and users cannot disambiguate which version to execute.
+When the same command exists in multiple categories (e.g., builtin `echo` vs external `/usr/bin/echo`), users can now see and select both versions from the completion menu.
 
-**ACTUAL OBSERVATION** (Session 23 Part 3 - 2025-11-22):
-Testing shows `echo` appears ONLY in the "builtin command" section, NOT in "external command" section at all. This suggests the deduplication is working as designed, but external commands that shadow builtins are being removed from the external category. User cannot see or select `/usr/bin/echo` from completion menu.
+**Solution Implemented** (Session 100):
 
-**Example Scenarios**:
-1. **Builtin vs External**:
-   - Builtin `echo` 
-   - External `/usr/bin/echo`
-   - Current: Only "echo" appears once
-   - Problem: Selecting "echo" always executes builtin (due to Lusush prioritization)
-   - User cannot explicitly select external version
+1. **Type-aware deduplication** (`src/lle/completion/completion_system.c`):
+   - `deduplicate_results()` now compares both text AND type
+   - Items with the same text but different types are kept separate
 
-2. **Alias vs External**:
-   - Alias `ls='ls --color=auto'`
-   - External `/usr/bin/ls`
-   - Current: Only "ls" appears once
-   - Problem: Selecting "ls" executes alias
-   - User cannot bypass alias to run plain external command
+2. **Store full path for shadowing commands** (`src/lle/completion/completion_sources.c`):
+   - External commands that shadow builtins/aliases store full path in `description` field
+   - Uses `lle_shell_is_builtin()` and `lle_shell_is_alias()` helpers
 
-**Current Deduplication Logic** (src/lle/completion/completion_system_v2.c):
-```c
-static lle_result_t deduplicate_results(lle_completion_result_t *result) {
-    // Compares text ONLY, not type:
-    if (strcmp(result->items[check].text, text) == 0) {
-        duplicate = true;  // Removes regardless of category!
-    }
-}
+3. **Smart insertion** (`src/lle/keybinding/keybinding_actions.c`):
+   - When inserting external commands that shadow builtins, use full path from description
+   - Builtin selected → insert "echo" (executes builtin)
+   - External selected → insert "/bin/echo" (full path bypasses builtin)
+
+4. **New helper function**:
+   - Added `lle_completion_result_add_with_description()` for adding completions with metadata
+
+**Current Behavior**:
+```
+$ echo<TAB>
+completing builtin command
+echo
+completing external command
+echo
+
+# Selecting builtin → inserts "echo"
+# Selecting external → inserts "/bin/echo"
 ```
 
-**Proper Behavior** (recommended):
-1. **Keep duplicates with different types**:
-   ```c
-   if (strcmp(result->items[check].text, text) == 0 &&
-       result->items[check].type == result->items[read_pos].type) {
-       duplicate = true;  // Only remove if BOTH text AND type match
-   }
-   ```
+**Future Enhancement**: Add `command` builtin (like zsh) for explicit external command execution:
+```bash
+command echo  # Forces external command, bypasses builtins/aliases
+```
 
-2. **Display with category indicators**:
-   ```
-   echo [builtin]
-   echo [command: /usr/bin/echo]
-   ls [alias]
-   ls [command: /usr/bin/ls]
-   ```
-
-3. **Smart insertion on selection**:
-   - Builtin selected: insert "echo" (executes builtin due to priority)
-   - Command selected: insert "/usr/bin/echo" (full path bypasses builtin)
-   - Alias selected: insert "ls" (executes alias)
-
-4. **Future: `command` builtin** (like zsh):
-   ```bash
-   command echo  # Forces external command, bypasses builtins/aliases
-   ```
-
-**Current Workaround**:
-Users can type the full path manually: `/usr/bin/echo` instead of relying on completion.
-
-**Why Not Fixed Now**:
-1. True conflicts (builtin + external with same name) are rare in practice
-2. The critical bug we fixed was "echo" appearing **twice in same category** (both as builtin)
-3. Category disambiguation is an **enhancement**, not a blocker
-4. Requires changes to:
-   - Deduplication logic (compare type + text)
-   - Menu display (show category indicators)
-   - Insertion logic (insert full path for external commands when disambiguating)
-   - Metadata tracking (source functions need to provide full paths)
-
-**Priority**: MEDIUM (enhancement for power users, not critical for basic usage)
-
-**Resolution Plan**:
-1. Modify `deduplicate_results()` to compare both text and type
-2. Update menu renderer to show category labels for duplicates
-3. Implement smart insertion logic based on selected type
-4. (Future) Add `command` builtin for explicit external command execution
-
-**Status**: DOCUMENTED - Fix deferred to future session
+**Status**: ✅ RESOLVED
 
 ---
 

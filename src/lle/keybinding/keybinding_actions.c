@@ -365,6 +365,10 @@ static lle_result_t replace_word_at_cursor(lle_editor_t *editor,
  * CRITICAL: Must use current word boundaries, not original context
  * because after the first replacement, the original boundaries are stale.
  *
+ * For external commands that shadow builtins/aliases, the description field
+ * contains the full path (e.g., "/usr/bin/echo"). When the user selects
+ * such a command, we insert the full path to explicitly bypass the builtin.
+ *
  * @param editor Editor instance
  * @param menu Completion menu state
  * @param state Completion state with results
@@ -380,8 +384,19 @@ static void update_inline_completion(lle_editor_t *editor,
         return;
     }
 
-    const char *selected_text =
-        state->results->items[menu->selected_index].text;
+    const lle_completion_item_t *selected =
+        &state->results->items[menu->selected_index];
+
+    /* Determine what text to insert:
+     * - For external commands that shadow builtins/aliases, use the full path
+     *   stored in the description field (e.g., "/usr/bin/echo")
+     * - For all other completions, use the normal text field
+     */
+    const char *insert_text = selected->text;
+    if (selected->type == LLE_COMPLETION_TYPE_COMMAND &&
+        selected->description != NULL) {
+        insert_text = selected->description;
+    }
 
     /* Find CURRENT word boundaries - not the stale ones from initial context */
     lle_completion_context_info_t current_context;
@@ -391,7 +406,7 @@ static void update_inline_completion(lle_editor_t *editor,
 
     if (ctx_result == LLE_SUCCESS) {
         replace_word_at_cursor(editor, current_context.word_start,
-                               current_context.word_length, selected_text);
+                               current_context.word_length, insert_text);
     }
 }
 
@@ -2347,7 +2362,15 @@ lle_result_t lle_complete(lle_editor_t *editor) {
 
     /* If only one completion, insert it directly */
     if (result->count == 1) {
-        const char *completion_text = result->items[0].text;
+        const lle_completion_item_t *item = &result->items[0];
+
+        /* For external commands that shadow builtins/aliases, use full path */
+        const char *completion_text = item->text;
+        if (item->type == LLE_COMPLETION_TYPE_COMMAND &&
+            item->description != NULL) {
+            completion_text = item->description;
+        }
+
         lle_result_t replace_result = replace_word_at_cursor(
             editor, context.word_start, context.word_length, completion_text);
         lle_completion_result_free(result);
@@ -2457,13 +2480,22 @@ lle_result_t lle_accept_line(lle_editor_t *editor) {
             lle_completion_system_get_menu(editor->completion_system);
 
         if (state && menu && state->context) {
-            const char *selected = lle_completion_menu_get_selected_text(menu);
+            const lle_completion_item_t *selected =
+                lle_completion_menu_get_selected(menu);
 
             if (selected && state->context->partial_word) {
+                /* For external commands that shadow builtins/aliases, use
+                 * full path from description field to bypass the builtin */
+                const char *insert_text = selected->text;
+                if (selected->type == LLE_COMPLETION_TYPE_COMMAND &&
+                    selected->description != NULL) {
+                    insert_text = selected->description;
+                }
+
                 /* Replace word with selected completion */
                 lle_result_t result = replace_word_at_cursor(
                     editor, state->context->word_start,
-                    strlen(state->context->partial_word), selected);
+                    strlen(state->context->partial_word), insert_text);
 
                 /* Clear completion menu */
                 clear_completion_menu(editor);

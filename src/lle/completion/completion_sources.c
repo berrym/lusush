@@ -240,9 +240,17 @@ lle_result_t lle_completion_source_commands(lle_memory_pool_t *memory_pool,
                 // Check if executable
                 struct stat st;
                 if (stat(full_path, &st) == 0 && (st.st_mode & S_IXUSR)) {
-                    lle_result_t res = lle_completion_result_add(
+                    // Check if this command shadows a builtin or alias
+                    // If so, store full path in description for smart insertion
+                    const char *desc = NULL;
+                    if (lle_shell_is_builtin(entry->d_name) ||
+                        lle_shell_is_alias(entry->d_name)) {
+                        desc = full_path;
+                    }
+
+                    lle_result_t res = lle_completion_result_add_with_description(
                         result, entry->d_name, " ", LLE_COMPLETION_TYPE_COMMAND,
-                        800);
+                        800, desc);
 
                     if (res != LLE_SUCCESS && final_result == LLE_SUCCESS) {
                         final_result = res;

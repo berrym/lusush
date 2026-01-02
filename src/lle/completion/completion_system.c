@@ -106,8 +106,9 @@ void lle_completion_system_clear(lle_completion_system_t *system) {
 /**
  * @brief Deduplicate completion results
  *
- * CRITICAL: Fixes the "echo appears twice" bug by removing
- * duplicate entries based on text comparison.
+ * Type-aware deduplication: items with the same text but different types
+ * are kept separate. This allows both builtin `echo` and external `echo`
+ * to appear in completions, letting users choose which version to use.
  *
  * @param result Result set to deduplicate
  * @return LLE_SUCCESS or error code
@@ -121,17 +122,20 @@ static lle_result_t deduplicate_results(lle_completion_result_t *result) {
 
     for (size_t read_pos = 0; read_pos < result->count; read_pos++) {
         const char *text = result->items[read_pos].text;
+        lle_completion_type_t type = result->items[read_pos].type;
 
-        /* Check if we've seen this text before */
+        /* Check if we've seen this text+type combination before */
         bool duplicate = false;
         for (size_t check = 0; check < write_pos; check++) {
-            if (strcmp(result->items[check].text, text) == 0) {
+            /* Only dedupe if BOTH text AND type match */
+            if (strcmp(result->items[check].text, text) == 0 &&
+                result->items[check].type == type) {
                 duplicate = true;
                 break;
             }
         }
 
-        /* Keep only unique items */
+        /* Keep items that are unique by text+type combination */
         if (!duplicate) {
             if (write_pos != read_pos) {
                 result->items[write_pos] = result->items[read_pos];

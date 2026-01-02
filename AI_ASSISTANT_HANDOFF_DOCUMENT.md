@@ -1,9 +1,66 @@
-# AI Assistant Handoff Document - Session 99
+# AI Assistant Handoff Document - Session 100
 
 **Date**: 2026-01-01
-**Session Type**: POSIX Compliance Fixes
+**Session Type**: Completion System Enhancements
 **Status**: COMPLETE
 **Branch**: `feature/lle`
+
+---
+
+## Session 100: Completion Category Disambiguation (Issue #7)
+
+Implemented category disambiguation for the LLE completion system, allowing users to distinguish between and select different versions of commands with the same name (e.g., builtin `echo` vs external `/bin/echo`).
+
+### Feature Implemented
+
+#### Completion Category Disambiguation (Issue #7)
+
+**Problem**: When both a builtin and an external command have the same name (e.g., `echo`):
+- The deduplication logic removed one based on text match only
+- User saw only one `echo` in the completion menu
+- User could not explicitly select the external version to bypass the builtin
+
+**Solution**: Type-aware deduplication and smart insertion:
+
+1. **Type-aware deduplication** (`src/lle/completion/completion_system.c`):
+   - `deduplicate_results()` now compares both text AND type
+   - Items with the same text but different types are kept separate
+
+2. **Store full path for shadowing commands** (`src/lle/completion/completion_sources.c`):
+   - External commands that shadow builtins/aliases store full path in `description` field
+   - Uses existing `lle_shell_is_builtin()` and `lle_shell_is_alias()` helpers
+
+3. **Smart insertion** (`src/lle/keybinding/keybinding_actions.c`):
+   - When inserting external commands that shadow builtins, use full path from description
+   - Applies to: inline completion updates, single-completion auto-insert, accept-line
+
+4. **New helper function** (`include/lle/completion/completion_types.h`, `src/lle/completion/completion_types.c`):
+   - Added `lle_completion_result_add_with_description()` for adding completions with metadata
+
+**Behavior**:
+```
+$ echo<TAB>
+completing builtin command
+echo
+completing external command
+echo
+
+# Selecting builtin → inserts "echo"
+# Selecting external → inserts "/bin/echo"
+```
+
+**Files Modified**:
+- `src/lle/completion/completion_system.c` - Type-aware deduplication
+- `src/lle/completion/completion_sources.c` - Store full path for shadowing commands
+- `src/lle/keybinding/keybinding_actions.c` - Smart insertion using full path
+- `include/lle/completion/completion_types.h` - New helper function declaration
+- `src/lle/completion/completion_types.c` - New helper function implementation
+
+### Test Results
+
+- **Build**: ✅ All targets compile
+- **Meson Tests**: ✅ 54/54 tests pass
+- **Compliance Tests**: ✅ 139/139 tests pass (100%)
 
 ---
 

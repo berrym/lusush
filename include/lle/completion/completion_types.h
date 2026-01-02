@@ -240,6 +240,25 @@ lle_result_t lle_completion_result_add(lle_completion_result_t *result,
                                        int32_t relevance_score);
 
 /**
+ * @brief Add a completion with description to the result
+ *
+ * Creates completion item internally. The description field can be used
+ * to store additional metadata (e.g., full path for external commands).
+ *
+ * @param result completion result
+ * @param text completion text
+ * @param suffix suffix to append (may be NULL)
+ * @param type completion type
+ * @param relevance_score relevance score (0-1000)
+ * @param description optional description (may be NULL)
+ * @return LLE_SUCCESS on success, error code on failure
+ */
+lle_result_t lle_completion_result_add_with_description(
+    lle_completion_result_t *result, const char *text, const char *suffix,
+    lle_completion_type_t type, int32_t relevance_score,
+    const char *description);
+
+/**
  * @brief Sort completion result by type and relevance
  *
  * Groups items by category, then sorts by relevance within each category.
