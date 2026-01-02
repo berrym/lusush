@@ -646,6 +646,21 @@ test_control_structures() {
 2
 3"
 
+    run_test "For loop with name=value words" \
+        'for i in a=1 b=2 c=3; do echo $i; done' \
+        "a=1
+b=2
+c=3"
+
+    run_test "For loop with empty value (VAR=)" \
+        'for i in empty= full=value; do echo "[$i]"; done' \
+        "[empty=]
+[full=value]"
+
+    run_test "For loop with chained equals (a=b=c)" \
+        'for i in nested=a=b; do echo $i; done' \
+        "nested=a=b"
+
     run_test "While loop" \
         'i=1; while [ $i -le 3 ]; do echo $i; i=$((i + 1)); done' \
         "1

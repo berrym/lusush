@@ -1592,12 +1592,30 @@ static node_t *parse_for_statement(parser_t *parser) {
     }
 
     // Collect all words until ';', newline, or 'do'
+    // In POSIX, words in the for-in list can contain '=' (e.g., name=value)
+    // The tokenizer splits these, so we need to reassemble them here
     while (!tokenizer_match(parser->tokenizer, TOK_SEMICOLON) &&
            !tokenizer_match(parser->tokenizer, TOK_NEWLINE) &&
            !tokenizer_match(parser->tokenizer, TOK_DO) &&
            !tokenizer_match(parser->tokenizer, TOK_EOF)) {
 
         token_t *word_token = tokenizer_current(parser->tokenizer);
+
+        // In for-in word lists, '=' can be a standalone word (e.g., for i in = foo)
+        // Handle it specially before the normal word-like check
+        if (word_token->type == TOK_ASSIGN) {
+            node_t *word_node = new_node(NODE_VAR);
+            if (!word_node) {
+                free_node_tree(for_node);
+                free_node_tree(word_list);
+                return NULL;
+            }
+            word_node->val.str = strdup("=");
+            add_child_node(word_list, word_node);
+            tokenizer_advance(parser->tokenizer);
+            continue;
+        }
+
         if (token_is_word_like(word_token->type) ||
             word_token->type == TOK_VARIABLE ||
             word_token->type == TOK_COMMAND_SUB ||
@@ -1624,9 +1642,80 @@ static node_t *parse_for_statement(parser_t *parser) {
                 free_node_tree(word_list);
                 return NULL;
             }
-            word_node->val.str = strdup(word_token->text);
-            add_child_node(word_list, word_node);
+
+            // Start building the word string - may need to combine with '=' and more
+            char *combined = strdup(word_token->text);
+            if (!combined) {
+                free_node_tree(word_node);
+                free_node_tree(for_node);
+                free_node_tree(word_list);
+                return NULL;
+            }
+            // Track end position of current token for adjacency checks
+            size_t current_end_pos = word_token->position + word_token->length;
             tokenizer_advance(parser->tokenizer);
+
+            // Check for WORD=VALUE pattern: if next token is '=' followed by word,
+            // combine them into a single word (POSIX: for i in a=b c=d; do ...)
+            // Handle chained equals like a=b=c as a single word
+            // IMPORTANT: Only combine if there's no whitespace between tokens
+            while (tokenizer_match(parser->tokenizer, TOK_ASSIGN)) {
+                // Check if '=' is adjacent to the previous token (no whitespace)
+                token_t *assign_token = tokenizer_current(parser->tokenizer);
+                if (assign_token->position != current_end_pos) {
+                    // There's whitespace before '=', don't combine
+                    break;
+                }
+                size_t assign_end_pos = assign_token->position + assign_token->length;
+                tokenizer_advance(parser->tokenizer);  // consume '='
+
+                // Append '=' to combined string
+                size_t len = strlen(combined);
+                char *new_combined = realloc(combined, len + 2);
+                if (!new_combined) {
+                    free(combined);
+                    free_node_tree(word_node);
+                    free_node_tree(for_node);
+                    free_node_tree(word_list);
+                    return NULL;
+                }
+                combined = new_combined;
+                combined[len] = '=';
+                combined[len + 1] = '\0';
+
+                // Check if there's a value IMMEDIATELY after '=' (no whitespace)
+                token_t *value_token = tokenizer_current(parser->tokenizer);
+                bool is_adjacent = (value_token->position == assign_end_pos);
+
+                if (is_adjacent &&
+                    (token_is_word_like(value_token->type) ||
+                     value_token->type == TOK_VARIABLE ||
+                     value_token->type == TOK_NUMBER)) {
+                    // Append the value (it's adjacent to '=', so part of same word)
+                    size_t vlen = strlen(value_token->text);
+                    new_combined = realloc(combined, strlen(combined) + vlen + 1);
+                    if (!new_combined) {
+                        free(combined);
+                        free_node_tree(word_node);
+                        free_node_tree(for_node);
+                        free_node_tree(word_list);
+                        return NULL;
+                    }
+                    combined = new_combined;
+                    strcat(combined, value_token->text);
+                    // Update end position for next iteration's adjacency check
+                    current_end_pos = value_token->position + value_token->length;
+                    tokenizer_advance(parser->tokenizer);
+                    // Continue loop to check for more '=' (handles a=b=c)
+                } else {
+                    // No adjacent value after '=' - word ends with '=' (e.g., empty=)
+                    // Or there's whitespace before next token (separate word)
+                    break;
+                }
+            }
+
+            word_node->val.str = combined;
+            add_child_node(word_list, word_node);
         } else {
             break;
         }
