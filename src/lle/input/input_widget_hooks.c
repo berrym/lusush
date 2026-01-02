@@ -1,6 +1,8 @@
 /**
  * @file input_widget_hooks.c
  * @brief Input Parser Widget Hook Integration (Spec 06 Phase 8)
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Automatic widget hook triggering based on input events. Evaluates hook
  * conditions and queues hooks for execution when input events match criteria.

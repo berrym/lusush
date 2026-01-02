@@ -1,0 +1,25 @@
+var structinput__state__t =
+[
+    [ "backtick_count", "structinput__state__t.html#a178629f5d942f0cf9d5a992383e6c583", null ],
+    [ "brace_count", "structinput__state__t.html#a673d4411a03ada13f613486df570fc16", null ],
+    [ "bracket_count", "structinput__state__t.html#ab8a9f8550a26bc961f41cc7dacdff132", null ],
+    [ "compound_command_depth", "structinput__state__t.html#aa0dcec94f6b2b9cdfc88ab1802081af0", null ],
+    [ "double_quote_count", "structinput__state__t.html#a11e1ab0fa183160dd06daf759d588b03", null ],
+    [ "escaped", "structinput__state__t.html#aa849da970a6c5a830f71f41f20aa095c", null ],
+    [ "has_continuation", "structinput__state__t.html#abcf98bd69ff5bdef1b3a58528d2b72cf", null ],
+    [ "here_doc_delimiter", "structinput__state__t.html#aebd2faed479d3ecc10627a59af4720c2", null ],
+    [ "in_arithmetic", "structinput__state__t.html#a92bcbb23b0d93f28f4cf1c518e2c3590", null ],
+    [ "in_backtick", "structinput__state__t.html#af155d6f57db2d3a8f9f4562d2cb7bd4d", null ],
+    [ "in_case_statement", "structinput__state__t.html#ac7a6a4f6d33a37a1207018610d1c30a0", null ],
+    [ "in_command_substitution", "structinput__state__t.html#aa87598cd89e4f4e24f432e39dbc957f5", null ],
+    [ "in_double_quote", "structinput__state__t.html#ae11fcd15dfccf0655dee16cc402ba420", null ],
+    [ "in_for_loop", "structinput__state__t.html#a1afaf028cc851df39209f685d7345f3f", null ],
+    [ "in_function_definition", "structinput__state__t.html#afea2e5ff1a64f58edc9f188bfc583062", null ],
+    [ "in_here_doc", "structinput__state__t.html#a46bb78b579866b1a82389c9fde2f29bf", null ],
+    [ "in_if_statement", "structinput__state__t.html#a74728a120b33733ac190755697bd9c6b", null ],
+    [ "in_single_quote", "structinput__state__t.html#a1a8a7e787e1d266fc7f35dcb3020e1c9", null ],
+    [ "in_until_loop", "structinput__state__t.html#a7a90bf1de6ad7e8b4446151f85be55dd", null ],
+    [ "in_while_loop", "structinput__state__t.html#a49880b0c4985f6a690561fb76831f92f", null ],
+    [ "paren_count", "structinput__state__t.html#a8da11ca27ad80c8e2e175da11ed43f4d", null ],
+    [ "quote_count", "structinput__state__t.html#abd2d717d76bacdb71c19b78fda9e99a8", null ]
+];

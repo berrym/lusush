@@ -1,6 +1,8 @@
 /**
  * @file hashtable.h
  * @brief LLE libhashtable Integration - Complete Wrapper Layer
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Specification: Spec 05 - libhashtable Integration Complete
  * Version: 1.0.0

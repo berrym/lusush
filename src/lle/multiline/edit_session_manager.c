@@ -1,6 +1,15 @@
-/* SPDX-License-Identifier: MIT */
-/* LLE Specification 22: History-Buffer Integration - Phase 3 */
-/* Edit Session Manager Implementation */
+/**
+ * @file edit_session_manager.c
+ * @brief Edit session lifecycle management for history entries
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ *
+ * LLE Specification 22: History-Buffer Integration - Phase 3
+ *
+ * This module manages edit sessions for history entries, tracking
+ * modifications made during editing and supporting session lifecycle
+ * operations including creation, completion, and cancellation.
+ */
 
 #include "lle/edit_session_manager.h"
 #include "lle/history.h"
@@ -40,6 +49,16 @@ static lle_result_t get_entry_text(lle_history_core_t *history, size_t index,
 static int64_t timespec_diff_ms(const struct timespec *start,
                                 const struct timespec *end);
 
+/* ============================================================================
+ * PUBLIC API - CONFIGURATION
+ * ============================================================================
+ */
+
+/**
+ * @brief Get default session manager configuration
+ * @param config Pointer to configuration structure to populate
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if config is NULL
+ */
 lle_result_t lle_edit_session_manager_get_default_config(
     lle_session_manager_config_t *config) {
     if (!config) {
@@ -55,6 +74,19 @@ lle_result_t lle_edit_session_manager_get_default_config(
     return LLE_SUCCESS;
 }
 
+/* ============================================================================
+ * PUBLIC API - LIFECYCLE
+ * ============================================================================
+ */
+
+/**
+ * @brief Create a new edit session manager
+ * @param manager Pointer to store the created manager
+ * @param memory_pool Memory pool for allocations (can be NULL for global pool)
+ * @param history_core History core for accessing history entries
+ * @param config Manager configuration (can be NULL for defaults)
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t
 lle_edit_session_manager_create(lle_edit_session_manager_t **manager,
                                 lle_memory_pool_t *memory_pool,
@@ -101,6 +133,11 @@ lle_edit_session_manager_create(lle_edit_session_manager_t **manager,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Destroy an edit session manager and all active sessions
+ * @param manager The manager to destroy
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if manager is NULL
+ */
 lle_result_t
 lle_edit_session_manager_destroy(lle_edit_session_manager_t *manager) {
     if (!manager) {
@@ -122,6 +159,18 @@ lle_edit_session_manager_destroy(lle_edit_session_manager_t *manager) {
     return LLE_SUCCESS;
 }
 
+/* ============================================================================
+ * PUBLIC API - SESSION MANAGEMENT
+ * ============================================================================
+ */
+
+/**
+ * @brief Start a new edit session for a history entry
+ * @param manager The session manager
+ * @param entry_index Index of the history entry to edit
+ * @param session Pointer to store the created session
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t
 lle_edit_session_manager_start_session(lle_edit_session_manager_t *manager,
                                        size_t entry_index,
@@ -165,6 +214,12 @@ lle_edit_session_manager_start_session(lle_edit_session_manager_t *manager,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Get the currently active edit session
+ * @param manager The session manager
+ * @param session Pointer to store the current session (NULL if none active)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on error
+ */
 lle_result_t lle_edit_session_manager_get_current_session(
     lle_edit_session_manager_t *manager, lle_edit_session_t **session) {
     if (!manager || !manager->active || !session) {
@@ -175,6 +230,13 @@ lle_result_t lle_edit_session_manager_get_current_session(
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Record an edit operation in a session
+ * @param manager The session manager
+ * @param session The edit session
+ * @param operation The edit operation to record
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_edit_session_manager_record_operation(
     lle_edit_session_manager_t *manager, lle_edit_session_t *session,
     const lle_edit_operation_t *operation) {
@@ -227,6 +289,14 @@ lle_result_t lle_edit_session_manager_record_operation(
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Update the current text content of an edit session
+ * @param manager The session manager
+ * @param session The edit session to update
+ * @param new_text New text content
+ * @param new_length Length of the new text
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t
 lle_edit_session_manager_update_text(lle_edit_session_manager_t *manager,
                                      lle_edit_session_t *session,
@@ -256,6 +326,12 @@ lle_edit_session_manager_update_text(lle_edit_session_manager_t *manager,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Complete an edit session and apply modifications
+ * @param manager The session manager
+ * @param session The session to complete
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t
 lle_edit_session_manager_complete_session(lle_edit_session_manager_t *manager,
                                           lle_edit_session_t *session) {
@@ -305,6 +381,12 @@ lle_edit_session_manager_complete_session(lle_edit_session_manager_t *manager,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Cancel an edit session without applying modifications
+ * @param manager The session manager
+ * @param session The session to cancel
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on error
+ */
 lle_result_t
 lle_edit_session_manager_cancel_session(lle_edit_session_manager_t *manager,
                                         lle_edit_session_t *session) {
@@ -334,6 +416,13 @@ lle_edit_session_manager_cancel_session(lle_edit_session_manager_t *manager,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Check if an edit session has timed out
+ * @param manager The session manager
+ * @param session The session to check
+ * @param timed_out Pointer to store timeout status
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on error
+ */
 lle_result_t
 lle_edit_session_manager_check_timeout(lle_edit_session_manager_t *manager,
                                        lle_edit_session_t *session,
@@ -361,8 +450,17 @@ lle_edit_session_manager_check_timeout(lle_edit_session_manager_t *manager,
     return LLE_SUCCESS;
 }
 
-/* Internal helper functions */
+/* ============================================================================
+ * INTERNAL HELPER FUNCTIONS
+ * ============================================================================
+ */
 
+/**
+ * @brief Create a new edit session for a history entry
+ * @param manager The session manager
+ * @param entry_index Index of the history entry
+ * @return Pointer to the created session, or NULL on failure
+ */
 static lle_edit_session_t *
 create_edit_session(lle_edit_session_manager_t *manager, size_t entry_index) {
     lle_edit_session_t *session = lle_pool_alloc(sizeof(lle_edit_session_t));
@@ -403,12 +501,27 @@ create_edit_session(lle_edit_session_manager_t *manager, size_t entry_index) {
     return session;
 }
 
+/**
+ * @brief Free an edit session's resources
+ * @param session The session to free
+ *
+ * Memory pool owns all allocations, so this function exists for
+ * API completeness and potential future enhancements.
+ */
 static void free_edit_session(lle_edit_session_t *session) {
     /* Memory pool owns all allocations, no explicit frees needed */
     /* This function exists for API completeness and future enhancements */
     (void)session;
 }
 
+/**
+ * @brief Get the text content of a history entry
+ * @param history The history core
+ * @param index Index of the entry
+ * @param text Pointer to store allocated text copy
+ * @param length Pointer to store text length
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 static lle_result_t get_entry_text(lle_history_core_t *history, size_t index,
                                    char **text, size_t *length) {
     lle_history_entry_t *entry = NULL;
@@ -434,6 +547,12 @@ static lle_result_t get_entry_text(lle_history_core_t *history, size_t index,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Calculate the difference between two timespecs in milliseconds
+ * @param start Start time
+ * @param end End time
+ * @return Difference in milliseconds (end - start)
+ */
 static int64_t timespec_diff_ms(const struct timespec *start,
                                 const struct timespec *end) {
     int64_t sec_diff = end->tv_sec - start->tv_sec;

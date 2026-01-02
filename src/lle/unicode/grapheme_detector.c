@@ -1,8 +1,20 @@
+/**
+ * @file grapheme_detector.c
+ * @brief Grapheme Cluster Boundary Detection
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ *
+ * Implements UAX #29 grapheme break property detection for
+ * determining grapheme cluster boundaries in UTF-8 text.
+ */
+
 #include "lle/grapheme_detector.h"
 #include "lle/utf8_support.h"
 
 /**
- * Get grapheme break property for a codepoint
+ * @brief Get grapheme break property for a codepoint
+ * @param cp The Unicode codepoint to classify
+ * @return The grapheme break property value
  *
  * Implements UAX #29 grapheme break property detection.
  */
@@ -71,7 +83,12 @@ grapheme_break_property_t get_grapheme_break_property(uint32_t cp) {
 }
 
 /**
- * Check if there's a boundary between two codepoints per UAX #29
+ * @brief Check if there's a boundary between two codepoints per UAX #29
+ * @param cp1 Previous codepoint
+ * @param cp2 Current codepoint
+ * @param prev_was_zwj Whether the character before cp1 was ZWJ
+ * @param ri_sequence_count Number of preceding Regional Indicator codepoints
+ * @return true if there is a boundary, false if no break
  */
 bool is_grapheme_cluster_boundary(uint32_t cp1, uint32_t cp2, bool prev_was_zwj,
                                   int ri_sequence_count) {
@@ -143,7 +160,14 @@ bool is_grapheme_cluster_boundary(uint32_t cp1, uint32_t cp2, bool prev_was_zwj,
 }
 
 /**
- * Check if position is at grapheme boundary
+ * @brief Check if position is at a grapheme cluster boundary
+ * @param pos Current position in UTF-8 text
+ * @param text_start Start of the text buffer
+ * @param text_end End of the text buffer
+ * @return true if this position is a grapheme boundary, false otherwise
+ *
+ * Analyzes the context around the position to determine if it marks
+ * the start of a new grapheme cluster.
  */
 bool is_grapheme_boundary_at_position(const char *pos, const char *text_start,
                                       const char *text_end) {

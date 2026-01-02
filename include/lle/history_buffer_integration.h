@@ -1,5 +1,8 @@
 /**
- * history_buffer_integration.h - History-Buffer Integration System
+ * @file history_buffer_integration.h
+ * @brief History-Buffer integration system for command editing
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Implements the critical missing functionality from LLE_DESIGN_DOCUMENT.md:
  * seamless integration between history system and buffer management for
@@ -8,8 +11,6 @@
  *
  * Critical Gap Spec: 22_history_buffer_integration_complete.md
  * Integration Target: Spec 09 (History System)
- * Implementation Status: Phase 1 - Core Infrastructure
- * Date: 2025-11-02
  */
 
 #ifndef LLE_HISTORY_BUFFER_INTEGRATION_H

@@ -1,7 +1,8 @@
 /**
  * @file history_forensics.c
- * @brief LLE History System - Forensic Tracking Implementation (Spec 09 Phase 4
- * Day 11)
+ * @brief LLE History System - Forensic Tracking Implementation (Spec 09 Phase 4 Day 11)
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Implements forensic-grade metadata tracking for command history:
  * - Process and session tracking (PID, session ID)
@@ -17,9 +18,6 @@
  * - Usage pattern analytics
  * - Security auditing
  * - Workflow reconstruction
- *
- * @date 2025-11-01
- * @author LLE Implementation Team
  */
 
 #include "lle/error_handling.h"
@@ -44,11 +42,15 @@
  */
 
 /**
- * Get terminal device name
+ * @brief Get terminal device name
+ *
+ * Retrieves the name of the terminal device associated with standard input.
+ * Falls back to "unknown_tty" if connected to a terminal but name is unavailable,
+ * or "not_a_tty" if not connected to a terminal.
  *
  * @param buffer Output buffer for terminal name
- * @param size Buffer size
- * @return true on success, false on failure
+ * @param size Buffer size in bytes
+ * @return true on success, false if not connected to a terminal
  */
 static bool get_terminal_name(char *buffer, size_t size) {
     if (!buffer || size == 0) {
@@ -77,7 +79,12 @@ static bool get_terminal_name(char *buffer, size_t size) {
 }
 
 /**
- * Duplicate string using memory pool
+ * @brief Duplicate string using memory pool
+ *
+ * Allocates memory from the LLE memory pool and copies the input string.
+ *
+ * @param str String to duplicate (may be NULL)
+ * @return Pointer to duplicated string, or NULL if str is NULL or allocation fails
  */
 static char *pool_strdup(const char *str) {
     if (!str)
@@ -97,9 +104,10 @@ static char *pool_strdup(const char *str) {
  */
 
 /**
- * Get high-precision timestamp in nanoseconds
+ * @brief Get high-precision timestamp in nanoseconds
  *
  * Uses CLOCK_MONOTONIC for consistent timing measurements.
+ * Falls back to time(NULL) with second precision if clock_gettime fails.
  *
  * @return Timestamp in nanoseconds since arbitrary epoch
  */
@@ -115,13 +123,14 @@ uint64_t lle_forensic_get_timestamp_ns(void) {
 }
 
 /**
- * Capture current forensic context
+ * @brief Capture current forensic context
  *
  * Captures process, user, terminal, and timing information for forensic
- * tracking.
+ * tracking. Includes PID, session ID, UID, GID, terminal name, working
+ * directory, and high-precision timestamp.
  *
- * @param context Output structure for forensic data
- * @return LLE_SUCCESS or error code
+ * @param context Output structure for forensic data (must not be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if context is NULL
  */
 lle_result_t lle_forensic_capture_context(lle_forensic_context_t *context) {
     if (!context) {
@@ -160,13 +169,15 @@ lle_result_t lle_forensic_capture_context(lle_forensic_context_t *context) {
 }
 
 /**
- * Apply forensic context to history entry
+ * @brief Apply forensic context to history entry
  *
  * Populates forensic metadata fields in a history entry from context.
+ * Copies process info, terminal name, working directory, timing fields,
+ * and initializes usage tracking.
  *
- * @param entry History entry to populate
- * @param context Forensic context to apply
- * @return LLE_SUCCESS or error code
+ * @param entry History entry to populate (must not be NULL)
+ * @param context Forensic context to apply (must not be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if entry or context is NULL
  */
 lle_result_t
 lle_forensic_apply_to_entry(lle_history_entry_t *entry,
@@ -205,11 +216,12 @@ lle_forensic_apply_to_entry(lle_history_entry_t *entry,
 }
 
 /**
- * Free forensic context resources
+ * @brief Free forensic context resources
  *
- * Frees allocated strings in forensic context.
+ * Frees allocated strings in forensic context, including terminal name
+ * and working directory. Safe to call with NULL context.
  *
- * @param context Forensic context to free
+ * @param context Forensic context to free (may be NULL)
  */
 void lle_forensic_free_context(lle_forensic_context_t *context) {
     if (!context) {
@@ -233,12 +245,13 @@ void lle_forensic_free_context(lle_forensic_context_t *context) {
  */
 
 /**
- * Record command execution start time
+ * @brief Record command execution start time
  *
  * Captures high-precision start time for duration calculation.
+ * Resets end_time_ns and duration_ms to zero.
  *
- * @param entry History entry
- * @return LLE_SUCCESS or error code
+ * @param entry History entry to update (must not be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if entry is NULL
  */
 lle_result_t lle_forensic_mark_start(lle_history_entry_t *entry) {
     if (!entry) {
@@ -253,12 +266,13 @@ lle_result_t lle_forensic_mark_start(lle_history_entry_t *entry) {
 }
 
 /**
- * Record command execution end time and calculate duration
+ * @brief Record command execution end time and calculate duration
  *
  * Captures end time and calculates execution duration in milliseconds.
+ * Duration is set to zero if end time is not after start time.
  *
- * @param entry History entry
- * @return LLE_SUCCESS or error code
+ * @param entry History entry to update (must not be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if entry is NULL
  */
 lle_result_t lle_forensic_mark_end(lle_history_entry_t *entry) {
     if (!entry) {
@@ -286,12 +300,13 @@ lle_result_t lle_forensic_mark_end(lle_history_entry_t *entry) {
  */
 
 /**
- * Increment usage count for history entry
+ * @brief Increment usage count for history entry
  *
  * Tracks how many times a command has been reused via expansion or recall.
+ * Also updates the last access time to current time.
  *
- * @param entry History entry
- * @return LLE_SUCCESS or error code
+ * @param entry History entry to update (must not be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if entry is NULL
  */
 lle_result_t lle_forensic_increment_usage(lle_history_entry_t *entry) {
     if (!entry) {
@@ -307,12 +322,13 @@ lle_result_t lle_forensic_increment_usage(lle_history_entry_t *entry) {
 }
 
 /**
- * Update last access time for history entry
+ * @brief Update last access time for history entry
  *
  * Records timestamp when entry was last accessed (searched, expanded, etc.).
+ * Uses current time from time(NULL).
  *
- * @param entry History entry
- * @return LLE_SUCCESS or error code
+ * @param entry History entry to update (must not be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if entry is NULL
  */
 lle_result_t lle_forensic_update_access_time(lle_history_entry_t *entry) {
     if (!entry) {

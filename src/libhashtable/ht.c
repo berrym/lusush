@@ -48,8 +48,8 @@ struct ht_enum { // typedefed to ht_enum_t in ht.h for external scope
 };
 
 /**
- * __random_seed:
- *      Generate a random hash offset.
+ * @brief Generate a random hash offset
+ * @param ht Pointer to the hash table
  */
 static void __random_seed(ht_t *ht) {
     uint64_t seed = (uint64_t)time(NULL);
@@ -59,52 +59,53 @@ static void __random_seed(ht_t *ht) {
 }
 
 /**
- * __default_seed:
- *      Use a default hash offset for FNV1A algorithm.
+ * @brief Use a default hash offset for FNV1A algorithm
+ * @param ht Pointer to the hash table
  */
 static void __default_seed(ht_t *ht) { ht->seed = FNV1A_OFFSET; }
 
 /**
- * __ht_passthrough_copy:
- *      Default copy callback.
+ * @brief Default copy callback
+ * @param v Pointer to the value to copy
+ * @return Pointer to the copied value (passthrough)
  */
 static void *__ht_passthrough_copy(const void *v) { return (void *)v; }
 
 /**
- * __ht_passthrough_destroy:
- *      Default destroy callback.
+ * @brief Default destroy callback
+ * @param v Pointer to the value to destroy (unused)
  */
 static void __ht_passthrough_destroy(const void *v __attribute__((unused))) {
     return;
 }
 
 /**
- * __ht_bucket_index:
- *      Return the table index of a bucket given it's key.
+ * @brief Return the table index of a bucket given its key
+ * @param ht Pointer to the hash table
+ * @param key Pointer to the key
+ * @return The bucket index for the given key
  */
 static size_t __ht_bucket_index(const ht_t *ht, const void *key) {
     return ht->hfunc(key, ht->seed) % ht->capacity;
 }
 
 /**
- * __ht_add_to_bucket:
- *      Fill a bucket with a key and value.
- *      If part of a rehash operation do not make copies of the key value pair.
- *      Case 1:
- *            Check if the index of the bucket has something already.
- *            If not then we add the key and value to the bucket.
+ * @brief Fill a bucket with a key and value
  *
- *       Case 2:
- *            Second, if that index already has a key value pair,
- *            check if the key is a match and if so replace the value.
+ * If part of a rehash operation do not make copies of the key value pair.
+ * - Case 1: Check if the index of the bucket has something already.
+ *           If not then we add the key and value to the bucket.
+ * - Case 2: If that index already has a key value pair,
+ *           check if the key is a match and if so replace the value.
+ * - Case 3: We've determined the key isn't in a bucket,
+ *           but there is something already at that index.
+ *           Traverse the chain checking each node if we have the key already.
+ *           If yes, replace the value. If not, create a new node for the chain.
  *
- *       Case 3:
- *             We’ve determined the key isn’t in a bucket,
- *             but there is something already at that index.
- *             Traverse the chain checking each node if we have the key already.
- *             If yes, replace the value and we’re done.
- *             If not we’ll hit the end and create a new node to add to the
- * chain.
+ * @param ht Pointer to the hash table
+ * @param key Pointer to the key
+ * @param val Pointer to the value
+ * @param rehash True if this is part of a rehash operation
  */
 static void __ht_add_to_bucket(ht_t *ht, const void *key, const void *val,
                                bool rehash) {
@@ -175,10 +176,12 @@ static void __ht_add_to_bucket(ht_t *ht, const void *key, const void *val,
 }
 
 /**
- * __ht_rehash:
- *      Rehash a table growing it's capacity by GROWTH_FACTOR if it has reached
- * MAX_LOAD_FACTOR, but do not grow table if it's capacity has reached
- * MAX_CAPACITY.
+ * @brief Rehash a table growing its capacity by GROWTH_FACTOR
+ *
+ * Rehashes the table if it has reached MAX_LOAD_FACTOR, but does not
+ * grow the table if its capacity has reached MAX_CAPACITY.
+ *
+ * @param ht Pointer to the hash table
  */
 static void __ht_rehash(ht_t *ht) {
     ht_bucket_t *buckets = NULL, *cur = NULL, *next = NULL;
@@ -222,10 +225,17 @@ static void __ht_rehash(ht_t *ht) {
 }
 
 /**
- * ht_create:
- *      Create a new hash table of INITIAL_CAPACITY, it requires a hash
+ * @brief Create a new hash table
+ *
+ * Creates a new hash table of INITIAL_CAPACITY. It requires a hash
  * function, a key equality comparison function, and optionally bucket
  * operations function callbacks structure.
+ *
+ * @param hfunc Hash function to use for key hashing
+ * @param keyeq Key equality comparison function
+ * @param callbacks Optional callbacks for key/value copy and free operations
+ * @param flags Configuration flags (e.g., HT_SEED_RANDOM)
+ * @return Pointer to the new hash table, or NULL on failure
  */
 ht_t *ht_create(const ht_hash hfunc, const ht_keyeq keyeq,
                 const ht_callbacks_t *callbacks, const unsigned int flags) {
@@ -281,8 +291,11 @@ ht_t *ht_create(const ht_hash hfunc, const ht_keyeq keyeq,
 }
 
 /**
- * ht_destroy:
- *      Destroy a hash table first by freeing all buckets then the table itself.
+ * @brief Destroy a hash table
+ *
+ * Destroys a hash table by first freeing all buckets then the table itself.
+ *
+ * @param ht Pointer to the hash table to destroy
  */
 void ht_destroy(ht_t *ht) {
     ht_bucket_t *next = NULL, *cur = NULL;
@@ -321,8 +334,10 @@ void ht_destroy(ht_t *ht) {
 }
 
 /**
- * ht_insert:
- *      Insert a key value pair into a table bucket.
+ * @brief Insert a key value pair into a table bucket
+ * @param ht Pointer to the hash table
+ * @param key Pointer to the key
+ * @param val Pointer to the value
  */
 void ht_insert(ht_t *ht, const void *key, const void *val) {
     if (!ht || !key) {
@@ -334,16 +349,16 @@ void ht_insert(ht_t *ht, const void *key, const void *val) {
 }
 
 /**
- * ht_remove:
- *      Remove a bucket from the table.
- *      Step 1:
- *            Get the bucket index using it's hash.
- *      Step 2:
- *            Check the bucket and chains for a key match.
- *      Step 3:
- *            Remove the entry if match is made.
- *      Step 4:
- *            Relink the chain if necessary.
+ * @brief Remove a bucket from the table
+ *
+ * Removes a bucket from the table by:
+ * 1. Getting the bucket index using its hash
+ * 2. Checking the bucket and chains for a key match
+ * 3. Removing the entry if match is made
+ * 4. Relinking the chain if necessary
+ *
+ * @param ht Pointer to the hash table
+ * @param key Pointer to the key to remove
  */
 void ht_remove(ht_t *ht, const void *key) {
     if (!ht || !key) {
@@ -412,9 +427,11 @@ void ht_remove(ht_t *ht, const void *key) {
 }
 
 /**
- * __ht_get:
- *      Get a table bucket value given it's key and a pointer to store it's
- * value.
+ * @brief Get a table bucket value given its key
+ * @param ht Pointer to the hash table
+ * @param key Pointer to the key
+ * @param val Pointer to store the retrieved value
+ * @return true if the key was found, false otherwise
  */
 static bool __ht_get(const ht_t *ht, const void *key, void **val) {
     if (!ht || !key) {
@@ -441,8 +458,13 @@ static bool __ht_get(const ht_t *ht, const void *key, void **val) {
 }
 
 /**
- * ht_get:
- *      Get a table bucket value given it's key. It's a wrapper around __ht_get.
+ * @brief Get a table bucket value given its key
+ *
+ * Wrapper around __ht_get for external use.
+ *
+ * @param ht Pointer to the hash table
+ * @param key Pointer to the key
+ * @return Pointer to the value, or NULL if not found
  */
 void *ht_get(const ht_t *ht, const void *key) {
     void *val = NULL;
@@ -451,8 +473,9 @@ void *ht_get(const ht_t *ht, const void *key) {
 }
 
 /**
- * ht_enum_create:
- *      Create a table enumeration object.
+ * @brief Create a table enumeration object
+ * @param ht Pointer to the hash table
+ * @return Pointer to the enumeration object, or NULL on failure
  */
 ht_enum_t *ht_enum_create(ht_t *ht) {
     ht_enum_t *he = NULL;
@@ -472,19 +495,16 @@ ht_enum_t *ht_enum_create(ht_t *ht) {
 }
 
 /**
- * ht_enum_next:
- *      Get the key value information of the next bucket in a table.
- *      Step 1:
- *            Iterate through each bucket and if something is there,
- *            return the bucket data.
- *      Step 2:
- *            Move to the next bucket unlese the bucket has a chain,
- *            then we store the head of the chain in cur.
- *            The next time around we’ll see cur and keep traversing the
- *            chain until it's done.
- *      Step 4:
- *            Once we’ve gone though that chain we’re already pointed to
- *            the next bucket and we start over.
+ * @brief Get the key value information of the next bucket in a table
+ *
+ * Iterates through each bucket and returns the bucket data. Handles
+ * chained buckets by traversing the chain until done, then moving
+ * to the next bucket.
+ *
+ * @param he Pointer to the enumeration object
+ * @param key Pointer to store the key (can be NULL)
+ * @param val Pointer to store the value (can be NULL)
+ * @return true if a next bucket was found, false if enumeration is complete
  */
 bool ht_enum_next(ht_enum_t *he, const void **key, const void **val) {
     const void *mykey = NULL, *myval = NULL;
@@ -522,8 +542,8 @@ bool ht_enum_next(ht_enum_t *he, const void **key, const void **val) {
 }
 
 /**
- * ht_enum_destroy:
- *      Destroy an enumeration object.
+ * @brief Destroy an enumeration object
+ * @param he Pointer to the enumeration object to destroy
  */
 void ht_enum_destroy(ht_enum_t *he) {
     if (!he) {

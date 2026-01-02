@@ -1,14 +1,22 @@
 /**
  * @file completion_menu_logic.c
  * @brief Completion Menu Navigation Logic Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ *
+ * Implements menu navigation logic including up/down/left/right movement,
+ * page navigation, category jumping, and selection handling.
  */
 
 #include "lle/completion/completion_menu_logic.h"
 #include <stddef.h>
 
 /**
- * Ensure selected item is visible in the current view
- * Adjusts first_visible if needed
+ * @brief Ensure selected item is visible in the current view
+ *
+ * Adjusts first_visible index if needed to keep selection in view.
+ *
+ * @param state Menu state to adjust
  */
 static void ensure_visible(lle_completion_menu_state_t *state) {
     if (state == NULL || state->result == NULL) {
@@ -41,9 +49,12 @@ static void ensure_visible(lle_completion_menu_state_t *state) {
 }
 
 /**
- * Get number of columns from menu state
- * Uses the dynamically calculated value from
- * lle_completion_menu_update_layout()
+ * @brief Get number of columns from menu state
+ *
+ * Uses the dynamically calculated value from lle_completion_menu_update_layout().
+ *
+ * @param state Menu state to query
+ * @return Number of columns (defaults to 1)
  */
 static size_t get_columns(const lle_completion_menu_state_t *state) {
     if (state && state->num_columns > 0) {
@@ -53,8 +64,12 @@ static size_t get_columns(const lle_completion_menu_state_t *state) {
 }
 
 /**
- * Find which category an item belongs to
- * Returns category index (0-based) and sets category_start/category_end
+ * @brief Find which category an item belongs to
+ * @param state Menu state to search
+ * @param item_index Index of item to find category for
+ * @param category_start Output for category start index (may be NULL)
+ * @param category_end Output for category end index (may be NULL)
+ * @return Category index (0-based)
  */
 static size_t find_category_for_index(const lle_completion_menu_state_t *state,
                                       size_t item_index, size_t *category_start,
@@ -97,6 +112,15 @@ static size_t find_category_for_index(const lle_completion_menu_state_t *state,
     return state->category_count - 1;
 }
 
+/**
+ * @brief Move selection down in the completion menu
+ *
+ * Moves to the next row within the current category, or wraps to the
+ * first row of the next category if at the bottom.
+ *
+ * @param state Menu state to modify
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on error
+ */
 lle_result_t lle_completion_menu_move_down(lle_completion_menu_state_t *state) {
     if (state == NULL) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -181,6 +205,15 @@ lle_result_t lle_completion_menu_move_down(lle_completion_menu_state_t *state) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Move selection up in the completion menu
+ *
+ * Moves to the previous row within the current category, or wraps to the
+ * last row of the previous category if at the top.
+ *
+ * @param state Menu state to modify
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on error
+ */
 lle_result_t lle_completion_menu_move_up(lle_completion_menu_state_t *state) {
     if (state == NULL) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -269,6 +302,15 @@ lle_result_t lle_completion_menu_move_up(lle_completion_menu_state_t *state) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Move selection down by one page
+ *
+ * Jumps down by visible_count items, stopping at the last item.
+ * Does not wrap around.
+ *
+ * @param state Menu state to modify
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on error
+ */
 lle_result_t lle_completion_menu_page_down(lle_completion_menu_state_t *state) {
     if (state == NULL) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -294,6 +336,15 @@ lle_result_t lle_completion_menu_page_down(lle_completion_menu_state_t *state) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Move selection up by one page
+ *
+ * Jumps up by visible_count items, stopping at the first item.
+ * Does not wrap around.
+ *
+ * @param state Menu state to modify
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on error
+ */
 lle_result_t lle_completion_menu_page_up(lle_completion_menu_state_t *state) {
     if (state == NULL) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -318,6 +369,15 @@ lle_result_t lle_completion_menu_page_up(lle_completion_menu_state_t *state) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Move selection right within the current row
+ *
+ * Moves to the next column in the current row, wrapping to the first
+ * column if at the end. Updates the target column for sticky behavior.
+ *
+ * @param state Menu state to modify
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on error
+ */
 lle_result_t
 lle_completion_menu_move_right(lle_completion_menu_state_t *state) {
     if (state == NULL || !state->menu_active) {
@@ -365,6 +425,15 @@ lle_completion_menu_move_right(lle_completion_menu_state_t *state) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Move selection left within the current row
+ *
+ * Moves to the previous column in the current row, wrapping to the last
+ * column if at the beginning. Updates the target column for sticky behavior.
+ *
+ * @param state Menu state to modify
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on error
+ */
 lle_result_t lle_completion_menu_move_left(lle_completion_menu_state_t *state) {
     if (state == NULL || !state->menu_active) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -411,6 +480,15 @@ lle_result_t lle_completion_menu_move_left(lle_completion_menu_state_t *state) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Jump to the next category
+ *
+ * Moves selection to the first item of the next category,
+ * wrapping to the first category if at the end.
+ *
+ * @param state Menu state to modify
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on error
+ */
 lle_result_t
 lle_completion_menu_next_category(lle_completion_menu_state_t *state) {
     if (state == NULL) {
@@ -450,6 +528,15 @@ lle_completion_menu_next_category(lle_completion_menu_state_t *state) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Jump to the previous category
+ *
+ * Moves selection to the first item of the previous category,
+ * wrapping to the last category if at the beginning.
+ *
+ * @param state Menu state to modify
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on error
+ */
 lle_result_t
 lle_completion_menu_prev_category(lle_completion_menu_state_t *state) {
     if (state == NULL) {
@@ -490,6 +577,14 @@ lle_completion_menu_prev_category(lle_completion_menu_state_t *state) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Select the first item in the menu
+ *
+ * Moves selection to index 0 and ensures it is visible.
+ *
+ * @param state Menu state to modify
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on error
+ */
 lle_result_t
 lle_completion_menu_select_first(lle_completion_menu_state_t *state) {
     if (state == NULL) {
@@ -509,6 +604,14 @@ lle_completion_menu_select_first(lle_completion_menu_state_t *state) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Select the last item in the menu
+ *
+ * Moves selection to the last item and ensures it is visible.
+ *
+ * @param state Menu state to modify
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on error
+ */
 lle_result_t
 lle_completion_menu_select_last(lle_completion_menu_state_t *state) {
     if (state == NULL) {
@@ -528,6 +631,15 @@ lle_completion_menu_select_last(lle_completion_menu_state_t *state) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Accept the currently selected completion item
+ *
+ * Returns a pointer to the selected item and deactivates the menu.
+ *
+ * @param state Menu state to query and deactivate
+ * @param selected_item Output pointer to receive the selected item
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on error
+ */
 lle_result_t
 lle_completion_menu_accept(lle_completion_menu_state_t *state,
                            const lle_completion_item_t **selected_item) {
@@ -556,6 +668,14 @@ lle_completion_menu_accept(lle_completion_menu_state_t *state,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Cancel the completion menu without accepting
+ *
+ * Deactivates the menu without returning a selection.
+ *
+ * @param state Menu state to deactivate
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on error
+ */
 lle_result_t lle_completion_menu_cancel(lle_completion_menu_state_t *state) {
     if (state == NULL) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -565,6 +685,17 @@ lle_result_t lle_completion_menu_cancel(lle_completion_menu_state_t *state) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Handle a character input while menu is active
+ *
+ * Currently cancels the menu on any character input.
+ * Future: implement incremental filtering.
+ *
+ * @param state Menu state to modify
+ * @param c Character that was typed
+ * @param should_cancel Output flag indicating if menu should be cancelled
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on error
+ */
 lle_result_t lle_completion_menu_handle_char(lle_completion_menu_state_t *state,
                                              char c, bool *should_cancel) {
     if (state == NULL || should_cancel == NULL) {

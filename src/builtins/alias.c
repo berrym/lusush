@@ -25,8 +25,10 @@ ht_strstr_t *aliases = NULL; // alias hash table
 ht_enum_t *aliases_e = NULL; // alias enumeration object
 
 /**
- * init_aliases:
- *      Initialization code for aliases hash table, set some aliases.
+ * @brief Initialize the aliases hash table
+ *
+ * Creates the alias hash table if not already initialized and sets up
+ * some default navigation and listing aliases for convenience.
  */
 void init_aliases(void) {
     if (aliases == NULL) {
@@ -43,8 +45,10 @@ void init_aliases(void) {
 }
 
 /**
- * free_aliases:
- *      Delete the entire alias hash table.
+ * @brief Free the alias hash table
+ *
+ * Destroys the alias hash table and releases all associated memory.
+ * Sets the global aliases pointer to NULL after destruction.
  */
 void free_aliases(void) {
     if (aliases) {
@@ -54,8 +58,13 @@ void free_aliases(void) {
 }
 
 /**
- * lookup_alias:
- *      Find the alias value associated with a given key name.
+ * @brief Look up an alias by name
+ *
+ * Searches the alias hash table for the given key and returns
+ * the associated value if found.
+ *
+ * @param key The alias name to look up
+ * @return Pointer to the alias value string, or NULL if not found
  */
 char *lookup_alias(const char *key) {
     if (!aliases || !key) {
@@ -66,8 +75,10 @@ char *lookup_alias(const char *key) {
 }
 
 /**
- * print_aliases:
- *      Print out the entire hash table of aliases in POSIX format.
+ * @brief Print all defined aliases
+ *
+ * Iterates through the alias hash table and prints each alias
+ * in POSIX format: alias name='value'
  */
 void print_aliases(void) {
     const char *k = NULL, *v = NULL;
@@ -81,8 +92,13 @@ void print_aliases(void) {
 }
 
 /**
- * set_alias:
- *      Insert a new key-value pair into the hash table.
+ * @brief Set or update an alias
+ *
+ * Inserts a new alias or updates an existing one in the hash table.
+ *
+ * @param key The alias name
+ * @param val The command string the alias expands to
+ * @return true if the alias was successfully set, false on error
  */
 bool set_alias(const char *key, const char *val) {
     if (!aliases || !key || !val) {
@@ -95,8 +111,11 @@ bool set_alias(const char *key, const char *val) {
 }
 
 /**
- * unset_alias:
- *      Remove an entry from the hash table.
+ * @brief Remove an alias
+ *
+ * Deletes the specified alias from the hash table if it exists.
+ *
+ * @param key The alias name to remove
  */
 void unset_alias(const char *key) {
     if (aliases && key) {
@@ -105,10 +124,14 @@ void unset_alias(const char *key) {
 }
 
 /**
- * valid_alias_name_char:
- *      Check that a character is valid for an alias name per POSIX.
- *      POSIX allows alphanumeric characters and underscore.
- *      Some shells extend this to include additional characters.
+ * @brief Check if a character is valid in an alias name
+ *
+ * Validates that a character is allowed in alias names per POSIX.
+ * POSIX allows alphanumeric characters and underscore. This
+ * implementation also permits common extensions like '.', '-', and '+'.
+ *
+ * @param c The character to validate
+ * @return true if the character is valid, false otherwise
  */
 bool valid_alias_name_char(char c) {
     // POSIX base: alphanumeric and underscore
@@ -128,8 +151,12 @@ bool valid_alias_name_char(char c) {
 }
 
 /**
- * skip_whitespace:
- *      Skip whitespace characters in a string.
+ * @brief Skip leading whitespace in a string
+ *
+ * Advances the pointer past any leading whitespace characters.
+ *
+ * @param str The string to process
+ * @return Pointer to the first non-whitespace character, or NULL if str is NULL
  */
 static const char *skip_whitespace(const char *str) {
     if (!str) {
@@ -142,8 +169,13 @@ static const char *skip_whitespace(const char *str) {
 }
 
 /**
- * valid_alias_name:
- *      Check that an alias key name consists of valid characters.
+ * @brief Validate an alias name
+ *
+ * Checks that an alias name consists entirely of valid characters
+ * and follows POSIX naming rules (first character cannot be a digit).
+ *
+ * @param key The alias name to validate
+ * @return true if the name is valid, false otherwise
  */
 bool valid_alias_name(const char *key) {
     if (!key || !*key) {
@@ -174,8 +206,9 @@ bool valid_alias_name(const char *key) {
 }
 
 /**
- * alias_usage:
- *      Print how to use the builtin alias command.
+ * @brief Print alias command usage information
+ *
+ * Displays usage instructions for the alias builtin command.
  */
 void alias_usage(void) {
     fprintf(stderr, "usage: alias [name[=value] ...]\n"
@@ -189,8 +222,9 @@ void alias_usage(void) {
 }
 
 /**
- * unalias_usage:
- *      Print how to use the builtin unalias command.
+ * @brief Print unalias command usage information
+ *
+ * Displays usage instructions for the unalias builtin command.
  */
 void unalias_usage(void) {
     fprintf(stderr, "usage: unalias [-a] name [name ...]\n"
@@ -201,8 +235,13 @@ void unalias_usage(void) {
 }
 
 /**
- * find_equals:
- *      Find the first unquoted equals sign in a string.
+ * @brief Find the first unquoted equals sign in a string
+ *
+ * Searches for an equals sign that is not inside single or double quotes,
+ * properly handling escape sequences.
+ *
+ * @param str The string to search
+ * @return Pointer to the equals sign, or NULL if not found
  */
 static const char *find_equals(const char *str) {
     if (!str) {
@@ -243,10 +282,15 @@ static const char *find_equals(const char *str) {
 }
 
 /**
- * parse_alias_assignment:
- *      Parse an alias assignment in the form name=value.
- *      Returns true on success, false on failure.
- *      On success, *name and *value are set to newly allocated strings.
+ * @brief Parse an alias assignment string
+ *
+ * Parses an assignment in the form name=value, handling quoted values
+ * and escape sequences in double-quoted strings.
+ *
+ * @param assignment The assignment string to parse (e.g., "ll='ls -l'")
+ * @param name Output pointer for the alias name (newly allocated, caller must free)
+ * @param value Output pointer for the alias value (newly allocated, caller must free)
+ * @return true on success, false on failure (no equals sign or allocation error)
  */
 static bool parse_alias_assignment(const char *assignment, char **name,
                                    char **value) {
@@ -366,11 +410,16 @@ static bool parse_alias_assignment(const char *assignment, char **name,
 }
 
 /**
- * expand_aliases_recursive:
- *     Expand an alias name recursively, with cycle detection.
- *     Uses the modern tokenizer for proper word splitting.
- *     Returns a newly allocated string with the expanded alias value,
- *     or NULL if the alias doesn't exist or can't be expanded.
+ * @brief Expand an alias recursively with cycle detection
+ *
+ * Expands an alias and recursively expands the first word of the
+ * result if it is also an alias. Uses depth limiting to prevent
+ * infinite loops from circular alias definitions.
+ *
+ * @param name The alias name to expand
+ * @param max_depth Maximum recursion depth to prevent infinite loops
+ * @return Newly allocated string with expanded value (caller must free),
+ *         or NULL if alias doesn't exist or max_depth reached
  */
 char *expand_aliases_recursive(const char *name, int max_depth) {
     if (!name || max_depth <= 0) {
@@ -434,11 +483,15 @@ char *expand_aliases_recursive(const char *name, int max_depth) {
 }
 
 /**
- * expand_first_word_alias:
- *     Expand only the first word of a command line as an alias.
- *     Uses the modern tokenizer for proper word boundaries.
- *     This matches the POSIX behavior where only the first word
- *     of a simple command can be an alias.
+ * @brief Expand only the first word of a command as an alias
+ *
+ * Matches POSIX behavior where only the first word of a simple command
+ * can be expanded as an alias. Uses the tokenizer for proper word
+ * boundary detection.
+ *
+ * @param command The command line to process
+ * @return Newly allocated string with the first word expanded (caller must free),
+ *         or a copy of the original command if no alias found
  */
 char *expand_first_word_alias(const char *command) {
     if (!command) {
@@ -480,17 +533,26 @@ char *expand_first_word_alias(const char *command) {
 }
 
 /**
- * is_special_alias_char:
- *     Check if a character is special in alias names.
- *     POSIX allows some special characters in alias names
- *     that aren't allowed in variable names.
+ * @brief Check if a character is a special alias character
+ *
+ * Determines if a character is allowed in alias names but not in
+ * variable names. POSIX permits some special characters in alias
+ * names that are not valid in shell variable identifiers.
+ *
+ * @param c The character to check
+ * @return true if the character is valid for alias names, false otherwise
  */
 bool is_special_alias_char(char c) { return valid_alias_name_char(c); }
 
 /**
- * contains_shell_operators:
- *     Check if an alias value contains shell operators that require re-parsing.
- *     This detects pipes, redirections, logical operators, etc.
+ * @brief Check if an alias value contains shell operators
+ *
+ * Detects if an alias expansion contains shell operators that require
+ * re-parsing, such as pipes, redirections, logical operators, command
+ * separators, subshells, and command substitutions.
+ *
+ * @param value The alias value string to check
+ * @return true if shell operators are present, false otherwise
  */
 bool contains_shell_operators(const char *value) {
     if (!value) {
@@ -561,10 +623,14 @@ bool contains_shell_operators(const char *value) {
 }
 
 /**
- * expand_alias_with_shell_operators:
- *     Enhanced alias expansion that can handle shell operators by re-parsing.
- *     Returns a newly allocated string with the full command line to execute,
- *     or NULL if no alias expansion is needed.
+ * @brief Expand an alias that may contain shell operators
+ *
+ * Enhanced alias expansion that handles aliases containing shell operators
+ * (pipes, redirections, etc.) which require the result to be re-parsed.
+ *
+ * @param command The command line to process
+ * @return Newly allocated string with expanded command (caller must free),
+ *         or NULL if no alias expansion is needed
  */
 char *expand_alias_with_shell_operators(const char *command) {
     if (!command) {
@@ -620,9 +686,15 @@ char *expand_alias_with_shell_operators(const char *command) {
 }
 
 /**
- * bin_alias:
- *      Create aliased commands, or print alias values.
- *      Improved POSIX-compliant implementation.
+ * @brief Builtin alias command implementation
+ *
+ * Creates or displays aliases. With no arguments, prints all defined aliases.
+ * With name arguments, prints those specific aliases. With name=value
+ * arguments, defines new aliases. POSIX-compliant implementation.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector with alias names or assignments
+ * @return 0 on success, 1 if any alias operation failed
  */
 int bin_alias(int argc, char **argv) {
     // No arguments: print all aliases
@@ -682,9 +754,14 @@ int bin_alias(int argc, char **argv) {
 }
 
 /**
- * bin_unalias:
- *      Remove aliased commands.
- *      Improved POSIX-compliant implementation.
+ * @brief Builtin unalias command implementation
+ *
+ * Removes alias definitions. With -a option, removes all aliases.
+ * Otherwise removes the specified alias names. POSIX-compliant implementation.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector with -a option or alias names to remove
+ * @return 0 on success, 1 if any alias was not found or on usage error
  */
 int bin_unalias(int argc, char **argv) {
     if (argc < 2) {

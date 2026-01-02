@@ -1,0 +1,26 @@
+var structdisplay__perf__metrics__t =
+[
+    [ "baseline_cache_hit_rate", "structdisplay__perf__metrics__t.html#ab9ac334f112f8e8e8be351401af32e1f", null ],
+    [ "baseline_display_time_ms", "structdisplay__perf__metrics__t.html#ad1442498335f249a308dd11a487ea04c", null ],
+    [ "baseline_established", "structdisplay__perf__metrics__t.html#a8cc15fa3100fc07c9d972651c4969470", null ],
+    [ "baseline_establishment_time", "structdisplay__perf__metrics__t.html#a8513c0cb0dba1d5e0374f37b16cb25de", null ],
+    [ "cache_hit_rate_current", "structdisplay__perf__metrics__t.html#a31f3cb7ff52f107c3fff5c6c4b060bc3", null ],
+    [ "cache_hit_rate_target", "structdisplay__perf__metrics__t.html#a4da25e412f94ec29dc8d8cc4c3d24c53", null ],
+    [ "cache_hits_global", "structdisplay__perf__metrics__t.html#a6bed4df9d2c4ee76b2322a15ded2189c", null ],
+    [ "cache_misses_global", "structdisplay__perf__metrics__t.html#a34acd4f1af330c1342eab1e370855d9c", null ],
+    [ "cache_operations_total", "structdisplay__perf__metrics__t.html#a84551b3656c3eedd40d867def7542cd6", null ],
+    [ "cache_target_achieved", "structdisplay__perf__metrics__t.html#afd323b02b7b366eab9b7350517da4cec", null ],
+    [ "display_operations_measured", "structdisplay__perf__metrics__t.html#a7ce8a36239af5c7bb02c5746644a2932", null ],
+    [ "display_time_avg_ms", "structdisplay__perf__metrics__t.html#a98d503de8a05ea61c84fa3ec93916066", null ],
+    [ "display_time_max_ns", "structdisplay__perf__metrics__t.html#af8e37bbc51780ae4bff221ba09971438", null ],
+    [ "display_time_min_ns", "structdisplay__perf__metrics__t.html#a31cf4c13d9219ae599f5d78df223d988", null ],
+    [ "display_time_target_ms", "structdisplay__perf__metrics__t.html#aacc373e7b8013c5843034b328c767623", null ],
+    [ "display_time_total_ns", "structdisplay__perf__metrics__t.html#a45a658f840a4e1e7c2bda8b6c403db05", null ],
+    [ "display_timing_target_achieved", "structdisplay__perf__metrics__t.html#ae036aa098fe6519d3c6d28858bbe79b8", null ],
+    [ "last_measurement_time", "structdisplay__perf__metrics__t.html#a34c17077f6e1290614b672b909878aa1", null ],
+    [ "measurement_frequency_hz", "structdisplay__perf__metrics__t.html#a2fb6178617f46750552729ba3150762f", null ],
+    [ "measurements_index", "structdisplay__perf__metrics__t.html#a7841038091cd07dd2674022c565306f9", null ],
+    [ "measurements_window", "structdisplay__perf__metrics__t.html#abdea1aad27a742ccdaecb43c9cd115a4", null ],
+    [ "monitoring_active", "structdisplay__perf__metrics__t.html#a89bce5292b7ec0347eb87ef727dcfdeb", null ],
+    [ "performance_trend", "structdisplay__perf__metrics__t.html#a4105c57a6257afc044da713e02d8f849", null ]
+];

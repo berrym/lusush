@@ -1,5 +1,10 @@
 /**
- * adaptive_multiplexer_controller.c - Multiplexer Controller Implementation
+ * @file adaptive_multiplexer_controller.c
+ * @brief Terminal multiplexer controller for tmux/screen environments
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ *
+ * Specification: Spec 26 Phase 2 - Multiplexer Controller
  *
  * Implements the multiplexer controller for terminal multiplexers
  * (tmux/screen). Provides special handling for multiplexer-specific escape
@@ -11,9 +16,6 @@
  * - Focus event support
  * - Base native controller with multiplexer adaptations
  * - Special handling for multiplexer quirks
- *
- * Specification: Spec 26 Phase 2 - Multiplexer Controller
- * Date: 2025-11-02
  */
 
 #include "lle/adaptive_terminal_integration.h"
@@ -91,7 +93,12 @@ struct lle_multiplexer_controller_t {
  */
 
 /**
- * Detect multiplexer type from environment.
+ * @brief Detect the terminal multiplexer type from environment variables.
+ *
+ * Checks TMUX, STY, and TERM environment variables to identify
+ * if running inside tmux, screen, or another multiplexer.
+ *
+ * @return The detected multiplexer type.
  */
 static lle_multiplexer_type_t lle_detect_multiplexer_type(void) {
     /* Check for tmux */
@@ -121,7 +128,13 @@ static lle_multiplexer_type_t lle_detect_multiplexer_type(void) {
 }
 
 /**
- * Configure multiplexer-specific capabilities.
+ * @brief Configure capabilities based on the detected multiplexer type.
+ *
+ * Sets up multiplexer-specific capability flags for passthrough,
+ * focus events, and escape doubling requirements.
+ *
+ * @param mux The multiplexer controller to configure.
+ * @param detection Terminal detection results (reserved for future use).
  */
 static void lle_configure_multiplexer_capabilities(
     lle_multiplexer_controller_t *mux,
@@ -164,7 +177,14 @@ static void lle_configure_multiplexer_capabilities(
  */
 
 /**
- * Create multiplexer adapter.
+ * @brief Create a multiplexer adapter for escape sequence handling.
+ *
+ * Allocates and configures an adapter with multiplexer-specific
+ * passthrough prefixes, suffixes, and capability flags.
+ *
+ * @param adapter Output pointer to receive the created adapter.
+ * @param type The multiplexer type to configure for.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t lle_multiplexer_adapter_create(lle_multiplexer_adapter_t **adapter,
                                             lle_multiplexer_type_t type) {
@@ -214,7 +234,9 @@ lle_result_t lle_multiplexer_adapter_create(lle_multiplexer_adapter_t **adapter,
 }
 
 /**
- * Destroy multiplexer adapter.
+ * @brief Destroy a multiplexer adapter and free its resources.
+ *
+ * @param adapter The adapter to destroy, or NULL for no-op.
  */
 static void
 lle_multiplexer_adapter_destroy(lle_multiplexer_adapter_t *adapter) {
@@ -222,7 +244,17 @@ lle_multiplexer_adapter_destroy(lle_multiplexer_adapter_t *adapter) {
 }
 
 /**
- * Wrap escape sequence for multiplexer passthrough.
+ * @brief Wrap an escape sequence for multiplexer passthrough.
+ *
+ * Wraps the given escape sequence with multiplexer-specific DCS
+ * passthrough sequences. Handles escape doubling when required.
+ *
+ * @param adapter The multiplexer adapter.
+ * @param sequence The escape sequence to wrap.
+ * @param seq_len The length of the sequence in bytes.
+ * @param wrapped Output pointer to receive the wrapped sequence (caller frees).
+ * @param wrapped_len Output pointer to receive the wrapped length.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 static lle_result_t
 lle_multiplexer_adapter_wrap_sequence(lle_multiplexer_adapter_t *adapter,
@@ -297,7 +329,14 @@ lle_multiplexer_adapter_wrap_sequence(lle_multiplexer_adapter_t *adapter,
 }
 
 /**
- * Check if sequence needs wrapping.
+ * @brief Check if an escape sequence requires multiplexer passthrough wrapping.
+ *
+ * Determines whether the sequence contains OSC or DCS sequences
+ * that need to be wrapped for proper transmission through a multiplexer.
+ *
+ * @param adapter The multiplexer adapter.
+ * @param sequence The escape sequence to check.
+ * @return true if wrapping is needed, false otherwise.
  */
 static bool
 lle_multiplexer_adapter_needs_wrapping(lle_multiplexer_adapter_t *adapter,
@@ -327,7 +366,14 @@ lle_multiplexer_adapter_needs_wrapping(lle_multiplexer_adapter_t *adapter,
  */
 
 /**
- * Initialize multiplexer controller.
+ * @brief Initialize the multiplexer controller for tmux/screen environments.
+ *
+ * Creates and configures a multiplexer controller that wraps the native
+ * controller with multiplexer-specific escape sequence handling.
+ *
+ * @param context The adaptive context to initialize the controller in.
+ * @param memory_pool Memory pool for allocations.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t
 lle_initialize_multiplexer_controller(lle_adaptive_context_t *context,
@@ -374,7 +420,12 @@ lle_initialize_multiplexer_controller(lle_adaptive_context_t *context,
 }
 
 /**
- * Cleanup multiplexer controller.
+ * @brief Clean up and destroy a multiplexer controller.
+ *
+ * Releases all resources including the multiplexer adapter and
+ * the underlying native controller.
+ *
+ * @param mux The multiplexer controller to destroy, or NULL for no-op.
  */
 void lle_cleanup_multiplexer_controller(lle_multiplexer_controller_t *mux) {
     if (!mux) {
@@ -387,7 +438,14 @@ void lle_cleanup_multiplexer_controller(lle_multiplexer_controller_t *mux) {
 }
 
 /**
- * Read line using multiplexer controller.
+ * @brief Read a line of input using the multiplexer controller.
+ *
+ * Delegates to the underlying native controller for actual input reading.
+ *
+ * @param mux The multiplexer controller.
+ * @param prompt The prompt string to display.
+ * @param line Output pointer to receive the allocated input line.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t lle_multiplexer_read_line(lle_multiplexer_controller_t *mux,
                                        const char *prompt, char **line) {
@@ -407,7 +465,15 @@ lle_result_t lle_multiplexer_read_line(lle_multiplexer_controller_t *mux,
 }
 
 /**
- * Send adapted sequence through multiplexer.
+ * @brief Send an escape sequence through the multiplexer with adaptation.
+ *
+ * Wraps the sequence in DCS passthrough if needed, then writes it
+ * to stdout. Handles multiplexer-specific quirks automatically.
+ *
+ * @param mux The multiplexer controller.
+ * @param sequence The escape sequence to send.
+ * @param length The length of the sequence in bytes.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t lle_multiplexer_send_sequence(lle_multiplexer_controller_t *mux,
                                            const char *sequence,
@@ -450,7 +516,10 @@ lle_result_t lle_multiplexer_send_sequence(lle_multiplexer_controller_t *mux,
 }
 
 /**
- * Get multiplexer type name.
+ * @brief Get the human-readable name of a multiplexer type.
+ *
+ * @param type The multiplexer type.
+ * @return A static string with the multiplexer name.
  */
 const char *lle_multiplexer_type_name(lle_multiplexer_type_t type) {
     switch (type) {
@@ -467,7 +536,16 @@ const char *lle_multiplexer_type_name(lle_multiplexer_type_t type) {
 }
 
 /**
- * Get multiplexer controller statistics.
+ * @brief Get multiplexer controller statistics.
+ *
+ * Retrieves performance and usage statistics from the multiplexer
+ * controller.
+ *
+ * @param mux The multiplexer controller.
+ * @param lines_read Output pointer for lines read count, or NULL to skip.
+ * @param adapted_sequences Output pointer for adapted sequence count, or NULL to skip.
+ * @param passthrough_ops Output pointer for passthrough operation count, or NULL to skip.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t lle_multiplexer_get_stats(const lle_multiplexer_controller_t *mux,
                                        uint64_t *lines_read,
@@ -492,7 +570,14 @@ lle_result_t lle_multiplexer_get_stats(const lle_multiplexer_controller_t *mux,
 }
 
 /**
- * Check if multiplexer supports feature.
+ * @brief Check if the multiplexer supports a specific feature.
+ *
+ * Queries the multiplexer's capability for features like passthrough,
+ * focus_events, mouse, and clipboard support.
+ *
+ * @param mux The multiplexer controller.
+ * @param feature The feature name to check.
+ * @return true if the feature is supported, false otherwise.
  */
 bool lle_multiplexer_supports_feature(const lle_multiplexer_controller_t *mux,
                                       const char *feature) {

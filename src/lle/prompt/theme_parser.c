@@ -80,6 +80,13 @@ static lle_result_t theme_builder_callback(const char *section, const char *key,
 
 /**
  * @brief Initialize a theme parser
+ *
+ * Sets up a parser instance with the given input string. The parser
+ * will be ready to parse key-value pairs from the TOML-subset format.
+ *
+ * @param parser Pointer to parser structure to initialize
+ * @param input  TOML-subset input string to parse (must remain valid during parsing)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if parser or input is NULL
  */
 lle_result_t lle_theme_parser_init(lle_theme_parser_t *parser,
                                    const char *input) {
@@ -101,6 +108,12 @@ lle_result_t lle_theme_parser_init(lle_theme_parser_t *parser,
 
 /**
  * @brief Reset parser to beginning of input
+ *
+ * Resets the parser state to allow re-parsing the same input from the
+ * beginning. Clears position, line/column counters, current section,
+ * and any error state.
+ *
+ * @param parser Pointer to parser to reset (ignored if NULL)
  */
 void lle_theme_parser_reset(lle_theme_parser_t *parser) {
     if (!parser) {
@@ -120,6 +133,16 @@ void lle_theme_parser_reset(lle_theme_parser_t *parser) {
 
 /**
  * @brief Parse input and call callback for each key-value pair
+ *
+ * Parses the TOML-subset input, calling the provided callback function
+ * for each key-value pair encountered. Handles section headers, comments,
+ * and various value types (strings, integers, booleans, arrays, tables).
+ *
+ * @param parser    Pointer to initialized parser
+ * @param callback  Function to call for each parsed key-value pair
+ * @param user_data User context passed to callback function
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if parser or callback is NULL,
+ *         or LLE_ERROR_INVALID_FORMAT on parse error
  */
 lle_result_t lle_theme_parser_parse(lle_theme_parser_t *parser,
                                     lle_theme_parser_callback_t callback,
@@ -201,6 +224,12 @@ lle_result_t lle_theme_parser_parse(lle_theme_parser_t *parser,
 
 /**
  * @brief Get error message from parser
+ *
+ * Returns the human-readable error message from the last parsing error.
+ * The message includes line and column information for locating the error.
+ *
+ * @param parser Pointer to parser (may be NULL)
+ * @return Error message string, or empty string if parser is NULL or no error
  */
 const char *lle_theme_parser_error(const lle_theme_parser_t *parser) {
     if (!parser) {
@@ -211,6 +240,11 @@ const char *lle_theme_parser_error(const lle_theme_parser_t *parser) {
 
 /**
  * @brief Get error line number
+ *
+ * Returns the line number where the last parsing error occurred.
+ *
+ * @param parser Pointer to parser (may be NULL)
+ * @return Line number of error (1-based), or 0 if parser is NULL or no error
  */
 size_t lle_theme_parser_error_line(const lle_theme_parser_t *parser) {
     if (!parser) {
@@ -221,6 +255,11 @@ size_t lle_theme_parser_error_line(const lle_theme_parser_t *parser) {
 
 /**
  * @brief Get error column number
+ *
+ * Returns the column number where the last parsing error occurred.
+ *
+ * @param parser Pointer to parser (may be NULL)
+ * @return Column number of error (1-based), or 0 if parser is NULL or no error
  */
 size_t lle_theme_parser_error_column(const lle_theme_parser_t *parser) {
     if (!parser) {
@@ -236,6 +275,11 @@ size_t lle_theme_parser_error_column(const lle_theme_parser_t *parser) {
 
 /**
  * @brief Skip whitespace (space and tab only)
+ *
+ * Advances the parser position past any horizontal whitespace characters
+ * (spaces and tabs). Does not skip newlines.
+ *
+ * @param parser Pointer to parser
  */
 static void parser_skip_whitespace(lle_theme_parser_t *parser) {
     while (!PARSER_EOF(parser)) {
@@ -250,6 +294,11 @@ static void parser_skip_whitespace(lle_theme_parser_t *parser) {
 
 /**
  * @brief Skip whitespace and newlines
+ *
+ * Advances the parser position past any whitespace including newlines.
+ * Also skips comment lines encountered during the process.
+ *
+ * @param parser Pointer to parser
  */
 static void parser_skip_whitespace_and_newlines(lle_theme_parser_t *parser) {
     while (!PARSER_EOF(parser)) {
@@ -267,6 +316,11 @@ static void parser_skip_whitespace_and_newlines(lle_theme_parser_t *parser) {
 
 /**
  * @brief Skip a comment (from # to end of line)
+ *
+ * If the current character is a hash (#), advances the parser
+ * to the end of the line, effectively skipping the comment.
+ *
+ * @param parser Pointer to parser
  */
 static void parser_skip_comment(lle_theme_parser_t *parser) {
     if (PARSER_PEEK(parser) == '#') {
@@ -276,6 +330,11 @@ static void parser_skip_comment(lle_theme_parser_t *parser) {
 
 /**
  * @brief Skip to end of line
+ *
+ * Advances the parser position to the end of the current line,
+ * consuming the newline character if present.
+ *
+ * @param parser Pointer to parser
  */
 static void parser_skip_line(lle_theme_parser_t *parser) {
     while (!PARSER_EOF(parser) && PARSER_PEEK(parser) != '\n') {
@@ -288,6 +347,13 @@ static void parser_skip_line(lle_theme_parser_t *parser) {
 
 /**
  * @brief Set parser error with message
+ *
+ * Records an error in the parser with the current line and column
+ * position, and formats a human-readable error message.
+ *
+ * @param parser  Pointer to parser
+ * @param message Error description message
+ * @return LLE_ERROR_INVALID_FORMAT always (for chained returns)
  */
 static lle_result_t parser_set_error(lle_theme_parser_t *parser,
                                      const char *message) {
@@ -300,6 +366,12 @@ static lle_result_t parser_set_error(lle_theme_parser_t *parser,
 
 /**
  * @brief Parse section header [section] or [section.subsection]
+ *
+ * Parses a TOML section header and stores the section name in the
+ * parser's current_section field for use by subsequent key-value pairs.
+ *
+ * @param parser Pointer to parser positioned at '['
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_FORMAT on parse error
  */
 static lle_result_t parser_parse_section(lle_theme_parser_t *parser) {
     if (PARSER_PEEK(parser) != '[') {
@@ -351,6 +423,14 @@ static lle_result_t parser_parse_section(lle_theme_parser_t *parser) {
 
 /**
  * @brief Parse a key name (identifier)
+ *
+ * Parses a TOML key identifier consisting of alphanumeric characters,
+ * underscores, and hyphens.
+ *
+ * @param parser   Pointer to parser positioned at start of key
+ * @param key      Output buffer for parsed key name
+ * @param key_size Size of output buffer
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_FORMAT if key is empty or too long
  */
 static lle_result_t parser_parse_key(lle_theme_parser_t *parser, char *key,
                                      size_t key_size) {
@@ -380,6 +460,13 @@ static lle_result_t parser_parse_key(lle_theme_parser_t *parser, char *key,
 
 /**
  * @brief Parse a value (string, integer, boolean, array, or inline table)
+ *
+ * Parses a TOML value based on the initial character. Supports strings
+ * (quoted), integers, booleans (true/false), arrays, and inline tables.
+ *
+ * @param parser Pointer to parser positioned at start of value
+ * @param value  Output structure to receive parsed value
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_FORMAT on parse error
  */
 static lle_result_t parser_parse_value(lle_theme_parser_t *parser,
                                        lle_theme_value_t *value) {
@@ -421,6 +508,14 @@ static lle_result_t parser_parse_value(lle_theme_parser_t *parser,
 
 /**
  * @brief Parse a quoted string with escape sequences
+ *
+ * Parses a double-quoted string, processing escape sequences for
+ * newlines (\\n), tabs (\\t), carriage returns (\\r), backslashes, and quotes.
+ *
+ * @param parser   Pointer to parser positioned at opening quote
+ * @param out      Output buffer for parsed string content
+ * @param out_size Size of output buffer
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_FORMAT on parse error
  */
 static lle_result_t parser_parse_string(lle_theme_parser_t *parser, char *out,
                                         size_t out_size) {
@@ -488,6 +583,12 @@ static lle_result_t parser_parse_string(lle_theme_parser_t *parser, char *out,
 
 /**
  * @brief Parse an integer value
+ *
+ * Parses a decimal integer with optional sign prefix (+ or -).
+ *
+ * @param parser Pointer to parser positioned at start of integer
+ * @param out    Output pointer for parsed integer value
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_FORMAT on parse error
  */
 static lle_result_t parser_parse_integer(lle_theme_parser_t *parser,
                                          int64_t *out) {
@@ -526,6 +627,12 @@ static lle_result_t parser_parse_integer(lle_theme_parser_t *parser,
 
 /**
  * @brief Parse a boolean value (true or false)
+ *
+ * Parses the literal keywords "true" or "false" (case-insensitive).
+ *
+ * @param parser Pointer to parser positioned at start of boolean
+ * @param out    Output pointer for parsed boolean value
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_FORMAT if not a valid boolean
  */
 static lle_result_t parser_parse_boolean(lle_theme_parser_t *parser,
                                          bool *out) {
@@ -557,6 +664,14 @@ static lle_result_t parser_parse_boolean(lle_theme_parser_t *parser,
 
 /**
  * @brief Parse an array value ["a", "b", ...]
+ *
+ * Parses a TOML array with comma-separated elements. Supports nested
+ * values of any type and handles whitespace/newlines between elements.
+ *
+ * @param parser Pointer to parser positioned at opening '['
+ * @param value  Output structure to receive parsed array
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_FORMAT on parse error,
+ *         LLE_ERROR_OUT_OF_MEMORY on allocation failure
  */
 static lle_result_t parser_parse_array(lle_theme_parser_t *parser,
                                        lle_theme_value_t *value) {
@@ -627,6 +742,15 @@ static lle_result_t parser_parse_array(lle_theme_parser_t *parser,
 
 /**
  * @brief Parse an inline table { key = value, ... }
+ *
+ * Parses a TOML inline table with comma-separated key-value pairs.
+ * Inline tables must be on a single line in TOML, but this parser
+ * is more lenient.
+ *
+ * @param parser Pointer to parser positioned at opening '{'
+ * @param value  Output structure to receive parsed table
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_FORMAT on parse error,
+ *         LLE_ERROR_OUT_OF_MEMORY on allocation failure
  */
 static lle_result_t parser_parse_inline_table(lle_theme_parser_t *parser,
                                               lle_theme_value_t *value) {
@@ -705,6 +829,13 @@ static lle_result_t parser_parse_inline_table(lle_theme_parser_t *parser,
 
 /**
  * @brief Create a string value
+ *
+ * Sets a theme value to hold a string. The string is copied into the
+ * value's internal storage.
+ *
+ * @param value Pointer to value structure to set
+ * @param str   String content to store
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if value or str is NULL
  */
 lle_result_t lle_theme_value_set_string(lle_theme_value_t *value,
                                         const char *str) {
@@ -719,6 +850,11 @@ lle_result_t lle_theme_value_set_string(lle_theme_value_t *value,
 
 /**
  * @brief Create an integer value
+ *
+ * Sets a theme value to hold an integer.
+ *
+ * @param value   Pointer to value structure to set (ignored if NULL)
+ * @param integer Integer value to store
  */
 void lle_theme_value_set_integer(lle_theme_value_t *value, int64_t integer) {
     if (!value) {
@@ -731,6 +867,11 @@ void lle_theme_value_set_integer(lle_theme_value_t *value, int64_t integer) {
 
 /**
  * @brief Create a boolean value
+ *
+ * Sets a theme value to hold a boolean.
+ *
+ * @param value   Pointer to value structure to set (ignored if NULL)
+ * @param boolean Boolean value to store
  */
 void lle_theme_value_set_boolean(lle_theme_value_t *value, bool boolean) {
     if (!value) {
@@ -743,6 +884,11 @@ void lle_theme_value_set_boolean(lle_theme_value_t *value, bool boolean) {
 
 /**
  * @brief Free resources used by a value
+ *
+ * Recursively frees any dynamically allocated resources within the value,
+ * including array items and inline table entries.
+ *
+ * @param value Pointer to value to free (ignored if NULL)
  */
 void lle_theme_value_free(lle_theme_value_t *value) {
     if (!value) {
@@ -772,6 +918,16 @@ void lle_theme_value_free(lle_theme_value_t *value) {
 
 /**
  * @brief Get a string from a table value by key
+ *
+ * Searches an inline table value for an entry with the given key
+ * and retrieves its string value.
+ *
+ * @param value   Pointer to table value to search
+ * @param key     Key name to look up
+ * @param out     Output buffer for string value
+ * @param out_len Size of output buffer
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if parameters invalid,
+ *         LLE_ERROR_NOT_FOUND if key not found
  */
 lle_result_t lle_theme_value_table_get_string(const lle_theme_value_t *value,
                                               const char *key, char *out,
@@ -800,6 +956,15 @@ lle_result_t lle_theme_value_table_get_string(const lle_theme_value_t *value,
 
 /**
  * @brief Get an integer from a table value by key
+ *
+ * Searches an inline table value for an entry with the given key
+ * and retrieves its integer value.
+ *
+ * @param value Pointer to table value to search
+ * @param key   Key name to look up
+ * @param out   Output pointer for integer value
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if parameters invalid,
+ *         LLE_ERROR_NOT_FOUND if key not found
  */
 lle_result_t lle_theme_value_table_get_integer(const lle_theme_value_t *value,
                                                const char *key, int64_t *out) {
@@ -827,6 +992,15 @@ lle_result_t lle_theme_value_table_get_integer(const lle_theme_value_t *value,
 
 /**
  * @brief Get a boolean from a table value by key
+ *
+ * Searches an inline table value for an entry with the given key
+ * and retrieves its boolean value.
+ *
+ * @param value Pointer to table value to search
+ * @param key   Key name to look up
+ * @param out   Output pointer for boolean value
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if parameters invalid,
+ *         LLE_ERROR_NOT_FOUND if key not found
  */
 lle_result_t lle_theme_value_table_get_boolean(const lle_theme_value_t *value,
                                                const char *key, bool *out) {
@@ -873,6 +1047,11 @@ static const struct {
 
 /**
  * @brief Parse hex digit to integer
+ *
+ * Converts a hexadecimal character to its numeric value.
+ *
+ * @param c Character to convert ('0'-'9', 'a'-'f', or 'A'-'F')
+ * @return Integer value 0-15 on success, -1 if not a valid hex digit
  */
 static int hex_digit(char c) {
     if (c >= '0' && c <= '9')
@@ -886,6 +1065,17 @@ static int hex_digit(char c) {
 
 /**
  * @brief Parse a color specification string into lle_color_t
+ *
+ * Parses various color formats including:
+ * - Hex colors: #RGB or #RRGGBB
+ * - RGB function: rgb(r, g, b)
+ * - Named colors: black, red, green, yellow, blue, magenta, cyan, white
+ * - 256-color palette index: 0-255
+ *
+ * @param spec  Color specification string
+ * @param color Output structure for parsed color
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if spec or color is NULL,
+ *         LLE_ERROR_INVALID_FORMAT if color format is invalid
  */
 lle_result_t lle_parse_color_spec(const char *spec, lle_color_t *color) {
     if (!spec || !color) {
@@ -979,6 +1169,14 @@ lle_result_t lle_parse_color_spec(const char *spec, lle_color_t *color) {
 
 /**
  * @brief Parse an inline table into a color with attributes
+ *
+ * Parses a TOML inline table containing color specification and optional
+ * text attributes (bold, italic, underline, dim).
+ *
+ * @param value Pointer to table value containing color definition
+ * @param color Output structure for parsed color with attributes
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if value or color is NULL
+ *         or value is not a table, LLE_ERROR_INVALID_FORMAT if color spec is invalid
  */
 lle_result_t lle_parse_color_table(const lle_theme_value_t *value,
                                    lle_color_t *color) {
@@ -1049,6 +1247,11 @@ typedef struct {
 
 /**
  * @brief Map category string to enum
+ *
+ * Converts a theme category name string to the corresponding enum value.
+ *
+ * @param str Category name (case-insensitive)
+ * @return Corresponding lle_theme_category_t value, or LLE_THEME_CATEGORY_CUSTOM if unknown
  */
 static lle_theme_category_t parse_category(const char *str) {
     if (strcasecmp(str, "minimal") == 0)
@@ -1068,6 +1271,14 @@ static lle_theme_category_t parse_category(const char *str) {
 
 /**
  * @brief Apply a color value to a color field
+ *
+ * Parses a theme value (string, integer, or table) into a color structure.
+ * Handles string color specs, integer palette indices, and table-based
+ * color definitions with attributes.
+ *
+ * @param value Pointer to theme value containing color definition
+ * @param color Output pointer for parsed color
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_FORMAT on parse error
  */
 static lle_result_t apply_color(const lle_theme_value_t *value,
                                 lle_color_t *color) {
@@ -1090,6 +1301,11 @@ static lle_result_t apply_color(const lle_theme_value_t *value,
  * @brief Convert lle_color_t to uint32_t RGB format (0x00RRGGBB)
  *
  * Used for syntax highlighting colors which use RGB uint32_t format.
+ * Converts from various color modes (true color, 256-color, basic ANSI)
+ * to a single 24-bit RGB representation.
+ *
+ * @param color Pointer to color structure to convert (may be NULL)
+ * @return 24-bit RGB value (0x00RRGGBB), or 0 if color is NULL or mode is none
  */
 static uint32_t color_to_rgb(const lle_color_t *color) {
     if (!color) {
@@ -1146,6 +1362,13 @@ static uint32_t color_to_rgb(const lle_color_t *color) {
 
 /**
  * @brief Apply a syntax color value (parse and convert to RGB uint32_t)
+ *
+ * Parses a theme value as a color and converts it to 24-bit RGB format
+ * suitable for syntax highlighting.
+ *
+ * @param value   Pointer to theme value containing color definition
+ * @param rgb_out Output pointer for 24-bit RGB value
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t apply_syntax_color(const lle_theme_value_t *value,
                                        uint32_t *rgb_out) {
@@ -1160,6 +1383,16 @@ static lle_result_t apply_syntax_color(const lle_theme_value_t *value,
 
 /**
  * @brief Theme builder callback - populates theme from parsed values
+ *
+ * Parser callback function that maps parsed TOML sections and keys to
+ * theme structure fields. Handles metadata, capabilities, layout, segments,
+ * colors, symbols, and syntax highlighting sections.
+ *
+ * @param section   Current section name (e.g., "theme", "colors", "symbols")
+ * @param key       Key name within the section
+ * @param value     Parsed value for the key
+ * @param user_data Pointer to theme_builder_ctx_t context
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t theme_builder_callback(const char *section, const char *key,
                                            const lle_theme_value_t *value,
@@ -1512,6 +1745,14 @@ static lle_result_t theme_builder_callback(const char *section, const char *key,
 
 /**
  * @brief Parse input directly into a theme structure
+ *
+ * Convenience function that parses TOML input and populates a theme
+ * structure in a single call, using the theme builder callback internally.
+ *
+ * @param parser Pointer to initialized parser
+ * @param theme  Pointer to theme structure to populate
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if parser or theme is NULL,
+ *         or error code from parsing
  */
 lle_result_t lle_theme_parser_parse_to_theme(lle_theme_parser_t *parser,
                                              lle_theme_t *theme) {
@@ -1545,6 +1786,15 @@ lle_result_t lle_theme_parser_parse_to_theme(lle_theme_parser_t *parser,
 
 /**
  * @brief Validate a parsed theme structure
+ *
+ * Checks that a theme has required fields and valid values. Currently
+ * validates that the theme name is present and contains only valid characters.
+ *
+ * @param theme         Pointer to theme to validate
+ * @param error_buf     Optional buffer for error message (may be NULL)
+ * @param error_buf_len Size of error buffer
+ * @return LLE_SUCCESS if valid, LLE_ERROR_INVALID_PARAMETER if theme is NULL,
+ *         LLE_ERROR_INVALID_FORMAT if validation fails
  */
 lle_result_t lle_theme_parser_validate(const lle_theme_t *theme,
                                        char *error_buf, size_t error_buf_len) {

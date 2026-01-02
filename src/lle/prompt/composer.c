@@ -38,6 +38,12 @@ static struct {
 
 /**
  * @brief Get cached terminal color capabilities
+ *
+ * Retrieves terminal color capabilities, detecting and caching them on
+ * first call. Uses the adaptive terminal detection system.
+ *
+ * @param has_256 Output pointer for 256-color support (may be NULL)
+ * @param has_true Output pointer for true color support (may be NULL)
  */
 static void get_terminal_color_capabilities(bool *has_256, bool *has_true) {
     if (!g_terminal_color_caps.initialized) {
@@ -328,6 +334,17 @@ static const char *composer_get_color(const char *color_name, void *user_data) {
  * ============================================================================
  */
 
+/**
+ * @brief Initialize the prompt composer
+ *
+ * Sets up the composer with segment and theme registries, initializes
+ * the prompt context, and configures default settings.
+ *
+ * @param composer Pointer to composer structure to initialize
+ * @param segments Pointer to segment registry (may be NULL)
+ * @param themes   Pointer to theme registry (may be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if composer is NULL
+ */
 lle_result_t lle_composer_init(lle_prompt_composer_t *composer,
                                lle_segment_registry_t *segments,
                                lle_theme_registry_t *themes) {
@@ -360,6 +377,13 @@ lle_result_t lle_composer_init(lle_prompt_composer_t *composer,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Cleanup the prompt composer
+ *
+ * Frees cached templates and resets composer state.
+ *
+ * @param composer Pointer to composer to cleanup (ignored if NULL)
+ */
 void lle_composer_cleanup(lle_prompt_composer_t *composer) {
     if (!composer) {
         return;
@@ -382,6 +406,15 @@ void lle_composer_cleanup(lle_prompt_composer_t *composer) {
     composer->initialized = false;
 }
 
+/**
+ * @brief Configure the prompt composer
+ *
+ * Updates composer configuration settings.
+ *
+ * @param composer Pointer to initialized composer
+ * @param config   Pointer to configuration to apply
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if invalid
+ */
 lle_result_t lle_composer_configure(lle_prompt_composer_t *composer,
                                     const lle_composer_config_t *config) {
     if (!composer || !config) {
@@ -397,6 +430,15 @@ lle_result_t lle_composer_configure(lle_prompt_composer_t *composer,
  * ============================================================================
  */
 
+/**
+ * @brief Create a template render context
+ *
+ * Creates a render context with callbacks for segment rendering,
+ * visibility checking, and color lookup.
+ *
+ * @param composer Pointer to initialized composer
+ * @return Configured render context
+ */
 lle_template_render_ctx_t
 lle_composer_create_render_ctx(lle_prompt_composer_t *composer) {
     static composer_callback_ctx_t callback_ctx;
@@ -420,7 +462,10 @@ lle_composer_create_render_ctx(lle_prompt_composer_t *composer) {
 /**
  * @brief Calculate visual width of rendered string (excluding ANSI codes)
  *
- * @param str  String to measure
+ * Counts visible characters while skipping ANSI escape sequences.
+ * Handles UTF-8 multi-byte characters with approximate width calculation.
+ *
+ * @param str String to measure
  * @return Visual width in columns
  */
 static size_t calculate_visual_width(const char *str) {
@@ -473,6 +518,16 @@ static size_t calculate_visual_width(const char *str) {
     return width;
 }
 
+/**
+ * @brief Render a complete prompt
+ *
+ * Renders PS1, PS2, and optional right prompt using the active theme
+ * and segment data. Handles multiline prompts and visual width calculation.
+ *
+ * @param composer Pointer to initialized composer
+ * @param output   Pointer to output structure to populate
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if invalid
+ */
 lle_result_t lle_composer_render(lle_prompt_composer_t *composer,
                                  lle_prompt_output_t *output) {
     if (!composer || !output || !composer->initialized) {
@@ -571,6 +626,18 @@ lle_result_t lle_composer_render(lle_prompt_composer_t *composer,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Render a template string
+ *
+ * Evaluates a template string with the current context and theme,
+ * writing the result to the output buffer.
+ *
+ * @param composer     Pointer to initialized composer
+ * @param template_str Template string to render
+ * @param output       Output buffer for rendered result
+ * @param output_size  Size of output buffer
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_composer_render_template(lle_prompt_composer_t *composer,
                                           const char *template_str,
                                           char *output, size_t output_size) {
@@ -589,6 +656,16 @@ lle_result_t lle_composer_render_template(lle_prompt_composer_t *composer,
                                  output_size);
 }
 
+/**
+ * @brief Update prompt context after command execution
+ *
+ * Updates the context with the last command's exit code and duration.
+ *
+ * @param composer    Pointer to composer
+ * @param exit_code   Exit code of last command
+ * @param duration_ms Duration of last command in milliseconds
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if composer is NULL
+ */
 lle_result_t lle_composer_update_context(lle_prompt_composer_t *composer,
                                          int exit_code, uint64_t duration_ms) {
     if (!composer) {
@@ -599,6 +676,14 @@ lle_result_t lle_composer_update_context(lle_prompt_composer_t *composer,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Refresh directory information
+ *
+ * Re-reads the current working directory and invalidates segment caches.
+ *
+ * @param composer Pointer to composer
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_composer_refresh_directory(lle_prompt_composer_t *composer) {
     if (!composer) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -615,6 +700,13 @@ lle_result_t lle_composer_refresh_directory(lle_prompt_composer_t *composer) {
     return result;
 }
 
+/**
+ * @brief Invalidate all segment caches
+ *
+ * Forces all segments to refresh their data on next render.
+ *
+ * @param composer Pointer to composer (ignored if NULL or no segment registry)
+ */
 void lle_composer_invalidate_caches(lle_prompt_composer_t *composer) {
     if (!composer || !composer->segments) {
         return;
@@ -628,6 +720,16 @@ void lle_composer_invalidate_caches(lle_prompt_composer_t *composer) {
  * ============================================================================
  */
 
+/**
+ * @brief Set the active theme
+ *
+ * Activates a theme by name, clears cached templates, and applies
+ * syntax colors to the display integration if available.
+ *
+ * @param composer   Pointer to initialized composer
+ * @param theme_name Name of theme to activate
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_FOUND if theme not found
+ */
 lle_result_t lle_composer_set_theme(lle_prompt_composer_t *composer,
                                     const char *theme_name) {
     if (!composer || !theme_name) {
@@ -675,6 +777,12 @@ lle_result_t lle_composer_set_theme(lle_prompt_composer_t *composer,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Get the currently active theme
+ *
+ * @param composer Pointer to initialized composer
+ * @return Pointer to active theme, or NULL if no theme registry or no active theme
+ */
 const lle_theme_t *
 lle_composer_get_theme(const lle_prompt_composer_t *composer) {
     if (!composer || !composer->themes) {
@@ -795,6 +903,16 @@ static void composer_on_post_command(void *event_data, void *user_data) {
     composer->event_triggered_refreshes++;
 }
 
+/**
+ * @brief Register shell event handlers
+ *
+ * Registers handlers for directory changes, pre-command, and post-command
+ * events to keep the prompt context synchronized with shell state.
+ *
+ * @param composer  Pointer to initialized composer
+ * @param event_hub Pointer to shell event hub (may be NULL to skip registration)
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t
 lle_composer_register_shell_events(lle_prompt_composer_t *composer,
                                    struct lle_shell_event_hub *event_hub) {
@@ -863,6 +981,14 @@ lle_composer_register_shell_events(lle_prompt_composer_t *composer,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Unregister shell event handlers
+ *
+ * Removes all registered event handlers from the shell event hub.
+ *
+ * @param composer Pointer to composer
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if composer is NULL
+ */
 lle_result_t
 lle_composer_unregister_shell_events(lle_prompt_composer_t *composer) {
     if (!composer) {
@@ -890,6 +1016,14 @@ lle_composer_unregister_shell_events(lle_prompt_composer_t *composer) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Clear the regeneration flag
+ *
+ * Clears the flag indicating the prompt needs regeneration. Called after
+ * the prompt has been re-rendered following an event-triggered refresh.
+ *
+ * @param composer Pointer to composer (ignored if NULL)
+ */
 void lle_composer_clear_regeneration_flag(lle_prompt_composer_t *composer) {
     if (!composer) {
         return;

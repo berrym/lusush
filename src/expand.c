@@ -1,3 +1,16 @@
+/**
+ * @file expand.c
+ * @brief Variable and parameter expansion
+ *
+ * Implements shell expansion including:
+ * - Variable expansion ($VAR, ${VAR})
+ * - Alias expansion
+ * - Word list management
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ */
+
 #include "expand.h"
 
 #include "alias.h"
@@ -12,7 +25,12 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-// Initialize expansion context with default values
+/**
+ * @brief Initialize expansion context with default values
+ *
+ * @param ctx Expansion context to initialize
+ * @param mode Expansion mode flags
+ */
 void expand_ctx_init(expand_ctx_t *ctx, int mode) {
     if (ctx) {
         ctx->mode = mode;
@@ -21,7 +39,13 @@ void expand_ctx_init(expand_ctx_t *ctx, int mode) {
     }
 }
 
-// Check if a specific expansion mode is enabled
+/**
+ * @brief Check if a specific expansion mode is enabled
+ *
+ * @param ctx Expansion context to check
+ * @param mode_flag Mode flag to test
+ * @return true if mode is enabled, false otherwise
+ */
 bool expand_ctx_check(expand_ctx_t *ctx, int mode_flag) {
     if (!ctx) {
         return false;
@@ -29,7 +53,15 @@ bool expand_ctx_check(expand_ctx_t *ctx, int mode_flag) {
     return (ctx->mode & mode_flag) != 0;
 }
 
-// Create a new word from a string
+/**
+ * @brief Create a new word from a string
+ *
+ * Allocates and initializes a word structure containing a copy
+ * of the provided string.
+ *
+ * @param str String to create word from
+ * @return Pointer to new word, or NULL on failure
+ */
 word_t *word_create(const char *str) {
     if (!str) {
         return NULL;
@@ -56,7 +88,13 @@ word_t *word_create(const char *str) {
     return word;
 }
 
-// Free a word list
+/**
+ * @brief Free a word list
+ *
+ * Frees all words in the linked list and their associated data.
+ *
+ * @param head Head of the word list to free
+ */
 void word_free_list(word_t *head) {
     while (head) {
         word_t *next = head->next;
@@ -66,7 +104,15 @@ void word_free_list(word_t *head) {
     }
 }
 
-// Convert a word list to a string
+/**
+ * @brief Convert a word list to a string
+ *
+ * Concatenates all words in the list into a single string,
+ * separated by spaces.
+ *
+ * @param head Head of the word list
+ * @return Newly allocated string, or NULL on failure (caller must free)
+ */
 char *word_list_to_string(word_t *head) {
     if (!head) {
         return NULL;
@@ -96,7 +142,15 @@ char *word_list_to_string(word_t *head) {
     return result;
 }
 
-// Expand an alias recursively
+/**
+ * @brief Expand an alias recursively
+ *
+ * Looks up an alias and returns its expanded value. If the alias
+ * value itself contains aliases, they are expanded recursively.
+ *
+ * @param alias_name Name of the alias to expand
+ * @return Expanded alias value, or NULL if not found (caller must free)
+ */
 char *expand_alias_recursive(const char *alias_name) {
     if (!alias_name) {
         return NULL;

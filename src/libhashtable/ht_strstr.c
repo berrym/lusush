@@ -16,8 +16,12 @@
 #include <string.h>
 
 /**
- * ht_strstr_create:
- *      Wrapper aroung ht_create that creates a string->string hash table.
+ * @brief Create a string to string hash table
+ *
+ * Wrapper around ht_create that creates a string->string hash table.
+ *
+ * @param flags Configuration flags (e.g., HT_STR_CASECMP, HT_SEED_RANDOM)
+ * @return Pointer to the new hash table, or NULL on failure
  */
 ht_strstr_t *ht_strstr_create(unsigned int flags) {
     ht_hash hash = fnv1a_hash_str;
@@ -35,50 +39,55 @@ ht_strstr_t *ht_strstr_create(unsigned int flags) {
 }
 
 /**
- * ht_strstr_destroy:
- *      Wrapper around ht_destroy that destroys a string->string hash table.
+ * @brief Destroy a string to string hash table
+ * @param ht Pointer to the hash table to destroy
  */
 void ht_strstr_destroy(ht_strstr_t *ht) { ht_destroy((ht_t *)ht); }
 
 /**
- * ht_strstr_insert:
- *      Wrapper around ht_insert that inserts a string->string key value pair
- * into a hash table.
+ * @brief Insert a string to string key value pair into a hash table
+ * @param ht Pointer to the hash table
+ * @param key Pointer to the string key
+ * @param val Pointer to the string value
  */
 void ht_strstr_insert(ht_strstr_t *ht, const char *key, const char *val) {
     ht_insert((ht_t *)ht, key, val);
 }
 
 /**
- * ht_strstr_remove:
- *      Wrapper around ht_remove that removes a bucket from a string->string
- * hash table.
+ * @brief Remove a bucket from a string to string hash table
+ * @param ht Pointer to the hash table
+ * @param key Pointer to the string key to remove
  */
 void ht_strstr_remove(ht_strstr_t *ht, const char *key) {
     ht_remove((ht_t *)ht, (void *)key);
 }
 
 /**
- * ht_strstr_get:
- *      Wrapper around ht_get for string->string hash table.
+ * @brief Get a value from a string to string hash table
+ * @param ht Pointer to the hash table
+ * @param key Pointer to the string key
+ * @return Pointer to the string value, or NULL if not found
  */
 const char *ht_strstr_get(ht_strstr_t *ht, const char *key) {
     return ht_get((ht_t *)ht, (void *)key);
 }
 
 /**
- * ht_strstr_enum_create:
- *      Wrapper around ht_enum_create the makes an enumeration object for
- * string->string hash table.
+ * @brief Create an enumeration object for a string to string hash table
+ * @param ht Pointer to the hash table
+ * @return Pointer to the enumeration object, or NULL on failure
  */
 ht_enum_t *ht_strstr_enum_create(ht_strstr_t *ht) {
     return (ht_enum_t *)ht_enum_create((ht_t *)ht);
 }
 
 /**
- * ht_strtr_enum_next:
- *      Wrapper around ht_enum_next that returns the next bucket contents of a
- * string->string hash table.
+ * @brief Get the next bucket contents from a string to string hash table
+ * @param he Pointer to the enumeration object
+ * @param key Pointer to store the string key
+ * @param val Pointer to store the string value
+ * @return true if a next bucket was found, false if enumeration is complete
  */
 bool ht_strstr_enum_next(ht_enum_t *he, const char **key, const char **val) {
     return ht_enum_next((ht_enum_t *)he, (const void **)key,
@@ -86,8 +95,7 @@ bool ht_strstr_enum_next(ht_enum_t *he, const char **key, const char **val) {
 }
 
 /**
- * ht_strstr_enum_destroy:
- *      Wrapper around ht_enum_destroy that destroys a string->string hash table
- * enumeration object.
+ * @brief Destroy a string to string hash table enumeration object
+ * @param he Pointer to the enumeration object to destroy
  */
 void ht_strstr_enum_destroy(ht_enum_t *he) { ht_enum_destroy((ht_enum_t *)he); }

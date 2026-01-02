@@ -53,6 +53,10 @@ typedef struct fc_options {
 
 /**
  * @brief Get the LLE history core from the global editor
+ *
+ * Retrieves the history system from the global LLE editor instance.
+ *
+ * @return Pointer to the history core, or NULL if editor not initialized
  */
 static lle_history_core_t *get_lle_history(void) {
     lle_editor_t *editor = lle_get_global_editor();
@@ -64,6 +68,11 @@ static lle_history_core_t *get_lle_history(void) {
 
 /**
  * @brief Get total history entry count
+ *
+ * Queries the history system for the total number of stored entries.
+ *
+ * @param history The history core to query
+ * @return Number of history entries, or 0 on error
  */
 static size_t get_history_count(lle_history_core_t *history) {
     size_t count = 0;
@@ -75,6 +84,14 @@ static size_t get_history_count(lle_history_core_t *history) {
 
 /**
  * @brief Parse old=new substitution pattern
+ *
+ * Parses a substitution pattern for fc -s command. The pattern has
+ * the form "old=new" where old is replaced with new in the command.
+ *
+ * @param pattern The substitution pattern string
+ * @param old Output pointer for the old string (newly allocated, caller must free)
+ * @param new_str Output pointer for the new string (newly allocated, caller must free)
+ * @return true on success, false on allocation failure
  */
 static bool parse_substitution_pattern(const char *pattern, char **old,
                                        char **new_str) {
@@ -113,6 +130,12 @@ static bool parse_substitution_pattern(const char *pattern, char **old,
 
 /**
  * @brief Get default editor from environment
+ *
+ * Determines the editor to use for fc command by checking environment
+ * variables in order: FCEDIT, EDITOR, VISUAL. Falls back to "ed" as
+ * the POSIX default if none are set.
+ *
+ * @return Newly allocated string with editor command (caller must free)
  */
 static char *get_default_editor(void) {
     const char *fcedit = getenv("FCEDIT");
@@ -136,6 +159,13 @@ static char *get_default_editor(void) {
 
 /**
  * @brief Create temporary file with content
+ *
+ * Creates a temporary file in /tmp with the specified content for
+ * use by the fc edit command.
+ *
+ * @param content The content to write to the file (may be NULL for empty file)
+ * @return Newly allocated string with temporary file path (caller must free),
+ *         or NULL on error
  */
 static char *create_temp_file(const char *content) {
     char template[] = "/tmp/fc.XXXXXX";
@@ -159,7 +189,14 @@ static char *create_temp_file(const char *content) {
 }
 
 /**
- * @brief Read file content
+ * @brief Read file content into a string
+ *
+ * Reads the entire contents of a file into a newly allocated string.
+ * Used to read back edited commands from the temporary file.
+ *
+ * @param filename The path to the file to read
+ * @return Newly allocated string with file contents (caller must free),
+ *         or NULL on error
  */
 static char *read_file_content(const char *filename) {
     FILE *fp = fopen(filename, "r");
@@ -191,6 +228,12 @@ static char *read_file_content(const char *filename) {
 
 /**
  * @brief Execute a command and return its exit status
+ *
+ * Creates an executor and runs the specified command string.
+ * Used to execute commands after fc editing or substitution.
+ *
+ * @param command The command string to execute
+ * @return Exit status of the command, or 1 on error
  */
 static int execute_command(const char *command) {
     if (!command || !*command) {
@@ -267,6 +310,16 @@ static bool resolve_range_spec(lle_history_core_t *history, const char *spec,
 
 /**
  * @brief Parse range arguments for fc command
+ *
+ * Parses the first and last range specifiers for the fc command and
+ * resolves them to history indices. Handles defaults based on the
+ * current operation mode (list vs edit).
+ *
+ * @param history The history core to query
+ * @param first_str First range specifier (number, -offset, or string prefix)
+ * @param last_str Last range specifier (may be NULL)
+ * @param opts Options structure to populate with resolved range
+ * @return true on success, false if range is invalid or out of bounds
  */
 static bool parse_range(lle_history_core_t *history, const char *first_str,
                         const char *last_str, fc_options_t *opts) {
@@ -330,6 +383,13 @@ static bool parse_range(lle_history_core_t *history, const char *first_str,
 
 /**
  * @brief List history entries with fc formatting
+ *
+ * Displays history entries in the specified range with optional
+ * line numbers. Supports forward and reverse order display.
+ *
+ * @param history The history core to query
+ * @param opts Options containing range and display preferences
+ * @return 0 on success, 1 on error
  */
 static int fc_list(lle_history_core_t *history, fc_options_t *opts) {
     if (!opts->range_valid) {
@@ -370,6 +430,14 @@ static int fc_list(lle_history_core_t *history, fc_options_t *opts) {
 
 /**
  * @brief Edit and re-execute history entries
+ *
+ * Collects commands in the specified range into a temporary file,
+ * opens the file in an editor, then executes the edited commands
+ * line by line. Each executed command is added to history.
+ *
+ * @param history The history core to query and update
+ * @param opts Options containing range and editor preferences
+ * @return Exit status of the last executed command, or 1 on error
  */
 static int fc_edit(lle_history_core_t *history, fc_options_t *opts) {
     if (!opts->range_valid) {
@@ -502,7 +570,15 @@ static int fc_edit(lle_history_core_t *history, fc_options_t *opts) {
 }
 
 /**
- * @brief Substitute and re-execute history command
+ * @brief Substitute and re-execute a history command
+ *
+ * Implements fc -s functionality. Retrieves a command from history,
+ * performs an optional old=new substitution, and re-executes it.
+ * The modified command is added to history before execution.
+ *
+ * @param history The history core to query and update
+ * @param opts Options containing substitution pattern and command index
+ * @return Exit status of the executed command, or 1 on error
  */
 static int fc_substitute(lle_history_core_t *history, fc_options_t *opts) {
     if (!opts->range_valid) {
@@ -572,6 +648,9 @@ static int fc_substitute(lle_history_core_t *history, fc_options_t *opts) {
 
 /**
  * @brief Print fc command usage information
+ *
+ * Displays usage instructions for the fc builtin command including
+ * all options, modes, and range specifier formats.
  */
 static void fc_usage(void) {
     fprintf(stderr, "usage: fc [-e editor] [-r] [first [last]]\n");
@@ -593,6 +672,16 @@ static void fc_usage(void) {
 
 /**
  * @brief Main fc command implementation using LLE history
+ *
+ * POSIX-compliant fc (fix command) builtin that provides history
+ * editing, listing, and re-execution capabilities. Supports three modes:
+ * - Edit mode (default): Edit commands in an editor and re-execute
+ * - List mode (-l): Display history entries
+ * - Substitute mode (-s): Quick substitution and re-execute
+ *
+ * @param argc Argument count
+ * @param argv Argument vector with fc options and range specifiers
+ * @return 0 on success, 1 on error or invalid usage
  */
 int bin_fc(int argc, char **argv) {
     lle_history_core_t *history = get_lle_history();

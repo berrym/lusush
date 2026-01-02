@@ -1,6 +1,8 @@
-/*
- * Lusush Shell - LLE Completion Menu State Implementation
- * Copyright (C) 2021-2026  Michael Berry
+/**
+ * @file completion_menu_state.c
+ * @brief LLE Completion Menu State Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,10 +17,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * ============================================================================
- *
- * LLE COMPLETION MENU STATE IMPLEMENTATION
- *
  * This module contains ONLY state management - NO rendering.
  */
 
@@ -29,6 +27,10 @@
 // DEFAULT CONFIGURATION
 // ============================================================================
 
+/**
+ * @brief Get default menu configuration
+ * @return Default configuration structure
+ */
 lle_completion_menu_config_t lle_completion_menu_default_config(void) {
     lle_completion_menu_config_t config = {.max_visible_items = 10,
                                            .show_category_headers = true,
@@ -44,7 +46,9 @@ lle_completion_menu_config_t lle_completion_menu_default_config(void) {
 // ============================================================================
 
 /**
- * Calculate category positions in result
+ * @brief Calculate category positions in result set
+ * @param state Menu state to update
+ * @return LLE_SUCCESS or error code
  */
 static lle_result_t
 calculate_category_positions(lle_completion_menu_state_t *state) {
@@ -101,6 +105,14 @@ calculate_category_positions(lle_completion_menu_state_t *state) {
 // LIFECYCLE FUNCTIONS
 // ============================================================================
 
+/**
+ * @brief Create a new completion menu state
+ * @param memory_pool Memory pool for allocations
+ * @param result Completion results to display
+ * @param config Menu configuration (NULL for defaults)
+ * @param state Output for created state
+ * @return LLE_SUCCESS or error code
+ */
 lle_result_t
 lle_completion_menu_state_create(lle_memory_pool_t *memory_pool,
                                  lle_completion_result_t *result,
@@ -158,6 +170,11 @@ lle_completion_menu_state_create(lle_memory_pool_t *memory_pool,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Free menu state resources
+ * @param state State to free
+ * @return LLE_SUCCESS or error code
+ */
 lle_result_t
 lle_completion_menu_state_free(lle_completion_menu_state_t *state) {
     if (!state) {
@@ -180,6 +197,11 @@ lle_completion_menu_state_free(lle_completion_menu_state_t *state) {
 // STATE QUERIES
 // ============================================================================
 
+/**
+ * @brief Check if menu should be shown based on item count
+ * @param state Menu state to check
+ * @return true if menu should be shown
+ */
 bool lle_completion_menu_should_show(const lle_completion_menu_state_t *state) {
     if (!state || !state->result) {
         return false;
@@ -188,6 +210,11 @@ bool lle_completion_menu_should_show(const lle_completion_menu_state_t *state) {
     return state->result->count >= state->config.min_items_for_menu;
 }
 
+/**
+ * @brief Get the currently selected completion item
+ * @param state Menu state
+ * @return Selected item or NULL
+ */
 const lle_completion_item_t *
 lle_completion_menu_get_selected(const lle_completion_menu_state_t *state) {
     if (!state || !state->result) {
@@ -201,12 +228,22 @@ lle_completion_menu_get_selected(const lle_completion_menu_state_t *state) {
     return &state->result->items[state->selected_index];
 }
 
+/**
+ * @brief Get text of currently selected item
+ * @param state Menu state
+ * @return Selected item text or NULL
+ */
 const char *lle_completion_menu_get_selected_text(
     const lle_completion_menu_state_t *state) {
     const lle_completion_item_t *item = lle_completion_menu_get_selected(state);
     return item ? item->text : NULL;
 }
 
+/**
+ * @brief Get total number of items in menu
+ * @param state Menu state
+ * @return Item count
+ */
 size_t
 lle_completion_menu_get_item_count(const lle_completion_menu_state_t *state) {
     if (!state || !state->result) {
@@ -216,6 +253,11 @@ lle_completion_menu_get_item_count(const lle_completion_menu_state_t *state) {
     return state->result->count;
 }
 
+/**
+ * @brief Get index of currently selected item
+ * @param state Menu state
+ * @return Selected index
+ */
 size_t lle_completion_menu_get_selected_index(
     const lle_completion_menu_state_t *state) {
     if (!state) {
@@ -225,6 +267,13 @@ size_t lle_completion_menu_get_selected_index(
     return state->selected_index;
 }
 
+/**
+ * @brief Get visible range of items in menu
+ * @param state Menu state
+ * @param first_visible Output for first visible index
+ * @param visible_count Output for number of visible items
+ * @return LLE_SUCCESS or error code
+ */
 lle_result_t
 lle_completion_menu_get_visible_range(const lle_completion_menu_state_t *state,
                                       size_t *first_visible,
@@ -239,6 +288,11 @@ lle_completion_menu_get_visible_range(const lle_completion_menu_state_t *state,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Check if menu is currently active
+ * @param state Menu state
+ * @return true if active
+ */
 bool lle_completion_menu_is_active(const lle_completion_menu_state_t *state) {
     if (!state) {
         return false;
@@ -247,6 +301,11 @@ bool lle_completion_menu_is_active(const lle_completion_menu_state_t *state) {
     return state->menu_active;
 }
 
+/**
+ * @brief Get number of categories in menu
+ * @param state Menu state
+ * @return Category count
+ */
 size_t lle_completion_menu_get_category_count(
     const lle_completion_menu_state_t *state) {
     if (!state) {
@@ -261,7 +320,9 @@ size_t lle_completion_menu_get_category_count(
 // ============================================================================
 
 /**
- * Calculate visual width of text (excluding ANSI codes)
+ * @brief Calculate visual width of text (excluding ANSI codes)
+ * @param text Text to measure
+ * @return Visual width in columns
  */
 static size_t calc_visual_width(const char *text) {
     if (!text)
@@ -288,6 +349,12 @@ static size_t calc_visual_width(const char *text) {
     return width;
 }
 
+/**
+ * @brief Update menu layout based on terminal width
+ * @param state Menu state to update
+ * @param terminal_width Current terminal width
+ * @return LLE_SUCCESS or error code
+ */
 lle_result_t
 lle_completion_menu_update_layout(lle_completion_menu_state_t *state,
                                   size_t terminal_width) {
@@ -337,6 +404,11 @@ lle_completion_menu_update_layout(lle_completion_menu_state_t *state,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Get number of columns in menu layout
+ * @param state Menu state
+ * @return Number of columns (minimum 1)
+ */
 size_t
 lle_completion_menu_get_num_columns(const lle_completion_menu_state_t *state) {
     if (!state || state->num_columns == 0) {

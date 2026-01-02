@@ -1,15 +1,13 @@
-/*
- * Lusush Shell - LLE Context Analyzer Implementation
- * Copyright (C) 2021-2026  Michael Berry
+/**
+ * @file context_analyzer.c
+ * @brief LLE Context Analyzer Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- *
- * ============================================================================
- *
- * CONTEXT ANALYZER IMPLEMENTATION - Spec 12 Core
  *
  * Analyzes buffer to determine completion context.
  */
@@ -23,7 +21,9 @@
 // ============================================================================
 
 /**
- * Check if character is a word boundary
+ * @brief Check if character is a word boundary
+ * @param c Character to check
+ * @return true if word boundary, false otherwise
  */
 static bool is_word_boundary(char c) {
     return isspace(c) || c == '|' || c == ';' || c == '&' || c == '(' ||
@@ -31,7 +31,10 @@ static bool is_word_boundary(char c) {
 }
 
 /**
- * Find start of current word
+ * @brief Find start of current word in buffer
+ * @param buffer Input buffer
+ * @param cursor_pos Current cursor position
+ * @return Index of word start
  */
 static size_t find_word_start(const char *buffer, size_t cursor_pos) {
     if (cursor_pos == 0) {
@@ -49,7 +52,12 @@ static size_t find_word_start(const char *buffer, size_t cursor_pos) {
 }
 
 /**
- * Extract word from buffer
+ * @brief Extract word from buffer between positions
+ * @param buffer Input buffer
+ * @param start Start index
+ * @param end End index
+ * @param pool Memory pool for allocation
+ * @return Allocated word string or NULL on failure
  */
 static char *extract_word(const char *buffer, size_t start, size_t end,
                           lle_memory_pool_t *pool) {
@@ -76,7 +84,10 @@ static char *extract_word(const char *buffer, size_t start, size_t end,
 }
 
 /**
- * Check if position is at start of command
+ * @brief Check if position is at start of command
+ * @param buffer Input buffer
+ * @param pos Position to check
+ * @return true if command position, false otherwise
  */
 static bool is_command_position(const char *buffer, size_t pos) {
     /* Start of buffer is always command position */
@@ -101,7 +112,10 @@ static bool is_command_position(const char *buffer, size_t pos) {
 }
 
 /**
- * Check if inside quotes
+ * @brief Check if position is inside quoted string
+ * @param buffer Input buffer
+ * @param pos Position to check
+ * @return true if inside quotes, false otherwise
  */
 static bool is_inside_quotes(const char *buffer, size_t pos) {
     bool in_single = false;
@@ -121,7 +135,10 @@ static bool is_inside_quotes(const char *buffer, size_t pos) {
 }
 
 /**
- * Check if after redirect operator
+ * @brief Check if position is after redirect operator
+ * @param buffer Input buffer
+ * @param pos Position to check
+ * @return true if after redirect, false otherwise
  */
 static bool is_after_redirect(const char *buffer, size_t pos) {
     if (pos == 0) {
@@ -145,7 +162,10 @@ static bool is_after_redirect(const char *buffer, size_t pos) {
 }
 
 /**
- * Check if in variable assignment
+ * @brief Check if position is in a variable assignment
+ * @param buffer Input buffer
+ * @param pos Position to check
+ * @return true if in assignment, false otherwise
  */
 static bool is_in_assignment(const char *buffer, size_t pos) {
     /* Look backwards for '=' without spaces before it */
@@ -168,7 +188,10 @@ static bool is_in_assignment(const char *buffer, size_t pos) {
 }
 
 /**
- * Determine context type
+ * @brief Determine completion context type for position
+ * @param buffer Input buffer
+ * @param word_start Start of current word
+ * @return Context type enum value
  */
 static lle_completion_context_type_t determine_context_type(const char *buffer,
                                                             size_t word_start) {
@@ -197,7 +220,12 @@ static lle_completion_context_type_t determine_context_type(const char *buffer,
 }
 
 /**
- * Extract command context (for argument position)
+ * @brief Extract command context for argument position
+ * @param buffer Input buffer
+ * @param pos Current position
+ * @param command Output for command name
+ * @param arg_index Output for argument index
+ * @param pool Memory pool for allocations
  */
 static void extract_command_context(const char *buffer, size_t pos,
                                     char **command, int *arg_index,
@@ -252,6 +280,14 @@ static void extract_command_context(const char *buffer, size_t pos,
 // PUBLIC API
 // ============================================================================
 
+/**
+ * @brief Analyze buffer to determine completion context
+ * @param buffer Input buffer text
+ * @param cursor_pos Current cursor position
+ * @param pool Memory pool for allocations
+ * @param out_context Output for context analyzer
+ * @return LLE_SUCCESS or error code
+ */
 lle_result_t lle_context_analyze(const char *buffer, size_t cursor_pos,
                                  lle_memory_pool_t *pool,
                                  lle_context_analyzer_t **out_context) {
@@ -302,6 +338,10 @@ lle_result_t lle_context_analyze(const char *buffer, size_t cursor_pos,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Free context analyzer resources
+ * @param context Context to free
+ */
 void lle_context_analyzer_free(lle_context_analyzer_t *context) {
     if (!context) {
         return;

@@ -1,6 +1,8 @@
 /**
  * @file error_handling.h
  * @brief LLE Error Handling System - Type Definitions and Function Declarations
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Specification: Spec 16 - Error Handling Complete Specification
  * Version: 1.0.0

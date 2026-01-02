@@ -1,6 +1,8 @@
 /**
  * @file custom_source.h
  * @brief LLE Custom Completion Source API
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Public API for registering custom completion sources programmatically.
  * Allows builtins, plugins, and other code to add custom completion providers.

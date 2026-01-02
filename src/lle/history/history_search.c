@@ -1,7 +1,8 @@
 /**
  * @file history_search.c
- * @brief LLE History System - Search Engine Implementation (Spec 09 Phase 3 Day
- * 8)
+ * @brief LLE History System - Search Engine Implementation (Spec 09 Phase 3 Day 8)
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Implements basic search functionality for the LLE history system:
  * - Exact match search
@@ -11,7 +12,7 @@
  * - Result ranking and scoring
  *
  * Performance Targets (Spec 09):
- * - Prefix search: <500μs for 10K entries
+ * - Prefix search: <500us for 10K entries
  * - Substring search: <5ms for 10K entries
  * - Fuzzy search: <10ms for 10K entries
  *
@@ -20,9 +21,6 @@
  * - Score-based ranking (recency, position, frequency)
  * - Memory pool allocation for results
  * - Integration with history_core for entry access
- *
- * @date 2025-11-01
- * @author LLE Implementation Team
  */
 
 #include "fuzzy_match.h"
@@ -87,7 +85,12 @@ struct lle_history_search_results {
  */
 
 /**
- * Duplicate a string using pool allocation
+ * @brief Duplicate a string using pool allocation
+ *
+ * Allocates memory from the LLE memory pool and copies the input string.
+ *
+ * @param str String to duplicate (may be NULL)
+ * @return Pointer to duplicated string, or NULL if str is NULL or allocation fails
  */
 static char *pool_strdup(const char *str) {
     if (!str)
@@ -103,14 +106,17 @@ static char *pool_strdup(const char *str) {
 /* Note: Levenshtein distance now provided by libfuzzy (fuzzy_match.h) */
 
 /**
- * Calculate relevance score for a search result
+ * @brief Calculate relevance score for a search result
  *
- * @param command Command string
- * @param query Search query
- * @param match_position Position of match in command
- * @param entry_index Index in history (for recency)
+ * Computes a score based on match type, recency, position, and command length.
+ * Higher scores indicate more relevant results.
+ *
+ * @param command Command string being scored
+ * @param query Search query used for matching
+ * @param match_position Position of match in command (0 = start)
+ * @param entry_index Index in history (higher = more recent)
  * @param total_entries Total entries in history
- * @param match_type Type of match
+ * @param match_type Type of match (exact, prefix, substring, fuzzy)
  * @return Relevance score (higher = better)
  */
 static int calculate_score(const char *command, const char *query,
@@ -157,7 +163,14 @@ static int calculate_score(const char *command, const char *query,
 }
 
 /**
- * Compare function for qsort - sort results by score (descending)
+ * @brief Compare function for qsort - sort results by score (descending)
+ *
+ * Sorts search results by score in descending order. Uses entry index
+ * as a tie-breaker (more recent entries win).
+ *
+ * @param a First search result to compare
+ * @param b Second search result to compare
+ * @return Negative if a > b, positive if a < b, zero if equal
  */
 static int compare_results_by_score(const void *a, const void *b) {
     const lle_search_result_t *r1 = (const lle_search_result_t *)a;
@@ -179,11 +192,13 @@ static int compare_results_by_score(const void *a, const void *b) {
 }
 
 /**
- * Case-insensitive substring search
+ * @brief Case-insensitive substring search
  *
- * @param haystack String to search in
- * @param needle String to search for
- * @return Position of match, or NULL if not found
+ * Finds the first occurrence of needle in haystack, ignoring case.
+ *
+ * @param haystack String to search in (may be NULL)
+ * @param needle String to search for (may be NULL)
+ * @return Pointer to first match in haystack, or NULL if not found or NULL inputs
  */
 static const char *stristr(const char *haystack, const char *needle) {
     if (!haystack || !needle)
@@ -203,11 +218,13 @@ static const char *stristr(const char *haystack, const char *needle) {
 }
 
 /**
- * Case-insensitive prefix match
+ * @brief Case-insensitive prefix match
  *
- * @param str String to check
- * @param prefix Prefix to match
- * @return true if str starts with prefix (case-insensitive)
+ * Checks if a string starts with the given prefix, ignoring case.
+ *
+ * @param str String to check (may be NULL)
+ * @param prefix Prefix to match (may be NULL)
+ * @return true if str starts with prefix (case-insensitive), false otherwise or on NULL inputs
  */
 static bool str_starts_with_i(const char *str, const char *prefix) {
     if (!str || !prefix)
@@ -221,7 +238,13 @@ static bool str_starts_with_i(const char *str, const char *prefix) {
  */
 
 /**
- * Create search results container
+ * @brief Create search results container
+ *
+ * Allocates a new search results container with the specified capacity.
+ * Uses memory pool allocation.
+ *
+ * @param max_results Maximum number of results to store (0 = default of 100)
+ * @return Pointer to new search results container, or NULL on allocation failure
  */
 lle_history_search_results_t *
 lle_history_search_results_create(size_t max_results) {
@@ -258,7 +281,12 @@ lle_history_search_results_create(size_t max_results) {
 }
 
 /**
- * Destroy search results and free memory
+ * @brief Destroy search results and free memory
+ *
+ * Frees all memory associated with the search results container.
+ * Safe to call with NULL.
+ *
+ * @param results Search results container to destroy (may be NULL)
  */
 void lle_history_search_results_destroy(lle_history_search_results_t *results) {
     if (!results)
@@ -276,7 +304,20 @@ void lle_history_search_results_destroy(lle_history_search_results_t *results) {
 }
 
 /**
- * Add result to search results (if not full)
+ * @brief Add result to search results (if not full)
+ *
+ * Appends a new search result to the container if capacity allows.
+ * Marks the results as unsorted after adding.
+ *
+ * @param results Search results container (must not be NULL)
+ * @param entry_id Unique ID of the history entry
+ * @param entry_index Index of entry in history
+ * @param command Command string (reference, not copied)
+ * @param timestamp Entry timestamp
+ * @param score Relevance score
+ * @param match_position Position of match in command
+ * @param match_type Type of match performed
+ * @return true if result was added, false if container is NULL or full
  */
 static bool add_search_result(lle_history_search_results_t *results,
                               uint64_t entry_id, size_t entry_index,
@@ -303,7 +344,12 @@ static bool add_search_result(lle_history_search_results_t *results,
 }
 
 /**
- * Sort search results by score (descending)
+ * @brief Sort search results by score (descending)
+ *
+ * Sorts the results array by score in descending order.
+ * Does nothing if already sorted, empty, or NULL.
+ *
+ * @param results Search results container to sort (may be NULL)
  */
 void lle_history_search_results_sort(lle_history_search_results_t *results) {
     if (!results || results->count == 0 || results->sorted) {
@@ -322,12 +368,15 @@ void lle_history_search_results_sort(lle_history_search_results_t *results) {
  */
 
 /**
- * Search history for exact command match
+ * @brief Search history for exact command match
  *
- * @param history_core History core engine
- * @param query Search query
- * @param max_results Maximum results to return (0 = default)
- * @return Search results or NULL on failure
+ * Finds history entries that exactly match the query string.
+ * Results are sorted by relevance score.
+ *
+ * @param history_core History core engine (must not be NULL)
+ * @param query Search query string (must not be NULL)
+ * @param max_results Maximum results to return (0 = default of 100)
+ * @return Search results container, or NULL on failure or invalid parameters
  */
 lle_history_search_results_t *
 lle_history_search_exact(lle_history_core_t *history_core, const char *query,
@@ -404,12 +453,15 @@ lle_history_search_exact(lle_history_core_t *history_core, const char *query,
 }
 
 /**
- * Search history for commands starting with prefix
+ * @brief Search history for commands starting with prefix
  *
- * @param history_core History core engine
- * @param prefix Prefix to search for
- * @param max_results Maximum results to return (0 = default)
- * @return Search results or NULL on failure
+ * Finds history entries that begin with the prefix string (case-insensitive).
+ * Results are sorted by relevance score.
+ *
+ * @param history_core History core engine (must not be NULL)
+ * @param prefix Prefix string to search for (must not be NULL)
+ * @param max_results Maximum results to return (0 = default of 100)
+ * @return Search results container, or NULL on failure or invalid parameters
  */
 lle_history_search_results_t *
 lle_history_search_prefix(lle_history_core_t *history_core, const char *prefix,
@@ -486,12 +538,15 @@ lle_history_search_prefix(lle_history_core_t *history_core, const char *prefix,
 }
 
 /**
- * Search history for commands containing substring
+ * @brief Search history for commands containing substring
  *
- * @param history_core History core engine
- * @param substring Substring to search for
- * @param max_results Maximum results to return (0 = default)
- * @return Search results or NULL on failure
+ * Finds history entries that contain the substring (case-insensitive).
+ * Results are sorted by relevance score.
+ *
+ * @param history_core History core engine (must not be NULL)
+ * @param substring Substring to search for (must not be NULL)
+ * @param max_results Maximum results to return (0 = default of 100)
+ * @return Search results container, or NULL on failure or invalid parameters
  */
 lle_history_search_results_t *
 lle_history_search_substring(lle_history_core_t *history_core,
@@ -571,12 +626,16 @@ lle_history_search_substring(lle_history_core_t *history_core,
 }
 
 /**
- * Search history for commands with fuzzy matching (Levenshtein distance)
+ * @brief Search history for commands with fuzzy matching (Levenshtein distance)
  *
- * @param history_core History core engine
- * @param query Query string
- * @param max_results Maximum results to return (0 = default)
- * @return Search results or NULL on failure
+ * Finds history entries that approximately match the query using
+ * Levenshtein distance (via libfuzzy). Matches within FUZZY_MAX_DISTANCE
+ * are included. Results are sorted by relevance score.
+ *
+ * @param history_core History core engine (must not be NULL)
+ * @param query Query string (must not be NULL)
+ * @param max_results Maximum results to return (0 = default of 100)
+ * @return Search results container, or NULL on failure or invalid parameters
  */
 lle_history_search_results_t *
 lle_history_search_fuzzy(lle_history_core_t *history_core, const char *query,
@@ -666,7 +725,12 @@ lle_history_search_fuzzy(lle_history_core_t *history_core, const char *query,
  */
 
 /**
- * Get number of results in search results
+ * @brief Get number of results in search results
+ *
+ * Returns the count of results stored in the container.
+ *
+ * @param results Search results container (may be NULL)
+ * @return Number of results, or 0 if results is NULL
  */
 size_t lle_history_search_results_get_count(
     const lle_history_search_results_t *results) {
@@ -674,7 +738,13 @@ size_t lle_history_search_results_get_count(
 }
 
 /**
- * Get specific result from search results
+ * @brief Get specific result from search results
+ *
+ * Returns a pointer to the result at the specified index.
+ *
+ * @param results Search results container (may be NULL)
+ * @param index Index of result to retrieve (0-based)
+ * @return Pointer to search result, or NULL if results is NULL or index out of bounds
  */
 const lle_search_result_t *
 lle_history_search_results_get(const lle_history_search_results_t *results,
@@ -687,7 +757,12 @@ lle_history_search_results_get(const lle_history_search_results_t *results,
 }
 
 /**
- * Get search duration in microseconds
+ * @brief Get search duration in microseconds
+ *
+ * Returns how long the search operation took to complete.
+ *
+ * @param results Search results container (may be NULL)
+ * @return Search duration in microseconds, or 0 if results is NULL
  */
 uint64_t lle_history_search_results_get_time_us(
     const lle_history_search_results_t *results) {
@@ -695,7 +770,12 @@ uint64_t lle_history_search_results_get_time_us(
 }
 
 /**
- * Print search results (for debugging)
+ * @brief Print search results (for debugging)
+ *
+ * Outputs the search results to stdout in a human-readable format,
+ * including query, type, count, timing, and individual results.
+ *
+ * @param results Search results container to print (may be NULL)
  */
 void lle_history_search_results_print(
     const lle_history_search_results_t *results) {

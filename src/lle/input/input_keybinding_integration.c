@@ -1,8 +1,10 @@
 /**
  * @file input_keybinding_integration.c
  * @brief Input Parser Keybinding Integration (Spec 06 Phase 8)
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
- * Provides real-time keybinding lookup during input processing with <10μs
+ * Provides real-time keybinding lookup during input processing with <10us
  * target lookup time. Integrates with the keybinding engine to resolve
  * key sequences to actions.
  *

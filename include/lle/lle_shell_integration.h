@@ -1,6 +1,8 @@
 /**
  * @file lle_shell_integration.h
  * @brief LLE Shell Integration - Centralized LLE initialization and lifecycle
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * This module provides the shell-level LLE initialization system that:
  * - Initializes LLE subsystems in proper sequence

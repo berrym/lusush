@@ -34,43 +34,301 @@ extern const size_t builtins_count;
  * Builtin Command Handlers
  * ============================================================================ */
 
-int bin_exit(int argc, char **argv);      /**< @brief Exit the shell */
-int bin_help(int argc, char **argv);      /**< @brief Display help */
-int bin_cd(int argc, char **argv);        /**< @brief Change directory */
-int bin_pwd(int argc, char **argv);       /**< @brief Print working directory */
-int bin_history(int argc, char **argv);   /**< @brief Command history */
-int bin_alias(int argc, char **argv);     /**< @brief Define aliases */
-int bin_unalias(int argc, char **argv);   /**< @brief Remove aliases */
-int bin_clear(int argc, char **argv);     /**< @brief Clear screen */
-int bin_terminal(int argc, char **argv);  /**< @brief Terminal info */
-int bin_type(int argc, char **argv);      /**< @brief Show command type */
-int bin_unset(int argc, char **argv);     /**< @brief Unset variables */
-int bin_echo(int argc, char **argv);      /**< @brief Echo arguments */
-int bin_printf(int argc, char **argv);    /**< @brief Formatted output */
-int bin_export(int argc, char **argv);    /**< @brief Export variables */
-int bin_source(int argc, char **argv);    /**< @brief Source a script */
-int bin_test(int argc, char **argv);      /**< @brief Test conditions */
-int bin_read(int argc, char **argv);      /**< @brief Read input */
-int bin_eval(int argc, char **argv);      /**< @brief Evaluate arguments */
-int bin_true(int argc, char **argv);      /**< @brief Return success */
-int bin_false(int argc, char **argv);     /**< @brief Return failure */
-int bin_set(int argc, char **argv);       /**< @brief Set options/variables */
-int bin_shift(int argc, char **argv);     /**< @brief Shift arguments */
-int bin_break(int argc, char **argv);     /**< @brief Break from loop */
-int bin_continue(int argc, char **argv);  /**< @brief Continue loop */
-int bin_return(int argc, char **argv);    /**< @brief Return from function */
-int bin_return_value(int argc, char **argv); /**< @brief Return with value */
-int bin_trap(int argc, char **argv);      /**< @brief Set signal traps */
-int bin_exec(int argc, char **argv);      /**< @brief Execute command */
-int bin_wait(int argc, char **argv);      /**< @brief Wait for jobs */
-int bin_umask(int argc, char **argv);     /**< @brief Set file mode mask */
-int bin_ulimit(int argc, char **argv);    /**< @brief Resource limits */
-int bin_times(int argc, char **argv);     /**< @brief Process times */
-int bin_getopts(int argc, char **argv);   /**< @brief Parse options */
-int bin_local(int argc, char **argv);     /**< @brief Local variables */
-int bin_hash(int argc, char **argv);      /**< @brief Command hash table */
-int bin_fc(int argc, char **argv);        /**< @brief Fix command (history) */
-int bin_debug(int argc, char **argv);     /**< @brief Debug commands */
+/**
+ * @brief Exit the shell
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return Exit status (does not return on success)
+ */
+int bin_exit(int argc, char **argv);
+
+/**
+ * @brief Display help information
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on error
+ */
+int bin_help(int argc, char **argv);
+
+/**
+ * @brief Change current working directory
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on error
+ */
+int bin_cd(int argc, char **argv);
+
+/**
+ * @brief Print current working directory
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on error
+ */
+int bin_pwd(int argc, char **argv);
+
+/**
+ * @brief Display or manipulate command history
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on error
+ */
+int bin_history(int argc, char **argv);
+
+/**
+ * @brief Define or display aliases
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on error
+ */
+int bin_alias(int argc, char **argv);
+
+/**
+ * @brief Remove alias definitions
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on error
+ */
+int bin_unalias(int argc, char **argv);
+
+/**
+ * @brief Clear the terminal screen
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on error
+ */
+int bin_clear(int argc, char **argv);
+
+/**
+ * @brief Display terminal information
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on error
+ */
+int bin_terminal(int argc, char **argv);
+
+/**
+ * @brief Show command type (builtin, alias, function, or external)
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on error
+ */
+int bin_type(int argc, char **argv);
+
+/**
+ * @brief Unset shell variables or functions
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on error
+ */
+int bin_unset(int argc, char **argv);
+
+/**
+ * @brief Echo arguments to standard output
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on error
+ */
+int bin_echo(int argc, char **argv);
+
+/**
+ * @brief Formatted output to standard output
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on error
+ */
+int bin_printf(int argc, char **argv);
+
+/**
+ * @brief Export variables to environment
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on error
+ */
+int bin_export(int argc, char **argv);
+
+/**
+ * @brief Source and execute a script file
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return Exit status of sourced script
+ */
+int bin_source(int argc, char **argv);
+
+/**
+ * @brief Test file types and compare values
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 if condition is true, 1 if false, 2 on error
+ */
+int bin_test(int argc, char **argv);
+
+/**
+ * @brief Read a line from standard input
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on EOF or error
+ */
+int bin_read(int argc, char **argv);
+
+/**
+ * @brief Evaluate arguments as a shell command
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return Exit status of evaluated command
+ */
+int bin_eval(int argc, char **argv);
+
+/**
+ * @brief Return successful exit status
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return Always returns 0
+ */
+int bin_true(int argc, char **argv);
+
+/**
+ * @brief Return failure exit status
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return Always returns 1
+ */
+int bin_false(int argc, char **argv);
+
+/**
+ * @brief Set or display shell options and positional parameters
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on error
+ */
+int bin_set(int argc, char **argv);
+
+/**
+ * @brief Shift positional parameters
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on error
+ */
+int bin_shift(int argc, char **argv);
+
+/**
+ * @brief Break out of a loop
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on error
+ */
+int bin_break(int argc, char **argv);
+
+/**
+ * @brief Continue to next iteration of a loop
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on error
+ */
+int bin_continue(int argc, char **argv);
+
+/**
+ * @brief Return from a function
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return Specified return value or last command status
+ */
+int bin_return(int argc, char **argv);
+
+/**
+ * @brief Return from a function with a specific value
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return Specified return value
+ */
+int bin_return_value(int argc, char **argv);
+
+/**
+ * @brief Set signal traps
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on error
+ */
+int bin_trap(int argc, char **argv);
+
+/**
+ * @brief Replace shell with specified command
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return Does not return on success, non-zero on error
+ */
+int bin_exec(int argc, char **argv);
+
+/**
+ * @brief Wait for background jobs to complete
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return Exit status of waited job
+ */
+int bin_wait(int argc, char **argv);
+
+/**
+ * @brief Set or display file creation mask
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on error
+ */
+int bin_umask(int argc, char **argv);
+
+/**
+ * @brief Set or display resource limits
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on error
+ */
+int bin_ulimit(int argc, char **argv);
+
+/**
+ * @brief Display process times
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success
+ */
+int bin_times(int argc, char **argv);
+
+/**
+ * @brief Parse command options
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero when no more options
+ */
+int bin_getopts(int argc, char **argv);
+
+/**
+ * @brief Declare local variables in function scope
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on error
+ */
+int bin_local(int argc, char **argv);
+
+/**
+ * @brief Manage command hash table
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on error
+ */
+int bin_hash(int argc, char **argv);
+
+/**
+ * @brief Fix command - edit and re-execute history commands
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return Exit status of executed command
+ */
+int bin_fc(int argc, char **argv);
+
+/**
+ * @brief Debug commands and settings
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on error
+ */
+int bin_debug(int argc, char **argv);
 
 /* ============================================================================
  * Command Hash Table

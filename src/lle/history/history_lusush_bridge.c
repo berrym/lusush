@@ -1,6 +1,8 @@
 /**
  * @file history_lusush_bridge.c
  * @brief LLE History System - Lusush Integration Bridge
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Specification: Spec 09 - History System (Phase 2 Day 5)
  * Version: 1.0.0
@@ -79,7 +81,12 @@ static lle_history_bridge_t *g_bridge = NULL;
  */
 
 /**
- * Allocate bridge structure
+ * @brief Allocate bridge structure
+ *
+ * @param bridge Output pointer for the allocated bridge
+ * @param memory_pool Memory pool for allocation
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if parameters are invalid,
+ *         or LLE_ERROR_OUT_OF_MEMORY on allocation failure
  */
 static lle_result_t bridge_alloc(lle_history_bridge_t **bridge,
                                  lle_memory_pool_t *memory_pool) {
@@ -100,7 +107,9 @@ static lle_result_t bridge_alloc(lle_history_bridge_t **bridge,
 }
 
 /**
- * Free bridge structure
+ * @brief Free bridge structure
+ *
+ * @param bridge Bridge structure to free (may be NULL)
  */
 static void bridge_free(lle_history_bridge_t *bridge) {
     if (bridge) {
@@ -109,7 +118,10 @@ static void bridge_free(lle_history_bridge_t *bridge) {
 }
 
 /**
- * Check if command should be ignored (whitespace, empty, etc.)
+ * @brief Check if command should be ignored (whitespace, empty, etc.)
+ *
+ * @param command Command string to check
+ * @return true if command should be ignored, false otherwise
  */
 static bool should_ignore_command(const char *command) {
     if (!command || !*command) {
@@ -134,7 +146,16 @@ static bool should_ignore_command(const char *command) {
  */
 
 /**
- * Initialize Lusush history bridge
+ * @brief Initialize Lusush history bridge
+ *
+ * Creates and initializes the bridge between LLE history and other history systems.
+ * Optionally imports existing history from Readline and POSIX managers.
+ *
+ * @param lle_core LLE history core engine
+ * @param posix_manager POSIX history manager (may be NULL)
+ * @param memory_pool Memory pool for allocations
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if required parameters are invalid,
+ *         LLE_ERROR_ALREADY_INITIALIZED if already initialized, or other error codes
  */
 lle_result_t lle_history_bridge_init(lle_history_core_t *lle_core,
                                      posix_history_manager_t *posix_manager,
@@ -196,7 +217,11 @@ lle_result_t lle_history_bridge_init(lle_history_core_t *lle_core,
 }
 
 /**
- * Shutdown and cleanup bridge
+ * @brief Shutdown and cleanup bridge
+ *
+ * Performs final synchronization and frees all bridge resources.
+ *
+ * @return LLE_SUCCESS on success
  */
 lle_result_t lle_history_bridge_shutdown(void) {
     if (!g_bridge) {
@@ -222,7 +247,9 @@ lle_result_t lle_history_bridge_shutdown(void) {
 }
 
 /**
- * Check if bridge is initialized
+ * @brief Check if bridge is initialized
+ *
+ * @return true if bridge is initialized and ready, false otherwise
  */
 bool lle_history_bridge_is_initialized(void) {
     return (g_bridge && g_bridge->initialized);
@@ -234,7 +261,11 @@ bool lle_history_bridge_is_initialized(void) {
  */
 
 /**
- * Import history from GNU Readline
+ * @brief Import history from GNU Readline
+ *
+ * Imports all entries from the GNU Readline history list into LLE history.
+ *
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_INITIALIZED if bridge not initialized
  */
 lle_result_t lle_history_bridge_import_from_readline(void) {
 #if HAVE_READLINE
@@ -286,7 +317,11 @@ lle_result_t lle_history_bridge_import_from_readline(void) {
 }
 
 /**
- * Export history to GNU Readline
+ * @brief Export history to GNU Readline
+ *
+ * Exports all LLE history entries to the GNU Readline history list.
+ *
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_INITIALIZED if bridge not initialized
  */
 lle_result_t lle_history_bridge_export_to_readline(void) {
 #if HAVE_READLINE
@@ -337,7 +372,12 @@ lle_result_t lle_history_bridge_export_to_readline(void) {
 }
 
 /**
- * Sync single entry to readline
+ * @brief Sync single entry to readline
+ *
+ * Adds a single history entry to the GNU Readline history list.
+ *
+ * @param entry History entry to sync
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_INITIALIZED if bridge not initialized
  */
 lle_result_t
 lle_history_bridge_sync_entry_to_readline(const lle_history_entry_t *entry) {
@@ -366,7 +406,11 @@ lle_history_bridge_sync_entry_to_readline(const lle_history_entry_t *entry) {
 }
 
 /**
- * Clear readline history
+ * @brief Clear readline history
+ *
+ * Clears all entries from the GNU Readline history list.
+ *
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_INITIALIZED if bridge not initialized
  */
 lle_result_t lle_history_bridge_clear_readline(void) {
 #if HAVE_READLINE
@@ -392,7 +436,11 @@ lle_result_t lle_history_bridge_clear_readline(void) {
  */
 
 /**
- * Import history from POSIX manager
+ * @brief Import history from POSIX manager
+ *
+ * Imports all entries from the POSIX history manager into LLE history.
+ *
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_INITIALIZED if bridge not initialized
  */
 lle_result_t lle_history_bridge_import_from_posix(void) {
     if (!g_bridge || !g_bridge->initialized) {
@@ -434,7 +482,11 @@ lle_result_t lle_history_bridge_import_from_posix(void) {
 }
 
 /**
- * Export history to POSIX manager
+ * @brief Export history to POSIX manager
+ *
+ * Exports all LLE history entries to the POSIX history manager.
+ *
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_INITIALIZED if bridge not initialized
  */
 lle_result_t lle_history_bridge_export_to_posix(void) {
     if (!g_bridge || !g_bridge->initialized) {
@@ -477,7 +529,12 @@ lle_result_t lle_history_bridge_export_to_posix(void) {
 }
 
 /**
- * Sync single entry to POSIX manager
+ * @brief Sync single entry to POSIX manager
+ *
+ * Adds a single history entry to the POSIX history manager.
+ *
+ * @param entry History entry to sync
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_INITIALIZED if bridge not initialized
  */
 lle_result_t
 lle_history_bridge_sync_entry_to_posix(const lle_history_entry_t *entry) {
@@ -506,7 +563,15 @@ lle_history_bridge_sync_entry_to_posix(const lle_history_entry_t *entry) {
  */
 
 /**
- * Add entry to LLE and sync to all systems
+ * @brief Add entry to LLE and sync to all systems
+ *
+ * Adds a command to LLE history and automatically syncs to Readline and POSIX
+ * if auto-sync is enabled.
+ *
+ * @param command Command string to add
+ * @param exit_code Exit code of the command
+ * @param entry_id Output pointer for the assigned entry ID (may be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_INITIALIZED if bridge not initialized
  */
 lle_result_t lle_history_bridge_add_entry(const char *command, int exit_code,
                                           uint64_t *entry_id) {
@@ -554,7 +619,11 @@ lle_result_t lle_history_bridge_add_entry(const char *command, int exit_code,
 }
 
 /**
- * Synchronize all systems (full bidirectional sync)
+ * @brief Synchronize all systems (full bidirectional sync)
+ *
+ * Exports LLE history to all connected systems (Readline, POSIX).
+ *
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_INITIALIZED if bridge not initialized
  */
 lle_result_t lle_history_bridge_sync_all(void) {
     if (!g_bridge || !g_bridge->initialized) {
@@ -587,10 +656,16 @@ lle_result_t lle_history_bridge_sync_all(void) {
  */
 
 /**
- * Handle history builtin command
+ * @brief Handle history builtin command
  *
  * Provides compatibility with existing 'history' command behavior
  * while using LLE as the backend.
+ *
+ * @param argc Argument count (currently unused)
+ * @param argv Argument values (currently unused)
+ * @param output Output pointer for formatted history text (caller must free if non-NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_INITIALIZED if bridge not initialized,
+ *         or LLE_ERROR_OUT_OF_MEMORY on allocation failure
  */
 lle_result_t lle_history_bridge_handle_builtin(int argc, char **argv,
                                                char **output) {
@@ -653,7 +728,12 @@ lle_result_t lle_history_bridge_handle_builtin(int argc, char **argv,
 }
 
 /**
- * Get entry by history number (for history expansion like !123)
+ * @brief Get entry by history number (for history expansion like !123)
+ *
+ * @param number History entry number to look up
+ * @param entry Output pointer for the found entry
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_INITIALIZED if bridge not initialized,
+ *         or LLE_ERROR_NOT_FOUND if entry not found
  */
 lle_result_t lle_history_bridge_get_by_number(uint64_t number,
                                               lle_history_entry_t **entry) {
@@ -666,7 +746,12 @@ lle_result_t lle_history_bridge_get_by_number(uint64_t number,
 }
 
 /**
- * Get entry by reverse index (0 = most recent, for !! and !-N)
+ * @brief Get entry by reverse index (0 = most recent, for !! and !-N)
+ *
+ * @param reverse_index Reverse index (0 = most recent, 1 = second most recent, etc.)
+ * @param entry Output pointer for the found entry
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_INITIALIZED if bridge not initialized,
+ *         or LLE_ERROR_NOT_FOUND if entry not found
  */
 lle_result_t
 lle_history_bridge_get_by_reverse_index(size_t reverse_index,
@@ -685,7 +770,10 @@ lle_history_bridge_get_by_reverse_index(size_t reverse_index,
  */
 
 /**
- * Enable/disable readline synchronization
+ * @brief Enable/disable readline synchronization
+ *
+ * @param enabled true to enable, false to disable
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_INITIALIZED if bridge not initialized
  */
 lle_result_t lle_history_bridge_set_readline_sync(bool enabled) {
     if (!g_bridge) {
@@ -697,7 +785,10 @@ lle_result_t lle_history_bridge_set_readline_sync(bool enabled) {
 }
 
 /**
- * Enable/disable POSIX synchronization
+ * @brief Enable/disable POSIX synchronization
+ *
+ * @param enabled true to enable, false to disable
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_INITIALIZED if bridge not initialized
  */
 lle_result_t lle_history_bridge_set_posix_sync(bool enabled) {
     if (!g_bridge) {
@@ -709,7 +800,10 @@ lle_result_t lle_history_bridge_set_posix_sync(bool enabled) {
 }
 
 /**
- * Enable/disable automatic synchronization
+ * @brief Enable/disable automatic synchronization
+ *
+ * @param enabled true to enable, false to disable
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_INITIALIZED if bridge not initialized
  */
 lle_result_t lle_history_bridge_set_auto_sync(bool enabled) {
     if (!g_bridge) {
@@ -721,7 +815,10 @@ lle_result_t lle_history_bridge_set_auto_sync(bool enabled) {
 }
 
 /**
- * Enable/disable bidirectional synchronization
+ * @brief Enable/disable bidirectional synchronization
+ *
+ * @param enabled true to enable, false to disable
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_INITIALIZED if bridge not initialized
  */
 lle_result_t lle_history_bridge_set_bidirectional_sync(bool enabled) {
     if (!g_bridge) {
@@ -738,7 +835,14 @@ lle_result_t lle_history_bridge_set_bidirectional_sync(bool enabled) {
  */
 
 /**
- * Get bridge statistics
+ * @brief Get bridge statistics
+ *
+ * @param readline_imports Output for readline imports count (may be NULL)
+ * @param readline_exports Output for readline exports count (may be NULL)
+ * @param posix_imports Output for POSIX imports count (may be NULL)
+ * @param posix_exports Output for POSIX exports count (may be NULL)
+ * @param sync_errors Output for synchronization errors count (may be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_INITIALIZED if bridge not initialized
  */
 lle_result_t lle_history_bridge_get_stats(size_t *readline_imports,
                                           size_t *readline_exports,
@@ -764,7 +868,11 @@ lle_result_t lle_history_bridge_get_stats(size_t *readline_imports,
 }
 
 /**
- * Print bridge diagnostics
+ * @brief Print bridge diagnostics
+ *
+ * Prints diagnostic information about the bridge state to stdout.
+ *
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_INITIALIZED if bridge not initialized
  */
 lle_result_t lle_history_bridge_print_diagnostics(void) {
     if (!g_bridge) {

@@ -1,5 +1,10 @@
 /**
- * adaptive_context_initialization.c - Adaptive Context Initialization
+ * @file adaptive_context_initialization.c
+ * @brief Adaptive context initialization and lifecycle management
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ *
+ * Specification: Spec 26 Phase 2 - Context Initialization
  *
  * Provides unified initialization and lifecycle management for adaptive
  * terminal integration contexts. Handles detection, controller selection,
@@ -11,9 +16,6 @@
  * - Complete lifecycle management
  * - Configuration recommendations
  * - Health monitoring and fallback
- *
- * Specification: Spec 26 Phase 2 - Context Initialization
- * Date: 2025-11-02
  */
 
 #include "lle/adaptive_terminal_integration.h"
@@ -55,12 +57,16 @@ extern lle_result_t lle_minimal_read_line(lle_minimal_controller_t *minimal,
                                           const char *prompt, char **line);
 
 /* ============================================================================
- * MODE-SPECIFIC INTERFACE FUNCTIONS
+ * INTERNAL - MODE-SPECIFIC INTERFACE FUNCTIONS
  * ============================================================================
  */
 
 /**
- * Read line implementation - routes to appropriate controller.
+ * @brief Read line implementation - routes to appropriate controller
+ * @param ctx Adaptive context
+ * @param prompt Prompt string to display
+ * @param line Pointer to store allocated line
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t
 lle_adaptive_interface_read_line(lle_adaptive_context_t *ctx,
@@ -94,7 +100,12 @@ lle_adaptive_interface_read_line(lle_adaptive_context_t *ctx,
 }
 
 /**
- * Process input implementation - placeholder for full implementation.
+ * @brief Process input implementation (placeholder)
+ * @param ctx Adaptive context
+ * @param input Input data to process
+ * @param length Length of input data
+ * @param events Pointer to store generated events
+ * @return LLE_SUCCESS (input handled in read_line)
  */
 static lle_result_t
 lle_adaptive_interface_process_input(lle_adaptive_context_t *ctx,
@@ -111,7 +122,9 @@ lle_adaptive_interface_process_input(lle_adaptive_context_t *ctx,
 }
 
 /**
- * Update display implementation.
+ * @brief Update display implementation
+ * @param ctx Adaptive context
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if ctx is NULL
  */
 static lle_result_t
 lle_adaptive_interface_update_display(lle_adaptive_context_t *ctx) {
@@ -125,7 +138,11 @@ lle_adaptive_interface_update_display(lle_adaptive_context_t *ctx) {
 }
 
 /**
- * Handle resize implementation.
+ * @brief Handle terminal resize implementation
+ * @param ctx Adaptive context
+ * @param new_width New terminal width
+ * @param new_height New terminal height
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if ctx is NULL
  */
 static lle_result_t
 lle_adaptive_interface_handle_resize(lle_adaptive_context_t *ctx, int new_width,
@@ -145,7 +162,10 @@ lle_adaptive_interface_handle_resize(lle_adaptive_context_t *ctx, int new_width,
 }
 
 /**
- * Set configuration implementation.
+ * @brief Set configuration implementation
+ * @param ctx Adaptive context
+ * @param config Configuration to apply
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if ctx is NULL
  */
 static lle_result_t
 lle_adaptive_interface_set_configuration(lle_adaptive_context_t *ctx,
@@ -161,7 +181,10 @@ lle_adaptive_interface_set_configuration(lle_adaptive_context_t *ctx,
 }
 
 /**
- * Get status implementation.
+ * @brief Get status implementation
+ * @param ctx Adaptive context
+ * @param status Pointer to status structure to populate
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on error
  */
 static lle_result_t
 lle_adaptive_interface_get_status(lle_adaptive_context_t *ctx, void *status) {
@@ -175,12 +198,13 @@ lle_adaptive_interface_get_status(lle_adaptive_context_t *ctx, void *status) {
 }
 
 /* ============================================================================
- * INTERFACE FUNCTION ASSIGNMENT
+ * INTERNAL - INTERFACE FUNCTION ASSIGNMENT
  * ============================================================================
  */
 
 /**
- * Assign interface function pointers.
+ * @brief Assign interface function pointers to implementation functions
+ * @param interface Interface structure to populate
  */
 static void
 lle_assign_interface_functions(lle_adaptive_interface_t *interface) {
@@ -193,12 +217,16 @@ lle_assign_interface_functions(lle_adaptive_interface_t *interface) {
 }
 
 /* ============================================================================
- * ADAPTIVE CONTEXT INITIALIZATION
+ * PUBLIC API - ADAPTIVE CONTEXT INITIALIZATION
  * ============================================================================
  */
 
 /**
- * Initialize adaptive context with detected mode.
+ * @brief Initialize adaptive context with detected mode
+ * @param context Pointer to store the created context
+ * @param detection_result Terminal detection result
+ * @param memory_pool Memory pool for allocations (can be NULL)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_initialize_adaptive_context(
     lle_adaptive_context_t **context,
@@ -274,7 +302,8 @@ lle_result_t lle_initialize_adaptive_context(
 }
 
 /**
- * Destroy adaptive context.
+ * @brief Destroy adaptive context and cleanup resources
+ * @param context Context to destroy (safe if NULL)
  */
 void lle_adaptive_context_destroy(lle_adaptive_context_t *context) {
     if (!context) {
@@ -309,12 +338,15 @@ void lle_adaptive_context_destroy(lle_adaptive_context_t *context) {
 }
 
 /* ============================================================================
- * ADAPTIVE INTERFACE CREATION
+ * PUBLIC API - ADAPTIVE INTERFACE CREATION
  * ============================================================================
  */
 
 /**
- * Create adaptive interface with automatic detection.
+ * @brief Create adaptive interface with automatic detection
+ * @param interface Pointer to store the created interface
+ * @param config Configuration options (can be NULL for defaults)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_create_adaptive_interface(lle_adaptive_interface_t **interface,
                                            void *config) {
@@ -363,7 +395,8 @@ lle_result_t lle_create_adaptive_interface(lle_adaptive_interface_t **interface,
 }
 
 /**
- * Destroy adaptive interface.
+ * @brief Destroy adaptive interface and cleanup resources
+ * @param interface Interface to destroy (safe if NULL)
  */
 void lle_adaptive_interface_destroy(lle_adaptive_interface_t *interface) {
     if (!interface) {
@@ -375,12 +408,16 @@ void lle_adaptive_interface_destroy(lle_adaptive_interface_t *interface) {
 }
 
 /* ============================================================================
- * SHELL INTEGRATION API
+ * PUBLIC API - SHELL INTEGRATION
  * ============================================================================
  */
 
 /**
- * Determine if shell should be interactive.
+ * @brief Determine if shell should be interactive based on context
+ * @param forced_interactive True if user forced interactive mode
+ * @param has_script_file True if executing a script file
+ * @param stdin_mode True if reading commands from stdin
+ * @return true if shell should be interactive, false otherwise
  */
 bool lle_adaptive_should_shell_be_interactive(bool forced_interactive,
                                               bool has_script_file,
@@ -421,7 +458,8 @@ bool lle_adaptive_should_shell_be_interactive(bool forced_interactive,
 }
 
 /**
- * Get configuration recommendations.
+ * @brief Get configuration recommendations based on terminal detection
+ * @param config Pointer to configuration structure to populate
  */
 void lle_adaptive_get_recommended_config(
     lle_adaptive_config_recommendation_t *config) {
@@ -506,12 +544,14 @@ void lle_adaptive_get_recommended_config(
 }
 
 /* ============================================================================
- * HEALTH MONITORING API
+ * PUBLIC API - HEALTH MONITORING
  * ============================================================================
  */
 
 /**
- * Perform health check on adaptive context.
+ * @brief Perform health check on adaptive context
+ * @param context The context to check
+ * @return true if context is healthy, false otherwise
  */
 bool lle_adaptive_perform_health_check(lle_adaptive_context_t *context) {
     if (!context) {
@@ -529,13 +569,15 @@ bool lle_adaptive_perform_health_check(lle_adaptive_context_t *context) {
 }
 
 /**
- * Try fallback mode if current mode fails.
+ * @brief Try fallback mode if current mode fails
+ * @param context The context to fallback
+ * @return LLE_SUCCESS on successful fallback, error code on failure
  *
  * Implements graceful degradation hierarchy:
- * NATIVE → ENHANCED → MINIMAL
- * ENHANCED → MINIMAL
- * MULTIPLEXED → NATIVE → ENHANCED → MINIMAL
- * MINIMAL → (no fallback available)
+ * - NATIVE -> ENHANCED -> MINIMAL
+ * - ENHANCED -> MINIMAL
+ * - MULTIPLEXED -> NATIVE -> ENHANCED -> MINIMAL
+ * - MINIMAL -> (no fallback available)
  */
 lle_result_t lle_adaptive_try_fallback_mode(lle_adaptive_context_t *context) {
     if (!context) {

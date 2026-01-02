@@ -1,5 +1,6 @@
 /**
- * I/O Redirection Implementation for Lusush Shell
+ * @file redirection.c
+ * @brief I/O redirection implementation
  *
  * Comprehensive implementation of POSIX shell I/O redirection including:
  * - Basic output redirection (>)
@@ -9,6 +10,11 @@
  * - Combined redirection (&>)
  * - Here strings (<<<)
  * - Here documents (<<, <<-)
+ * - File descriptor redirection (>&2, 2>&1)
+ * - Noclobber support (>|)
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  */
 
 #include "redirection.h"
@@ -29,7 +35,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-// Forward declarations
+/* Forward declarations */
 static int handle_redirection_node(executor_t *executor, node_t *redir_node);
 static int setup_here_document(const char *delimiter, bool strip_tabs);
 static int setup_here_document_with_content(const char *content);
@@ -40,11 +46,18 @@ static int setup_here_document_with_processing(executor_t *executor,
 static int setup_here_string(executor_t *executor, const char *content);
 static char *expand_redirection_target(executor_t *executor,
                                        const char *target);
-
-// Forward declaration for file descriptor redirection
 static int setup_fd_redirection(const char *redir_text);
 
-// Setup redirections for a command
+/**
+ * @brief Setup redirections for a command
+ *
+ * Processes all redirection nodes attached to a command in left-to-right
+ * order as required by POSIX. Sets up file descriptors accordingly.
+ *
+ * @param executor Executor context for variable expansion
+ * @param command Command node containing redirection children
+ * @return 0 on success, non-zero on error
+ */
 int setup_redirections(executor_t *executor, node_t *command) {
     if (!command) {
         return 0; // No redirections to setup
@@ -65,7 +78,16 @@ int setup_redirections(executor_t *executor, node_t *command) {
     return 0;
 }
 
-// Handle individual redirection node
+/**
+ * @brief Handle individual redirection node
+ *
+ * Processes a single redirection node, setting up the appropriate
+ * file descriptor manipulation based on redirection type.
+ *
+ * @param executor Executor context for variable expansion
+ * @param redir_node Redirection node to process
+ * @return 0 on success, non-zero on error
+ */
 static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
     if (!redir_node) {
         return 1;
@@ -303,7 +325,16 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
     return result;
 }
 
-// Setup here document redirection
+/**
+ * @brief Setup here document redirection
+ *
+ * Creates a pipe and forks to read here document content interactively.
+ * Redirects stdin to read from the here document content.
+ *
+ * @param delimiter Delimiter string that ends the here document
+ * @param strip_tabs If true, strip leading tabs from each line (<<-)
+ * @return 0 on success, non-zero on error
+ */
 static int setup_here_document(const char *delimiter, bool strip_tabs) {
     // Create a temporary pipe for the here document content
     int pipefd[2];
@@ -378,7 +409,15 @@ static int setup_here_document(const char *delimiter, bool strip_tabs) {
     return 0;
 }
 
-// Setup here document redirection with pre-collected content
+/**
+ * @brief Setup here document redirection with pre-collected content
+ *
+ * Creates a pipe and writes pre-collected content to it, then
+ * redirects stdin to read from the pipe.
+ *
+ * @param content Pre-collected here document content
+ * @return 0 on success, non-zero on error
+ */
 static int setup_here_document_with_content(const char *content) {
     if (!content) {
         return 1;
@@ -433,7 +472,18 @@ static int setup_here_document_with_content(const char *content) {
     return 0;
 }
 
-// Setup here document with variable expansion and tab stripping
+/**
+ * @brief Setup here document with variable expansion and tab stripping
+ *
+ * Processes here document content with optional tab stripping and
+ * variable expansion, then sets up stdin redirection.
+ *
+ * @param executor Executor context for variable expansion
+ * @param content Raw here document content
+ * @param strip_tabs If true, strip leading tabs from each line
+ * @param expand_vars If true, expand variables in content
+ * @return 0 on success, non-zero on error
+ */
 static int setup_here_document_with_processing(executor_t *executor,
                                                const char *content,
                                                bool strip_tabs,
@@ -530,7 +580,16 @@ static int setup_here_document_with_processing(executor_t *executor,
     return result;
 }
 
-// Setup here string redirection
+/**
+ * @brief Setup here string redirection
+ *
+ * Creates a pipe containing the here string content with a trailing
+ * newline, then redirects stdin to read from it.
+ *
+ * @param executor Executor context for variable expansion
+ * @param content Here string content
+ * @return 0 on success, non-zero on error
+ */
 static int setup_here_string(executor_t *executor, const char *content) {
 
     if (getenv("LUSUSH_DEBUG_REDIR")) {
@@ -578,7 +637,16 @@ static int setup_here_string(executor_t *executor, const char *content) {
     return 0;
 }
 
-// Expand variables in redirection target
+/**
+ * @brief Expand variables in redirection target
+ *
+ * Expands shell variables in the redirection target filename,
+ * including special variables like $$, $?, $#, etc.
+ *
+ * @param executor Executor context for variable expansion
+ * @param target Target string to expand
+ * @return Expanded string (caller must free), or NULL on error
+ */
 static char *expand_redirection_target(executor_t *executor,
                                        const char *target) {
     if (!target) {
@@ -606,7 +674,14 @@ static char *expand_redirection_target(executor_t *executor,
     return result;
 }
 
-// Setup file descriptor redirection (>&2, 2>&1, etc.)
+/**
+ * @brief Setup file descriptor redirection
+ *
+ * Handles file descriptor duplication patterns like >&2, 2>&1, etc.
+ *
+ * @param redir_text Redirection text (e.g., ">&2", "2>&1")
+ * @return 0 on success, non-zero on error
+ */
 static int setup_fd_redirection(const char *redir_text) {
     if (!redir_text) {
         return 1;
@@ -641,7 +716,15 @@ static int setup_fd_redirection(const char *redir_text) {
     return 1; // Unknown pattern
 }
 
-// Save current file descriptors for later restoration
+/**
+ * @brief Save current file descriptors for later restoration
+ *
+ * Duplicates stdin, stdout, and stderr so they can be restored
+ * after redirection operations complete.
+ *
+ * @param state State structure to store saved descriptors
+ * @return 0 on success, non-zero on error
+ */
 int save_file_descriptors(redirection_state_t *state) {
     if (!state) {
         return 1;
@@ -673,7 +756,15 @@ int save_file_descriptors(redirection_state_t *state) {
     return 0;
 }
 
-// Restore file descriptors after command execution
+/**
+ * @brief Restore file descriptors after command execution
+ *
+ * Restores stdin, stdout, and stderr from previously saved state
+ * and closes the saved duplicates.
+ *
+ * @param state State structure containing saved descriptors
+ * @return 0 on success, non-zero on error
+ */
 int restore_file_descriptors(redirection_state_t *state) {
     if (!state) {
         return 1;
@@ -711,14 +802,23 @@ int restore_file_descriptors(redirection_state_t *state) {
     return result;
 }
 
-// Print redirection error message
+/**
+ * @brief Print redirection error message
+ *
+ * @param message Error message to print
+ */
 void redirection_error(const char *message) {
     if (message) {
         fprintf(stderr, "redirection: %s\n", message);
     }
 }
 
-// Check if a node represents a redirection
+/**
+ * @brief Check if a node represents a redirection
+ *
+ * @param node Node to check
+ * @return true if node is a redirection type, false otherwise
+ */
 bool is_redirection_node(node_t *node) {
     if (!node) {
         return false;
@@ -727,7 +827,12 @@ bool is_redirection_node(node_t *node) {
     return (node->type >= NODE_REDIR_IN && node->type <= NODE_REDIR_CLOBBER);
 }
 
-// Count redirection nodes in a command
+/**
+ * @brief Count redirection nodes in a command
+ *
+ * @param command Command node to examine
+ * @return Number of redirection children
+ */
 int count_redirections(node_t *command) {
     if (!command) {
         return 0;

@@ -1,7 +1,11 @@
-/*
- * event_stats.c - Event System Enhanced Statistics (Phase 2B)
+/**
+ * @file event_stats.c
+ * @brief Event System Enhanced Statistics
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Enhanced statistics tracking and processing configuration.
+ * Provides per-event-type statistics, cycle timing, and queue depth metrics.
  *
  * Spec 04: Event System - Phase 2B
  */
@@ -18,8 +22,13 @@
  * ============================================================================
  */
 
-/*
- * Initialize enhanced statistics
+/**
+ * @brief Initialize the enhanced statistics subsystem
+ * @param system The event system to initialize stats for
+ * @return LLE_SUCCESS on success, or error code on failure
+ *
+ * Allocates per-type statistics array and initializes cycle tracking.
+ * Safe to call multiple times; subsequent calls return success.
  */
 lle_result_t lle_event_enhanced_stats_init(lle_event_system_t *system) {
     if (!system) {
@@ -64,8 +73,11 @@ lle_result_t lle_event_enhanced_stats_init(lle_event_system_t *system) {
     return LLE_SUCCESS;
 }
 
-/*
- * Destroy enhanced statistics
+/**
+ * @brief Destroy the enhanced statistics subsystem
+ * @param system The event system to clean up stats for
+ *
+ * Frees all statistics structures and resets the pointer to NULL.
  */
 void lle_event_enhanced_stats_destroy(lle_event_system_t *system) {
     if (!system || !system->enhanced_stats) {
@@ -88,8 +100,14 @@ void lle_event_enhanced_stats_destroy(lle_event_system_t *system) {
     system->enhanced_stats = NULL;
 }
 
-/*
- * Get per-type statistics for a specific event type
+/**
+ * @brief Get statistics for a specific event type
+ * @param system The event system to query
+ * @param type The event type to get statistics for
+ * @param stats_out Output structure to receive the statistics
+ * @return LLE_SUCCESS on success, or error code on failure
+ *
+ * Returns zeroed statistics if the type has not been tracked yet.
  */
 lle_result_t
 lle_event_enhanced_stats_get_type(lle_event_system_t *system,
@@ -127,8 +145,14 @@ lle_event_enhanced_stats_get_type(lle_event_system_t *system,
     return LLE_SUCCESS;
 }
 
-/*
- * Get all type statistics
+/**
+ * @brief Get statistics for all tracked event types
+ * @param system The event system to query
+ * @param stats_out Output pointer to receive the stats array (not copied)
+ * @param count_out Output to receive the number of entries
+ * @return LLE_SUCCESS on success, or error code on failure
+ *
+ * Returns a pointer to the internal array; do not free or modify.
  */
 lle_result_t
 lle_event_enhanced_stats_get_all_types(lle_event_system_t *system,
@@ -154,8 +178,14 @@ lle_event_enhanced_stats_get_all_types(lle_event_system_t *system,
     return LLE_SUCCESS;
 }
 
-/*
- * Get cycle statistics
+/**
+ * @brief Get event processing cycle statistics
+ * @param system The event system to query
+ * @param cycles Output: number of processing cycles completed (may be NULL)
+ * @param total_time Output: total time spent in cycles in microseconds (may be NULL)
+ * @param min_time Output: minimum cycle time in microseconds (may be NULL)
+ * @param max_time Output: maximum cycle time in microseconds (may be NULL)
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t lle_event_enhanced_stats_get_cycles(lle_event_system_t *system,
                                                  uint64_t *cycles,
@@ -193,8 +223,12 @@ lle_result_t lle_event_enhanced_stats_get_cycles(lle_event_system_t *system,
     return LLE_SUCCESS;
 }
 
-/*
- * Get queue depth statistics
+/**
+ * @brief Get maximum observed queue depths
+ * @param system The event system to query
+ * @param max_main_depth Output: maximum main queue depth seen (may be NULL)
+ * @param max_priority_depth Output: maximum priority queue depth seen (may be NULL)
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t
 lle_event_enhanced_stats_get_queue_depth(lle_event_system_t *system,
@@ -224,8 +258,12 @@ lle_event_enhanced_stats_get_queue_depth(lle_event_system_t *system,
     return LLE_SUCCESS;
 }
 
-/*
- * Reset all enhanced statistics
+/**
+ * @brief Reset all enhanced statistics to initial state
+ * @param system The event system to reset stats for
+ * @return LLE_SUCCESS on success, or error code on failure
+ *
+ * Clears all cycle stats, per-type stats, and queue depth tracking.
  */
 lle_result_t lle_event_enhanced_stats_reset(lle_event_system_t *system) {
     if (!system) {
@@ -269,8 +307,13 @@ lle_result_t lle_event_enhanced_stats_reset(lle_event_system_t *system) {
  * ============================================================================
  */
 
-/*
- * Set processing configuration
+/**
+ * @brief Set the event processing configuration
+ * @param system The event system to configure
+ * @param config The configuration to apply
+ * @return LLE_SUCCESS on success, or error code on failure
+ *
+ * If detailed stats are enabled and not yet initialized, initializes them.
  */
 lle_result_t
 lle_event_processing_set_config(lle_event_system_t *system,
@@ -298,8 +341,11 @@ lle_event_processing_set_config(lle_event_system_t *system,
     return LLE_SUCCESS;
 }
 
-/*
- * Get processing configuration
+/**
+ * @brief Get the current event processing configuration
+ * @param system The event system to query
+ * @param config Output structure to receive the configuration
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t
 lle_event_processing_get_config(lle_event_system_t *system,
@@ -315,8 +361,11 @@ lle_event_processing_get_config(lle_event_system_t *system,
     return LLE_SUCCESS;
 }
 
-/*
- * Set processing state
+/**
+ * @brief Set the event processing state
+ * @param system The event system to update
+ * @param state The new processing state
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t lle_event_processing_set_state(lle_event_system_t *system,
                                             lle_processing_state_t state) {
@@ -331,8 +380,10 @@ lle_result_t lle_event_processing_set_state(lle_event_system_t *system,
     return LLE_SUCCESS;
 }
 
-/*
- * Get processing state
+/**
+ * @brief Get the current event processing state
+ * @param system The event system to query
+ * @return Current processing state, or LLE_PROCESSING_STOPPED if system is NULL
  */
 lle_processing_state_t
 lle_event_processing_get_state(lle_event_system_t *system) {

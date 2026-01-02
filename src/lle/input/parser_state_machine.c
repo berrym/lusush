@@ -1,5 +1,8 @@
-/*
- * parser_state_machine.c - Input Parser State Machine
+/**
+ * @file parser_state_machine.c
+ * @brief Input Parser State Machine
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Manages parser state transitions for coordinating input processing across
  * multiple parsing components (UTF-8 processor, sequence parser, key detector,
@@ -27,15 +30,24 @@
 #include <string.h>
 #include <time.h>
 
-/* Get current time in microseconds */
+/**
+ * @brief Get current time in microseconds
+ *
+ * @return Current monotonic time in microseconds
+ */
 static uint64_t get_current_time_us(void) {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (uint64_t)ts.tv_sec * 1000000 + (uint64_t)ts.tv_nsec / 1000;
 }
 
-/*
- * Initialize parser state machine
+/**
+ * @brief Initialize parser state machine
+ *
+ * @param state_machine Output pointer for created state machine
+ * @param error_ctx Error context for error reporting
+ * @param memory_pool Memory pool for allocations
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t
 lle_parser_state_machine_init(lle_parser_state_machine_t **state_machine,
@@ -65,8 +77,11 @@ lle_parser_state_machine_init(lle_parser_state_machine_t **state_machine,
     return LLE_SUCCESS;
 }
 
-/*
- * Destroy parser state machine
+/**
+ * @brief Destroy parser state machine
+ *
+ * @param state_machine State machine to destroy
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t
 lle_parser_state_machine_destroy(lle_parser_state_machine_t *state_machine) {
@@ -78,8 +93,12 @@ lle_parser_state_machine_destroy(lle_parser_state_machine_t *state_machine) {
     return LLE_SUCCESS;
 }
 
-/*
- * Transition to new state
+/**
+ * @brief Transition to new state
+ *
+ * @param state_machine State machine to transition
+ * @param new_state Target state
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t
 lle_parser_state_machine_transition(lle_parser_state_machine_t *state_machine,
@@ -98,12 +117,18 @@ lle_parser_state_machine_transition(lle_parser_state_machine_t *state_machine,
     return LLE_SUCCESS;
 }
 
-/*
- * Main processing function - analyzes input and determines state transitions
+/**
+ * @brief Main processing function - analyzes input and determines state transitions
  *
  * This is a lightweight function that examines the input data and determines
  * which parser state should handle it. The actual parsing is done by the
  * integration layer.
+ *
+ * @param state_machine State machine instance
+ * @param parser_sys Parser system (reserved for future use)
+ * @param data Input data to analyze
+ * @param data_len Length of input data
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t
 lle_parser_state_machine_process(lle_parser_state_machine_t *state_machine,
@@ -197,8 +222,11 @@ lle_parser_state_machine_process(lle_parser_state_machine_t *state_machine,
     return LLE_SUCCESS;
 }
 
-/*
- * Get current state
+/**
+ * @brief Get current state
+ *
+ * @param state_machine State machine to query
+ * @return Current parser state
  */
 lle_parser_state_t lle_parser_state_machine_get_state(
     const lle_parser_state_machine_t *state_machine) {
@@ -208,8 +236,11 @@ lle_parser_state_t lle_parser_state_machine_get_state(
     return state_machine->current_state;
 }
 
-/*
- * Get previous state
+/**
+ * @brief Get previous state
+ *
+ * @param state_machine State machine to query
+ * @return Previous parser state
  */
 lle_parser_state_t lle_parser_state_machine_get_previous_state(
     const lle_parser_state_machine_t *state_machine) {
@@ -219,8 +250,11 @@ lle_parser_state_t lle_parser_state_machine_get_previous_state(
     return state_machine->previous_state;
 }
 
-/*
- * Get state transition count
+/**
+ * @brief Get state transition count
+ *
+ * @param state_machine State machine to query
+ * @return Total number of state transitions
  */
 uint64_t lle_parser_state_machine_get_transitions(
     const lle_parser_state_machine_t *state_machine) {
@@ -230,8 +264,11 @@ uint64_t lle_parser_state_machine_get_transitions(
     return state_machine->state_transitions;
 }
 
-/*
- * Get error recovery count
+/**
+ * @brief Get error recovery count
+ *
+ * @param state_machine State machine to query
+ * @return Total number of error recoveries
  */
 uint32_t lle_parser_state_machine_get_error_recoveries(
     const lle_parser_state_machine_t *state_machine) {
@@ -241,8 +278,11 @@ uint32_t lle_parser_state_machine_get_error_recoveries(
     return state_machine->error_recoveries;
 }
 
-/*
- * Get time since last state change (microseconds)
+/**
+ * @brief Get time since last state change (microseconds)
+ *
+ * @param state_machine State machine to query
+ * @return Time in microseconds since last state change
  */
 uint64_t lle_parser_state_machine_time_in_state(
     const lle_parser_state_machine_t *state_machine) {
@@ -252,8 +292,11 @@ uint64_t lle_parser_state_machine_time_in_state(
     return get_current_time_us() - state_machine->state_change_time;
 }
 
-/*
- * Check if state machine is in error recovery
+/**
+ * @brief Check if state machine is in error recovery
+ *
+ * @param state_machine State machine to query
+ * @return true if in error recovery state, false otherwise
  */
 bool lle_parser_state_machine_is_error_state(
     const lle_parser_state_machine_t *state_machine) {
@@ -263,8 +306,11 @@ bool lle_parser_state_machine_is_error_state(
     return state_machine->current_state == LLE_PARSER_STATE_ERROR_RECOVERY;
 }
 
-/*
- * Reset state machine to initial state
+/**
+ * @brief Reset state machine to initial state
+ *
+ * @param state_machine State machine to reset
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t
 lle_parser_state_machine_reset(lle_parser_state_machine_t *state_machine) {

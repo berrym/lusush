@@ -6,6 +6,7 @@
  * shell commands including operators, keywords, quoting, and escapes.
  *
  * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (c) 2025 Michael Berry. All rights reserved.
  */
 
 #include "tokenizer.h"

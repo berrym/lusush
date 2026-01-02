@@ -1,8 +1,11 @@
 /**
- * keybinding.h - Keybinding Engine for GNU Readline Compatibility
+ * @file keybinding.h
+ * @brief Keybinding Engine for GNU Readline Compatibility
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Implements fast key sequence lookup and binding management for interactive
- * line editing. Uses hashtable for O(1) lookup performance (<50μs requirement).
+ * line editing. Uses hashtable for O(1) lookup performance (<50us requirement).
  *
  * Key Features:
  * - Fast key sequence lookup using libhashtable

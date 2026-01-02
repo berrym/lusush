@@ -1,15 +1,13 @@
-/*
- * Lusush Shell - LLE Completion System (Spec 12)
- * Copyright (C) 2021-2026  Michael Berry
+/**
+ * @file completion_system.h
+ * @brief LLE Completion System - Spec 12 Core Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- *
- * ============================================================================
- *
- * COMPLETION SYSTEM - Spec 12 Core Implementation
  *
  * Enhanced completion system with proper architecture:
  * - Context analysis (understand what we're completing)
@@ -39,23 +37,23 @@ extern "C" {
 #endif
 
 /**
- * Enhanced completion system - Spec 12 architecture
+ * @brief Enhanced completion system - Spec 12 architecture
  */
 typedef struct lle_completion_system {
     /* Core engines */
-    lle_source_manager_t *source_manager; /* Manage completion sources */
+    lle_source_manager_t *source_manager; /**< Manage completion sources */
 
     /* Current state */
-    lle_completion_state_t *current_state; /* Active completion session */
-    lle_completion_menu_state_t *menu;     /* Menu state (if visible) */
+    lle_completion_state_t *current_state; /**< Active completion session */
+    lle_completion_menu_state_t *menu;     /**< Menu state (if visible) */
 
     /* Memory management */
-    lle_memory_pool_t *pool; /* Memory pool for allocations */
+    lle_memory_pool_t *pool; /**< Memory pool for allocations */
 
     /* Configuration */
-    bool enable_history_source; /* Use history as source */
-    bool enable_fuzzy_matching; /* Future: fuzzy matching */
-    size_t max_completions;     /* Limit results */
+    bool enable_history_source; /**< Use history as source */
+    bool enable_fuzzy_matching; /**< Future: fuzzy matching */
+    size_t max_completions;     /**< Limit results */
 } lle_completion_system_t;
 
 // ============================================================================
@@ -63,7 +61,7 @@ typedef struct lle_completion_system {
 // ============================================================================
 
 /**
- * Create enhanced completion system
+ * @brief Create enhanced completion system
  *
  * @param pool Memory pool
  * @param out_system Output system
@@ -73,14 +71,14 @@ lle_result_t lle_completion_system_create(lle_memory_pool_t *pool,
                                           lle_completion_system_t **out_system);
 
 /**
- * Destroy enhanced completion system
+ * @brief Destroy enhanced completion system
  *
  * @param system System to destroy
  */
 void lle_completion_system_destroy(lle_completion_system_t *system);
 
 /**
- * Clear active completion
+ * @brief Clear active completion
  *
  * @param system Completion system
  */
@@ -91,7 +89,7 @@ void lle_completion_system_clear(lle_completion_system_t *system);
 // ============================================================================
 
 /**
- * Generate completions using Spec 12 architecture
+ * @brief Generate completions using Spec 12 architecture
  *
  * This is the PROPER implementation that:
  * - Analyzes context (command vs argument vs variable)
@@ -115,7 +113,7 @@ lle_completion_system_generate(lle_completion_system_t *system,
 // ============================================================================
 
 /**
- * Check if completion is active
+ * @brief Check if completion is active
  *
  * @param system Completion system
  * @return true if active
@@ -123,7 +121,7 @@ lle_completion_system_generate(lle_completion_system_t *system,
 bool lle_completion_system_is_active(const lle_completion_system_t *system);
 
 /**
- * Check if menu is visible
+ * @brief Check if menu is visible
  *
  * @param system Completion system
  * @return true if menu visible
@@ -132,7 +130,7 @@ bool lle_completion_system_is_menu_visible(
     const lle_completion_system_t *system);
 
 /**
- * Get current completion state
+ * @brief Get current completion state
  *
  * @param system Completion system
  * @return Current state or NULL
@@ -141,7 +139,7 @@ lle_completion_state_t *
 lle_completion_system_get_state(lle_completion_system_t *system);
 
 /**
- * Get menu state
+ * @brief Get menu state
  *
  * @param system Completion system
  * @return Menu state or NULL

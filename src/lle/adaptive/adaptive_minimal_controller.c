@@ -1,5 +1,10 @@
 /**
- * adaptive_minimal_controller.c - Minimal Controller Implementation
+ * @file adaptive_minimal_controller.c
+ * @brief Minimal controller for basic line editing environments
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ *
+ * Specification: Spec 26 Phase 2 - Minimal Controller
  *
  * Implements the minimal controller for basic line editing environments.
  * Provides simple text input/output without terminal control sequences.
@@ -10,9 +15,6 @@
  * - Basic tab completion
  * - No terminal control sequences
  * - Minimal resource usage
- *
- * Specification: Spec 26 Phase 2 - Minimal Controller
- * Date: 2025-11-02
  */
 
 #include "lle/adaptive_terminal_integration.h"
@@ -97,7 +99,11 @@ struct lle_minimal_controller_t {
  */
 
 /**
- * Create text buffer.
+ * @brief Create a basic text buffer for minimal editing.
+ *
+ * Allocates and initializes a simple text buffer with default capacity.
+ *
+ * @return Pointer to the created buffer, or NULL on allocation failure.
  */
 static lle_text_buffer_t *lle_text_buffer_create_basic(void) {
     lle_text_buffer_t *buffer = calloc(1, sizeof(lle_text_buffer_t));
@@ -120,7 +126,9 @@ static lle_text_buffer_t *lle_text_buffer_create_basic(void) {
 }
 
 /**
- * Destroy text buffer.
+ * @brief Destroy a text buffer and free its resources.
+ *
+ * @param buffer The text buffer to destroy, or NULL for no-op.
  */
 static void lle_text_buffer_destroy(lle_text_buffer_t *buffer) {
     if (!buffer) {
@@ -132,7 +140,11 @@ static void lle_text_buffer_destroy(lle_text_buffer_t *buffer) {
 }
 
 /**
- * Clear text buffer.
+ * @brief Clear all content from a text buffer.
+ *
+ * Resets the buffer length and cursor position to zero.
+ *
+ * @param buffer The text buffer to clear, or NULL for no-op.
  */
 LLE_MAYBE_UNUSED
 static void lle_text_buffer_clear(lle_text_buffer_t *buffer) {
@@ -146,7 +158,14 @@ static void lle_text_buffer_clear(lle_text_buffer_t *buffer) {
 }
 
 /**
- * Set text buffer content.
+ * @brief Set the content of a text buffer.
+ *
+ * Replaces the buffer content with the given text, growing
+ * the buffer if necessary.
+ *
+ * @param buffer The text buffer.
+ * @param text The text to set.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 static lle_result_t lle_text_buffer_set(lle_text_buffer_t *buffer,
                                         const char *text) {
@@ -178,7 +197,11 @@ static lle_result_t lle_text_buffer_set(lle_text_buffer_t *buffer,
  */
 
 /**
- * Create basic history.
+ * @brief Create a basic history ring buffer.
+ *
+ * Allocates and initializes a history structure with default capacity.
+ *
+ * @return Pointer to the created history, or NULL on allocation failure.
  */
 static lle_basic_history_t *lle_basic_history_create(void) {
     lle_basic_history_t *history = calloc(1, sizeof(lle_basic_history_t));
@@ -197,7 +220,9 @@ static lle_basic_history_t *lle_basic_history_create(void) {
 }
 
 /**
- * Destroy basic history.
+ * @brief Destroy a basic history and free all entries.
+ *
+ * @param history The history to destroy, or NULL for no-op.
  */
 static void lle_basic_history_destroy(lle_basic_history_t *history) {
     if (!history) {
@@ -212,7 +237,14 @@ static void lle_basic_history_destroy(lle_basic_history_t *history) {
 }
 
 /**
- * Add entry to history.
+ * @brief Add an entry to the history ring buffer.
+ *
+ * Skips adding if the entry duplicates the most recent entry.
+ * Overwrites oldest entries when capacity is exceeded.
+ *
+ * @param history The history to add to.
+ * @param entry The command string to add.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 static lle_result_t lle_basic_history_add(lle_basic_history_t *history,
                                           const char *entry) {
@@ -249,7 +281,13 @@ static lle_result_t lle_basic_history_add(lle_basic_history_t *history,
 }
 
 /**
- * Get history entry by index (0 = most recent).
+ * @brief Get a history entry by index.
+ *
+ * Index 0 returns the most recent entry, index 1 the second most recent, etc.
+ *
+ * @param history The history to query.
+ * @param index The index (0 = most recent).
+ * @return The history entry string, or NULL if index is out of range.
  */
 static const char *lle_basic_history_get(lle_basic_history_t *history,
                                          size_t index) {
@@ -270,7 +308,11 @@ static const char *lle_basic_history_get(lle_basic_history_t *history,
  */
 
 /**
- * Create simple completion.
+ * @brief Create a simple completion system.
+ *
+ * Allocates and initializes a completion structure with default capacity.
+ *
+ * @return Pointer to the created completion system, or NULL on allocation failure.
  */
 static lle_simple_completion_t *lle_simple_completion_create(void) {
     lle_simple_completion_t *completion =
@@ -290,7 +332,9 @@ static lle_simple_completion_t *lle_simple_completion_create(void) {
 }
 
 /**
- * Destroy simple completion.
+ * @brief Destroy a simple completion system and free all entries.
+ *
+ * @param completion The completion system to destroy, or NULL for no-op.
  */
 static void lle_simple_completion_destroy(lle_simple_completion_t *completion) {
     if (!completion) {
@@ -305,7 +349,11 @@ static void lle_simple_completion_destroy(lle_simple_completion_t *completion) {
 }
 
 /**
- * Clear completion list.
+ * @brief Clear all completion suggestions.
+ *
+ * Frees all stored completion strings and resets the count.
+ *
+ * @param completion The completion system to clear, or NULL for no-op.
  */
 LLE_MAYBE_UNUSED
 static void lle_simple_completion_clear(lle_simple_completion_t *completion) {
@@ -327,7 +375,12 @@ static void lle_simple_completion_clear(lle_simple_completion_t *completion) {
  */
 
 /**
- * Create simple input processor.
+ * @brief Create a simple input processor for minimal mode.
+ *
+ * Allocates and initializes a basic input processor with default settings.
+ *
+ * @param processor Output pointer to receive the created processor.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t
 lle_simple_input_processor_create(lle_simple_input_processor_t **processor) {
@@ -352,7 +405,9 @@ lle_simple_input_processor_create(lle_simple_input_processor_t **processor) {
 }
 
 /**
- * Destroy simple input processor.
+ * @brief Destroy a simple input processor and free its resources.
+ *
+ * @param processor The processor to destroy, or NULL for no-op.
  */
 static void
 lle_simple_input_processor_destroy(lle_simple_input_processor_t *processor) {
@@ -366,7 +421,13 @@ lle_simple_input_processor_destroy(lle_simple_input_processor_t *processor) {
 }
 
 /**
- * Read line using simple input processor.
+ * @brief Read a line of input using the simple input processor.
+ *
+ * Reads from stdin using fgets and removes trailing newlines.
+ *
+ * @param processor The input processor.
+ * @param line Output pointer to receive the input buffer (not duplicated).
+ * @return LLE_SUCCESS on success, or an error code on failure/EOF.
  */
 static lle_result_t
 lle_simple_input_processor_read_line(lle_simple_input_processor_t *processor,
@@ -395,7 +456,14 @@ lle_simple_input_processor_read_line(lle_simple_input_processor_t *processor,
  */
 
 /**
- * Initialize minimal controller.
+ * @brief Initialize the minimal controller for basic line editing.
+ *
+ * Creates and configures a minimal controller with basic text buffer,
+ * history, completion, and input processing capabilities.
+ *
+ * @param context The adaptive context to initialize the controller in.
+ * @param memory_pool Memory pool for allocations.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t
 lle_initialize_minimal_controller(lle_adaptive_context_t *context,
@@ -451,7 +519,12 @@ lle_initialize_minimal_controller(lle_adaptive_context_t *context,
 }
 
 /**
- * Cleanup minimal controller.
+ * @brief Clean up and destroy a minimal controller.
+ *
+ * Releases all resources including text buffer, history, completion,
+ * and input processor.
+ *
+ * @param minimal The minimal controller to destroy, or NULL for no-op.
  */
 void lle_cleanup_minimal_controller(lle_minimal_controller_t *minimal) {
     if (!minimal) {
@@ -466,7 +539,15 @@ void lle_cleanup_minimal_controller(lle_minimal_controller_t *minimal) {
 }
 
 /**
- * Read line using minimal controller.
+ * @brief Read a line of input using the minimal controller.
+ *
+ * Displays the prompt, reads input from stdin, stores it in the
+ * text buffer, adds non-empty lines to history, and returns a copy.
+ *
+ * @param minimal The minimal controller.
+ * @param prompt The prompt string to display.
+ * @param line Output pointer to receive the allocated input line.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t lle_minimal_read_line(lle_minimal_controller_t *minimal,
                                    const char *prompt, char **line) {
@@ -512,7 +593,12 @@ lle_result_t lle_minimal_read_line(lle_minimal_controller_t *minimal,
 }
 
 /**
- * Get history entry for minimal controller.
+ * @brief Get a history entry from the minimal controller.
+ *
+ * @param minimal The minimal controller.
+ * @param index The history index (0 = most recent).
+ * @param entry Output pointer to receive the history entry.
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_FOUND if index is out of range.
  */
 lle_result_t lle_minimal_get_history(lle_minimal_controller_t *minimal,
                                      size_t index, const char **entry) {
@@ -531,7 +617,10 @@ lle_result_t lle_minimal_get_history(lle_minimal_controller_t *minimal,
 }
 
 /**
- * Get history count.
+ * @brief Get the number of entries in the minimal controller's history.
+ *
+ * @param minimal The minimal controller.
+ * @return The number of history entries, or 0 if minimal is NULL.
  */
 size_t lle_minimal_get_history_count(lle_minimal_controller_t *minimal) {
     if (!minimal || !minimal->history) {
@@ -542,7 +631,15 @@ size_t lle_minimal_get_history_count(lle_minimal_controller_t *minimal) {
 }
 
 /**
- * Get minimal controller statistics.
+ * @brief Get minimal controller statistics.
+ *
+ * Retrieves usage statistics from the minimal controller.
+ *
+ * @param minimal The minimal controller.
+ * @param lines_read Output pointer for lines read count, or NULL to skip.
+ * @param history_entries Output pointer for history entries added, or NULL to skip.
+ * @param completions Output pointer for completions performed, or NULL to skip.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t lle_minimal_get_stats(const lle_minimal_controller_t *minimal,
                                    uint64_t *lines_read,

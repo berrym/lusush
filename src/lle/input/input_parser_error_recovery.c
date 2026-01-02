@@ -1,6 +1,8 @@
 /**
  * @file input_parser_error_recovery.c
  * @brief Input Parser Error Handling and Recovery (Spec 06 Phase 9)
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Comprehensive error handling and recovery for input parsing system.
  * Ensures zero data loss through graceful error recovery strategies.

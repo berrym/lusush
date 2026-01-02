@@ -1,6 +1,8 @@
 /**
  * @file history_index.c
  * @brief LLE History System - Indexing and Fast Lookup
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Specification: Spec 09 - History System
  * Phase: Phase 1 Day 2 - Entry Management and Indexing
@@ -22,8 +24,10 @@
  */
 
 /**
- * Hash function for uint64_t keys
- * Uses a simple but effective integer hash
+ * @brief Hash function for uint64_t keys using Thomas Wang's algorithm
+ * @param key Pointer to uint64_t key
+ * @param seed Hash seed (unused for deterministic hashing)
+ * @return Hash value
  */
 static uint64_t hash_uint64(const void *key, uint64_t seed) {
     (void)seed; /* Unused for deterministic integer hashing */
@@ -43,14 +47,19 @@ static uint64_t hash_uint64(const void *key, uint64_t seed) {
 }
 
 /**
- * Equality function for uint64_t keys
+ * @brief Equality function for uint64_t keys
+ * @param key1 First key to compare
+ * @param key2 Second key to compare
+ * @return true if keys are equal, false otherwise
  */
 static bool eq_uint64(const void *key1, const void *key2) {
     return *(const uint64_t *)key1 == *(const uint64_t *)key2;
 }
 
 /**
- * Key copy function - allocates and copies uint64_t
+ * @brief Key copy function - allocates and copies uint64_t
+ * @param key Key to copy
+ * @return Pointer to copied key, or NULL on allocation failure
  */
 static void *copy_uint64_key(const void *key) {
     uint64_t *new_key = lle_pool_alloc(sizeof(uint64_t));
@@ -61,7 +70,8 @@ static void *copy_uint64_key(const void *key) {
 }
 
 /**
- * Key free function
+ * @brief Key free function for uint64_t keys
+ * @param key Key to free
  */
 static void free_uint64_key(const void *key) {
     if (key) {
@@ -70,14 +80,18 @@ static void free_uint64_key(const void *key) {
 }
 
 /**
- * Value copy function - for entry pointers, just return the pointer
- * (we don't copy the entry itself, just store the pointer)
+ * @brief Value copy function - returns pointer as-is (no deep copy)
+ * @param value Entry pointer to store
+ * @return The same pointer (entries are managed by history core)
  */
 static void *copy_entry_ptr(const void *value) { return (void *)value; }
 
 /**
- * Value free function - no-op for entry pointers
- * (entries are managed by history core, not the hashtable)
+ * @brief Value free function - no-op for entry pointers
+ *
+ * Entries are managed by history core, not the hashtable.
+ *
+ * @param value Entry pointer (unused)
  */
 static void free_entry_ptr(const void *value) {
     (void)value; /* No-op - entries are owned by history core */
@@ -89,11 +103,15 @@ static void free_entry_ptr(const void *value) {
  */
 
 /**
- * Create hashtable index for fast ID lookup
+ * @brief Create hashtable index for fast ID lookup
  *
- * @param index Output pointer for created hashtable
- * @param initial_capacity Initial capacity hint
- * @return LLE_SUCCESS or error code
+ * Creates a hashtable using libhashtable with custom hash functions
+ * for uint64_t keys and entry pointer values.
+ *
+ * @param index Output pointer for created hashtable (must not be NULL)
+ * @param initial_capacity Initial capacity hint for the hashtable
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if index is NULL,
+ *         LLE_ERROR_OUT_OF_MEMORY on allocation failure
  */
 lle_result_t lle_history_index_create(lle_hashtable_t **index,
                                       size_t initial_capacity) {
@@ -119,9 +137,12 @@ lle_result_t lle_history_index_create(lle_hashtable_t **index,
 }
 
 /**
- * Destroy hashtable index
+ * @brief Destroy hashtable index
  *
- * @param index Hashtable to destroy
+ * Frees all resources associated with the hashtable index.
+ * Safe to call with NULL.
+ *
+ * @param index Hashtable to destroy (may be NULL)
  */
 void lle_history_index_destroy(lle_hashtable_t *index) {
     if (index) {
@@ -135,12 +156,14 @@ void lle_history_index_destroy(lle_hashtable_t *index) {
  */
 
 /**
- * Insert entry into index
+ * @brief Insert entry into index
  *
- * @param index Hashtable index
+ * Adds an entry to the hashtable with the given ID as key.
+ *
+ * @param index Hashtable index (must not be NULL)
  * @param entry_id Entry ID (key)
- * @param entry Entry pointer (value)
- * @return LLE_SUCCESS or error code
+ * @param entry Entry pointer (value) (must not be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if index or entry is NULL
  */
 lle_result_t lle_history_index_insert(lle_hashtable_t *index, uint64_t entry_id,
                                       lle_history_entry_t *entry) {
@@ -155,12 +178,15 @@ lle_result_t lle_history_index_insert(lle_hashtable_t *index, uint64_t entry_id,
 }
 
 /**
- * Lookup entry by ID in index
+ * @brief Lookup entry by ID in index
  *
- * @param index Hashtable index
+ * Finds an entry in the hashtable by its ID. Returns NULL in *entry
+ * if not found, but still returns LLE_SUCCESS.
+ *
+ * @param index Hashtable index (must not be NULL)
  * @param entry_id Entry ID to lookup
- * @param entry Output pointer for found entry (NULL if not found)
- * @return LLE_SUCCESS or error code
+ * @param entry Output pointer for found entry (NULL if not found) (must not be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if index or entry is NULL
  */
 lle_result_t lle_history_index_lookup(lle_hashtable_t *index, uint64_t entry_id,
                                       lle_history_entry_t **entry) {
@@ -176,11 +202,13 @@ lle_result_t lle_history_index_lookup(lle_hashtable_t *index, uint64_t entry_id,
 }
 
 /**
- * Remove entry from index
+ * @brief Remove entry from index
  *
- * @param index Hashtable index
+ * Removes an entry from the hashtable by its ID.
+ *
+ * @param index Hashtable index (must not be NULL)
  * @param entry_id Entry ID to remove
- * @return LLE_SUCCESS or error code
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if index is NULL
  */
 lle_result_t lle_history_index_remove(lle_hashtable_t *index,
                                       uint64_t entry_id) {
@@ -195,13 +223,13 @@ lle_result_t lle_history_index_remove(lle_hashtable_t *index,
 }
 
 /**
- * Clear all entries from index
+ * @brief Clear all entries from index
  *
- * Note: libhashtable doesn't have a clear function, so we work around this
- * by destroying and recreating. The caller should handle this properly.
+ * Note: libhashtable doesn't have a clear function, so this is a no-op.
+ * The caller should destroy and recreate the hashtable if needed.
  *
- * @param index Hashtable index
- * @return LLE_SUCCESS or error code
+ * @param index Hashtable index (must not be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if index is NULL
  */
 lle_result_t lle_history_index_clear(lle_hashtable_t *index) {
     if (!index) {
@@ -218,14 +246,14 @@ lle_result_t lle_history_index_clear(lle_hashtable_t *index) {
 }
 
 /**
- * Get index size (number of entries)
+ * @brief Get index size (number of entries)
  *
- * Note: libhashtable doesn't expose a size function, so we can't provide this.
+ * Note: libhashtable doesn't expose a size function, so this always returns 0.
  * Callers should track size themselves via the history core's entry_count.
  *
- * @param index Hashtable index
- * @param size Output pointer for size
- * @return LLE_SUCCESS or error code
+ * @param index Hashtable index (must not be NULL)
+ * @param size Output pointer for size (must not be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if index or size is NULL
  */
 lle_result_t lle_history_index_get_size(lle_hashtable_t *index, size_t *size) {
     if (!index || !size) {
@@ -240,13 +268,14 @@ lle_result_t lle_history_index_get_size(lle_hashtable_t *index, size_t *size) {
 }
 
 /**
- * Rebuild index from history core entries
+ * @brief Rebuild index from history core entries
  *
  * This function rebuilds the entire index from the history core's
  * entry array. Useful after bulk operations or corruption recovery.
+ * Creates a new index if one doesn't exist.
  *
- * @param core History core
- * @return LLE_SUCCESS or error code
+ * @param core History core (must not be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if core is NULL
  */
 lle_result_t lle_history_rebuild_index(lle_history_core_t *core) {
     if (!core) {
@@ -294,15 +323,16 @@ lle_result_t lle_history_rebuild_index(lle_history_core_t *core) {
  */
 
 /**
- * Get last N entries
+ * @brief Get last N entries
  *
- * Returns the most recent N entries from history.
+ * Returns the most recent N entries from history. If fewer than N
+ * entries exist, returns all available entries.
  *
- * @param core History core
+ * @param core History core (must not be NULL)
  * @param n Number of entries to retrieve
- * @param entries Output array (caller must allocate at least n pointers)
- * @param count Output pointer for actual number retrieved
- * @return LLE_SUCCESS or error code
+ * @param entries Output array (caller must allocate at least n pointers) (must not be NULL)
+ * @param count Output pointer for actual number retrieved (must not be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if any parameter is NULL
  */
 lle_result_t lle_history_get_last_n_entries(lle_history_core_t *core, size_t n,
                                             lle_history_entry_t **entries,
@@ -329,16 +359,17 @@ lle_result_t lle_history_get_last_n_entries(lle_history_core_t *core, size_t n,
 }
 
 /**
- * Get entry by reverse index (for Up arrow - most recent first)
+ * @brief Get entry by reverse index (for Up arrow - most recent first)
  *
  * Index 0 = most recent entry
  * Index 1 = second most recent
  * etc.
  *
- * @param core History core
+ * @param core History core (must not be NULL)
  * @param reverse_index Reverse index (0 = newest)
- * @param entry Output pointer for entry
- * @return LLE_SUCCESS or error code
+ * @param entry Output pointer for entry (must not be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if core or entry is NULL,
+ *         LLE_ERROR_INVALID_RANGE if reverse_index is out of bounds
  */
 lle_result_t
 lle_history_get_entry_by_reverse_index(lle_history_core_t *core,

@@ -1,12 +1,16 @@
 /**
- * keybinding_actions.c - Default Keybinding Action Function Implementations
+ * @file keybinding_actions.c
+ * @brief Default Keybinding Action Function Implementations
  *
  * Complete implementation of all 44 GNU Readline compatible keybinding actions.
- * Provides 100% compatibility with Emacs-style keybindings.
+ * Provides 100% compatibility with Emacs-style keybindings including movement,
+ * editing, history navigation, completion, and shell-specific operations.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Specification:
- * docs/lle_specification/critical_gaps/25_default_keybindings_complete.md Date:
- * 2025-11-02
+ * docs/lle_specification/critical_gaps/25_default_keybindings_complete.md
  */
 
 #include "lle/keybinding_actions.h"
@@ -62,8 +66,13 @@ static void debug_log(const char *fmt, ...) {
  */
 
 /**
- * Check if a Unicode codepoint is a word character (alphanumeric or underscore)
+ * @brief Check if a Unicode codepoint is a word character
+ *
  * Uses wctype.h for Unicode-aware character classification.
+ * Word characters are alphanumeric or underscore.
+ *
+ * @param cp Unicode codepoint to check
+ * @return true if word character, false otherwise
  */
 LLE_MAYBE_UNUSED
 static bool is_word_codepoint(uint32_t cp) {
@@ -76,7 +85,9 @@ static bool is_word_codepoint(uint32_t cp) {
 }
 
 /**
- * Check if a Unicode codepoint is a shell metacharacter (word boundary)
+ * @brief Check if a Unicode codepoint is a shell metacharacter
+ * @param cp Unicode codepoint to check
+ * @return true if shell metacharacter (word boundary), false otherwise
  */
 static bool is_shell_metachar(uint32_t cp) {
     return cp == '|' || cp == '&' || cp == ';' || cp == '(' || cp == ')' ||
@@ -85,22 +96,29 @@ static bool is_shell_metachar(uint32_t cp) {
 }
 
 /**
- * Check if a Unicode codepoint is whitespace
+ * @brief Check if a Unicode codepoint is whitespace
+ * @param cp Unicode codepoint to check
+ * @return true if whitespace, false otherwise
  */
 static bool is_whitespace_codepoint(uint32_t cp) {
     return iswspace((wint_t)cp);
 }
 
 /**
- * Check if character is Unix word boundary (whitespace only, for Ctrl-W)
+ * @brief Check if character is Unix word boundary (whitespace only, for Ctrl-W)
+ * @param c Character to check
+ * @return true if word boundary (whitespace or null), false otherwise
  */
 static bool is_unix_word_boundary(char c) {
     return isspace((unsigned char)c) || c == '\0';
 }
 
 /**
- * Find start of previous grapheme cluster from byte position
- * Returns byte offset of the start of the previous grapheme cluster.
+ * @brief Find start of previous grapheme cluster from byte position
+ * @param text Text buffer
+ * @param len Length of text buffer
+ * @param pos Current byte position
+ * @return Byte offset of the start of the previous grapheme cluster
  */
 static size_t find_prev_grapheme_start(const char *text, size_t len,
                                        size_t pos) {
@@ -123,8 +141,11 @@ static size_t find_prev_grapheme_start(const char *text, size_t len,
 }
 
 /**
- * Find end of current grapheme cluster from byte position
- * Returns byte offset just past the end of the current grapheme cluster.
+ * @brief Find end of current grapheme cluster from byte position
+ * @param text Text buffer
+ * @param len Length of text buffer
+ * @param pos Current byte position
+ * @return Byte offset just past the end of the current grapheme cluster
  */
 static size_t find_next_grapheme_end(const char *text, size_t len, size_t pos) {
     if (pos >= len)
@@ -152,7 +173,11 @@ static size_t find_next_grapheme_end(const char *text, size_t len, size_t pos) {
 }
 
 /**
- * Decode codepoint at grapheme cluster start position
+ * @brief Decode codepoint at grapheme cluster start position
+ * @param text Text buffer
+ * @param len Length of text buffer
+ * @param pos Byte position to decode at
+ * @return Unicode codepoint at position, or byte value on invalid UTF-8
  */
 static uint32_t decode_codepoint_at(const char *text, size_t len, size_t pos) {
     if (pos >= len)
@@ -168,10 +193,14 @@ static uint32_t decode_codepoint_at(const char *text, size_t len, size_t pos) {
 }
 
 /**
- * Find start of current word from position (grapheme-aware)
+ * @brief Find start of current word from position (grapheme-aware)
  *
  * Works by scanning grapheme clusters backwards, checking if each
  * grapheme's first codepoint is a word character.
+ *
+ * @param text Text buffer
+ * @param pos Current byte position
+ * @return Byte offset of the start of the word
  */
 static size_t find_word_start(const char *text, size_t pos) {
     if (pos == 0)
@@ -207,10 +236,15 @@ static size_t find_word_start(const char *text, size_t pos) {
 }
 
 /**
- * Find end of current word from position (grapheme-aware)
+ * @brief Find end of current word from position (grapheme-aware)
  *
  * Works by scanning grapheme clusters forward, checking if each
  * grapheme's first codepoint is a word character.
+ *
+ * @param text Text buffer
+ * @param len Length of text buffer
+ * @param pos Current byte position
+ * @return Byte offset just past the end of the word
  */
 static size_t find_word_end(const char *text, size_t len, size_t pos) {
     size_t current = pos;
@@ -251,8 +285,11 @@ static size_t find_word_end(const char *text, size_t len, size_t pos) {
  */
 
 /**
- * Trigger display refresh after completion changes
- * With proper architecture, menu changes are picked up automatically via events
+ * @brief Trigger display refresh after completion changes
+ *
+ * With proper architecture, menu changes are picked up automatically via events.
+ *
+ * @param dc Display controller instance
  */
 static void refresh_after_completion(display_controller_t *dc) {
     if (!dc) {
@@ -274,8 +311,15 @@ static void refresh_after_completion(display_controller_t *dc) {
 }
 
 /**
- * Replace word at cursor with completion text
- * Deletes the word being completed and inserts the selected completion
+ * @brief Replace word at cursor with completion text
+ *
+ * Deletes the word being completed and inserts the selected completion.
+ *
+ * @param editor Editor instance
+ * @param word_start Byte offset where word starts
+ * @param word_length Length of word to replace
+ * @param replacement Replacement text to insert
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t replace_word_at_cursor(lle_editor_t *editor,
                                            size_t word_start,
@@ -316,9 +360,14 @@ static lle_result_t replace_word_at_cursor(lle_editor_t *editor,
 }
 
 /**
- * Update inline text with selected completion
+ * @brief Update inline text with selected completion
+ *
  * CRITICAL: Must use current word boundaries, not original context
- * because after the first replacement, the original boundaries are stale
+ * because after the first replacement, the original boundaries are stale.
+ *
+ * @param editor Editor instance
+ * @param menu Completion menu state
+ * @param state Completion state with results
  */
 static void update_inline_completion(lle_editor_t *editor,
                                      lle_completion_menu_state_t *menu,
@@ -347,11 +396,13 @@ static void update_inline_completion(lle_editor_t *editor,
 }
 
 /**
- * Clear active completion menu
+ * @brief Clear active completion menu
  *
  * Clears both the completion system state and the display_controller menu.
  * The caller (lle_self_insert) is a SIMPLE action, so refresh_display() will
  * be called automatically by execute_keybinding_action() framework.
+ *
+ * @param editor Editor instance
  */
 static void clear_completion_menu(lle_editor_t *editor) {
     if (!editor) {
@@ -373,7 +424,10 @@ static void clear_completion_menu(lle_editor_t *editor) {
 }
 
 /**
- * Get current line boundaries for multiline buffer
+ * @brief Get current line boundaries for multiline buffer
+ * @param buffer Buffer instance
+ * @param start Pointer to store line start offset
+ * @param end Pointer to store line end offset
  */
 static void get_current_line_bounds(lle_buffer_t *buffer, size_t *start,
                                     size_t *end) {
@@ -399,6 +453,11 @@ static void get_current_line_bounds(lle_buffer_t *buffer, size_t *start,
  * ============================================================================
  */
 
+/**
+ * @brief Move cursor to beginning of current line (C-a, HOME)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on NULL editor
+ */
 lle_result_t lle_beginning_of_line(lle_editor_t *editor) {
     if (!editor || !editor->buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -433,6 +492,11 @@ lle_result_t lle_beginning_of_line(lle_editor_t *editor) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Move cursor to end of current line (C-e, END)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on NULL editor
+ */
 lle_result_t lle_end_of_line(lle_editor_t *editor) {
     if (!editor || !editor->buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -467,6 +531,11 @@ lle_result_t lle_end_of_line(lle_editor_t *editor) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Move cursor forward one character (C-f, RIGHT)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_forward_char(lle_editor_t *editor) {
     if (!editor || !editor->buffer || !editor->cursor_manager) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -512,6 +581,11 @@ lle_result_t lle_forward_char(lle_editor_t *editor) {
     return result;
 }
 
+/**
+ * @brief Move cursor backward one character (C-b, LEFT)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_backward_char(lle_editor_t *editor) {
     if (!editor || !editor->buffer || !editor->cursor_manager) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -557,6 +631,11 @@ lle_result_t lle_backward_char(lle_editor_t *editor) {
     return result;
 }
 
+/**
+ * @brief Move cursor forward one word (M-f)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_forward_word(lle_editor_t *editor) {
     if (!editor || !editor->buffer || !editor->cursor_manager) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -582,6 +661,11 @@ lle_result_t lle_forward_word(lle_editor_t *editor) {
     return result;
 }
 
+/**
+ * @brief Move cursor backward one word (M-b)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_backward_word(lle_editor_t *editor) {
     if (!editor || !editor->buffer || !editor->cursor_manager) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -613,9 +697,13 @@ lle_result_t lle_backward_word(lle_editor_t *editor) {
  */
 
 /**
- * Move cursor to beginning of buffer (Alt-<)
- * Always moves to position 0, regardless of lines
- * Clears sticky column since this is a deliberate jump
+ * @brief Move cursor to beginning of buffer (M-<)
+ *
+ * Always moves to position 0, regardless of lines.
+ * Clears sticky column since this is a deliberate jump.
+ *
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_beginning_of_buffer(lle_editor_t *editor) {
     if (!editor || !editor->buffer || !editor->cursor_manager) {
@@ -639,9 +727,13 @@ lle_result_t lle_beginning_of_buffer(lle_editor_t *editor) {
 }
 
 /**
- * Move cursor to end of buffer (Alt->)
- * Always moves to buffer length, regardless of lines
- * Clears sticky column since this is a deliberate jump
+ * @brief Move cursor to end of buffer (M->)
+ *
+ * Always moves to buffer length, regardless of lines.
+ * Clears sticky column since this is a deliberate jump.
+ *
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_end_of_buffer(lle_editor_t *editor) {
     if (!editor || !editor->buffer || !editor->cursor_manager) {
@@ -665,8 +757,12 @@ lle_result_t lle_end_of_buffer(lle_editor_t *editor) {
 }
 
 /**
- * Move cursor to previous line (up arrow in multiline mode)
- * Preserves horizontal column position using sticky_column
+ * @brief Move cursor to previous line (up arrow in multiline mode)
+ *
+ * Preserves horizontal column position using sticky_column.
+ *
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_previous_line(lle_editor_t *editor) {
     if (!editor || !editor->buffer || !editor->cursor_manager) {
@@ -771,8 +867,12 @@ lle_result_t lle_previous_line(lle_editor_t *editor) {
 }
 
 /**
- * Move cursor to next line (down arrow in multiline mode)
- * Preserves horizontal column position using sticky_column
+ * @brief Move cursor to next line (down arrow in multiline mode)
+ *
+ * Preserves horizontal column position using sticky_column.
+ *
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_next_line(lle_editor_t *editor) {
     if (!editor || !editor->buffer || !editor->cursor_manager) {
@@ -850,7 +950,7 @@ lle_result_t lle_next_line(lle_editor_t *editor) {
 }
 
 /**
- * Smart up arrow: Navigate completion menu, buffer lines, or history
+ * @brief Smart up arrow: Navigate completion menu, buffer lines, or history
  *
  * Behavior:
  * - Completion menu active: Move up in menu
@@ -859,6 +959,9 @@ lle_result_t lle_next_line(lle_editor_t *editor) {
  *
  * This prevents accidental history navigation while editing multi-line
  * constructs.
+ *
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_smart_up_arrow(lle_editor_t *editor) {
     if (!editor || !editor->buffer) {
@@ -915,12 +1018,15 @@ lle_result_t lle_smart_up_arrow(lle_editor_t *editor) {
 }
 
 /**
- * Smart down arrow: Navigate completion menu, buffer lines, or history
+ * @brief Smart down arrow: Navigate completion menu, buffer lines, or history
  *
  * Behavior:
  * - Completion menu active: Move down in menu
  * - Multi-line mode: Navigate to next line in buffer
  * - Single-line mode: Navigate command history (forward)
+ *
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_smart_down_arrow(lle_editor_t *editor) {
     if (!editor || !editor->buffer) {
@@ -970,6 +1076,11 @@ lle_result_t lle_smart_down_arrow(lle_editor_t *editor) {
  * ============================================================================
  */
 
+/**
+ * @brief Delete character at cursor position (C-d, DELETE)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_delete_char(lle_editor_t *editor) {
     if (!editor || !editor->buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -1030,6 +1141,11 @@ lle_result_t lle_delete_char(lle_editor_t *editor) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Delete character before cursor position (BACKSPACE)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_backward_delete_char(lle_editor_t *editor) {
     if (!editor || !editor->buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -1084,6 +1200,11 @@ lle_result_t lle_backward_delete_char(lle_editor_t *editor) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Kill text from cursor to end of line (C-k)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_kill_line(lle_editor_t *editor) {
     if (!editor || !editor->buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -1122,6 +1243,11 @@ lle_result_t lle_kill_line(lle_editor_t *editor) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Kill text from beginning of line to cursor (C-u backward kill)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_backward_kill_line(lle_editor_t *editor) {
     if (!editor || !editor->buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -1173,6 +1299,11 @@ lle_result_t lle_backward_kill_line(lle_editor_t *editor) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Kill text from cursor to end of word (M-d)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_kill_word(lle_editor_t *editor) {
     if (!editor || !editor->buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -1202,6 +1333,11 @@ lle_result_t lle_kill_word(lle_editor_t *editor) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Kill text from beginning of word to cursor (M-BACKSPACE)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_backward_kill_word(lle_editor_t *editor) {
     if (!editor || !editor->buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -1248,6 +1384,11 @@ lle_result_t lle_backward_kill_word(lle_editor_t *editor) {
  * ============================================================================
  */
 
+/**
+ * @brief Yank (paste) text from kill ring (C-y)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_yank(lle_editor_t *editor) {
     if (!editor || !editor->buffer || !editor->kill_ring) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -1275,6 +1416,11 @@ lle_result_t lle_yank(lle_editor_t *editor) {
     return result;
 }
 
+/**
+ * @brief Cycle through kill ring entries after yank (M-y)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_yank_pop(lle_editor_t *editor) {
     if (!editor || !editor->buffer || !editor->kill_ring) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -1295,6 +1441,11 @@ lle_result_t lle_yank_pop(lle_editor_t *editor) {
                                   yank_length);
 }
 
+/**
+ * @brief Transpose characters at cursor (C-t)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_transpose_chars(lle_editor_t *editor) {
     if (!editor || !editor->buffer || !editor->cursor_manager) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -1373,6 +1524,11 @@ lle_result_t lle_transpose_chars(lle_editor_t *editor) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Transpose words at cursor (M-t)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_transpose_words(lle_editor_t *editor) {
     if (!editor || !editor->buffer || !editor->cursor_manager) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -1494,8 +1650,11 @@ lle_result_t lle_transpose_words(lle_editor_t *editor) {
  */
 
 /**
- * Helper: Convert a codepoint to uppercase and encode back to UTF-8
- * Returns number of bytes written, or 0 on error.
+ * @brief Convert a codepoint to uppercase and encode back to UTF-8
+ * @param cp Unicode codepoint to convert
+ * @param out Output buffer for UTF-8 bytes
+ * @param max_len Maximum bytes to write
+ * @return Number of bytes written, or 0 on error
  */
 static size_t codepoint_to_upper_utf8(uint32_t cp, char *out, size_t max_len) {
     (void)max_len; /* Output buffer assumed sufficient for single codepoint */
@@ -1504,8 +1663,11 @@ static size_t codepoint_to_upper_utf8(uint32_t cp, char *out, size_t max_len) {
 }
 
 /**
- * Helper: Convert a codepoint to lowercase and encode back to UTF-8
- * Returns number of bytes written, or 0 on error.
+ * @brief Convert a codepoint to lowercase and encode back to UTF-8
+ * @param cp Unicode codepoint to convert
+ * @param out Output buffer for UTF-8 bytes
+ * @param max_len Maximum bytes to write
+ * @return Number of bytes written, or 0 on error
  */
 static size_t codepoint_to_lower_utf8(uint32_t cp, char *out, size_t max_len) {
     (void)max_len; /* Output buffer assumed sufficient for single codepoint */
@@ -1514,9 +1676,12 @@ static size_t codepoint_to_lower_utf8(uint32_t cp, char *out, size_t max_len) {
 }
 
 /**
- * Helper: Apply case transformation to a word region
- * mode: 0 = uppercase all, 1 = lowercase all, 2 = capitalize (first upper, rest
- * lower)
+ * @brief Apply case transformation to a word region
+ * @param editor Editor instance
+ * @param word_start Byte offset of word start
+ * @param word_end Byte offset of word end
+ * @param mode 0 = uppercase all, 1 = lowercase all, 2 = capitalize
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t transform_word_case(lle_editor_t *editor, size_t word_start,
                                         size_t word_end, int mode) {
@@ -1611,6 +1776,11 @@ static lle_result_t transform_word_case(lle_editor_t *editor, size_t word_start,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Convert word at cursor to uppercase (M-u)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_upcase_word(lle_editor_t *editor) {
     if (!editor || !editor->buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -1644,6 +1814,11 @@ lle_result_t lle_upcase_word(lle_editor_t *editor) {
                                0); /* 0 = uppercase */
 }
 
+/**
+ * @brief Convert word at cursor to lowercase (M-l)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_downcase_word(lle_editor_t *editor) {
     if (!editor || !editor->buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -1677,6 +1852,11 @@ lle_result_t lle_downcase_word(lle_editor_t *editor) {
                                1); /* 1 = lowercase */
 }
 
+/**
+ * @brief Capitalize word at cursor (M-c)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_capitalize_word(lle_editor_t *editor) {
     if (!editor || !editor->buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -1716,8 +1896,9 @@ lle_result_t lle_capitalize_word(lle_editor_t *editor) {
  */
 
 /**
- * Helper: Get current buffer content as null-terminated string
- * Returns NULL if buffer is empty or on error. Caller must NOT free.
+ * @brief Get current buffer content as null-terminated string
+ * @param editor Editor instance
+ * @return Buffer content or NULL if empty. Caller must NOT free.
  */
 static const char *get_current_buffer_content(lle_editor_t *editor) {
     if (!editor || !editor->buffer || editor->buffer->length == 0) {
@@ -1727,8 +1908,10 @@ static const char *get_current_buffer_content(lle_editor_t *editor) {
 }
 
 /**
- * Helper: Compare two strings for navigation-time deduplication
- * Uses Unicode NFC normalization if configured (default: true)
+ * @brief Compare two strings for navigation-time deduplication
+ * @param s1 First string
+ * @param s2 Second string
+ * @return true if strings are equal (with optional Unicode normalization)
  */
 static bool history_nav_strings_equal(const char *s1, const char *s2) {
     if (!s1 || !s2)
@@ -1744,7 +1927,9 @@ static bool history_nav_strings_equal(const char *s1, const char *s2) {
 }
 
 /**
- * Simple FNV-1a hash for command strings (used for unique-only navigation)
+ * @brief Simple FNV-1a hash for command strings
+ * @param cmd Command string to hash
+ * @return 32-bit hash value
  */
 static uint32_t hash_command_string(const char *cmd) {
     if (!cmd)
@@ -1759,7 +1944,8 @@ static uint32_t hash_command_string(const char *cmd) {
 }
 
 /**
- * Clear the navigation seen set (called when navigation resets to pos 0)
+ * @brief Clear the navigation seen set
+ * @param editor Editor instance
  */
 static void history_nav_clear_seen(lle_editor_t *editor) {
     if (editor) {
@@ -1768,7 +1954,10 @@ static void history_nav_clear_seen(lle_editor_t *editor) {
 }
 
 /**
- * Check if a command hash has been seen during this navigation session
+ * @brief Check if a command hash has been seen during navigation
+ * @param editor Editor instance
+ * @param hash Command hash to check
+ * @return true if already seen, false otherwise
  */
 static bool history_nav_is_seen(lle_editor_t *editor, uint32_t hash) {
     if (!editor || !editor->history_nav_seen_hashes) {
@@ -1784,7 +1973,9 @@ static bool history_nav_is_seen(lle_editor_t *editor, uint32_t hash) {
 }
 
 /**
- * Add a command hash to the seen set
+ * @brief Add a command hash to the seen set
+ * @param editor Editor instance
+ * @param hash Command hash to mark as seen
  */
 static void history_nav_mark_seen(lle_editor_t *editor, uint32_t hash) {
     if (!editor)
@@ -1817,6 +2008,11 @@ static void history_nav_mark_seen(lle_editor_t *editor, uint32_t hash) {
     editor->history_nav_seen_hashes[editor->history_nav_seen_count++] = hash;
 }
 
+/**
+ * @brief Navigate to previous history entry (C-p, UP in single-line mode)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_history_previous(lle_editor_t *editor) {
     if (!editor || !editor->buffer || !editor->history_system) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -1887,6 +2083,11 @@ lle_result_t lle_history_previous(lle_editor_t *editor) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Navigate to next history entry (C-n, DOWN in single-line mode)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_history_next(lle_editor_t *editor) {
     if (!editor || !editor->buffer || !editor->history_system) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -1961,6 +2162,11 @@ lle_result_t lle_history_next(lle_editor_t *editor) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Start incremental reverse history search (C-r)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_reverse_search_history(lle_editor_t *editor) {
     if (!editor || !editor->buffer || !editor->history_system) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -1973,6 +2179,11 @@ lle_result_t lle_reverse_search_history(lle_editor_t *editor) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Start incremental forward history search (C-s)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_forward_search_history(lle_editor_t *editor) {
     if (!editor || !editor->buffer || !editor->history_system) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -1985,6 +2196,11 @@ lle_result_t lle_forward_search_history(lle_editor_t *editor) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Search history backward for prefix match (M-p)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_history_search_backward(lle_editor_t *editor) {
     if (!editor || !editor->buffer || !editor->history_system) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -2024,6 +2240,11 @@ lle_result_t lle_history_search_backward(lle_editor_t *editor) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Search history forward for prefix match (M-n)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_history_search_forward(lle_editor_t *editor) {
     if (!editor || !editor->buffer || !editor->history_system) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -2040,6 +2261,11 @@ lle_result_t lle_history_search_forward(lle_editor_t *editor) {
  * ============================================================================
  */
 
+/**
+ * @brief Trigger tab completion (TAB)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_complete(lle_editor_t *editor) {
     if (!editor || !editor->buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -2179,6 +2405,11 @@ lle_result_t lle_complete(lle_editor_t *editor) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Show all possible completions (M-?)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_possible_completions(lle_editor_t *editor) {
     if (!editor || !editor->buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -2188,6 +2419,11 @@ lle_result_t lle_possible_completions(lle_editor_t *editor) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Insert all possible completions (M-*)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_insert_completions(lle_editor_t *editor) {
     if (!editor || !editor->buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -2202,6 +2438,11 @@ lle_result_t lle_insert_completions(lle_editor_t *editor) {
  * ============================================================================
  */
 
+/**
+ * @brief Accept the current line for execution (ENTER, RET)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_accept_line(lle_editor_t *editor) {
     if (!editor || !editor->buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -2240,6 +2481,11 @@ lle_result_t lle_accept_line(lle_editor_t *editor) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Abort the current line (C-g, ESC)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_abort_line(lle_editor_t *editor) {
     if (!editor) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -2258,6 +2504,11 @@ lle_result_t lle_abort_line(lle_editor_t *editor) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Send EOF signal (C-d on empty line)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_send_eof(lle_editor_t *editor) {
     if (!editor) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -2268,6 +2519,11 @@ lle_result_t lle_send_eof(lle_editor_t *editor) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Send interrupt signal (C-c)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_interrupt(lle_editor_t *editor) {
     if (!editor) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -2279,6 +2535,11 @@ lle_result_t lle_interrupt(lle_editor_t *editor) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Suspend shell (C-z)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_suspend(lle_editor_t *editor) {
     if (!editor) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -2290,6 +2551,11 @@ lle_result_t lle_suspend(lle_editor_t *editor) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Clear screen and redraw prompt (C-l)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_clear_screen(lle_editor_t *editor) {
     if (!editor) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -2361,6 +2627,11 @@ lle_result_t lle_insert_newline_literal(lle_editor_t *editor) {
  * ============================================================================
  */
 
+/**
+ * @brief Enable quoted insert mode for next character (C-q, C-v)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_quoted_insert(lle_editor_t *editor) {
     if (!editor) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -2372,6 +2643,11 @@ lle_result_t lle_quoted_insert(lle_editor_t *editor) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Discard entire line (C-u Unix style)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_unix_line_discard(lle_editor_t *editor) {
     if (!editor || !editor->buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -2408,6 +2684,11 @@ lle_result_t lle_unix_line_discard(lle_editor_t *editor) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Delete word backward Unix style (C-w)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_unix_word_rubout(lle_editor_t *editor) {
     if (!editor || !editor->buffer || !editor->cursor_manager) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -2498,6 +2779,11 @@ lle_result_t lle_unix_word_rubout(lle_editor_t *editor) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Delete whitespace around cursor (M-\)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_delete_horizontal_space(lle_editor_t *editor) {
     if (!editor || !editor->buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -2534,6 +2820,12 @@ lle_result_t lle_delete_horizontal_space(lle_editor_t *editor) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Insert a character at cursor position
+ * @param editor Editor instance
+ * @param codepoint Unicode codepoint to insert
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_self_insert(lle_editor_t *editor, uint32_t codepoint) {
     if (!editor || !editor->buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -2575,6 +2867,11 @@ lle_result_t lle_self_insert(lle_editor_t *editor, uint32_t codepoint) {
                                   utf8_bytes, byte_count);
 }
 
+/**
+ * @brief Insert newline character at cursor (C-j)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_newline(lle_editor_t *editor) {
     if (!editor || !editor->buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -2585,6 +2882,11 @@ lle_result_t lle_newline(lle_editor_t *editor) {
                                   editor->buffer->cursor.byte_offset, "\n", 1);
 }
 
+/**
+ * @brief Insert tab character (expanded to spaces) at cursor (M-TAB)
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_tab_insert(lle_editor_t *editor) {
     if (!editor || !editor->buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -2617,6 +2919,11 @@ lle_result_t lle_tab_insert(lle_editor_t *editor) {
  * ============================================================================
  */
 
+/**
+ * @brief Load Emacs keybinding preset for the editor
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_keybinding_load_emacs_preset(lle_editor_t *editor) {
     if (!editor || !editor->keybinding_manager) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -2722,6 +3029,11 @@ lle_result_t lle_keybinding_load_emacs_preset(lle_editor_t *editor) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Load Vi keybinding preset for the editor
+ * @param editor Editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_keybinding_load_vi_preset(lle_editor_t *editor) {
     if (!editor || !editor->keybinding_manager) {
         return LLE_ERROR_INVALID_PARAMETER;

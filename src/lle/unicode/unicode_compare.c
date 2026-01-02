@@ -1,5 +1,8 @@
-/*
- * unicode_compare.c - Unicode-aware string comparison implementation
+/**
+ * @file unicode_compare.c
+ * @brief Unicode-aware String Comparison Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Implements NFC normalization and Unicode-aware string comparison.
  * Uses lookup tables for common Latin characters with diacritics.
@@ -32,9 +35,11 @@ const lle_unicode_compare_options_t LLE_UNICODE_COMPARE_STRICT = {
  * ============================================================================
  */
 
-/*
- * Canonical decomposition table entry
+/**
+ * @brief Canonical decomposition table entry
+ *
  * Maps a precomposed codepoint to its canonical decomposition
+ * (base character + combining mark).
  */
 typedef struct {
     uint32_t composed;  /* Precomposed codepoint */
@@ -42,9 +47,11 @@ typedef struct {
     uint32_t combining; /* Combining character (0 if single) */
 } decomposition_entry_t;
 
-/*
- * Canonical decomposition mappings for common Latin characters
- * Sorted by composed codepoint for binary search
+/**
+ * @brief Canonical decomposition mappings for common Latin characters
+ *
+ * Sorted by composed codepoint for binary search lookup.
+ * Covers Latin-1 Supplement and Latin Extended-A.
  */
 static const decomposition_entry_t decomposition_table[] = {
     /* Latin-1 Supplement precomposed characters */
@@ -216,8 +223,8 @@ static const decomposition_entry_t decomposition_table[] = {
 static const size_t decomposition_table_size =
     sizeof(decomposition_table) / sizeof(decomposition_table[0]);
 
-/*
- * Canonical combining class table for common combining marks
+/**
+ * @brief Canonical combining class table entry
  */
 typedef struct {
     uint32_t codepoint;
@@ -305,8 +312,10 @@ static const size_t combining_class_table_size =
  * ============================================================================
  */
 
-/*
- * Binary search for decomposition entry
+/**
+ * @brief Binary search for decomposition entry
+ * @param codepoint The codepoint to look up
+ * @return Pointer to decomposition entry, or NULL if not found
  */
 static const decomposition_entry_t *find_decomposition(uint32_t codepoint) {
     size_t left = 0;
@@ -326,8 +335,12 @@ static const decomposition_entry_t *find_decomposition(uint32_t codepoint) {
     return NULL;
 }
 
-/*
- * Find composition (reverse lookup)
+/**
+ * @brief Find composition (reverse lookup from base + combining to composed)
+ * @param base The base character
+ * @param combining The combining mark
+ * @param composed Output: the precomposed character
+ * @return true if composition found, false otherwise
  */
 static bool find_composition(uint32_t base, uint32_t combining,
                              uint32_t *composed) {
@@ -342,8 +355,10 @@ static bool find_composition(uint32_t base, uint32_t combining,
     return false;
 }
 
-/*
- * Convert codepoint to lowercase (simple case folding)
+/**
+ * @brief Convert codepoint to lowercase (simple case folding)
+ * @param cp The codepoint to convert
+ * @return Lowercase equivalent, or original if no conversion
  */
 static uint32_t to_lowercase(uint32_t cp) {
     /* ASCII range */
@@ -381,6 +396,11 @@ static uint32_t to_lowercase(uint32_t cp) {
  * ============================================================================
  */
 
+/**
+ * @brief Check if a codepoint is a combining character
+ * @param codepoint The codepoint to check
+ * @return true if combining mark, false otherwise
+ */
 bool lle_unicode_is_combining(uint32_t codepoint) {
     /* Combining Diacritical Marks (0300-036F) */
     if (codepoint >= 0x0300 && codepoint <= 0x036F) {
@@ -405,6 +425,11 @@ bool lle_unicode_is_combining(uint32_t codepoint) {
     return false;
 }
 
+/**
+ * @brief Get the canonical combining class for a codepoint
+ * @param codepoint The codepoint to look up
+ * @return Combining class (0 for base characters, >0 for combining marks)
+ */
 uint8_t lle_unicode_combining_class(uint32_t codepoint) {
     /* Binary search in combining class table */
     size_t left = 0;
@@ -428,6 +453,13 @@ uint8_t lle_unicode_combining_class(uint32_t codepoint) {
     return 0; /* Starter */
 }
 
+/**
+ * @brief Decompose a codepoint to its canonical form
+ * @param codepoint The codepoint to decompose
+ * @param decomposed Output array for decomposed codepoints
+ * @param max_length Maximum entries in output array
+ * @return Number of codepoints written, or 0 if no decomposition
+ */
 int lle_unicode_decompose(uint32_t codepoint, uint32_t *decomposed,
                           int max_length) {
     if (!decomposed || max_length < 1) {
@@ -448,6 +480,13 @@ int lle_unicode_decompose(uint32_t codepoint, uint32_t *decomposed,
     return 1;
 }
 
+/**
+ * @brief Compose a base character and combining mark into precomposed form
+ * @param base The base character
+ * @param combining The combining mark
+ * @param composed Output: the precomposed character
+ * @return true if composition exists, false otherwise
+ */
 bool lle_unicode_compose(uint32_t base, uint32_t combining,
                          uint32_t *composed) {
     if (!composed) {
@@ -456,6 +495,15 @@ bool lle_unicode_compose(uint32_t base, uint32_t combining,
     return find_composition(base, combining, composed);
 }
 
+/**
+ * @brief Normalize a UTF-8 string to NFC form
+ * @param input Input UTF-8 string
+ * @param input_len Length of input in bytes
+ * @param output Output buffer for normalized string
+ * @param output_size Size of output buffer
+ * @param output_len Output: length of normalized string
+ * @return 0 on success, -1 for invalid params, -2 buffer too small, -3 invalid UTF-8
+ */
 int lle_unicode_normalize_nfc(const char *input, size_t input_len, char *output,
                               size_t output_size, size_t *output_len) {
     if (!input || !output || output_size == 0) {
@@ -565,6 +613,13 @@ int lle_unicode_normalize_nfc(const char *input, size_t input_len, char *output,
     return 0;
 }
 
+/**
+ * @brief Compare two null-terminated UTF-8 strings for equality
+ * @param str1 First string
+ * @param str2 Second string
+ * @param options Comparison options (NULL for defaults)
+ * @return true if equal according to options, false otherwise
+ */
 bool lle_unicode_strings_equal(const char *str1, const char *str2,
                                const lle_unicode_compare_options_t *options) {
     if (!str1 && !str2)
@@ -576,6 +631,15 @@ bool lle_unicode_strings_equal(const char *str1, const char *str2,
                                        options);
 }
 
+/**
+ * @brief Check if one string is a prefix of another
+ * @param prefix The potential prefix
+ * @param prefix_len Length of prefix in bytes
+ * @param str The string to check against
+ * @param str_len Length of string in bytes
+ * @param options Comparison options (NULL for defaults)
+ * @return true if prefix matches start of str, false otherwise
+ */
 bool lle_unicode_is_prefix(const char *prefix, size_t prefix_len,
                            const char *str, size_t str_len,
                            const lle_unicode_compare_options_t *options) {
@@ -688,6 +752,13 @@ bool lle_unicode_is_prefix(const char *prefix, size_t prefix_len,
     return (pp >= pp_end);
 }
 
+/**
+ * @brief Check if one null-terminated string is a prefix of another
+ * @param prefix The potential prefix (null-terminated)
+ * @param str The string to check against (null-terminated)
+ * @param options Comparison options (NULL for defaults)
+ * @return true if prefix matches start of str, false otherwise
+ */
 bool lle_unicode_is_prefix_z(const char *prefix, const char *str,
                              const lle_unicode_compare_options_t *options) {
     if (!prefix) {
@@ -701,6 +772,15 @@ bool lle_unicode_is_prefix_z(const char *prefix, const char *str,
                                  options);
 }
 
+/**
+ * @brief Compare two UTF-8 strings with explicit lengths for equality
+ * @param str1 First string
+ * @param len1 Length of first string in bytes
+ * @param str2 Second string
+ * @param len2 Length of second string in bytes
+ * @param options Comparison options (NULL for defaults)
+ * @return true if equal according to options, false otherwise
+ */
 bool lle_unicode_strings_equal_n(const char *str1, size_t len1,
                                  const char *str2, size_t len2,
                                  const lle_unicode_compare_options_t *options) {

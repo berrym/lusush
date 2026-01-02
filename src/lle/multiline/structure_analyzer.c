@@ -1,6 +1,16 @@
-/* SPDX-License-Identifier: MIT */
-/* LLE Specification 22: History-Buffer Integration - Phase 2 */
-/* Structure Analyzer Implementation */
+/**
+ * @file structure_analyzer.c
+ * @brief Shell command structure analysis and keyword detection
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ *
+ * LLE Specification 22: History-Buffer Integration - Phase 2
+ *
+ * This module analyzes shell command structure, detecting keywords,
+ * tracking nesting levels, and determining command completeness.
+ * It supports POSIX shell constructs including loops, conditionals,
+ * case statements, and function definitions.
+ */
 
 #include "lle/structure_analyzer.h"
 #include "lle/command_structure.h"
@@ -57,6 +67,16 @@ static lle_result_t build_construct_tree(lle_structure_analyzer_t *analyzer,
 static lle_construct_type_t
 determine_construct_type(lle_keyword_type_t first_keyword);
 
+/* ============================================================================
+ * PUBLIC API - CONFIGURATION
+ * ============================================================================
+ */
+
+/**
+ * @brief Get default structure analyzer configuration
+ * @param config Pointer to configuration structure to populate
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if config is NULL
+ */
 lle_result_t
 lle_structure_analyzer_get_default_config(lle_analyzer_config_t *config) {
     if (!config) {
@@ -73,6 +93,18 @@ lle_structure_analyzer_get_default_config(lle_analyzer_config_t *config) {
     return LLE_SUCCESS;
 }
 
+/* ============================================================================
+ * PUBLIC API - LIFECYCLE
+ * ============================================================================
+ */
+
+/**
+ * @brief Create a new structure analyzer instance
+ * @param analyzer Pointer to store the created analyzer
+ * @param memory_pool Memory pool for allocations (can be NULL for global pool)
+ * @param config Analyzer configuration (can be NULL for defaults)
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t
 lle_structure_analyzer_create(lle_structure_analyzer_t **analyzer,
                               lle_memory_pool_t *memory_pool,
@@ -104,6 +136,11 @@ lle_structure_analyzer_create(lle_structure_analyzer_t **analyzer,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Destroy a structure analyzer and release resources
+ * @param analyzer The analyzer to destroy
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if analyzer is NULL
+ */
 lle_result_t
 lle_structure_analyzer_destroy(lle_structure_analyzer_t *analyzer) {
     if (!analyzer) {
@@ -116,6 +153,11 @@ lle_structure_analyzer_destroy(lle_structure_analyzer_t *analyzer) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Reset the analyzer state for a new analysis session
+ * @param analyzer The analyzer to reset
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on error
+ */
 lle_result_t lle_structure_analyzer_reset(lle_structure_analyzer_t *analyzer) {
     if (!analyzer || !analyzer->active) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -126,6 +168,20 @@ lle_result_t lle_structure_analyzer_reset(lle_structure_analyzer_t *analyzer) {
     return LLE_SUCCESS;
 }
 
+/* ============================================================================
+ * PUBLIC API - ANALYSIS OPERATIONS
+ * ============================================================================
+ */
+
+/**
+ * @brief Detect shell keywords in command text
+ * @param analyzer The structure analyzer
+ * @param command_text The command text to analyze
+ * @param command_length Length of the command text
+ * @param keywords Pointer to store array of keyword matches
+ * @param keyword_count Pointer to store number of keywords found
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_structure_analyzer_detect_keywords(
     lle_structure_analyzer_t *analyzer, const char *command_text,
     size_t command_length, lle_keyword_match_t **keywords,
@@ -231,6 +287,14 @@ lle_result_t lle_structure_analyzer_detect_keywords(
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Detect the primary construct type of a command
+ * @param analyzer The structure analyzer
+ * @param command_text The command text to analyze
+ * @param command_length Length of the command text
+ * @param construct_type Pointer to store the detected construct type
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_structure_analyzer_detect_type(
     lle_structure_analyzer_t *analyzer, const char *command_text,
     size_t command_length, lle_construct_type_t *construct_type) {
@@ -259,6 +323,15 @@ lle_result_t lle_structure_analyzer_detect_type(
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Check if a command is syntactically complete
+ * @param analyzer The structure analyzer
+ * @param command_text The command text to analyze
+ * @param command_length Length of the command text
+ * @param is_complete Pointer to store completion status
+ * @param missing_keyword Pointer to store missing keyword type (can be NULL)
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t
 lle_structure_analyzer_check_complete(lle_structure_analyzer_t *analyzer,
                                       const char *command_text,
@@ -370,6 +443,14 @@ lle_structure_analyzer_check_complete(lle_structure_analyzer_t *analyzer,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Calculate indentation information for a command
+ * @param analyzer The structure analyzer
+ * @param command_text The command text to analyze
+ * @param command_length Length of the command text
+ * @param indent_info Pointer to store indentation info
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_structure_analyzer_calculate_indentation(
     lle_structure_analyzer_t *analyzer, const char *command_text,
     size_t command_length, lle_indentation_info_t **indent_info) {
@@ -437,6 +518,14 @@ lle_result_t lle_structure_analyzer_calculate_indentation(
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Perform full structural analysis of a command
+ * @param analyzer The structure analyzer
+ * @param command_text The command text to analyze
+ * @param command_length Length of the command text
+ * @param structure Pointer to store the command structure
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t
 lle_structure_analyzer_analyze(lle_structure_analyzer_t *analyzer,
                                const char *command_text, size_t command_length,
@@ -518,14 +607,31 @@ lle_structure_analyzer_analyze(lle_structure_analyzer_t *analyzer,
     return LLE_SUCCESS;
 }
 
-/* Internal helper functions */
+/* ============================================================================
+ * INTERNAL HELPER FUNCTIONS
+ * ============================================================================
+ */
 
+/**
+ * @brief Check if a character is a word boundary
+ * @param c The character to check
+ * @return true if the character is a word boundary, false otherwise
+ */
 static bool is_word_boundary(char c) {
     return isspace(c) || c == ';' || c == '|' || c == '&' || c == '(' ||
            c == ')' || c == '{' || c == '}' || c == '<' || c == '>' ||
            c == '\0';
 }
 
+/**
+ * @brief Check if a keyword exists at a specific position in text
+ * @param text The text to search
+ * @param pos Position to check
+ * @param text_len Total length of text
+ * @param keyword The keyword definition to match
+ * @param at_start Pointer to store whether keyword is at command start
+ * @return true if keyword found at position, false otherwise
+ */
 static bool is_keyword_at_position(const char *text, size_t pos,
                                    size_t text_len,
                                    const keyword_definition_t *keyword,
@@ -570,6 +676,13 @@ static bool is_keyword_at_position(const char *text, size_t pos,
     return true;
 }
 
+/**
+ * @brief Update analysis context state for a character
+ * @param ctx The analysis context to update
+ * @param c The character being processed
+ *
+ * Tracks quoting state, comments, and escape sequences.
+ */
 static void update_context_for_char(lle_analysis_context_t *ctx, char c) {
     if (ctx->last_was_escape) {
         ctx->last_was_escape = false;
@@ -604,6 +717,11 @@ static void update_context_for_char(lle_analysis_context_t *ctx, char c) {
     }
 }
 
+/**
+ * @brief Determine construct type from the first keyword
+ * @param first_keyword The first keyword found in the command
+ * @return The corresponding construct type
+ */
 static lle_construct_type_t
 determine_construct_type(lle_keyword_type_t first_keyword) {
     switch (first_keyword) {
@@ -626,6 +744,15 @@ determine_construct_type(lle_keyword_type_t first_keyword) {
     }
 }
 
+/**
+ * @brief Build a nested construct tree from keyword list
+ * @param analyzer The structure analyzer
+ * @param structure The command structure to populate
+ * @return LLE_SUCCESS on success, error code on failure
+ *
+ * This function builds the nested construct tree from the keyword list.
+ * Currently returns success - tree building will be enhanced in next iteration.
+ */
 static lle_result_t build_construct_tree(lle_structure_analyzer_t *analyzer,
                                          lle_command_structure_t *structure) {
     /* This function builds the nested construct tree from the keyword list

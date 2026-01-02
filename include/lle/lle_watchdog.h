@@ -1,6 +1,8 @@
 /**
  * @file lle_watchdog.h
  * @brief LLE Watchdog Timer for Deadlock Detection
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Provides a SIGALRM-based watchdog mechanism that detects when the
  * readline input loop is stuck and forces recovery. This catches

@@ -1,3 +1,18 @@
+/**
+ * @file signals.c
+ * @brief Signal handling and trap management
+ *
+ * Implements shell signal handling including:
+ * - SIGINT (Ctrl+C) handling for interactive mode
+ * - SIGSEGV handler for debugging
+ * - Trap command management (trap builtin)
+ * - Child process signal forwarding
+ * - LLE readline integration for signal handling
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ */
+
 #include "signals.h"
 
 #include "errors.h"
@@ -10,18 +25,27 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-// Global trap list
+/** @brief Global trap list head */
 trap_entry_t *trap_list = NULL;
 
-// Global variable to track if we're running a child process
+/** @brief PID of currently running child process (for signal forwarding) */
 static pid_t current_child_pid = 0;
 
-// Global flag for LLE integration: set when SIGINT received during readline
-// This is volatile because it's modified by signal handler and read by main
-// code
+/**
+ * @brief Flag set when SIGINT received during readline
+ *
+ * Volatile because it's modified by signal handler and read by main code.
+ */
 static volatile sig_atomic_t sigint_received_during_readline = 0;
 
-// Check and clear the SIGINT flag (called by LLE)
+/**
+ * @brief Check and clear the SIGINT flag
+ *
+ * Called by LLE to check if SIGINT was received during readline
+ * and atomically clear the flag.
+ *
+ * @return 1 if SIGINT was received, 0 otherwise
+ */
 int check_and_clear_sigint_flag(void) {
     if (sigint_received_during_readline) {
         sigint_received_during_readline = 0;
@@ -30,12 +54,29 @@ int check_and_clear_sigint_flag(void) {
     return 0;
 }
 
-// Set a flag indicating LLE readline is active (for SIGINT handler to know)
+/** @brief Flag indicating LLE readline is currently active */
 static volatile sig_atomic_t lle_readline_active = 0;
 
+/**
+ * @brief Set LLE readline active state
+ *
+ * Called by LLE to indicate when readline is active, so SIGINT
+ * handler knows how to behave.
+ *
+ * @param active 1 if readline is active, 0 otherwise
+ */
 void set_lle_readline_active(int active) { lle_readline_active = active; }
 
-// SIGINT handler that properly manages shell vs child process behavior
+/**
+ * @brief SIGINT handler for interactive shell
+ *
+ * Properly manages shell vs child process behavior:
+ * - If child process running: forward SIGINT to child
+ * - If LLE readline active: set flag for LLE to handle
+ * - Otherwise: print newline and set flag for main loop
+ *
+ * @param signo Signal number (SIGINT)
+ */
 static void sigint_handler(int signo) {
     (void)signo; // Suppress unused parameter warning
 
@@ -57,6 +98,12 @@ static void sigint_handler(int signo) {
     }
 }
 
+/**
+ * @brief Initialize default signal handlers
+ *
+ * Sets up signal handlers for SIGINT, SIGSEGV, and SIGQUIT.
+ * Called during shell initialization.
+ */
 void init_signal_handlers(void) {
     set_signal_handler(SIGINT, sigint_handler);
     set_signal_handler(SIGSEGV, sigsegv_handler);
@@ -66,12 +113,29 @@ void init_signal_handlers(void) {
     set_signal_handler(SIGQUIT, SIG_IGN);
 }
 
-// Function to set the current child PID (called when forking)
+/**
+ * @brief Set current child PID for signal forwarding
+ *
+ * Called when forking a child process so SIGINT can be forwarded.
+ *
+ * @param pid PID of the child process
+ */
 void set_current_child_pid(pid_t pid) { current_child_pid = pid; }
 
-// Function to clear the current child PID (called when child exits)
+/**
+ * @brief Clear current child PID
+ *
+ * Called when child process exits.
+ */
 void clear_current_child_pid(void) { current_child_pid = 0; }
 
+/**
+ * @brief Set a signal handler using sigaction
+ *
+ * @param signo Signal number to handle
+ * @param handler Handler function, or SIG_IGN/SIG_DFL
+ * @return 0 on success, -1 on error
+ */
 int set_signal_handler(int signo, void(handler)(int)) {
     struct sigaction sigact;
     sigemptyset(&sigact.sa_mask);
@@ -80,7 +144,12 @@ int set_signal_handler(int signo, void(handler)(int)) {
     return sigaction(signo, &sigact, NULL);
 }
 
-// Find trap entry for given signal
+/**
+ * @brief Find trap entry for given signal
+ *
+ * @param signal Signal number to find trap for
+ * @return Pointer to trap entry, or NULL if not found
+ */
 static trap_entry_t *find_trap(int signal) {
     trap_entry_t *current = trap_list;
     while (current) {
@@ -92,7 +161,13 @@ static trap_entry_t *find_trap(int signal) {
     return NULL;
 }
 
-// Signal handler that executes trap commands
+/**
+ * @brief Signal handler that executes trap commands
+ *
+ * Looks up the trap for the received signal and executes it.
+ *
+ * @param signo Signal number received
+ */
 static void trap_signal_handler(int signo) {
     trap_entry_t *trap = find_trap(signo);
     if (trap && trap->command) {
@@ -103,7 +178,16 @@ static void trap_signal_handler(int signo) {
     }
 }
 
-// Set a trap for a signal
+/**
+ * @brief Set a trap for a signal
+ *
+ * Associates a command string with a signal. When the signal is
+ * received, the command will be executed.
+ *
+ * @param signal Signal number (0 for EXIT trap)
+ * @param command Command string to execute (NULL or empty to remove)
+ * @return 0 on success, -1 on error
+ */
 int set_trap(int signal, const char *command) {
     // Remove existing trap for this signal
     remove_trap(signal);
@@ -139,7 +223,15 @@ int set_trap(int signal, const char *command) {
     return 0;
 }
 
-// Remove a trap for a signal
+/**
+ * @brief Remove a trap for a signal
+ *
+ * Removes the trap command for the specified signal and resets
+ * the signal handler to default.
+ *
+ * @param signal Signal number to remove trap for
+ * @return 0 on success, -1 if trap not found
+ */
 int remove_trap(int signal) {
     trap_entry_t *current = trap_list;
     trap_entry_t *prev = NULL;
@@ -172,7 +264,12 @@ int remove_trap(int signal) {
     return -1; // Trap not found
 }
 
-// List all traps
+/**
+ * @brief List all active traps
+ *
+ * Prints all currently set traps in a format suitable for
+ * re-input to the shell.
+ */
 void list_traps(void) {
     trap_entry_t *current = trap_list;
     while (current) {
@@ -181,7 +278,15 @@ void list_traps(void) {
     }
 }
 
-// Get signal number from name
+/**
+ * @brief Get signal number from name
+ *
+ * Converts signal name (with or without SIG prefix) to number.
+ * Also accepts numeric strings.
+ *
+ * @param signame Signal name (e.g., "INT", "SIGINT", "2")
+ * @return Signal number, or -1 if not recognized
+ */
 int get_signal_number(const char *signame) {
     if (!signame) {
         return -1;
@@ -218,7 +323,12 @@ int get_signal_number(const char *signame) {
     return -1; // Unknown signal
 }
 
-// Execute EXIT traps (signal 0)
+/**
+ * @brief Execute EXIT traps and cleanup
+ *
+ * Executes any trap set for signal 0 (EXIT) and resets the
+ * terminal to a clean state.
+ */
 void execute_exit_traps(void) {
     trap_entry_t *trap = find_trap(0); // EXIT is signal 0
     if (trap && trap->command) {

@@ -1,7 +1,11 @@
-/*
- * event_queue.c - Event Queue Implementation (Phase 1)
+/**
+ * @file event_queue.c
+ * @brief LLE Event Queue Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Simple circular buffer queue with thread safety.
+ * Provides the core queueing mechanism for the event system.
  *
  * Spec 04: Event System - Phase 1
  */
@@ -10,8 +14,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-/*
- * Initialize event queue
+/**
+ * @brief Initialize an event queue
+ * @param queue Output pointer to receive initialized queue
+ * @param capacity Maximum number of events the queue can hold
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_event_queue_init(lle_event_queue_t **queue, size_t capacity) {
     if (!queue || capacity == 0) {
@@ -47,8 +54,12 @@ lle_result_t lle_event_queue_init(lle_event_queue_t **queue, size_t capacity) {
     return LLE_SUCCESS;
 }
 
-/*
- * Destroy event queue
+/**
+ * @brief Destroy an event queue and free its resources
+ * @param queue The queue to destroy, may be NULL
+ *
+ * Note: Events should be dequeued and destroyed separately before
+ * calling this function, or destroyed by the event system.
  */
 void lle_event_queue_destroy(lle_event_queue_t *queue) {
     if (!queue) {
@@ -70,8 +81,15 @@ void lle_event_queue_destroy(lle_event_queue_t *queue) {
     lle_pool_free(queue);
 }
 
-/*
- * Enqueue event
+/**
+ * @brief Add an event to the queue
+ * @param system The event system containing the queue
+ * @param event The event to enqueue
+ * @return LLE_SUCCESS on success, LLE_ERROR_QUEUE_FULL if queue is at capacity,
+ *         or LLE_ERROR_INVALID_PARAMETER if parameters are invalid
+ *
+ * In Phase 2, critical priority events are routed to a separate priority queue.
+ * Events dropped due to full queue are tracked in system statistics.
  */
 lle_result_t lle_event_enqueue(lle_event_system_t *system, lle_event_t *event) {
     if (!system || !system->queue || !event) {
@@ -113,8 +131,15 @@ lle_result_t lle_event_enqueue(lle_event_system_t *system, lle_event_t *event) {
     return LLE_SUCCESS;
 }
 
-/*
- * Dequeue event
+/**
+ * @brief Remove and return the next event from the queue
+ * @param system The event system containing the queue
+ * @param event Output pointer to receive the dequeued event
+ * @return LLE_SUCCESS on success, LLE_ERROR_QUEUE_EMPTY if no events available,
+ *         or LLE_ERROR_INVALID_PARAMETER if parameters are invalid
+ *
+ * In Phase 2, priority queue is checked first before the main queue.
+ * The event's queued flag is cleared upon dequeue.
  */
 lle_result_t lle_event_dequeue(lle_event_system_t *system,
                                lle_event_t **event) {
@@ -168,8 +193,10 @@ lle_result_t lle_event_dequeue(lle_event_system_t *system,
     return LLE_SUCCESS;
 }
 
-/*
- * Get queue size (Phase 1 + Phase 2 - returns total events in both queues)
+/**
+ * @brief Get the total number of events in the queue(s)
+ * @param system The event system to query
+ * @return Total count of queued events (main + priority queue in Phase 2)
  */
 size_t lle_event_queue_size(lle_event_system_t *system) {
     if (!system || !system->queue) {
@@ -193,15 +220,21 @@ size_t lle_event_queue_size(lle_event_system_t *system) {
     return count;
 }
 
-/*
- * Check if queue is empty (Phase 1 + Phase 2 - checks both queues)
+/**
+ * @brief Check if all queues are empty
+ * @param system The event system to query
+ * @return true if no events are queued, false otherwise
  */
 bool lle_event_queue_empty(lle_event_system_t *system) {
     return lle_event_queue_size(system) == 0;
 }
 
-/*
- * Check if queue is full (Phase 1 + Phase 2 - checks if both queues are full)
+/**
+ * @brief Check if the queue system is full
+ * @param system The event system to query
+ * @return true if no more events can be queued, false otherwise
+ *
+ * In Phase 2, both main and priority queues must be full for this to return true.
  */
 bool lle_event_queue_full(lle_event_system_t *system) {
     if (!system || !system->queue) {

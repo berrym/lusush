@@ -1,6 +1,8 @@
 /**
  * @file memory_management.h
  * @brief LLE Memory Management System - Complete Specification Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Specification: Spec 15 - Memory Management Complete Specification
  * Version: 1.0.0
@@ -8,9 +10,6 @@
  *
  * This header declares ALL types, structures, and functions from Spec 15.
  * Every function declared here will have a complete implementation.
- *
- * Copyright (C) 2025 Michael Berry
- * Licensed under GPL v3
  */
 
 #ifndef LLE_MEMORY_MANAGEMENT_H

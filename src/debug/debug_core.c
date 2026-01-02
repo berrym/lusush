@@ -1,3 +1,15 @@
+/**
+ * @file debug_core.c
+ * @brief Core Debug System Implementation
+ *
+ * Provides the foundational debugging infrastructure including context
+ * management, output control, AST visualization, and integration with
+ * the shell executor for interactive debugging sessions.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ */
+
 #include "debug.h"
 #include "errors.h"
 #include "executor.h"
@@ -10,10 +22,13 @@
 #include <time.h>
 #include <unistd.h>
 
-// Global debug context
+/** @brief Global debug context instance */
 debug_context_t *g_debug_context = NULL;
 
-// Initialize debug context
+/**
+ * @brief Initialize a new debug context
+ * @return Pointer to the newly created debug context, or NULL on failure
+ */
 debug_context_t *debug_init(void) {
     debug_context_t *ctx = malloc(sizeof(debug_context_t));
     if (!ctx) {
@@ -76,7 +91,10 @@ debug_context_t *debug_init(void) {
     return ctx;
 }
 
-// Cleanup debug context
+/**
+ * @brief Clean up and free a debug context
+ * @param ctx Debug context to clean up
+ */
 void debug_cleanup(debug_context_t *ctx) {
     if (!ctx) {
         return;
@@ -132,7 +150,11 @@ void debug_cleanup(debug_context_t *ctx) {
     free(ctx);
 }
 
-// Set debug level
+/**
+ * @brief Set the debug level
+ * @param ctx Debug context
+ * @param level Debug level to set
+ */
 void debug_set_level(debug_context_t *ctx, debug_level_t level) {
     if (!ctx) {
         return;
@@ -180,7 +202,11 @@ void debug_set_level(debug_context_t *ctx, debug_level_t level) {
     }
 }
 
-// Set debug mode
+/**
+ * @brief Set the debug mode
+ * @param ctx Debug context
+ * @param mode Debug mode to set
+ */
 void debug_set_mode(debug_context_t *ctx, debug_mode_t mode) {
     if (!ctx) {
         return;
@@ -204,7 +230,11 @@ void debug_set_mode(debug_context_t *ctx, debug_mode_t mode) {
     }
 }
 
-// Enable/disable debugging
+/**
+ * @brief Enable or disable debugging
+ * @param ctx Debug context
+ * @param enable True to enable, false to disable
+ */
 void debug_enable(debug_context_t *ctx, bool enable) {
     if (!ctx) {
         return;
@@ -221,19 +251,27 @@ void debug_enable(debug_context_t *ctx, bool enable) {
     }
 }
 
-// Get current time in nanoseconds
+/**
+ * @brief Get current time in nanoseconds
+ * @return Current monotonic time in nanoseconds
+ */
 long debug_get_time_ns(void) {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return ts.tv_sec * 1000000000L + ts.tv_nsec;
 }
 
-// Format time duration
+/**
+ * @brief Format a time duration for display
+ * @param ns Time in nanoseconds
+ * @param buffer Output buffer for formatted string
+ * @param size Size of output buffer
+ */
 void debug_format_time(long ns, char *buffer, size_t size) {
     if (ns < 1000) {
         snprintf(buffer, size, "%ld ns", ns);
     } else if (ns < 1000000) {
-        snprintf(buffer, size, "%.2f μs", ns / 1000.0);
+        snprintf(buffer, size, "%.2f us", ns / 1000.0);
     } else if (ns < 1000000000) {
         snprintf(buffer, size, "%.2f ms", ns / 1000000.0);
     } else {
@@ -241,7 +279,12 @@ void debug_format_time(long ns, char *buffer, size_t size) {
     }
 }
 
-// Debug printf with context
+/**
+ * @brief Print a debug message with context
+ * @param ctx Debug context
+ * @param format Printf-style format string
+ * @param ... Format arguments
+ */
 void debug_printf(debug_context_t *ctx, const char *format, ...) {
     if (!ctx || !ctx->enabled) {
         return;
@@ -265,7 +308,10 @@ void debug_printf(debug_context_t *ctx, const char *format, ...) {
     va_end(args);
 }
 
-// Print separator line
+/**
+ * @brief Print a separator line
+ * @param ctx Debug context
+ */
 void debug_print_separator(debug_context_t *ctx) {
     if (!ctx || !ctx->enabled) {
         return;
@@ -279,7 +325,11 @@ void debug_print_separator(debug_context_t *ctx) {
     fflush(ctx->debug_output);
 }
 
-// Print header with title
+/**
+ * @brief Print a header with title
+ * @param ctx Debug context
+ * @param title Header title text
+ */
 void debug_print_header(debug_context_t *ctx, const char *title) {
     if (!ctx || !ctx->enabled) {
         return;
@@ -290,7 +340,11 @@ void debug_print_header(debug_context_t *ctx, const char *title) {
     debug_print_separator(ctx);
 }
 
-// Set output file for debug messages
+/**
+ * @brief Set output file for debug messages
+ * @param ctx Debug context
+ * @param filename Path to output file
+ */
 void debug_set_output_file(debug_context_t *ctx, const char *filename) {
     if (!ctx || !filename) {
         return;
@@ -314,7 +368,11 @@ void debug_set_output_file(debug_context_t *ctx, const char *filename) {
     }
 }
 
-// Set profile output file
+/**
+ * @brief Set output file for profile data
+ * @param ctx Debug context
+ * @param filename Path to output file
+ */
 void debug_set_profile_output_file(debug_context_t *ctx, const char *filename) {
     if (!ctx || !filename) {
         return;
@@ -336,7 +394,11 @@ void debug_set_profile_output_file(debug_context_t *ctx, const char *filename) {
     }
 }
 
-// Set analysis output file
+/**
+ * @brief Set output file for analysis results
+ * @param ctx Debug context
+ * @param filename Path to output file
+ */
 void debug_set_analysis_output_file(debug_context_t *ctx,
                                     const char *filename) {
     if (!ctx || !filename) {
@@ -359,7 +421,11 @@ void debug_set_analysis_output_file(debug_context_t *ctx,
     }
 }
 
-// Get node description for debugging
+/**
+ * @brief Get a human-readable description of an AST node
+ * @param node AST node to describe
+ * @return Newly allocated string with description (caller must free)
+ */
 char *debug_get_node_description(node_t *node) {
     if (!node) {
         return strdup("(null)");
@@ -414,7 +480,12 @@ char *debug_get_node_description(node_t *node) {
     return desc;
 }
 
-// Print node information
+/**
+ * @brief Print an AST node with indentation
+ * @param ctx Debug context
+ * @param node AST node to print
+ * @param indent Indentation level
+ */
 void debug_print_node(debug_context_t *ctx, node_t *node, int indent) {
     if (!ctx || !ctx->enabled || !node) {
         return;
@@ -440,7 +511,11 @@ void debug_print_node(debug_context_t *ctx, node_t *node, int indent) {
     }
 }
 
-// Print entire AST
+/**
+ * @brief Print an entire AST
+ * @param ctx Debug context
+ * @param ast Root of the AST to print
+ */
 void debug_print_ast(debug_context_t *ctx, node_t *ast) {
     if (!ctx || !ctx->enabled) {
         return;
@@ -450,7 +525,10 @@ void debug_print_ast(debug_context_t *ctx, node_t *ast) {
     debug_print_node(ctx, ast, 0);
 }
 
-// Clear analysis issues
+/**
+ * @brief Clear all analysis issues from context
+ * @param ctx Debug context
+ */
 void debug_clear_analysis_issues(debug_context_t *ctx) {
     if (!ctx) {
         return;
@@ -472,7 +550,10 @@ void debug_clear_analysis_issues(debug_context_t *ctx) {
     ctx->issue_count = 0;
 }
 
-// Function introspection implementation
+/**
+ * @brief List all defined functions
+ * @param ctx Debug context
+ */
 void debug_list_functions(debug_context_t *ctx) {
     if (!ctx) {
         return;
@@ -503,6 +584,11 @@ void debug_list_functions(debug_context_t *ctx) {
     }
 }
 
+/**
+ * @brief Show details of a specific function
+ * @param ctx Debug context
+ * @param function_name Name of the function to show
+ */
 void debug_show_function(debug_context_t *ctx, const char *function_name) {
     if (!ctx || !function_name) {
         return;
@@ -578,10 +664,10 @@ void debug_show_function(debug_context_t *ctx, const char *function_name) {
     printf("\n");
 
     printf("Debug Integration:\n");
-    printf("  • Function calls traced in debug mode\n");
-    printf("  • Return values inspectable via command substitution\n");
-    printf("  • Parameter validation during execution\n");
-    printf("  • Performance profiling available\n");
+    printf("  - Function calls traced in debug mode\n");
+    printf("  - Return values inspectable via command substitution\n");
+    printf("  - Parameter validation during execution\n");
+    printf("  - Performance profiling available\n");
     printf("\n");
 
     printf("========================================\n");

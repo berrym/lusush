@@ -1,6 +1,8 @@
 /**
  * @file multiline_manager.c
  * @brief LLE Multiline Manager Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Specification: Spec 03 Phase 7 - Multiline Buffer Operations
  *
@@ -30,6 +32,12 @@
  * ============================================================================
  */
 
+/**
+ * @brief Initialize a new multiline context
+ * @param ctx Pointer to store the created context
+ * @param memory_pool Memory pool for allocations
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_multiline_context_init(lle_multiline_context_t **ctx,
                                         lusush_memory_pool_t *memory_pool) {
     if (!ctx || !memory_pool) {
@@ -73,6 +81,11 @@ lle_result_t lle_multiline_context_init(lle_multiline_context_t **ctx,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Destroy a multiline context and free resources
+ * @param ctx The context to destroy
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if ctx is NULL
+ */
 lle_result_t lle_multiline_context_destroy(lle_multiline_context_t *ctx) {
     if (!ctx) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -98,6 +111,11 @@ lle_result_t lle_multiline_context_destroy(lle_multiline_context_t *ctx) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Reset a multiline context for reuse
+ * @param ctx The context to reset
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if ctx is NULL
+ */
 lle_result_t lle_multiline_context_reset(lle_multiline_context_t *ctx) {
     if (!ctx) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -137,6 +155,8 @@ lle_result_t lle_multiline_context_reset(lle_multiline_context_t *ctx) {
 
 /**
  * @brief Helper to determine current construct name from parser state
+ * @param state The continuation state to inspect
+ * @return Construct name string, or NULL if no active construct
  */
 static const char *get_construct_name(const continuation_state_t *state) {
     if (!state) {
@@ -208,6 +228,8 @@ static const char *get_construct_name(const continuation_state_t *state) {
 
 /**
  * @brief Helper to calculate nesting level from parser state
+ * @param state The continuation state to inspect
+ * @return Nesting level (0 for no nesting)
  */
 static uint8_t get_nesting_level(const continuation_state_t *state) {
     if (!state) {
@@ -231,6 +253,13 @@ static uint8_t get_nesting_level(const continuation_state_t *state) {
     return level;
 }
 
+/**
+ * @brief Analyze a line of input for multiline state updates
+ * @param ctx The multiline context
+ * @param line The line text to analyze
+ * @param length Length of the line (reserved for future use)
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_multiline_analyze_line(lle_multiline_context_t *ctx,
                                         const char *line, size_t length) {
     (void)length; /* Reserved for length-aware analysis */
@@ -287,6 +316,11 @@ lle_result_t lle_multiline_analyze_line(lle_multiline_context_t *ctx,
  * ============================================================================
  */
 
+/**
+ * @brief Check if the multiline context represents a complete command
+ * @param ctx The multiline context to check
+ * @return true if command is complete, false if continuation needed
+ */
 bool lle_multiline_is_complete(const lle_multiline_context_t *ctx) {
     if (!ctx || !ctx->core_state) {
         return true; /* No context = complete */
@@ -296,6 +330,11 @@ bool lle_multiline_is_complete(const lle_multiline_context_t *ctx) {
         (const continuation_state_t *)ctx->core_state);
 }
 
+/**
+ * @brief Check if the multiline context needs continuation input
+ * @param ctx The multiline context to check
+ * @return true if continuation is needed, false otherwise
+ */
 bool lle_multiline_needs_continuation(const lle_multiline_context_t *ctx) {
     if (!ctx || !ctx->core_state) {
         return false; /* No context = no continuation */
@@ -305,6 +344,11 @@ bool lle_multiline_needs_continuation(const lle_multiline_context_t *ctx) {
         (const continuation_state_t *)ctx->core_state);
 }
 
+/**
+ * @brief Get the continuation prompt for the current multiline state
+ * @param ctx The multiline context
+ * @return Prompt string for continuation, or default "> " if no context
+ */
 const char *lle_multiline_get_prompt(const lle_multiline_context_t *ctx) {
     if (!ctx || !ctx->core_state) {
         return "> "; /* Default prompt */
@@ -314,6 +358,11 @@ const char *lle_multiline_get_prompt(const lle_multiline_context_t *ctx) {
         (const continuation_state_t *)ctx->core_state);
 }
 
+/**
+ * @brief Get the name of the current construct being parsed
+ * @param ctx The multiline context
+ * @return Construct name string, or NULL if no active construct
+ */
 const char *lle_multiline_get_construct(const lle_multiline_context_t *ctx) {
     if (!ctx) {
         return NULL;
@@ -327,6 +376,12 @@ const char *lle_multiline_get_construct(const lle_multiline_context_t *ctx) {
  * ============================================================================
  */
 
+/**
+ * @brief Initialize a new multiline manager
+ * @param manager Pointer to store the created manager
+ * @param memory_pool Memory pool for allocations
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_multiline_manager_init(lle_multiline_manager_t **manager,
                                         lusush_memory_pool_t *memory_pool) {
     if (!manager || !memory_pool) {
@@ -351,6 +406,11 @@ lle_result_t lle_multiline_manager_init(lle_multiline_manager_t **manager,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Destroy a multiline manager and free resources
+ * @param manager The manager to destroy
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if manager is NULL
+ */
 lle_result_t lle_multiline_manager_destroy(lle_multiline_manager_t *manager) {
     if (!manager) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -369,6 +429,8 @@ lle_result_t lle_multiline_manager_destroy(lle_multiline_manager_t *manager) {
 
 /**
  * @brief Helper to convert continuation_state_t to lle_multiline_state_t
+ * @param state The continuation state to convert
+ * @return Corresponding LLE multiline state enum value
  */
 static lle_multiline_state_t
 convert_to_lle_state(const continuation_state_t *state) {
@@ -413,6 +475,12 @@ convert_to_lle_state(const continuation_state_t *state) {
     return LLE_MULTILINE_STATE_NONE;
 }
 
+/**
+ * @brief Analyze an entire buffer for multiline state
+ * @param manager The multiline manager
+ * @param buffer The buffer to analyze
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t
 lle_multiline_manager_analyze_buffer(lle_multiline_manager_t *manager,
                                      lle_buffer_t *buffer) {
@@ -492,6 +560,13 @@ lle_multiline_manager_analyze_buffer(lle_multiline_manager_t *manager,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Update multiline state for a specific line in a buffer
+ * @param manager The multiline manager
+ * @param buffer The buffer containing the line
+ * @param line_index Index of the line to update
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_multiline_manager_update_line_state(
     lle_multiline_manager_t *manager, lle_buffer_t *buffer, size_t line_index) {
     if (!manager || !buffer) {

@@ -1,15 +1,16 @@
 /**
- * adaptive_terminal_detection.c - Adaptive Terminal Detection Implementation
+ * @file adaptive_terminal_detection.c
+ * @brief Comprehensive terminal capability detection system
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ *
+ * Specification: Spec 26 - Adaptive Terminal Integration
  *
  * Comprehensive terminal capability detection with multi-tier approach:
  * 1. Environment variable analysis
  * 2. Terminal signature matching
  * 3. Safe runtime capability probing
  * 4. Fallback mode determination
- *
- * Specification:
- * docs/lle_specification/critical_gaps/26_adaptive_terminal_integration_complete.md
- * Date: 2025-11-02
  */
 
 #include "lle/adaptive_terminal_integration.h"
@@ -32,12 +33,13 @@ static uint64_t cache_timestamp_us = 0;
 #define CACHE_TTL_US 30000000 /* 30 seconds */
 
 /* ============================================================================
- * UTILITY FUNCTIONS
+ * INTERNAL UTILITY FUNCTIONS
  * ============================================================================
  */
 
 /**
- * Get current time in microseconds.
+ * @brief Get current time in microseconds
+ * @return Current monotonic time in microseconds
  */
 static uint64_t get_current_time_us(void) {
     struct timespec ts;
@@ -46,8 +48,10 @@ static uint64_t get_current_time_us(void) {
 }
 
 /**
- * Simple wildcard pattern matching.
- * Supports * wildcard only (matches any sequence of characters).
+ * @brief Simple wildcard pattern matching
+ * @param pattern Pattern to match (supports * wildcard)
+ * @param string String to match against
+ * @return true if pattern matches string, false otherwise
  */
 static bool pattern_match(const char *pattern, const char *string) {
     if (!pattern || !string) {
@@ -88,7 +92,10 @@ static bool pattern_match(const char *pattern, const char *string) {
 }
 
 /**
- * Safe string copy with null termination.
+ * @brief Safe string copy with guaranteed null termination
+ * @param dest Destination buffer
+ * @param src Source string (can be NULL)
+ * @param size Size of destination buffer
  */
 static void safe_strncpy(char *dest, const char *src, size_t size) {
     if (!dest || size == 0) {
@@ -110,7 +117,9 @@ static void safe_strncpy(char *dest, const char *src, size_t size) {
  */
 
 /**
- * Analyze environment variables for terminal information.
+ * @brief Analyze environment variables for terminal information
+ * @param detection Detection result structure to populate
+ * @return LLE_SUCCESS on success
  */
 static lle_result_t
 analyze_environment_variables(lle_terminal_detection_result_t *detection) {
@@ -157,7 +166,9 @@ analyze_environment_variables(lle_terminal_detection_result_t *detection) {
  */
 
 /**
- * Match terminal signature from database.
+ * @brief Match terminal against known signature database
+ * @param detection Detection result with environment info
+ * @return Pointer to matching signature, or NULL if no match
  */
 const lle_terminal_signature_t *
 lle_match_terminal_signature(const lle_terminal_detection_result_t *detection) {
@@ -214,7 +225,10 @@ lle_match_terminal_signature(const lle_terminal_detection_result_t *detection) {
  */
 
 /**
- * Probe single capability with timeout.
+ * @brief Probe a single terminal capability with timeout protection
+ * @param query Escape sequence query to send
+ * @param timeout_ms Timeout in milliseconds
+ * @return true if terminal responded, false on timeout or error
  */
 static bool probe_capability_with_timeout(const char *query, int timeout_ms) {
     /* Only probe if stdout is a TTY */
@@ -250,7 +264,12 @@ static bool probe_capability_with_timeout(const char *query, int timeout_ms) {
 }
 
 /**
- * Safe terminal capability probing with timeout protection.
+ * @brief Safe terminal capability probing with timeout protection
+ * @param detection Detection result to populate with probing results
+ * @return LLE_SUCCESS on success, error code on failure
+ *
+ * Performs progressive capability probing including cursor positioning,
+ * bracketed paste mode, and mouse support detection.
  */
 lle_result_t lle_probe_terminal_capabilities_safe(
     lle_terminal_detection_result_t *detection) {
@@ -321,7 +340,9 @@ lle_result_t lle_probe_terminal_capabilities_safe(
  */
 
 /**
- * Determine fallback mode based on detection results.
+ * @brief Determine fallback mode based on TTY status
+ * @param detection Detection result with TTY information
+ * @return Appropriate adaptive mode for the environment
  */
 static lle_adaptive_mode_t
 determine_fallback_mode(const lle_terminal_detection_result_t *detection) {
@@ -346,7 +367,9 @@ determine_fallback_mode(const lle_terminal_detection_result_t *detection) {
 }
 
 /**
- * Validate and adjust recommended mode.
+ * @brief Validate and adjust recommended mode for compatibility
+ * @param detection Detection result with mode recommendation
+ * @return Validated and possibly adjusted mode
  */
 static lle_adaptive_mode_t
 validate_and_adjust_mode(const lle_terminal_detection_result_t *detection) {
@@ -386,12 +409,17 @@ validate_and_adjust_mode(const lle_terminal_detection_result_t *detection) {
 }
 
 /* ============================================================================
- * MAIN DETECTION API
+ * PUBLIC API - MAIN DETECTION
  * ============================================================================
  */
 
 /**
- * Perform comprehensive terminal capability detection.
+ * @brief Perform comprehensive terminal capability detection
+ * @param result Pointer to store allocated detection result
+ * @return LLE_SUCCESS on success, error code on failure
+ *
+ * Performs full multi-tier detection including environment analysis,
+ * signature matching, and runtime capability probing.
  */
 lle_result_t lle_detect_terminal_capabilities_comprehensive(
     lle_terminal_detection_result_t **result) {
@@ -479,7 +507,12 @@ lle_result_t lle_detect_terminal_capabilities_comprehensive(
 }
 
 /**
- * Optimized detection with caching.
+ * @brief Optimized detection with result caching
+ * @param result Pointer to store detection result (may be cached)
+ * @return LLE_SUCCESS on success, error code on failure
+ *
+ * Returns cached result if available and not expired, otherwise
+ * performs full detection and caches the result.
  */
 lle_result_t lle_detect_terminal_capabilities_optimized(
     lle_terminal_detection_result_t **result) {
@@ -515,7 +548,8 @@ lle_result_t lle_detect_terminal_capabilities_optimized(
 }
 
 /**
- * Free detection result.
+ * @brief Free a detection result
+ * @param result Detection result to free (safe if NULL or cached)
  */
 void lle_terminal_detection_result_destroy(
     lle_terminal_detection_result_t *result) {
@@ -525,12 +559,14 @@ void lle_terminal_detection_result_destroy(
 }
 
 /* ============================================================================
- * PERFORMANCE MONITORING
+ * PUBLIC API - PERFORMANCE MONITORING
  * ============================================================================
  */
 
 /**
- * Get detection performance statistics.
+ * @brief Get detection performance statistics
+ * @param stats Pointer to statistics structure to populate
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if stats is NULL
  */
 lle_result_t
 lle_adaptive_get_detection_stats(lle_detection_performance_stats_t *stats) {
@@ -544,19 +580,21 @@ lle_adaptive_get_detection_stats(lle_detection_performance_stats_t *stats) {
 }
 
 /**
- * Reset detection performance statistics.
+ * @brief Reset detection performance statistics to zero
  */
 void lle_adaptive_reset_detection_stats(void) {
     memset(&detection_stats, 0, sizeof(detection_stats));
 }
 
 /* ============================================================================
- * UTILITY IMPLEMENTATIONS
+ * PUBLIC API - UTILITY FUNCTIONS
  * ============================================================================
  */
 
 /**
- * Get human-readable mode name.
+ * @brief Convert adaptive mode to human-readable string
+ * @param mode The adaptive mode value
+ * @return Static string describing the mode
  */
 const char *lle_adaptive_mode_to_string(lle_adaptive_mode_t mode) {
     switch (mode) {
@@ -576,7 +614,9 @@ const char *lle_adaptive_mode_to_string(lle_adaptive_mode_t mode) {
 }
 
 /**
- * Get human-readable capability level name.
+ * @brief Convert capability level to human-readable string
+ * @param level The capability level value
+ * @return Static string describing the capability level
  */
 const char *lle_capability_level_to_string(lle_capability_level_t level) {
     switch (level) {
@@ -596,12 +636,14 @@ const char *lle_capability_level_to_string(lle_capability_level_t level) {
 }
 
 /* ============================================================================
- * TERMINAL TYPE DETECTION HELPERS
+ * PUBLIC API - TERMINAL TYPE DETECTION HELPERS
  * ============================================================================
  */
 
 /**
- * Check if running in iTerm2.
+ * @brief Check if running in iTerm2 terminal
+ * @param detection Detection result (can be NULL to check environment directly)
+ * @return true if running in iTerm2, false otherwise
  */
 bool lle_is_iterm2(const lle_terminal_detection_result_t *detection) {
     if (detection) {
@@ -615,7 +657,9 @@ bool lle_is_iterm2(const lle_terminal_detection_result_t *detection) {
 }
 
 /**
- * Check if running inside tmux.
+ * @brief Check if running inside tmux multiplexer
+ * @param detection Detection result (can be NULL to check environment directly)
+ * @return true if running inside tmux, false otherwise
  */
 bool lle_is_tmux(const lle_terminal_detection_result_t *detection) {
     if (detection) {
@@ -628,7 +672,9 @@ bool lle_is_tmux(const lle_terminal_detection_result_t *detection) {
 }
 
 /**
- * Check if running inside GNU screen.
+ * @brief Check if running inside GNU screen multiplexer
+ * @param detection Detection result (can be NULL to check environment directly)
+ * @return true if running inside screen, false otherwise
  */
 bool lle_is_screen(const lle_terminal_detection_result_t *detection) {
     if (detection) {
@@ -644,7 +690,9 @@ bool lle_is_screen(const lle_terminal_detection_result_t *detection) {
 }
 
 /**
- * Check if running inside any terminal multiplexer.
+ * @brief Check if running inside any terminal multiplexer
+ * @param detection Detection result (can be NULL to check environment directly)
+ * @return true if running inside a multiplexer, false otherwise
  */
 bool lle_is_multiplexed(const lle_terminal_detection_result_t *detection) {
     if (detection) {
@@ -656,7 +704,9 @@ bool lle_is_multiplexed(const lle_terminal_detection_result_t *detection) {
 }
 
 /**
- * Get terminal type string (e.g., "xterm-256color").
+ * @brief Get terminal type string from TERM environment variable
+ * @param detection Detection result (can be NULL to check environment directly)
+ * @return Terminal type string or NULL if not set
  */
 const char *
 lle_get_terminal_type(const lle_terminal_detection_result_t *detection) {
@@ -668,7 +718,10 @@ lle_get_terminal_type(const lle_terminal_detection_result_t *detection) {
 }
 
 /**
- * Get current terminal dimensions.
+ * @brief Get current terminal dimensions
+ * @param cols Pointer to store column count (can be NULL)
+ * @param rows Pointer to store row count (can be NULL)
+ * @return LLE_SUCCESS on success
  */
 lle_result_t lle_get_terminal_size(int *cols, int *rows) {
     struct winsize ws;
@@ -704,12 +757,16 @@ lle_result_t lle_get_terminal_size(int *cols, int *rows) {
 }
 
 /**
- * Check if stdout is a TTY.
+ * @brief Check if stdout is a TTY
+ * @return true if stdout is a TTY, false otherwise
  */
 bool lle_is_tty(void) { return isatty(STDOUT_FILENO) != 0; }
 
 /**
- * Reset terminal to clean state.
+ * @brief Reset terminal to clean state
+ *
+ * Resets all attributes, shows cursor, and outputs a newline.
+ * Safe to call even if stdout is not a TTY.
  */
 void lle_terminal_reset(void) {
     if (!isatty(STDOUT_FILENO)) {

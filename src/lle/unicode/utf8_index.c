@@ -1,3 +1,13 @@
+/**
+ * @file utf8_index.c
+ * @brief UTF-8 Index for Fast Position Mapping
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ *
+ * Provides O(1) mapping between byte offsets, codepoint indices,
+ * grapheme cluster indices, and display column positions.
+ */
+
 #include "lle/utf8_index.h"
 #include "lle/buffer_management.h"
 #include "lle/char_width.h"
@@ -7,6 +17,11 @@
 #include <string.h>
 #include <time.h>
 
+/**
+ * @brief Initialize a UTF-8 index structure
+ * @param index The index structure to initialize
+ * @return LLE_SUCCESS on success, or error code on failure
+ */
 lle_result_t lle_utf8_index_init(lle_utf8_index_t *index) {
     if (!index) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -18,6 +33,10 @@ lle_result_t lle_utf8_index_init(lle_utf8_index_t *index) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Clean up and free all resources in a UTF-8 index
+ * @param index The index to clean up
+ */
 void lle_utf8_index_cleanup(lle_utf8_index_t *index) {
     if (!index)
         return;
@@ -33,7 +52,10 @@ void lle_utf8_index_cleanup(lle_utf8_index_t *index) {
 }
 
 /**
- * Validate UTF-8 sequence
+ * @brief Validate a UTF-8 sequence (internal helper)
+ * @param ptr Pointer to the sequence
+ * @param length Expected length of the sequence
+ * @return true if valid, false otherwise
  */
 static bool is_valid_utf8_sequence(const char *ptr, int length) {
     if (!ptr || length < 1 || length > 4) {
@@ -75,6 +97,19 @@ static bool is_valid_utf8_sequence(const char *ptr, int length) {
     return true;
 }
 
+/**
+ * @brief Rebuild the UTF-8 index for new text content
+ * @param index The index to rebuild
+ * @param text The UTF-8 text to index
+ * @param text_length Length of text in bytes
+ * @return LLE_SUCCESS on success, or error code on failure
+ *
+ * This is a multi-phase operation:
+ * 1. Count codepoints and grapheme clusters
+ * 2. Allocate index arrays
+ * 3. Build all mapping tables
+ * 4. Update metadata and timing statistics
+ */
 lle_result_t lle_utf8_index_rebuild(lle_utf8_index_t *index, const char *text,
                                     size_t text_length) {
     if (!index || !text) {
@@ -276,8 +311,13 @@ cleanup:
     return result;
 }
 
-// Conversion functions - implement after rebuild works
-
+/**
+ * @brief Convert byte offset to codepoint index
+ * @param index The UTF-8 index to query
+ * @param byte_offset Byte offset to convert
+ * @param codepoint_index Output: corresponding codepoint index
+ * @return LLE_SUCCESS on success, or error code on failure
+ */
 lle_result_t lle_utf8_index_byte_to_codepoint(const lle_utf8_index_t *index,
                                               size_t byte_offset,
                                               size_t *codepoint_index) {
@@ -297,6 +337,13 @@ lle_result_t lle_utf8_index_byte_to_codepoint(const lle_utf8_index_t *index,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Convert codepoint index to byte offset
+ * @param index The UTF-8 index to query
+ * @param codepoint_index Codepoint index to convert
+ * @param byte_offset Output: corresponding byte offset
+ * @return LLE_SUCCESS on success, or error code on failure
+ */
 lle_result_t lle_utf8_index_codepoint_to_byte(const lle_utf8_index_t *index,
                                               size_t codepoint_index,
                                               size_t *byte_offset) {
@@ -316,6 +363,13 @@ lle_result_t lle_utf8_index_codepoint_to_byte(const lle_utf8_index_t *index,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Convert codepoint index to grapheme cluster index
+ * @param index The UTF-8 index to query
+ * @param codepoint_index Codepoint index to convert
+ * @param grapheme_index Output: corresponding grapheme cluster index
+ * @return LLE_SUCCESS on success, or error code on failure
+ */
 lle_result_t lle_utf8_index_codepoint_to_grapheme(const lle_utf8_index_t *index,
                                                   size_t codepoint_index,
                                                   size_t *grapheme_index) {
@@ -335,6 +389,13 @@ lle_result_t lle_utf8_index_codepoint_to_grapheme(const lle_utf8_index_t *index,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Convert grapheme cluster index to codepoint index
+ * @param index The UTF-8 index to query
+ * @param grapheme_index Grapheme cluster index to convert
+ * @param codepoint_index Output: codepoint index at start of grapheme
+ * @return LLE_SUCCESS on success, or error code on failure
+ */
 lle_result_t lle_utf8_index_grapheme_to_codepoint(const lle_utf8_index_t *index,
                                                   size_t grapheme_index,
                                                   size_t *codepoint_index) {
@@ -354,6 +415,13 @@ lle_result_t lle_utf8_index_grapheme_to_codepoint(const lle_utf8_index_t *index,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Convert grapheme cluster index to display column
+ * @param index The UTF-8 index to query
+ * @param grapheme_index Grapheme cluster index to convert
+ * @param display_column Output: display column position
+ * @return LLE_SUCCESS on success, or error code on failure
+ */
 lle_result_t lle_utf8_index_grapheme_to_display(const lle_utf8_index_t *index,
                                                 size_t grapheme_index,
                                                 size_t *display_column) {
@@ -373,6 +441,13 @@ lle_result_t lle_utf8_index_grapheme_to_display(const lle_utf8_index_t *index,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Convert display column to grapheme cluster index
+ * @param index The UTF-8 index to query
+ * @param display_column Display column position to convert
+ * @param grapheme_index Output: grapheme cluster at that column
+ * @return LLE_SUCCESS on success, or error code on failure
+ */
 lle_result_t lle_utf8_index_display_to_grapheme(const lle_utf8_index_t *index,
                                                 size_t display_column,
                                                 size_t *grapheme_index) {
@@ -392,12 +467,21 @@ lle_result_t lle_utf8_index_display_to_grapheme(const lle_utf8_index_t *index,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Mark the index as invalid (requires rebuild)
+ * @param index The index to invalidate
+ */
 void lle_utf8_index_invalidate(lle_utf8_index_t *index) {
     if (index) {
         index->index_valid = false;
     }
 }
 
+/**
+ * @brief Check if the index is valid and up-to-date
+ * @param index The index to check
+ * @return true if valid, false if rebuild is needed
+ */
 bool lle_utf8_index_is_valid(const lle_utf8_index_t *index) {
     return index && index->index_valid;
 }

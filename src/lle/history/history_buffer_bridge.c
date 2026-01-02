@@ -1,6 +1,11 @@
-/* SPDX-License-Identifier: MIT */
-/* LLE Specification 22: History-Buffer Integration - Phase 3 */
-/* History-Buffer Bridge Implementation */
+/**
+ * @file history_buffer_bridge.c
+ * @brief History-Buffer Bridge Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ *
+ * LLE Specification 22: History-Buffer Integration - Phase 3
+ */
 
 #include "lle/history_buffer_bridge.h"
 #include "lle/buffer_management.h"
@@ -19,11 +24,23 @@ struct lle_history_buffer_bridge {
     bool active;
 };
 
-/* Forward declarations for internal functions */
+/**
+ * @brief Get text from a history entry by index
+ * @param history History core engine
+ * @param index Index of the entry
+ * @param text Output pointer for allocated text copy
+ * @param length Output pointer for text length
+ * @return LLE_SUCCESS on success, or error code on failure
+ */
 static lle_result_t get_history_entry_text(lle_history_core_t *history,
                                            size_t index, char **text,
                                            size_t *length);
 
+/**
+ * @brief Get default transfer options for history-buffer operations
+ * @param options Output structure for default options
+ * @return LLE_SUCCESS on success, or error code on failure
+ */
 lle_result_t
 lle_history_buffer_bridge_get_default_options(lle_transfer_options_t *options) {
     if (!options) {
@@ -39,6 +56,15 @@ lle_history_buffer_bridge_get_default_options(lle_transfer_options_t *options) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Create a history-buffer bridge instance
+ * @param bridge Output pointer for the created bridge
+ * @param memory_pool Memory pool for allocation (may be NULL)
+ * @param history_core History core engine
+ * @param parser Multiline parser for command parsing
+ * @param reconstruction Reconstruction engine for formatting
+ * @return LLE_SUCCESS on success, or error code on failure
+ */
 lle_result_t lle_history_buffer_bridge_create(
     lle_history_buffer_bridge_t **bridge, lle_memory_pool_t *memory_pool,
     lle_history_core_t *history_core, lle_multiline_parser_t *parser,
@@ -64,6 +90,11 @@ lle_result_t lle_history_buffer_bridge_create(
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Destroy a history-buffer bridge instance
+ * @param bridge Bridge to destroy
+ * @return LLE_SUCCESS on success, or error code on failure
+ */
 lle_result_t
 lle_history_buffer_bridge_destroy(lle_history_buffer_bridge_t *bridge) {
     if (!bridge) {
@@ -76,6 +107,14 @@ lle_history_buffer_bridge_destroy(lle_history_buffer_bridge_t *bridge) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Get text content from a buffer
+ * @param bridge History-buffer bridge
+ * @param buffer Buffer to read from
+ * @param text Output pointer for allocated text copy
+ * @param length Output pointer for text length
+ * @return LLE_SUCCESS on success, or error code on failure
+ */
 lle_result_t
 lle_history_buffer_bridge_get_buffer_text(lle_history_buffer_bridge_t *bridge,
                                           lle_buffer_t *buffer, char **text,
@@ -109,6 +148,14 @@ lle_history_buffer_bridge_get_buffer_text(lle_history_buffer_bridge_t *bridge,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Set text content in a buffer
+ * @param bridge History-buffer bridge
+ * @param buffer Buffer to write to
+ * @param text Text content to set
+ * @param length Length of text
+ * @return LLE_SUCCESS on success, or error code on failure
+ */
 lle_result_t
 lle_history_buffer_bridge_set_buffer_text(lle_history_buffer_bridge_t *bridge,
                                           lle_buffer_t *buffer,
@@ -134,6 +181,12 @@ lle_history_buffer_bridge_set_buffer_text(lle_history_buffer_bridge_t *bridge,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Clear a buffer's contents
+ * @param bridge History-buffer bridge
+ * @param buffer Buffer to clear
+ * @return LLE_SUCCESS on success, or error code on failure
+ */
 lle_result_t
 lle_history_buffer_bridge_clear_buffer(lle_history_buffer_bridge_t *bridge,
                                        lle_buffer_t *buffer) {
@@ -144,6 +197,15 @@ lle_history_buffer_bridge_clear_buffer(lle_history_buffer_bridge_t *bridge,
     return lle_buffer_clear(buffer);
 }
 
+/**
+ * @brief Load a history entry into a buffer
+ * @param bridge History-buffer bridge
+ * @param history_index Index of history entry to load
+ * @param buffer Target buffer
+ * @param options Transfer options (NULL for defaults)
+ * @param result Output for transfer result details
+ * @return LLE_SUCCESS on success, or error code on failure
+ */
 lle_result_t lle_history_buffer_bridge_load_to_buffer(
     lle_history_buffer_bridge_t *bridge, size_t history_index,
     lle_buffer_t *buffer, const lle_transfer_options_t *options,
@@ -219,6 +281,14 @@ lle_result_t lle_history_buffer_bridge_load_to_buffer(
     return res;
 }
 
+/**
+ * @brief Save buffer contents to history
+ * @param bridge History-buffer bridge
+ * @param buffer Source buffer
+ * @param options Transfer options (NULL for defaults)
+ * @param result Output for transfer result details
+ * @return LLE_SUCCESS on success, or error code on failure
+ */
 lle_result_t lle_history_buffer_bridge_save_from_buffer(
     lle_history_buffer_bridge_t *bridge, lle_buffer_t *buffer,
     const lle_transfer_options_t *options, lle_transfer_result_t *result) {
@@ -272,8 +342,19 @@ lle_result_t lle_history_buffer_bridge_save_from_buffer(
     return res;
 }
 
-/* Internal helper functions */
+/* ============================================================================
+ * INTERNAL HELPER FUNCTIONS
+ * ============================================================================
+ */
 
+/**
+ * @brief Get text from a history entry by index
+ * @param history History core engine
+ * @param index Index of the entry
+ * @param text Output pointer for allocated text copy
+ * @param length Output pointer for text length
+ * @return LLE_SUCCESS on success, or error code on failure
+ */
 static lle_result_t get_history_entry_text(lle_history_core_t *history,
                                            size_t index, char **text,
                                            size_t *length) {

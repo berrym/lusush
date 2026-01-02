@@ -104,8 +104,7 @@ configure_terminal_modes(base_terminal_t *terminal);
 // ============================================================================
 
 /**
- * Create a new base terminal instance
- *
+ * @brief Create a new base terminal instance
  * @return Pointer to new base_terminal_t instance, or NULL on failure
  */
 base_terminal_t *base_terminal_create(void) {
@@ -134,8 +133,7 @@ base_terminal_t *base_terminal_create(void) {
 }
 
 /**
- * Initialize the base terminal system
- *
+ * @brief Initialize the base terminal system
  * @param terminal Pointer to base_terminal_t instance
  * @return BASE_TERMINAL_SUCCESS on success, error code on failure
  */
@@ -199,8 +197,7 @@ base_terminal_error_t base_terminal_init(base_terminal_t *terminal) {
 }
 
 /**
- * Enable or disable raw terminal mode
- *
+ * @brief Enable or disable raw terminal mode
  * @param terminal Pointer to base_terminal_t instance
  * @param enable True to enable raw mode, false to disable
  * @return BASE_TERMINAL_SUCCESS on success, error code on failure
@@ -241,8 +238,7 @@ base_terminal_error_t base_terminal_set_raw_mode(base_terminal_t *terminal,
 }
 
 /**
- * Read data from terminal input
- *
+ * @brief Read data from terminal input
  * @param terminal Pointer to base_terminal_t instance
  * @param buffer Buffer to store read data
  * @param max_len Maximum number of bytes to read
@@ -269,8 +265,7 @@ ssize_t base_terminal_read(base_terminal_t *terminal, char *buffer,
 }
 
 /**
- * Write data to terminal output
- *
+ * @brief Write data to terminal output
  * @param terminal Pointer to base_terminal_t instance
  * @param data Data to write
  * @param len Number of bytes to write
@@ -317,8 +312,7 @@ ssize_t base_terminal_write(base_terminal_t *terminal, const char *data,
 }
 
 /**
- * Flush terminal output buffer
- *
+ * @brief Flush terminal output buffer
  * @param terminal Pointer to base_terminal_t instance
  * @return BASE_TERMINAL_SUCCESS on success, error code on failure
  */
@@ -350,8 +344,7 @@ base_terminal_error_t base_terminal_flush(base_terminal_t *terminal) {
 }
 
 /**
- * Get current terminal size
- *
+ * @brief Get current terminal size
  * @param terminal Pointer to base_terminal_t instance
  * @param width Pointer to store terminal width
  * @param height Pointer to store terminal height
@@ -376,10 +369,9 @@ base_terminal_error_t base_terminal_get_size(base_terminal_t *terminal,
 }
 
 /**
- * Check if data is available for reading
- *
+ * @brief Check if data is available for reading
  * @param terminal Pointer to base_terminal_t instance
- * @param timeout_ms Timeout in milliseconds (0 for non-blocking)
+ * @param timeout_ms Timeout in milliseconds (0 for non-blocking, negative for infinite)
  * @return 1 if data available, 0 if no data, -1 on error
  */
 int base_terminal_data_available(base_terminal_t *terminal, int timeout_ms) {
@@ -413,8 +405,7 @@ int base_terminal_data_available(base_terminal_t *terminal, int timeout_ms) {
 }
 
 /**
- * Get current performance metrics
- *
+ * @brief Get current performance metrics
  * @param terminal Pointer to base_terminal_t instance
  * @return Copy of current performance metrics
  */
@@ -429,8 +420,7 @@ base_terminal_metrics_t base_terminal_get_metrics(base_terminal_t *terminal) {
 }
 
 /**
- * Get last error code
- *
+ * @brief Get last error code
  * @param terminal Pointer to base_terminal_t instance
  * @return Last error code
  */
@@ -443,8 +433,7 @@ base_terminal_error_t base_terminal_get_last_error(base_terminal_t *terminal) {
 }
 
 /**
- * Get error description string
- *
+ * @brief Get error description string
  * @param error Error code
  * @return Human-readable error description
  */
@@ -480,8 +469,7 @@ const char *base_terminal_error_string(base_terminal_error_t error) {
 }
 
 /**
- * Clean up and restore terminal state
- *
+ * @brief Clean up and restore terminal state
  * @param terminal Pointer to base_terminal_t instance
  * @return BASE_TERMINAL_SUCCESS on success, error code on failure
  */
@@ -522,8 +510,7 @@ base_terminal_error_t base_terminal_cleanup(base_terminal_t *terminal) {
 }
 
 /**
- * Destroy base terminal instance
- *
+ * @brief Destroy base terminal instance and free resources
  * @param terminal Pointer to base_terminal_t instance
  */
 void base_terminal_destroy(base_terminal_t *terminal) {
@@ -536,9 +523,8 @@ void base_terminal_destroy(base_terminal_t *terminal) {
 }
 
 /**
- * Get high-resolution timestamp in nanoseconds
- *
- * @return Current timestamp in nanoseconds
+ * @brief Get high-resolution timestamp in nanoseconds
+ * @return Current monotonic timestamp in nanoseconds, or 0 on failure
  */
 uint64_t base_terminal_get_timestamp_ns(void) {
     struct timespec ts;
@@ -553,7 +539,9 @@ uint64_t base_terminal_get_timestamp_ns(void) {
 // ============================================================================
 
 /**
- * Detect terminal type and capabilities
+ * @brief Detect terminal type and capabilities
+ * @param terminal Pointer to base_terminal_t instance
+ * @return BASE_TERMINAL_SUCCESS on success, error code on failure
  */
 static base_terminal_error_t detect_terminal_type(base_terminal_t *terminal) {
     const char *term_env = getenv("TERM");
@@ -573,7 +561,9 @@ static base_terminal_error_t detect_terminal_type(base_terminal_t *terminal) {
 }
 
 /**
- * Setup signal handlers for terminal events
+ * @brief Setup signal handlers for terminal events
+ * @param terminal Pointer to base_terminal_t instance (unused)
+ * @return BASE_TERMINAL_SUCCESS on success, error code on failure
  */
 static base_terminal_error_t setup_signal_handlers(base_terminal_t *terminal) {
     (void)terminal; // Unused parameter
@@ -590,7 +580,9 @@ static base_terminal_error_t setup_signal_handlers(base_terminal_t *terminal) {
 }
 
 /**
- * Restore original signal handlers
+ * @brief Restore original signal handlers
+ * @param terminal Pointer to base_terminal_t instance (unused)
+ * @return BASE_TERMINAL_SUCCESS on success, error code on failure
  */
 static base_terminal_error_t
 restore_signal_handlers(base_terminal_t *terminal) {
@@ -603,7 +595,8 @@ restore_signal_handlers(base_terminal_t *terminal) {
 }
 
 /**
- * Signal handler for window size changes
+ * @brief Signal handler for window size changes
+ * @param sig Signal number (unused)
  */
 static void sigwinch_handler(int sig) {
     (void)sig; // Unused parameter
@@ -616,7 +609,9 @@ static void sigwinch_handler(int sig) {
 }
 
 /**
- * Validate terminal file descriptors
+ * @brief Validate terminal file descriptors
+ * @param terminal Pointer to base_terminal_t instance
+ * @return BASE_TERMINAL_SUCCESS on success, error code on failure
  */
 static base_terminal_error_t validate_terminal_fds(base_terminal_t *terminal) {
     // Check if file descriptors are valid
@@ -645,7 +640,9 @@ static base_terminal_error_t validate_terminal_fds(base_terminal_t *terminal) {
 }
 
 /**
- * Configure initial terminal modes
+ * @brief Configure initial terminal modes
+ * @param terminal Pointer to base_terminal_t instance (unused)
+ * @return BASE_TERMINAL_SUCCESS on success, error code on failure
  */
 static base_terminal_error_t
 configure_terminal_modes(base_terminal_t *terminal) {

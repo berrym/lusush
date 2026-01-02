@@ -1,5 +1,8 @@
-/*
- * terminal_error_handler.c - Error Handling (Spec 02 Subsystem 7)
+/**
+ * @file terminal_error_handler.c
+ * @brief Error Handling (Spec 02 Subsystem 7)
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Provides terminal abstraction specific error handling on top of
  * LLE error handling infrastructure (Spec 16).
@@ -24,10 +27,14 @@
  * ============================================================================
  */
 
-/*
- * Recover from terminal state error
+/**
+ * @brief Recover from terminal state error
  *
  * Attempts to restore terminal to a known good state after error.
+ *
+ * @param unix_interface Unix interface for terminal restoration
+ * @param error_code The error code that triggered recovery
+ * @return LLE_SUCCESS if recovery succeeded, error code on failure
  */
 lle_result_t
 lle_terminal_recover_from_error(lle_unix_interface_t *unix_interface,

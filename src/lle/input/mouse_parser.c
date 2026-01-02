@@ -1,5 +1,8 @@
-/*
- * mouse_parser.c - Terminal Mouse Event Parser
+/**
+ * @file mouse_parser.c
+ * @brief Terminal Mouse Event Parser
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Comprehensive mouse event parsing supporting multiple formats:
  * - X10 compatible mode (ESC[M<btn><x><y>)
@@ -17,15 +20,24 @@
 #include <string.h>
 #include <time.h>
 
-/* Get current time in microseconds */
+/**
+ * @brief Get current time in microseconds
+ *
+ * @return Current monotonic time in microseconds
+ */
 static uint64_t get_current_time_us(void) {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (uint64_t)ts.tv_sec * 1000000 + (uint64_t)ts.tv_nsec / 1000;
 }
 
-/*
- * Initialize mouse parser
+/**
+ * @brief Initialize mouse parser
+ *
+ * @param parser Output pointer for created parser
+ * @param terminal_caps Terminal capabilities for feature detection
+ * @param memory_pool Memory pool for allocations
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_mouse_parser_init(lle_mouse_parser_t **parser,
                                    lle_terminal_capabilities_t *terminal_caps,
@@ -63,8 +75,11 @@ lle_result_t lle_mouse_parser_init(lle_mouse_parser_t **parser,
     return LLE_SUCCESS;
 }
 
-/*
- * Destroy mouse parser
+/**
+ * @brief Destroy mouse parser
+ *
+ * @param parser Parser to destroy
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_mouse_parser_destroy(lle_mouse_parser_t *parser) {
     if (!parser) {
@@ -75,12 +90,18 @@ lle_result_t lle_mouse_parser_destroy(lle_mouse_parser_t *parser) {
     return LLE_SUCCESS;
 }
 
-/*
- * Parse X10 compatible mouse sequence
+/**
+ * @brief Parse X10 compatible mouse sequence
  *
  * Format: ESC[M<btn><x><y>
  * - btn: button byte (32 + button_code + modifiers)
  * - x, y: coordinate bytes (32 + coordinate, limited to 223)
+ *
+ * @param parser Mouse parser instance
+ * @param data Raw sequence data
+ * @param data_len Length of sequence data
+ * @param event Output for parsed event
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t parse_x10_sequence(lle_mouse_parser_t *parser,
                                        const char *data, size_t data_len,
@@ -154,13 +175,19 @@ static lle_result_t parse_x10_sequence(lle_mouse_parser_t *parser,
     return LLE_SUCCESS;
 }
 
-/*
- * Parse SGR extended mouse sequence
+/**
+ * @brief Parse SGR extended mouse sequence
  *
  * Format: ESC[<btn;x;y>M (press) or ESC[<btn;x;y>m (release)
  * - btn: button code with modifiers
  * - x, y: decimal coordinates (no limit)
  * - M: press, m: release
+ *
+ * @param parser Mouse parser instance
+ * @param data Raw sequence data
+ * @param data_len Length of sequence data
+ * @param event Output for parsed event
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t parse_sgr_sequence(lle_mouse_parser_t *parser,
                                        const char *data, size_t data_len,
@@ -271,8 +298,11 @@ static lle_result_t parse_sgr_sequence(lle_mouse_parser_t *parser,
     return LLE_SUCCESS;
 }
 
-/*
- * Detect multi-click events (double/triple click)
+/**
+ * @brief Detect multi-click events (double/triple click)
+ *
+ * @param parser Mouse parser instance
+ * @param event Event to check and update
  */
 static void detect_multi_click(lle_mouse_parser_t *parser,
                                lle_mouse_event_info_t *event) {
@@ -305,10 +335,16 @@ static void detect_multi_click(lle_mouse_parser_t *parser,
     }
 }
 
-/*
- * Parse mouse sequence
+/**
+ * @brief Parse mouse sequence
  *
- * Detects format and dispatches to appropriate parser
+ * Detects format and dispatches to appropriate parser.
+ *
+ * @param parser Mouse parser instance
+ * @param sequence Raw mouse sequence data
+ * @param sequence_len Length of sequence data
+ * @param event_info Output pointer for parsed event
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t
 lle_mouse_parser_parse_sequence(lle_mouse_parser_t *parser,
@@ -367,8 +403,13 @@ lle_mouse_parser_parse_sequence(lle_mouse_parser_t *parser,
     return LLE_SUCCESS;
 }
 
-/*
- * Enable/disable mouse tracking
+/**
+ * @brief Enable/disable mouse tracking
+ *
+ * @param parser Mouse parser instance
+ * @param enabled Whether to enable tracking
+ * @param mode Tracking mode to use
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_mouse_parser_set_tracking(lle_mouse_parser_t *parser,
                                            bool enabled,
@@ -383,8 +424,13 @@ lle_result_t lle_mouse_parser_set_tracking(lle_mouse_parser_t *parser,
     return LLE_SUCCESS;
 }
 
-/*
- * Get mouse parser statistics
+/**
+ * @brief Get mouse parser statistics
+ *
+ * @param parser Parser to query
+ * @param events_parsed Output for total events parsed
+ * @param invalid_sequences Output for invalid sequence count
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_mouse_parser_get_stats(const lle_mouse_parser_t *parser,
                                         uint64_t *events_parsed,
@@ -399,8 +445,11 @@ lle_result_t lle_mouse_parser_get_stats(const lle_mouse_parser_t *parser,
     return LLE_SUCCESS;
 }
 
-/*
- * Reset mouse parser state
+/**
+ * @brief Reset mouse parser state
+ *
+ * @param parser Parser to reset
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_mouse_parser_reset(lle_mouse_parser_t *parser) {
     if (!parser) {
@@ -421,8 +470,14 @@ lle_result_t lle_mouse_parser_reset(lle_mouse_parser_t *parser) {
     return LLE_SUCCESS;
 }
 
-/*
- * Get current mouse state
+/**
+ * @brief Get current mouse state
+ *
+ * @param parser Parser to query
+ * @param x Output for current X position
+ * @param y Output for current Y position
+ * @param pressed_buttons Output for currently pressed buttons
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_mouse_parser_get_state(const lle_mouse_parser_t *parser,
                                         uint16_t *x, uint16_t *y,

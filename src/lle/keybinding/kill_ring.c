@@ -1,13 +1,18 @@
 /**
- * kill_ring.c - Kill Ring System Implementation
+ * @file kill_ring.c
+ * @brief Kill Ring System Implementation
  *
  * Implements GNU Readline compatible kill/yank operations for cut/paste.
+ * The kill ring is a circular buffer that stores killed (cut) text for
+ * later yanking (pasting), supporting both append and prepend operations.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Specification:
  * docs/lle_specification/critical_gaps/25_default_keybindings_complete.md
  * Implementation Plan:
- * docs/lle_specification/critical_gaps/25_IMPLEMENTATION_PLAN.md Date:
- * 2025-11-02
+ * docs/lle_specification/critical_gaps/25_IMPLEMENTATION_PLAN.md
  */
 
 #include "lle/kill_ring.h"
@@ -50,7 +55,11 @@ struct lle_kill_ring {
  */
 
 /**
- * Allocate string from memory pool or malloc
+ * @brief Allocate string from memory pool or malloc
+ * @param ring Kill ring instance containing memory pool reference
+ * @param str Source string to duplicate
+ * @param len Length of string to allocate (excluding null terminator)
+ * @return Pointer to allocated string copy, or NULL on failure
  */
 static char *kill_ring_strdup(lle_kill_ring_t *ring, const char *str,
                               size_t len) {
@@ -71,7 +80,9 @@ static char *kill_ring_strdup(lle_kill_ring_t *ring, const char *str,
 }
 
 /**
- * Free string to memory pool or malloc
+ * @brief Free string to memory pool or malloc
+ * @param ring Kill ring instance containing memory pool reference
+ * @param str String to free (may be NULL)
  */
 static void kill_ring_free_string(lle_kill_ring_t *ring, char *str) {
     if (str == NULL) {
@@ -86,7 +97,9 @@ static void kill_ring_free_string(lle_kill_ring_t *ring, char *str) {
 }
 
 /**
- * Free a kill entry's text
+ * @brief Free a kill entry's text and reset entry state
+ * @param ring Kill ring instance containing memory pool reference
+ * @param entry Kill entry to free and reset
  */
 static void free_entry(lle_kill_ring_t *ring, lle_kill_entry_t *entry) {
     if (entry->text != NULL) {
@@ -98,7 +111,10 @@ static void free_entry(lle_kill_ring_t *ring, lle_kill_entry_t *entry) {
 }
 
 /**
- * Get entry at circular buffer position
+ * @brief Get entry at circular buffer position
+ * @param position Logical position in the ring
+ * @param capacity Total capacity of the ring buffer
+ * @return Physical index in the circular buffer array
  */
 static size_t circular_index(size_t position, size_t capacity) {
     return position % capacity;
@@ -109,6 +125,13 @@ static size_t circular_index(size_t position, size_t capacity) {
  * ============================================================================
  */
 
+/**
+ * @brief Create a new kill ring instance
+ * @param ring Pointer to store the created kill ring
+ * @param max_entries Maximum number of entries (0 for default, clamped to max)
+ * @param pool Memory pool for allocations (NULL to use malloc/free)
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_kill_ring_create(lle_kill_ring_t **ring, size_t max_entries,
                                   lle_memory_pool_t *pool) {
     if (ring == NULL) {
@@ -184,6 +207,11 @@ lle_result_t lle_kill_ring_create(lle_kill_ring_t **ring, size_t max_entries,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Destroy a kill ring and free all resources
+ * @param ring Kill ring to destroy
+ * @return LLE_SUCCESS on success, LLE_ERROR_NULL_POINTER if ring is NULL
+ */
 lle_result_t lle_kill_ring_destroy(lle_kill_ring_t *ring) {
     if (ring == NULL) {
         return LLE_ERROR_NULL_POINTER;
@@ -223,6 +251,13 @@ lle_result_t lle_kill_ring_destroy(lle_kill_ring_t *ring) {
  * ============================================================================
  */
 
+/**
+ * @brief Add text to the kill ring
+ * @param ring Kill ring instance
+ * @param text Text to add (must not be NULL or empty)
+ * @param append If true and last operation was kill, append to current entry
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_kill_ring_add(lle_kill_ring_t *ring, const char *text,
                                bool append) {
     if (ring == NULL || text == NULL) {
@@ -294,6 +329,12 @@ lle_result_t lle_kill_ring_add(lle_kill_ring_t *ring, const char *text,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Prepend text to the current kill ring entry
+ * @param ring Kill ring instance
+ * @param text Text to prepend (must not be NULL or empty)
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_kill_ring_prepend(lle_kill_ring_t *ring, const char *text) {
     if (ring == NULL || text == NULL) {
         return LLE_ERROR_NULL_POINTER;
@@ -347,6 +388,12 @@ lle_result_t lle_kill_ring_prepend(lle_kill_ring_t *ring, const char *text) {
  * ============================================================================
  */
 
+/**
+ * @brief Get the current (most recent) kill ring entry for yanking
+ * @param ring Kill ring instance
+ * @param text_out Pointer to store the text (not a copy, do not free)
+ * @return LLE_SUCCESS on success, LLE_ERROR_QUEUE_EMPTY if ring is empty
+ */
 lle_result_t lle_kill_ring_get_current(lle_kill_ring_t *ring,
                                        const char **text_out) {
     if (ring == NULL || text_out == NULL) {
@@ -373,6 +420,12 @@ lle_result_t lle_kill_ring_get_current(lle_kill_ring_t *ring,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Get the previous kill ring entry (yank-pop operation)
+ * @param ring Kill ring instance
+ * @param text_out Pointer to store the text (not a copy, do not free)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_STATE if not after yank
+ */
 lle_result_t lle_kill_ring_yank_pop(lle_kill_ring_t *ring,
                                     const char **text_out) {
     if (ring == NULL || text_out == NULL) {
@@ -432,6 +485,11 @@ lle_result_t lle_kill_ring_yank_pop(lle_kill_ring_t *ring,
  * ============================================================================
  */
 
+/**
+ * @brief Clear all entries from the kill ring
+ * @param ring Kill ring instance
+ * @return LLE_SUCCESS on success, LLE_ERROR_NULL_POINTER if ring is NULL
+ */
 lle_result_t lle_kill_ring_clear(lle_kill_ring_t *ring) {
     if (ring == NULL) {
         return LLE_ERROR_NULL_POINTER;
@@ -457,6 +515,11 @@ lle_result_t lle_kill_ring_clear(lle_kill_ring_t *ring) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Reset the yank state flag
+ * @param ring Kill ring instance
+ * @return LLE_SUCCESS on success, LLE_ERROR_NULL_POINTER if ring is NULL
+ */
 lle_result_t lle_kill_ring_reset_yank_state(lle_kill_ring_t *ring) {
     if (ring == NULL) {
         return LLE_ERROR_NULL_POINTER;
@@ -469,6 +532,12 @@ lle_result_t lle_kill_ring_reset_yank_state(lle_kill_ring_t *ring) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Set the last-was-kill state flag
+ * @param ring Kill ring instance
+ * @param was_kill True if last operation was a kill
+ * @return LLE_SUCCESS on success, LLE_ERROR_NULL_POINTER if ring is NULL
+ */
 lle_result_t lle_kill_ring_set_last_was_kill(lle_kill_ring_t *ring,
                                              bool was_kill) {
     if (ring == NULL) {
@@ -487,6 +556,12 @@ lle_result_t lle_kill_ring_set_last_was_kill(lle_kill_ring_t *ring,
  * ============================================================================
  */
 
+/**
+ * @brief Get the number of entries in the kill ring
+ * @param ring Kill ring instance
+ * @param count_out Pointer to store the count
+ * @return LLE_SUCCESS on success, LLE_ERROR_NULL_POINTER on NULL argument
+ */
 lle_result_t lle_kill_ring_get_count(lle_kill_ring_t *ring, size_t *count_out) {
     if (ring == NULL || count_out == NULL) {
         return LLE_ERROR_NULL_POINTER;
@@ -499,6 +574,12 @@ lle_result_t lle_kill_ring_get_count(lle_kill_ring_t *ring, size_t *count_out) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Check if the kill ring is empty
+ * @param ring Kill ring instance
+ * @param empty_out Pointer to store the result (true if empty)
+ * @return LLE_SUCCESS on success, LLE_ERROR_NULL_POINTER on NULL argument
+ */
 lle_result_t lle_kill_ring_is_empty(lle_kill_ring_t *ring, bool *empty_out) {
     if (ring == NULL || empty_out == NULL) {
         return LLE_ERROR_NULL_POINTER;
@@ -511,6 +592,12 @@ lle_result_t lle_kill_ring_is_empty(lle_kill_ring_t *ring, bool *empty_out) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Check if the last operation was a yank
+ * @param ring Kill ring instance
+ * @param was_yank_out Pointer to store the result
+ * @return LLE_SUCCESS on success, LLE_ERROR_NULL_POINTER on NULL argument
+ */
 lle_result_t lle_kill_ring_was_last_yank(lle_kill_ring_t *ring,
                                          bool *was_yank_out) {
     if (ring == NULL || was_yank_out == NULL) {
@@ -524,6 +611,12 @@ lle_result_t lle_kill_ring_was_last_yank(lle_kill_ring_t *ring,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Get the maximum capacity of the kill ring
+ * @param ring Kill ring instance
+ * @param capacity_out Pointer to store the capacity
+ * @return LLE_SUCCESS on success, LLE_ERROR_NULL_POINTER on NULL argument
+ */
 lle_result_t lle_kill_ring_get_capacity(lle_kill_ring_t *ring,
                                         size_t *capacity_out) {
     if (ring == NULL || capacity_out == NULL) {
@@ -546,6 +639,13 @@ lle_result_t lle_kill_ring_get_capacity(lle_kill_ring_t *ring,
 
 #include <stdio.h>
 
+/**
+ * @brief Get entry at a specific index (debug only)
+ * @param ring Kill ring instance
+ * @param index Logical index (0 = most recent)
+ * @param text_out Pointer to store the text
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_kill_ring_get_entry_at_index(lle_kill_ring_t *ring,
                                               size_t index,
                                               const char **text_out) {
@@ -574,6 +674,11 @@ lle_result_t lle_kill_ring_get_entry_at_index(lle_kill_ring_t *ring,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Dump kill ring contents to stdout (debug only)
+ * @param ring Kill ring instance
+ * @return LLE_SUCCESS on success, LLE_ERROR_NULL_POINTER if ring is NULL
+ */
 lle_result_t lle_kill_ring_dump(lle_kill_ring_t *ring) {
     if (ring == NULL) {
         return LLE_ERROR_NULL_POINTER;

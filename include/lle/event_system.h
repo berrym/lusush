@@ -1,6 +1,8 @@
-/*
- * event_system.h - Event System Header (Phase 1 + Phase 2A + Phase 2B + Phase
- * 2C + Phase 2D)
+/**
+ * @file event_system.h
+ * @brief Event System Header (Phase 1 + Phase 2A + Phase 2B + Phase 2C + Phase 2D)
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Event-driven architecture for LLE.
  *

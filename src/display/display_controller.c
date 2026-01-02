@@ -105,7 +105,8 @@
 // ============================================================================
 
 /**
- * Get current timestamp in microseconds.
+ * @brief Get current timestamp in microseconds
+ * @return Current time in microseconds from gettimeofday
  */
 MAYBE_UNUSED
 static uint64_t dc_get_timestamp_us(void) {
@@ -117,8 +118,9 @@ static uint64_t dc_get_timestamp_us(void) {
 }
 
 /**
- * Count newlines in text.
- * Used to detect multiline input for continuation prompt support.
+ * @brief Count newlines in text for multiline input detection
+ * @param text Text to count newlines in
+ * @return Number of newline characters in text
  */
 static int count_newlines(const char *text) {
     if (!text)
@@ -136,7 +138,7 @@ static int count_newlines(const char *text) {
 // ============================================================================
 
 /**
- * Handle LAYER_EVENT_REDRAW_NEEDED from command_layer
+ * @brief Handle LAYER_EVENT_REDRAW_NEEDED from command_layer
  *
  * This is the critical event handler that connects command_layer updates
  * to actual terminal rendering. When LLE updates the command_layer content,
@@ -162,7 +164,7 @@ static int last_terminal_end_row =
     0; /* Actual terminal row after ghost text/menu */
 
 /**
- * Reset display state - called when starting new input session
+ * @brief Reset display state - called when starting new input session
  *
  * Clears screen buffers so next render starts fresh.
  */
@@ -185,7 +187,7 @@ void dc_reset_prompt_display_state(void) {
 }
 
 /**
- * Finalize input and prepare for command output
+ * @brief Finalize input and prepare for command output
  *
  * Writes newline to terminal to move cursor below the input, then
  * resets display state for the next prompt.
@@ -198,6 +200,12 @@ void dc_finalize_input(void) {
     dc_reset_prompt_display_state();
 }
 
+/**
+ * @brief Apply transient prompt replacement for scrollback history
+ * @param transient_prompt Minimal prompt to replace current fancy prompt
+ * @param command_text Command text to preserve after prompt
+ * @return true if transient prompt was applied, false on error
+ */
 bool dc_apply_transient_prompt(const char *transient_prompt,
                                const char *command_text) {
     if (!transient_prompt || !screen_buffer_initialized) {
@@ -265,6 +273,12 @@ bool dc_apply_transient_prompt(const char *transient_prompt,
     return true;
 }
 
+/**
+ * @brief Get current prompt display metrics
+ * @param prompt_lines Output: number of lines the prompt occupies
+ * @param total_lines Output: total lines including command
+ * @param command_col Output: column where command text starts
+ */
 void dc_get_prompt_metrics(int *prompt_lines, int *total_lines,
                            int *command_col) {
     if (!screen_buffer_initialized) {
@@ -311,7 +325,7 @@ void dc_get_prompt_metrics(int *prompt_lines, int *total_lines,
 }
 
 /**
- * Callback for screen_buffer_render_with_continuation.
+ * @brief Callback for screen_buffer_render_with_continuation
  *
  * Called when a newline is encountered during character-by-character rendering.
  * Analyzes the line that just ended and returns the continuation prompt for
@@ -345,6 +359,12 @@ static const char *dc_continuation_prompt_callback(const char *line_text,
     return prompt;
 }
 
+/**
+ * @brief Handle redraw needed event from command layer
+ * @param event Layer event that triggered this callback
+ * @param user_data User data (display_controller_t pointer)
+ * @return LAYER_EVENTS_SUCCESS on success, error code otherwise
+ */
 static layer_events_error_t dc_handle_redraw_needed(const layer_event_t *event,
                                                     void *user_data) {
 
@@ -814,7 +834,10 @@ static layer_events_error_t dc_handle_redraw_needed(const layer_event_t *event,
 }
 
 /**
- * Calculate time difference in nanoseconds.
+ * @brief Calculate time difference in nanoseconds
+ * @param start Start time
+ * @param end End time
+ * @return Time difference in nanoseconds
  */
 static uint64_t dc_time_diff_ns(const struct timeval *start,
                                 const struct timeval *end) {
@@ -830,7 +853,9 @@ static uint64_t dc_time_diff_ns(const struct timeval *start,
 }
 
 /**
- * Simple FNV-1a hash function for state comparison.
+ * @brief Simple FNV-1a hash function for state comparison
+ * @param str String to hash
+ * @return 32-bit hash value
  */
 static uint32_t dc_hash_string(const char *str) {
     if (!str)
@@ -848,8 +873,12 @@ static uint32_t dc_hash_string(const char *str) {
 }
 
 /**
- * Extract semantic components from prompt for intelligent caching.
+ * @brief Extract semantic components from prompt for intelligent caching
+ *
  * Timestamp-aware normalization that ignores dynamic time elements.
+ *
+ * @param prompt Prompt string to hash semantically
+ * @return 32-bit semantic hash value
  */
 static uint32_t dc_hash_prompt_semantic(const char *prompt) {
     if (!prompt || *prompt == '\0')
@@ -947,8 +976,12 @@ static uint32_t dc_hash_prompt_semantic(const char *prompt) {
 }
 
 /**
- * Extract semantic components from command for intelligent caching.
+ * @brief Extract semantic components from command for intelligent caching
+ *
  * Deterministic command classification for consistent cache grouping.
+ *
+ * @param command Command string to hash semantically
+ * @return 32-bit semantic hash value
  */
 static uint32_t dc_hash_command_semantic(const char *command) {
     if (!command || *command == '\0')
@@ -1004,8 +1037,16 @@ static uint32_t dc_hash_command_semantic(const char *command) {
 }
 
 /**
- * Generate intelligent state hash for caching and comparison.
+ * @brief Generate intelligent state hash for caching and comparison
+ *
  * Balanced approach for optimal cache hit rates with necessary differentiation.
+ *
+ * @param prompt Prompt text
+ * @param command Command text
+ * @param theme_name Current theme name
+ * @param symbol_mode Current symbol compatibility mode
+ * @param hash_buffer Output buffer for hash string
+ * @param buffer_size Size of hash buffer
  */
 static void dc_generate_state_hash(const char *prompt, const char *command,
                                    const char *theme_name,
@@ -1045,7 +1086,8 @@ static void dc_generate_state_hash(const char *prompt, const char *command,
 }
 
 /**
- * Initialize default configuration.
+ * @brief Initialize default configuration values
+ * @param config Configuration structure to initialize
  */
 static void dc_init_default_config(display_controller_config_t *config) {
     if (!config)
@@ -1081,7 +1123,9 @@ static void dc_init_default_config(display_controller_config_t *config) {
 }
 
 /**
- * Update performance history.
+ * @brief Update performance history circular buffer
+ * @param controller Display controller instance
+ * @param operation_time_ns Operation time in nanoseconds to record
  */
 static void dc_update_performance_history(display_controller_t *controller,
                                           uint64_t operation_time_ns) {
@@ -1096,7 +1140,9 @@ static void dc_update_performance_history(display_controller_t *controller,
 }
 
 /**
- * Calculate average from performance history.
+ * @brief Calculate average from performance history
+ * @param controller Display controller instance
+ * @return Average operation time in nanoseconds
  */
 static uint64_t
 dc_calculate_average_performance(const display_controller_t *controller) {
@@ -1117,7 +1163,8 @@ dc_calculate_average_performance(const display_controller_t *controller) {
 }
 
 /**
- * Clean expired cache entries.
+ * @brief Clean expired cache entries based on adaptive TTL
+ * @param controller Display controller instance with cache to clean
  */
 static void dc_cleanup_expired_cache_entries(display_controller_t *controller) {
     if (!controller || !controller->cache_entries)
@@ -1196,7 +1243,10 @@ static void dc_cleanup_expired_cache_entries(display_controller_t *controller) {
 }
 
 /**
- * Find cache entry by state hash.
+ * @brief Find cache entry by state hash
+ * @param controller Display controller instance with cache
+ * @param state_hash State hash string to look up
+ * @return Pointer to cache entry if found, NULL otherwise
  */
 static display_cache_entry_t *
 dc_find_cache_entry(display_controller_t *controller, const char *state_hash) {
@@ -1216,7 +1266,12 @@ dc_find_cache_entry(display_controller_t *controller, const char *state_hash) {
 }
 
 /**
- * Add new cache entry.
+ * @brief Add new cache entry with LRU eviction if full
+ * @param controller Display controller instance with cache
+ * @param state_hash State hash for the new entry
+ * @param display_content Display content to cache
+ * @param content_length Length of display content
+ * @return DISPLAY_CONTROLLER_SUCCESS on success, error code otherwise
  */
 static display_controller_error_t
 dc_add_cache_entry(display_controller_t *controller, const char *state_hash,

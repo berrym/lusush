@@ -1,6 +1,8 @@
 /**
  * @file lle_shell_event_hub.h
  * @brief LLE Shell Event Hub - Central routing for shell lifecycle events
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * This module provides the shell event hub that coordinates shell-level events
  * (directory changes, pre/post command) and routes them to registered handlers.

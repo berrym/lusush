@@ -1,22 +1,26 @@
 /**
- * terminal_signature_database.c - Terminal Signature Database
+ * @file terminal_signature_database.c
+ * @brief Terminal Signature Database
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Comprehensive database of known terminal emulators with their
  * characteristics and preferred handling modes.
  *
  * Specification:
  * docs/lle_specification/critical_gaps/26_adaptive_terminal_integration_complete.md
- * Date: 2025-11-02
  */
 
 #include "lle/adaptive_terminal_integration.h"
 #include <stddef.h>
 
 /**
- * Terminal signature database.
+ * @brief Terminal signature database
  *
- * Patterns support wildcards (*) for flexible matching.
- * Ordered by priority: more specific patterns first.
+ * Comprehensive database of known terminal emulators with their
+ * characteristics and preferred handling modes. Patterns support
+ * wildcards (*) for flexible matching. Ordered by priority with
+ * more specific patterns first.
  */
 static const lle_terminal_signature_t lle_known_terminals[] = {
     /* ========================================================================
@@ -203,7 +207,13 @@ static const lle_terminal_signature_t lle_known_terminals[] = {
     (sizeof(lle_known_terminals) / sizeof(lle_known_terminals[0]))
 
 /**
- * Get terminal signature database.
+ * @brief Get terminal signature database
+ *
+ * Returns a pointer to the static terminal signature database and
+ * optionally provides the count of entries.
+ *
+ * @param count Output for number of signatures in database (may be NULL)
+ * @return Pointer to the terminal signature database array
  */
 const lle_terminal_signature_t *
 lle_get_terminal_signature_database(size_t *count) {

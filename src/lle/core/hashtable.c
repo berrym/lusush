@@ -1,5 +1,8 @@
-/*
- * hashtable.c - libhashtable Integration Wrapper (Spec 05 Complete)
+/**
+ * @file hashtable.c
+ * @brief libhashtable Integration Wrapper (Spec 05 Complete)
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Complete implementation of all three phases:
  * - Phase 1: Core Integration (memory pool, factory, monitoring)
@@ -24,10 +27,18 @@
 /* Thread-local storage for memory context (Phase 1) */
 static __thread lle_hashtable_memory_context_t *current_memory_context = NULL;
 
+/**
+ * @brief Get the current thread-local memory context
+ * @return Pointer to the current memory context, or NULL if not set
+ */
 static lle_hashtable_memory_context_t *lle_get_current_memory_context(void) {
     return current_memory_context;
 }
 
+/**
+ * @brief Set the current thread-local memory context
+ * @param ctx Memory context to set as current
+ */
 static void
 lle_set_current_memory_context(lle_hashtable_memory_context_t *ctx) {
     current_memory_context = ctx;
@@ -38,6 +49,11 @@ lle_set_current_memory_context(lle_hashtable_memory_context_t *ctx) {
  * ============================================================================
  */
 
+/**
+ * @brief Copy a key using the memory pool
+ * @param key The key to copy (must be a null-terminated string)
+ * @return Pointer to the copied key, or NULL on failure
+ */
 void *lle_hashtable_key_copy_pooled(const void *key) {
     lle_hashtable_memory_context_t *ctx = lle_get_current_memory_context();
 
@@ -68,6 +84,10 @@ void *lle_hashtable_key_copy_pooled(const void *key) {
     return new_key;
 }
 
+/**
+ * @brief Free a key that was allocated from the memory pool
+ * @param key The key to free (may be NULL)
+ */
 void lle_hashtable_key_free_pooled(const void *key) {
     lle_hashtable_memory_context_t *ctx = lle_get_current_memory_context();
 
@@ -90,6 +110,11 @@ void lle_hashtable_key_free_pooled(const void *key) {
     ctx->bytes_freed += key_len;
 }
 
+/**
+ * @brief Copy a value using the memory pool
+ * @param value The value to copy (must be a null-terminated string)
+ * @return Pointer to the copied value, or NULL on failure
+ */
 void *lle_hashtable_value_copy_pooled(const void *value) {
     lle_hashtable_memory_context_t *ctx = lle_get_current_memory_context();
 
@@ -120,6 +145,10 @@ void *lle_hashtable_value_copy_pooled(const void *value) {
     return new_value;
 }
 
+/**
+ * @brief Free a value that was allocated from the memory pool
+ * @param value The value to free (may be NULL)
+ */
 void lle_hashtable_value_free_pooled(const void *value) {
     lle_hashtable_memory_context_t *ctx = lle_get_current_memory_context();
 
@@ -147,6 +176,10 @@ void lle_hashtable_value_free_pooled(const void *value) {
  * ============================================================================
  */
 
+/**
+ * @brief Initialize hashtable configuration with default values
+ * @param config Configuration structure to initialize
+ */
 void lle_hashtable_config_init_default(lle_hashtable_config_t *config) {
     if (!config) {
         return;
@@ -808,6 +841,10 @@ size_t lle_strstr_hashtable_size(lle_strstr_hashtable_t *ht) {
     return count;
 }
 
+/**
+ * @brief Clear all entries from a string-to-string hashtable
+ * @param ht Hashtable to clear (may be NULL)
+ */
 void lle_strstr_hashtable_clear(lle_strstr_hashtable_t *ht) {
     if (!ht) {
         return;
@@ -870,6 +907,10 @@ void lle_strstr_hashtable_clear(lle_strstr_hashtable_t *ht) {
     }
 }
 
+/**
+ * @brief Destroy a string-to-string hashtable and free all resources
+ * @param ht Hashtable to destroy (may be NULL)
+ */
 void lle_strstr_hashtable_destroy(lle_strstr_hashtable_t *ht) {
     if (!ht) {
         return;
@@ -941,6 +982,10 @@ lle_hashtable_get_metrics(lle_strstr_hashtable_t *ht,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Reset performance metrics for a hashtable
+ * @param ht Hashtable whose metrics to reset (may be NULL)
+ */
 void lle_hashtable_reset_metrics(lle_strstr_hashtable_t *ht) {
     if (!ht || !ht->metrics) {
         return;
@@ -1010,6 +1055,10 @@ lle_result_t lle_hashtable_system_init(lle_hashtable_system_t **system,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Destroy the hashtable system and free all resources
+ * @param system Hashtable system to destroy (may be NULL)
+ */
 void lle_hashtable_system_destroy(lle_hashtable_system_t *system) {
     if (!system) {
         return;

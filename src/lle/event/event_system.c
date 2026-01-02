@@ -1,7 +1,11 @@
-/*
- * event_system.c - Event System Implementation (Phase 1)
+/**
+ * @file event_system.c
+ * @brief LLE Event System Core Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Core event system lifecycle and event creation/destruction.
+ * Implements the foundation of the LLE event-driven architecture.
  *
  * Spec 04: Event System - Phase 1
  */
@@ -11,11 +15,14 @@
 #include <string.h>
 #include <time.h>
 
+/** @brief Default event queue capacity */
 #define LLE_EVENT_QUEUE_DEFAULT_CAPACITY 1024
+/** @brief Initial handler array capacity */
 #define LLE_EVENT_HANDLER_INITIAL_CAPACITY 32
 
-/*
- * Get current timestamp in microseconds
+/**
+ * @brief Get current timestamp in microseconds
+ * @return Current monotonic time in microseconds
  */
 uint64_t lle_event_get_timestamp_us(void) {
     struct timespec ts;
@@ -23,8 +30,10 @@ uint64_t lle_event_get_timestamp_us(void) {
     return (uint64_t)ts.tv_sec * 1000000 + (uint64_t)ts.tv_nsec / 1000;
 }
 
-/*
- * Get event type name (for debugging) - Phase 1 + Phase 2
+/**
+ * @brief Get human-readable name for an event type
+ * @param type Event type enumeration value
+ * @return Static string containing event type name
  */
 const char *lle_event_type_name(lle_event_kind_t type) {
     switch (type) {
@@ -165,8 +174,15 @@ const char *lle_event_type_name(lle_event_kind_t type) {
     }
 }
 
-/*
- * Initialize event system (Phase 1 + Phase 2)
+/**
+ * @brief Initialize the event system
+ *
+ * Creates and initializes an event system with queues, handler arrays,
+ * and all supporting subsystems (timer, filter, stats).
+ *
+ * @param system Output pointer to receive initialized event system
+ * @param pool Memory pool for allocations
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_event_system_init(lle_event_system_t **system,
                                    lle_memory_pool_t *pool) {
@@ -270,8 +286,13 @@ lle_result_t lle_event_system_init(lle_event_system_t **system,
     return LLE_SUCCESS;
 }
 
-/*
- * Destroy event system (Phase 1 + Phase 2A + Phase 2B + Phase 2C + Phase 2D)
+/**
+ * @brief Destroy the event system and release all resources
+ *
+ * Cleans up all subsystems (timer, filter, stats), queues, handlers,
+ * and frees all allocated memory.
+ *
+ * @param system Event system to destroy
  */
 void lle_event_system_destroy(lle_event_system_t *system) {
     if (!system) {
@@ -328,8 +349,10 @@ void lle_event_system_destroy(lle_event_system_t *system) {
     lle_pool_free(system);
 }
 
-/*
- * Start event system
+/**
+ * @brief Start the event system
+ * @param system Event system to start
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_event_system_start(lle_event_system_t *system) {
     if (!system) {
@@ -350,8 +373,10 @@ lle_result_t lle_event_system_start(lle_event_system_t *system) {
     return LLE_SUCCESS;
 }
 
-/*
- * Stop event system
+/**
+ * @brief Stop the event system
+ * @param system Event system to stop
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_event_system_stop(lle_event_system_t *system) {
     if (!system) {
@@ -372,8 +397,10 @@ lle_result_t lle_event_system_stop(lle_event_system_t *system) {
     return LLE_SUCCESS;
 }
 
-/*
- * Get event priority based on type (Phase 2)
+/**
+ * @brief Get default priority for an event type
+ * @param type Event type
+ * @return Appropriate priority level for the event type
  */
 static lle_event_priority_t
 lle_event_get_priority_for_type(lle_event_kind_t type) {
@@ -423,8 +450,18 @@ lle_event_get_priority_for_type(lle_event_kind_t type) {
     return LLE_PRIORITY_MEDIUM;
 }
 
-/*
- * Create event (Phase 1 + Phase 2)
+/**
+ * @brief Create a new event
+ *
+ * Allocates and initializes an event with the specified type and data.
+ * The event data is deep-copied if provided.
+ *
+ * @param system Event system
+ * @param type Event type
+ * @param data Event data (copied if not NULL)
+ * @param data_size Size of event data
+ * @param event Output pointer to receive created event
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_event_create(lle_event_system_t *system, lle_event_kind_t type,
                               void *data, size_t data_size,
@@ -475,8 +512,10 @@ lle_result_t lle_event_create(lle_event_system_t *system, lle_event_kind_t type,
     return LLE_SUCCESS;
 }
 
-/*
- * Destroy event
+/**
+ * @brief Destroy an event and free its resources
+ * @param system Event system (unused, reserved for future use)
+ * @param event Event to destroy
  */
 void lle_event_destroy(lle_event_system_t *system, lle_event_t *event) {
     if (!event) {
@@ -494,8 +533,12 @@ void lle_event_destroy(lle_event_system_t *system, lle_event_t *event) {
     (void)system; /* Unused for now */
 }
 
-/*
- * Clone event
+/**
+ * @brief Clone an existing event
+ * @param system Event system
+ * @param source Event to clone
+ * @param dest Output pointer to receive cloned event
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_event_clone(lle_event_system_t *system, lle_event_t *source,
                              lle_event_t **dest) {
@@ -508,8 +551,13 @@ lle_result_t lle_event_clone(lle_event_system_t *system, lle_event_t *source,
                             source->data_size, dest);
 }
 
-/*
- * Get event system statistics
+/**
+ * @brief Get event system statistics
+ * @param system Event system
+ * @param created Output for events created count (may be NULL)
+ * @param dispatched Output for events dispatched count (may be NULL)
+ * @param dropped Output for events dropped count (may be NULL)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_event_system_get_stats(lle_event_system_t *system,
                                         uint64_t *created, uint64_t *dispatched,
@@ -537,12 +585,17 @@ lle_result_t lle_event_system_get_stats(lle_event_system_t *system,
  * ============================================================================
  */
 
-/*
- * Fire a directory changed event
+/**
+ * @brief Fire a directory changed event
  *
  * This is the core event for fixing stale git prompts (Issue #16).
  * When the working directory changes, this event allows handlers to
  * invalidate cached data that depends on the current directory.
+ *
+ * @param system Event system
+ * @param old_dir Previous directory path (may be NULL)
+ * @param new_dir New directory path
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_event_fire_directory_changed(lle_event_system_t *system,
                                               const char *old_dir,
@@ -588,11 +641,15 @@ lle_result_t lle_event_fire_directory_changed(lle_event_system_t *system,
     return LLE_SUCCESS;
 }
 
-/*
- * Fire a pre-command event
+/**
+ * @brief Fire a pre-command event
  *
  * Called before command execution to allow the prompt system to record
  * the current prompt position for transient prompt replacement.
+ *
+ * @param system Event system
+ * @param command Command about to be executed (may be NULL)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_event_fire_pre_command(lle_event_system_t *system,
                                         const char *command) {
@@ -628,11 +685,17 @@ lle_result_t lle_event_fire_pre_command(lle_event_system_t *system,
     return LLE_SUCCESS;
 }
 
-/*
- * Fire a post-command event
+/**
+ * @brief Fire a post-command event
  *
  * Called after command execution with exit code and duration.
  * Used for prompt status display and history enrichment.
+ *
+ * @param system Event system
+ * @param command Command that was executed (may be NULL)
+ * @param exit_code Command exit code
+ * @param duration_us Command execution duration in microseconds
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_event_fire_post_command(lle_event_system_t *system,
                                          const char *command, int exit_code,
@@ -672,11 +735,14 @@ lle_result_t lle_event_fire_post_command(lle_event_system_t *system,
     return LLE_SUCCESS;
 }
 
-/*
- * Fire a prompt display event
+/**
+ * @brief Fire a prompt display event
  *
  * Called just before the prompt is rendered. Allows the prompt system
  * to check if regeneration is needed and apply any pending updates.
+ *
+ * @param system Event system
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_event_fire_prompt_display(lle_event_system_t *system) {
     if (!system) {

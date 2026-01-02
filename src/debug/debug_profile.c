@@ -1,3 +1,15 @@
+/**
+ * @file debug_profile.c
+ * @brief Performance Profiling for Shell Debugging
+ *
+ * Provides profiling capabilities for measuring function execution times,
+ * identifying performance hotspots, and generating detailed performance
+ * reports for shell script debugging.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ */
+
 #include "debug.h"
 #include "errors.h"
 
@@ -7,7 +19,10 @@
 #include <string.h>
 #include <time.h>
 
-// Start profiling session
+/**
+ * @brief Start a profiling session
+ * @param ctx Debug context to enable profiling on
+ */
 void debug_profile_start(debug_context_t *ctx) {
     if (!ctx) {
         return;
@@ -22,7 +37,10 @@ void debug_profile_start(debug_context_t *ctx) {
     debug_printf(ctx, "Performance profiling started\n");
 }
 
-// Stop profiling session
+/**
+ * @brief Stop a profiling session
+ * @param ctx Debug context to disable profiling on
+ */
 void debug_profile_stop(debug_context_t *ctx) {
     if (!ctx) {
         return;
@@ -34,7 +52,11 @@ void debug_profile_stop(debug_context_t *ctx) {
     debug_printf(ctx, "Performance profiling stopped\n");
 }
 
-// Enter function for profiling
+/**
+ * @brief Record function entry for profiling
+ * @param ctx Debug context
+ * @param function Name of the function being entered
+ */
 void debug_profile_function_enter(debug_context_t *ctx, const char *function) {
     if (!ctx || !ctx->profile_enabled || !function) {
         return;
@@ -73,7 +95,11 @@ void debug_profile_function_enter(debug_context_t *ctx, const char *function) {
     }
 }
 
-// Exit function for profiling
+/**
+ * @brief Record function exit for profiling
+ * @param ctx Debug context
+ * @param function Name of the function being exited
+ */
 void debug_profile_function_exit(debug_context_t *ctx, const char *function) {
     if (!ctx || !ctx->profile_enabled || !function || !ctx->current_frame) {
         return;
@@ -109,7 +135,10 @@ void debug_profile_function_exit(debug_context_t *ctx, const char *function) {
     }
 }
 
-// Generate profiling report
+/**
+ * @brief Generate and display a profiling report
+ * @param ctx Debug context containing profile data
+ */
 void debug_profile_report(debug_context_t *ctx) {
     if (!ctx || !ctx->profile_data) {
         debug_printf(ctx, "No profile data available\n");
@@ -256,7 +285,10 @@ void debug_profile_report(debug_context_t *ctx) {
     }
 }
 
-// Reset profiling data
+/**
+ * @brief Reset all profiling data
+ * @param ctx Debug context to reset profile data for
+ */
 void debug_profile_reset(debug_context_t *ctx) {
     if (!ctx) {
         return;

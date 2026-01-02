@@ -1,8 +1,11 @@
-/*
- * event_handlers.c - Event Handler Management and Dispatching (Phase 1 + Phase
- * 2C)
+/**
+ * @file event_handlers.c
+ * @brief Event Handler Management and Dispatching
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Handler registration, unregistration, and event dispatching with filtering.
+ * Implements Phase 1 core handlers and Phase 2C filtering/hooks.
  *
  * Spec 04: Event System - Phase 1 + Phase 2C
  */
@@ -15,8 +18,16 @@
 extern lle_filter_result_t lle_event_filter_apply(lle_event_system_t *system,
                                                   lle_event_t *event);
 
-/*
- * Register event handler
+/**
+ * @brief Register an event handler for a specific event type
+ * @param system The event system to register with
+ * @param type The event type to handle
+ * @param handler The callback function to invoke
+ * @param user_data User-provided context passed to handler
+ * @param name Unique name for this handler (used for unregistration)
+ * @return LLE_SUCCESS on success, or an error code on failure
+ *
+ * The handler array grows automatically when capacity is reached.
  */
 lle_result_t lle_event_handler_register(lle_event_system_t *system,
                                         lle_event_kind_t type,
@@ -72,8 +83,12 @@ lle_result_t lle_event_handler_register(lle_event_system_t *system,
     return LLE_SUCCESS;
 }
 
-/*
- * Unregister specific handler
+/**
+ * @brief Unregister a specific event handler by type and name
+ * @param system The event system containing the handler
+ * @param type The event type the handler was registered for
+ * @param name The name of the handler to remove
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_FOUND if handler not found
  */
 lle_result_t lle_event_handler_unregister(lle_event_system_t *system,
                                           lle_event_kind_t type,
@@ -108,8 +123,11 @@ lle_result_t lle_event_handler_unregister(lle_event_system_t *system,
     return LLE_ERROR_NOT_FOUND;
 }
 
-/*
- * Unregister all handlers for event type
+/**
+ * @brief Unregister all handlers for a specific event type
+ * @param system The event system containing the handlers
+ * @param type The event type to remove all handlers for
+ * @return LLE_SUCCESS if at least one handler was removed, LLE_ERROR_NOT_FOUND otherwise
  */
 lle_result_t lle_event_handler_unregister_all(lle_event_system_t *system,
                                               lle_event_kind_t type) {
@@ -146,8 +164,11 @@ lle_result_t lle_event_handler_unregister_all(lle_event_system_t *system,
     return (removed > 0) ? LLE_SUCCESS : LLE_ERROR_NOT_FOUND;
 }
 
-/*
- * Get handler count for event type
+/**
+ * @brief Get the number of handlers registered for an event type
+ * @param system The event system to query
+ * @param type The event type to count handlers for
+ * @return Number of registered handlers for the type
  */
 size_t lle_event_handler_count(lle_event_system_t *system,
                                lle_event_kind_t type) {
@@ -169,9 +190,17 @@ size_t lle_event_handler_count(lle_event_system_t *system,
     return count;
 }
 
-/*
- * Dispatch event to all registered handlers (Phase 1 + Phase 2C with filtering
- * and hooks)
+/**
+ * @brief Dispatch an event to all registered handlers
+ * @param system The event system to dispatch through
+ * @param event The event to dispatch
+ * @return LLE_SUCCESS on success, or last error from handlers
+ *
+ * Phase 2C enhancements:
+ * - Applies event filters before dispatch (can block events)
+ * - Calls pre-dispatch hook before handlers
+ * - Updates system state to PROCESSING during dispatch
+ * - Calls post-dispatch hook after handlers complete
  */
 lle_result_t lle_event_dispatch(lle_event_system_t *system,
                                 lle_event_t *event) {
@@ -243,8 +272,14 @@ lle_result_t lle_event_dispatch(lle_event_system_t *system,
     return dispatch_result;
 }
 
-/*
- * Process events from queue (up to max_events)
+/**
+ * @brief Process a batch of events from the queue
+ * @param system The event system to process
+ * @param max_events Maximum number of events to process in this batch
+ * @return LLE_SUCCESS on success, or last error encountered
+ *
+ * Dequeues and dispatches up to max_events events. Stops early if
+ * the queue becomes empty or a fatal error occurs.
  */
 lle_result_t lle_event_process_queue(lle_event_system_t *system,
                                      uint32_t max_events) {
@@ -289,8 +324,12 @@ lle_result_t lle_event_process_queue(lle_event_system_t *system,
     return last_result;
 }
 
-/*
- * Process all events in queue
+/**
+ * @brief Process all events currently in the queue
+ * @param system The event system to process
+ * @return LLE_SUCCESS on success, or error code on failure
+ *
+ * Processes events in batches of 100 until the queue is empty.
  */
 lle_result_t lle_event_process_all(lle_event_system_t *system) {
     if (!system) {

@@ -1,6 +1,8 @@
 /**
  * @file history_events.c
  * @brief LLE History System - Event System Integration
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Specification: Spec 09 - History System (Phase 2 Day 6)
  * Version: 1.0.0
@@ -106,7 +108,8 @@ static lle_history_event_state_t *g_event_state = NULL;
  */
 
 /**
- * Get current timestamp in microseconds
+ * @brief Get current timestamp in microseconds
+ * @return Timestamp in microseconds since epoch
  */
 static uint64_t get_timestamp_us(void) {
     struct timespec ts;
@@ -120,7 +123,10 @@ static uint64_t get_timestamp_us(void) {
  */
 
 /**
- * Initialize history event integration
+ * @brief Initialize history event integration
+ * @param event_system Event system to integrate with
+ * @param history_core History core engine
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t lle_history_events_init(lle_event_system_t *event_system,
                                      lle_history_core_t *history_core) {
@@ -154,7 +160,8 @@ lle_result_t lle_history_events_init(lle_event_system_t *event_system,
 }
 
 /**
- * Shutdown history event integration
+ * @brief Shutdown history event integration
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t lle_history_events_shutdown(void) {
     if (!g_event_state) {
@@ -169,7 +176,8 @@ lle_result_t lle_history_events_shutdown(void) {
 }
 
 /**
- * Check if event system is initialized
+ * @brief Check if event system is initialized
+ * @return true if initialized, false otherwise
  */
 bool lle_history_events_is_initialized(void) {
     return (g_event_state && g_event_state->initialized);
@@ -181,7 +189,11 @@ bool lle_history_events_is_initialized(void) {
  */
 
 /**
- * Emit entry added event
+ * @brief Emit entry added event
+ * @param entry_id ID of the added entry
+ * @param command Command string that was added
+ * @param exit_code Exit code of the command
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t lle_history_emit_entry_added(uint64_t entry_id,
                                           const char *command, int exit_code) {
@@ -239,7 +251,10 @@ lle_result_t lle_history_emit_entry_added(uint64_t entry_id,
 }
 
 /**
- * Emit entry accessed event
+ * @brief Emit entry accessed event
+ * @param entry_id ID of the accessed entry
+ * @param command Command string that was accessed
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t lle_history_emit_entry_accessed(uint64_t entry_id,
                                              const char *command) {
@@ -294,7 +309,12 @@ lle_result_t lle_history_emit_entry_accessed(uint64_t entry_id,
 }
 
 /**
- * Emit history loaded event
+ * @brief Emit history loaded event
+ * @param file_path Path to the loaded history file
+ * @param entry_count Number of entries loaded
+ * @param duration_us Duration of the load operation in microseconds
+ * @param success Whether the load was successful
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t lle_history_emit_history_loaded(const char *file_path,
                                              size_t entry_count,
@@ -346,7 +366,12 @@ lle_result_t lle_history_emit_history_loaded(const char *file_path,
 }
 
 /**
- * Emit history saved event
+ * @brief Emit history saved event
+ * @param file_path Path to the saved history file
+ * @param entry_count Number of entries saved
+ * @param duration_us Duration of the save operation in microseconds
+ * @param success Whether the save was successful
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t lle_history_emit_history_saved(const char *file_path,
                                             size_t entry_count,
@@ -398,7 +423,11 @@ lle_result_t lle_history_emit_history_saved(const char *file_path,
 }
 
 /**
- * Emit history search event
+ * @brief Emit history search event
+ * @param search_query Search query string
+ * @param result_count Number of results found
+ * @param duration_us Duration of the search in microseconds
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t lle_history_emit_history_search(const char *search_query,
                                              size_t result_count,
@@ -453,7 +482,11 @@ lle_result_t lle_history_emit_history_search(const char *search_query,
  */
 
 /**
- * Register handler for history change events
+ * @brief Register handler for history change events
+ * @param handler Event handler function
+ * @param user_data User data to pass to handler
+ * @param handler_name Name for the handler (for debugging)
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t lle_history_register_change_handler(lle_event_handler_fn handler,
                                                  void *user_data,
@@ -472,7 +505,11 @@ lle_result_t lle_history_register_change_handler(lle_event_handler_fn handler,
 }
 
 /**
- * Register handler for history navigation events
+ * @brief Register handler for history navigation events
+ * @param handler Event handler function
+ * @param user_data User data to pass to handler
+ * @param handler_name Name for the handler (for debugging)
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t lle_history_register_navigate_handler(lle_event_handler_fn handler,
                                                    void *user_data,
@@ -491,7 +528,11 @@ lle_result_t lle_history_register_navigate_handler(lle_event_handler_fn handler,
 }
 
 /**
- * Register handler for history search events
+ * @brief Register handler for history search events
+ * @param handler Event handler function
+ * @param user_data User data to pass to handler
+ * @param handler_name Name for the handler (for debugging)
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t lle_history_register_search_handler(lle_event_handler_fn handler,
                                                  void *user_data,
@@ -515,7 +556,9 @@ lle_result_t lle_history_register_search_handler(lle_event_handler_fn handler,
  */
 
 /**
- * Enable or disable event emission
+ * @brief Enable or disable event emission
+ * @param enabled true to enable, false to disable
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t lle_history_events_set_enabled(bool enabled) {
     if (!g_event_state) {
@@ -527,7 +570,9 @@ lle_result_t lle_history_events_set_enabled(bool enabled) {
 }
 
 /**
- * Enable or disable access event emission
+ * @brief Enable or disable access event emission
+ * @param enabled true to enable, false to disable
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t lle_history_events_set_emit_access(bool enabled) {
     if (!g_event_state) {
@@ -544,7 +589,14 @@ lle_result_t lle_history_events_set_emit_access(bool enabled) {
  */
 
 /**
- * Get event emission statistics
+ * @brief Get event emission statistics
+ * @param total_events Output for total events emitted (may be NULL)
+ * @param entry_added Output for entry added events (may be NULL)
+ * @param entry_accessed Output for entry accessed events (may be NULL)
+ * @param history_loaded Output for history loaded events (may be NULL)
+ * @param history_saved Output for history saved events (may be NULL)
+ * @param history_searched Output for history searched events (may be NULL)
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t lle_history_events_get_stats(uint64_t *total_events,
                                           uint64_t *entry_added,
@@ -573,7 +625,8 @@ lle_result_t lle_history_events_get_stats(uint64_t *total_events,
 }
 
 /**
- * Print event statistics
+ * @brief Print event statistics to stdout
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t lle_history_events_print_stats(void) {
     if (!g_event_state) {

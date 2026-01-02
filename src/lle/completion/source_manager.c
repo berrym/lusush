@@ -1,15 +1,13 @@
-/*
- * Lusush Shell - LLE Source Manager Implementation
- * Copyright (C) 2021-2026  Michael Berry
+/**
+ * @file source_manager.c
+ * @brief LLE Source Manager Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- *
- * ============================================================================
- *
- * SOURCE MANAGER IMPLEMENTATION - Spec 12 Core
  *
  * Manages completion sources and orchestrates querying.
  */
@@ -24,21 +22,27 @@
 // ============================================================================
 
 /**
- * Builtin source: Only applicable at command position
+ * @brief Check if builtin source is applicable
+ * @param context Context to check
+ * @return true if at command position
  */
 static bool builtin_source_applicable(const lle_context_analyzer_t *context) {
     return context->type == LLE_CONTEXT_COMMAND;
 }
 
 /**
- * Alias source: Only applicable at command position
+ * @brief Check if alias source is applicable
+ * @param context Context to check
+ * @return true if at command position
  */
 static bool alias_source_applicable(const lle_context_analyzer_t *context) {
     return context->type == LLE_CONTEXT_COMMAND;
 }
 
 /**
- * External command source: Only applicable at command position
+ * @brief Check if external command source is applicable
+ * @param context Context to check
+ * @return true if at command position
  */
 static bool
 external_command_source_applicable(const lle_context_analyzer_t *context) {
@@ -46,7 +50,9 @@ external_command_source_applicable(const lle_context_analyzer_t *context) {
 }
 
 /**
- * File source: Applicable for arguments and redirects
+ * @brief Check if file source is applicable
+ * @param context Context to check
+ * @return true if argument or redirect context
  */
 static bool file_source_applicable(const lle_context_analyzer_t *context) {
     return context->type == LLE_CONTEXT_ARGUMENT ||
@@ -54,14 +60,18 @@ static bool file_source_applicable(const lle_context_analyzer_t *context) {
 }
 
 /**
- * Variable source: Only applicable for $VAR
+ * @brief Check if variable source is applicable
+ * @param context Context to check
+ * @return true if variable context
  */
 static bool variable_source_applicable(const lle_context_analyzer_t *context) {
     return context->type == LLE_CONTEXT_VARIABLE;
 }
 
 /**
- * History source: Always applicable as fallback
+ * @brief Check if history source is applicable
+ * @param context Context to check (unused)
+ * @return Always true (fallback source)
  */
 static bool history_source_applicable(const lle_context_analyzer_t *context) {
     (void)context; /* Unused */
@@ -73,7 +83,12 @@ static bool history_source_applicable(const lle_context_analyzer_t *context) {
 // ============================================================================
 
 /**
- * Builtin command source - ONLY builtins (no external commands)
+ * @brief Generate builtin command completions
+ * @param pool Memory pool
+ * @param context Completion context (unused)
+ * @param prefix Prefix to match
+ * @param result Result set to populate
+ * @return LLE_SUCCESS or error code
  */
 static lle_result_t
 builtin_source_generate(lle_memory_pool_t *pool,
@@ -86,7 +101,12 @@ builtin_source_generate(lle_memory_pool_t *pool,
 }
 
 /**
- * Alias command source - shell aliases
+ * @brief Generate alias completions
+ * @param pool Memory pool
+ * @param context Completion context (unused)
+ * @param prefix Prefix to match
+ * @param result Result set to populate
+ * @return LLE_SUCCESS or error code
  */
 static lle_result_t alias_source_generate(lle_memory_pool_t *pool,
                                           const lle_context_analyzer_t *context,
@@ -99,7 +119,12 @@ static lle_result_t alias_source_generate(lle_memory_pool_t *pool,
 }
 
 /**
- * External command source - ONLY PATH commands (no builtins)
+ * @brief Generate external command completions from PATH
+ * @param pool Memory pool
+ * @param context Completion context (unused)
+ * @param prefix Prefix to match
+ * @param result Result set to populate
+ * @return LLE_SUCCESS or error code
  */
 static lle_result_t external_command_source_generate(
     lle_memory_pool_t *pool, const lle_context_analyzer_t *context,
@@ -112,7 +137,9 @@ static lle_result_t external_command_source_generate(
 }
 
 /**
- * Check if command expects only directory arguments
+ * @brief Check if command expects only directory arguments
+ * @param command_name Command name to check
+ * @return true if command only accepts directories (e.g., cd, rmdir)
  */
 static bool is_directory_only_command(const char *command_name) {
     if (!command_name) {
@@ -135,10 +162,16 @@ static bool is_directory_only_command(const char *command_name) {
 }
 
 /**
- * File/directory source - command-aware
+ * @brief Generate file/directory completions
  *
- * For commands like cd, rmdir: only show directories
- * For other commands: show both files and directories
+ * Command-aware: for cd/rmdir shows only directories,
+ * for other commands shows both files and directories.
+ *
+ * @param pool Memory pool
+ * @param context Completion context for command detection
+ * @param prefix Prefix to match
+ * @param result Result set to populate
+ * @return LLE_SUCCESS or error code
  */
 static lle_result_t file_source_generate(lle_memory_pool_t *pool,
                                          const lle_context_analyzer_t *context,
@@ -154,7 +187,12 @@ static lle_result_t file_source_generate(lle_memory_pool_t *pool,
 }
 
 /**
- * Variable source
+ * @brief Generate variable completions
+ * @param pool Memory pool
+ * @param context Completion context (unused)
+ * @param prefix Prefix to match
+ * @param result Result set to populate
+ * @return LLE_SUCCESS or error code
  */
 static lle_result_t
 variable_source_generate(lle_memory_pool_t *pool,
@@ -167,7 +205,12 @@ variable_source_generate(lle_memory_pool_t *pool,
 }
 
 /**
- * History source
+ * @brief Generate history completions
+ * @param pool Memory pool
+ * @param context Completion context (unused)
+ * @param prefix Prefix to match
+ * @param result Result set to populate
+ * @return LLE_SUCCESS or error code
  */
 static lle_result_t
 history_source_generate(lle_memory_pool_t *pool,
@@ -183,6 +226,12 @@ history_source_generate(lle_memory_pool_t *pool,
 // PUBLIC API
 // ============================================================================
 
+/**
+ * @brief Create a new source manager with default sources
+ * @param pool Memory pool for allocations
+ * @param out_manager Output for created manager
+ * @return LLE_SUCCESS or error code
+ */
 lle_result_t lle_source_manager_create(lle_memory_pool_t *pool,
                                        lle_source_manager_t **out_manager) {
     if (!pool || !out_manager) {
@@ -246,6 +295,10 @@ lle_result_t lle_source_manager_create(lle_memory_pool_t *pool,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Free source manager resources
+ * @param manager Manager to free
+ */
 void lle_source_manager_free(lle_source_manager_t *manager) {
     if (!manager) {
         return;
@@ -255,6 +308,15 @@ void lle_source_manager_free(lle_source_manager_t *manager) {
     (void)manager;
 }
 
+/**
+ * @brief Register a completion source with the manager
+ * @param manager Manager to register with
+ * @param type Source type
+ * @param name Source name
+ * @param generate_fn Function to generate completions
+ * @param applicable_fn Function to check if source applies
+ * @return LLE_SUCCESS or error code
+ */
 lle_result_t
 lle_source_manager_register(lle_source_manager_t *manager,
                             lle_source_type_t type, const char *name,
@@ -283,6 +345,14 @@ lle_source_manager_register(lle_source_manager_t *manager,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Query all applicable sources for completions
+ * @param manager Source manager
+ * @param context Completion context
+ * @param prefix Prefix to match
+ * @param result Result set to populate
+ * @return LLE_SUCCESS or error code
+ */
 lle_result_t lle_source_manager_query(lle_source_manager_t *manager,
                                       const lle_context_analyzer_t *context,
                                       const char *prefix,

@@ -1,0 +1,25 @@
+var structcomposition__engine__t =
+[
+    [ "adaptive_strategy", "structcomposition__engine__t.html#a711add182c207789d7544ad36d33f74d", null ],
+    [ "cache", "structcomposition__engine__t.html#a2b364787afe57cbc5feca0f1233e2f83", null ],
+    [ "command_layer", "structcomposition__engine__t.html#acf663c64e69cc3ba61f15832a25c4e72", null ],
+    [ "composed_output", "structcomposition__engine__t.html#a8f20b61332505eaf0327d07013416060", null ],
+    [ "composed_output_size", "structcomposition__engine__t.html#afbdd387c88e13722e170a83f824403c3", null ],
+    [ "composition_cache_valid", "structcomposition__engine__t.html#a1803fd395e2697f516c3b02926f0b157", null ],
+    [ "continuation_prompts_enabled", "structcomposition__engine__t.html#aea49d0b2af7333215e0ec48fc8c3fd41", null ],
+    [ "current_analysis", "structcomposition__engine__t.html#ae65a5ca3dcdde061a8053e670ce53eea", null ],
+    [ "current_positioning", "structcomposition__engine__t.html#adb30b24e41c5db3bc7e5dd012e5e337a", null ],
+    [ "current_strategy", "structcomposition__engine__t.html#a26025440323e816ef22a22ffb8694b73", null ],
+    [ "event_subscriber_id", "structcomposition__engine__t.html#a0c4d4f52aeb0a1f45dcffecd48b53c91", null ],
+    [ "event_subscription_active", "structcomposition__engine__t.html#a86160b34cf900147c43104d6a385473d", null ],
+    [ "event_system", "structcomposition__engine__t.html#afc1c6791552e39ced29c3635a5f96cc1", null ],
+    [ "initialized", "structcomposition__engine__t.html#a69dc9b067b4fe229d9f101bb9ab2f46a", null ],
+    [ "intelligent_positioning", "structcomposition__engine__t.html#a1deedbb85f50f85ca45a037a555564fe", null ],
+    [ "last_composition_time", "structcomposition__engine__t.html#a59d6659e28281c72f03ac88c9351605e", null ],
+    [ "max_cache_age_ms", "structcomposition__engine__t.html#ad4a3f16bc3651a82294e038f434c7229", null ],
+    [ "performance", "structcomposition__engine__t.html#a119c9263112b4f22b9515a5b714991ef", null ],
+    [ "performance_monitoring", "structcomposition__engine__t.html#a753709adfdb8563fcad265ad591aa0df", null ],
+    [ "prompt_layer", "structcomposition__engine__t.html#a716414cc30307efb5ea72f94d3b23930", null ],
+    [ "screen_buffer", "structcomposition__engine__t.html#a2f717da98314d7a3ed5adcb0dae4ee6f", null ],
+    [ "version_string", "structcomposition__engine__t.html#aeace70bf8d5c7bb65fd244d9acb4ce78", null ]
+];

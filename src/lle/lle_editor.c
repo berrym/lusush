@@ -1,6 +1,8 @@
 /**
  * @file lle_editor.c
  * @brief LLE Editor Context Lifecycle Management
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Implements the lifecycle functions for lle_editor_t, including creation,
  * initialization, and destruction of the editor context and all its subsystems.

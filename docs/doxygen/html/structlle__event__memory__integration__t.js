@@ -1,0 +1,26 @@
+var structlle__event__memory__integration__t =
+[
+    [ "allocation_stats", "structlle__event__memory__integration__t.html#a91671385febad5c9443a4e2fc5971d7b", null ],
+    [ "cache_allocations", "structlle__event__memory__integration__t.html#a8df7fd9004d3f47e226e3d3b0529f81d", null ],
+    [ "compression_ratio", "structlle__event__memory__integration__t.html#a2836a1d5c71fce3efe8b7b9a466833f6", null ],
+    [ "data_pool", "structlle__event__memory__integration__t.html#a34f5b5c81c9a9e1bef0076f2e78eebf1", null ],
+    [ "display_cache_hits", "structlle__event__memory__integration__t.html#ad1825f79b4a58b7a9ab40cf5b2625615", null ],
+    [ "display_cache_used", "structlle__event__memory__integration__t.html#abaad7c8b5e8a0d1b8953618ba0921848", null ],
+    [ "display_event_cache", "structlle__event__memory__integration__t.html#a44a46594e29949f69e29fc3fc4acbbbb", null ],
+    [ "enable_event_compression", "structlle__event__memory__integration__t.html#aca3bd22b197bb867d4c0c840a1d6a063", null ],
+    [ "event_cache", "structlle__event__memory__integration__t.html#ae1b68e4571d80540b3393995b2a43dba", null ],
+    [ "event_pool", "structlle__event__memory__integration__t.html#a18df421a690d80872e585852092ac48b", null ],
+    [ "events_allocated", "structlle__event__memory__integration__t.html#a89e0b66386d6ed9afb4339b9b3f859f6", null ],
+    [ "events_freed", "structlle__event__memory__integration__t.html#a23673e8a179d96769cdba0236cc1778c", null ],
+    [ "input_cache_hits", "structlle__event__memory__integration__t.html#a5b2c72791038eee8fdf101f985ecbafa", null ],
+    [ "input_cache_used", "structlle__event__memory__integration__t.html#a29d8952f2c91356fcff0e732c7000110", null ],
+    [ "input_event_cache", "structlle__event__memory__integration__t.html#a76fcfa9fbb2acf7131f92a02a63dc265", null ],
+    [ "large_event_threshold", "structlle__event__memory__integration__t.html#ad31d49880abb3e4f5ca6740653b174ed", null ],
+    [ "optimization_config", "structlle__event__memory__integration__t.html#ac5b263c953b953f7165cd50a94c71a9c", null ],
+    [ "peak_event_count", "structlle__event__memory__integration__t.html#ae0c11b18216d7c71b02cad8d6bd99ded", null ],
+    [ "pool_allocations", "structlle__event__memory__integration__t.html#a2ce44c5b5df295723bcc7c45ef446e6e", null ],
+    [ "small_event_threshold", "structlle__event__memory__integration__t.html#a394652900333b4fc504df305a1221a59", null ],
+    [ "system_cache_hits", "structlle__event__memory__integration__t.html#a6e6bcc479fa666633ea023ed0e49018a", null ],
+    [ "system_cache_used", "structlle__event__memory__integration__t.html#a4dfca3851008b31ff09d329c53821a54", null ],
+    [ "system_event_cache", "structlle__event__memory__integration__t.html#a4579762fe18e3892b25eb6b387440d7a", null ]
+];

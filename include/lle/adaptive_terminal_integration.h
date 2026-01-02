@@ -1,5 +1,8 @@
 /**
- * adaptive_terminal_integration.h - Adaptive Terminal Integration System
+ * @file adaptive_terminal_integration.h
+ * @brief Adaptive Terminal Integration System
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Provides universal terminal compatibility through detection and control
  * separation. Enables LLE to work optimally in any environment from

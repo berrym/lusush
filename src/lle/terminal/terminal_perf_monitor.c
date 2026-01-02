@@ -1,5 +1,8 @@
-/*
- * terminal_perf_monitor.c - Performance Monitoring (Spec 02 Subsystem 8)
+/**
+ * @file terminal_perf_monitor.c
+ * @brief Performance Monitoring (Spec 02 Subsystem 8)
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Provides terminal abstraction specific performance monitoring on top of
  * LLE performance infrastructure (Spec 14).
@@ -22,11 +25,16 @@
  * ============================================================================
  */
 
-/*
- * Track terminal operation timing
+/**
+ * @brief Track terminal operation timing
  *
  * Records timing information for terminal operations to help identify
  * performance bottlenecks.
+ *
+ * @param perf_monitor Performance monitor instance
+ * @param operation_name Name of the operation being tracked
+ * @param start_time_us Start time in microseconds
+ * @param end_time_us End time in microseconds
  */
 void lle_terminal_track_operation_time(lle_performance_monitor_t *perf_monitor,
                                        const char *operation_name,
@@ -50,10 +58,14 @@ void lle_terminal_track_operation_time(lle_performance_monitor_t *perf_monitor,
     (void)duration_us; /* Suppress unused warning */
 }
 
-/*
- * Monitor display generation performance
+/**
+ * @brief Monitor display generation performance
  *
  * Tracks how long it takes to generate display content from internal state.
+ *
+ * @param perf_monitor Performance monitor instance
+ * @param generation_time_us Time spent generating display in microseconds
+ * @param line_count Number of lines generated
  */
 void lle_terminal_monitor_display_generation(
     lle_performance_monitor_t *perf_monitor, uint64_t generation_time_us,
@@ -63,7 +75,7 @@ void lle_terminal_monitor_display_generation(
     }
 
     /* Check if generation time exceeds target */
-    const uint64_t TARGET_GENERATION_TIME_US = 500; /* 500µs target */
+    const uint64_t TARGET_GENERATION_TIME_US = 500; /* 500us target */
 
     if (generation_time_us > TARGET_GENERATION_TIME_US) {
         /* Log performance warning (when Spec 14 Phase 2 implemented) */
@@ -76,10 +88,14 @@ void lle_terminal_monitor_display_generation(
     (void)per_line_time_us; /* Will be used for optimization decisions */
 }
 
-/*
- * Monitor input processing performance
+/**
+ * @brief Monitor input processing performance
  *
  * Tracks input event processing latency.
+ *
+ * @param perf_monitor Performance monitor instance
+ * @param processing_time_us Time spent processing in microseconds
+ * @param event_queue_depth Current event queue depth
  */
 void lle_terminal_monitor_input_processing(
     lle_performance_monitor_t *perf_monitor, uint64_t processing_time_us,
@@ -89,7 +105,7 @@ void lle_terminal_monitor_input_processing(
     }
 
     /* Check if processing time exceeds target */
-    const uint64_t TARGET_INPUT_TIME_US = 100; /* 100µs target */
+    const uint64_t TARGET_INPUT_TIME_US = 100; /* 100us target */
 
     if (processing_time_us > TARGET_INPUT_TIME_US) {
         /* Log performance warning */
@@ -102,10 +118,16 @@ void lle_terminal_monitor_input_processing(
     }
 }
 
-/*
- * Get terminal performance statistics
+/**
+ * @brief Get terminal performance statistics
  *
  * Returns aggregated performance data for terminal operations.
+ *
+ * @param perf_monitor Performance monitor instance
+ * @param avg_display_time_us Output for average display generation time
+ * @param avg_input_time_us Output for average input processing time
+ * @param total_operations Output for total operations tracked
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_terminal_get_performance_stats(
     lle_performance_monitor_t *perf_monitor, uint64_t *avg_display_time_us,

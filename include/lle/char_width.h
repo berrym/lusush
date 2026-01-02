@@ -1,3 +1,13 @@
+/**
+ * @file char_width.h
+ * @brief Unicode character display width calculation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ *
+ * Provides functions to determine the display width of Unicode codepoints
+ * based on the Unicode East Asian Width property and other factors.
+ */
+
 #ifndef LLE_CHAR_WIDTH_H
 #define LLE_CHAR_WIDTH_H
 
@@ -5,7 +15,7 @@
 #include <stdint.h>
 
 /**
- * Get display width of a Unicode codepoint
+ * @brief Get display width of a Unicode codepoint
  *
  * Returns the number of terminal columns the character occupies:
  * - 0: Control characters, combining marks, zero-width
@@ -21,8 +31,7 @@
 int lle_codepoint_width(uint32_t codepoint);
 
 /**
- * Check if a codepoint is a wide character
- *
+ * @brief Check if a codepoint is a wide character
  * @param codepoint Unicode codepoint
  * @return true if wide (2 columns), false otherwise
  */

@@ -1,5 +1,8 @@
 /**
- * history_buffer_integration.c - History-Buffer Integration Implementation
+ * @file history_buffer_integration.c
+ * @brief History-Buffer Integration Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Phase 1-3: Complete Implementation
  * - Phase 1: Core Infrastructure (lifecycle, config, callbacks)
@@ -7,7 +10,6 @@
  * - Phase 3: Interactive Editing System
  *
  * Critical Gap Spec: 22_history_buffer_integration_complete.md
- * Date: 2025-11-02
  */
 
 #include "lle/history_buffer_integration.h"
@@ -55,7 +57,15 @@ static const lle_integration_config_t DEFAULT_CONFIG = {
  */
 
 /**
- * Initialize stub component (placeholder for Phase 2+)
+ * @brief Initialize stub component (placeholder for Phase 2+)
+ *
+ * Allocates and zeroes memory for a component using the global pool.
+ *
+ * @param component Output pointer for allocated component (must not be NULL)
+ * @param pool Memory pool (currently unused, uses global pool)
+ * @param size Size of component to allocate in bytes
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if component is NULL,
+ *         LLE_ERROR_OUT_OF_MEMORY on allocation failure
  */
 static lle_result_t init_stub_component(void **component,
                                         lle_memory_pool_t *pool, size_t size) {

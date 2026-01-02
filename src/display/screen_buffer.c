@@ -171,16 +171,18 @@ size_t screen_buffer_visual_width(const char *text, size_t byte_length) {
 // ============================================================================
 
 /**
- * Helper: Write a UTF-8 character to screen buffer at current position
- * Handles wrapping to next line automatically
+ * @brief Write a UTF-8 character to screen buffer at current position
+ *
+ * Handles wrapping to next line automatically when the column exceeds
+ * the terminal width.
  *
  * @param buffer Screen buffer to write to
  * @param utf8_bytes UTF-8 byte sequence (1-4 bytes)
  * @param byte_len Number of bytes in the UTF-8 sequence (1-4)
  * @param visual_width Display width in columns (0, 1, or 2)
  * @param is_prompt True if this is part of the prompt
- * @param row Current row (may be incremented for wrapping)
- * @param col Current column (may be incremented for wrapping)
+ * @param row Pointer to current row (may be incremented for wrapping)
+ * @param col Pointer to current column (may be incremented for wrapping)
  */
 static void write_char_to_buffer(screen_buffer_t *buffer,
                                  const char *utf8_bytes, int byte_len,

@@ -1,6 +1,8 @@
-/*
- * Lusush Shell - LLE Completion Sources Implementation
- * Copyright (C) 2021-2026  Michael Berry
+/**
+ * @file completion_sources.c
+ * @brief LLE Completion Sources Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,10 +16,6 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- *
- * ============================================================================
- *
- * LLE COMPLETION SOURCES IMPLEMENTATION
  *
  * This module contains ONLY data retrieval logic - NO terminal I/O.
  * It bridges LLE completion system to Lusush shell's existing data sources.
@@ -35,13 +33,23 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-// POSIX system variable
+/* POSIX system variable */
 extern char **environ;
 
-// ============================================================================
-// SHELL INTEGRATION FUNCTIONS (Strong Symbols)
-// ============================================================================
+/* ============================================================================
+ * SHELL INTEGRATION FUNCTIONS (Strong Symbols)
+ * ============================================================================
+ */
 
+/**
+ * @brief Check if text is a shell builtin command
+ *
+ * Searches the builtins array to determine if the given text
+ * matches a builtin command name.
+ *
+ * @param text Text to check
+ * @return true if text is a builtin command, false otherwise
+ */
 bool lle_shell_is_builtin(const char *text) {
     if (!text) {
         return false;
@@ -56,6 +64,15 @@ bool lle_shell_is_builtin(const char *text) {
     return false;
 }
 
+/**
+ * @brief Check if text is a shell alias
+ *
+ * Looks up the text in the alias table to determine if it
+ * matches a defined alias name.
+ *
+ * @param text Text to check
+ * @return true if text is an alias, false otherwise
+ */
 bool lle_shell_is_alias(const char *text) {
     if (!text) {
         return false;
@@ -68,10 +85,21 @@ bool lle_shell_is_alias(const char *text) {
     return is_alias;
 }
 
-// ============================================================================
-// BUILTIN COMMANDS SOURCE
-// ============================================================================
+/* ============================================================================
+ * BUILTIN COMMANDS SOURCE
+ * ============================================================================
+ */
 
+/**
+ * @brief Generate builtin command completions
+ *
+ * Scans the builtins array and adds matching entries to the result set.
+ *
+ * @param memory_pool Memory pool for allocations
+ * @param prefix Prefix string to match
+ * @param result Completion result set to populate
+ * @return LLE_SUCCESS or error code
+ */
 lle_result_t lle_completion_source_builtins(lle_memory_pool_t *memory_pool,
                                             const char *prefix,
                                             lle_completion_result_t *result) {
@@ -96,10 +124,21 @@ lle_result_t lle_completion_source_builtins(lle_memory_pool_t *memory_pool,
     return LLE_SUCCESS;
 }
 
-// ============================================================================
-// ALIASES SOURCE
-// ============================================================================
+/* ============================================================================
+ * ALIASES SOURCE
+ * ============================================================================
+ */
 
+/**
+ * @brief Generate alias completions
+ *
+ * Enumerates the alias hash table and adds matching entries to the result set.
+ *
+ * @param memory_pool Memory pool for allocations
+ * @param prefix Prefix string to match
+ * @param result Completion result set to populate
+ * @return LLE_SUCCESS or error code
+ */
 lle_result_t lle_completion_source_aliases(lle_memory_pool_t *memory_pool,
                                            const char *prefix,
                                            lle_completion_result_t *result) {
@@ -137,10 +176,22 @@ lle_result_t lle_completion_source_aliases(lle_memory_pool_t *memory_pool,
     return LLE_SUCCESS;
 }
 
-// ============================================================================
-// PATH COMMANDS SOURCE
-// ============================================================================
+/* ============================================================================
+ * PATH COMMANDS SOURCE
+ * ============================================================================
+ */
 
+/**
+ * @brief Generate external command completions from PATH
+ *
+ * Scans directories in PATH environment variable for executable
+ * files matching the prefix.
+ *
+ * @param memory_pool Memory pool for allocations
+ * @param prefix Prefix string to match
+ * @param result Completion result set to populate
+ * @return LLE_SUCCESS or error code
+ */
 lle_result_t lle_completion_source_commands(lle_memory_pool_t *memory_pool,
                                             const char *prefix,
                                             lle_completion_result_t *result) {
@@ -210,12 +261,13 @@ lle_result_t lle_completion_source_commands(lle_memory_pool_t *memory_pool,
     return final_result;
 }
 
-// ============================================================================
-// PATH EXPANSION HELPERS FOR COMPLETION
-// ============================================================================
+/* ============================================================================
+ * PATH EXPANSION HELPERS FOR COMPLETION
+ * ============================================================================
+ */
 
 /**
- * Expand tilde (~) to home directory for completion
+ * @brief Expand tilde (~) to home directory for completion
  *
  * Handles:
  *   ~/path    -> /home/user/path
@@ -275,7 +327,7 @@ static char *lle_completion_expand_tilde(const char *path) {
 }
 
 /**
- * Expand a single environment variable for completion
+ * @brief Expand a single environment variable for completion
  *
  * Handles:
  *   $VAR/path -> /value/path
@@ -340,7 +392,7 @@ static char *lle_completion_expand_variable(const char *path) {
 }
 
 /**
- * Expand path for completion (tilde and variables)
+ * @brief Expand path for completion (tilde and variables)
  *
  * @param path The path to expand
  * @param original_prefix_len Output: length of the original unexpanded prefix
@@ -372,14 +424,22 @@ static char *lle_completion_expand_path(const char *path,
     return strdup(path);
 }
 
-// ============================================================================
-// FILES AND DIRECTORIES SOURCE
-// ============================================================================
+/* ============================================================================
+ * FILES AND DIRECTORIES SOURCE
+ * ============================================================================
+ */
 
 /**
- * Internal implementation that supports filtering
+ * @brief Internal file/directory completion implementation
  *
+ * Scans directories for files and/or directories matching the prefix.
+ * Supports tilde and variable expansion in paths.
+ *
+ * @param memory_pool Memory pool for allocations
+ * @param prefix Prefix string to match (may include path components)
+ * @param result Completion result set to populate
  * @param directories_only If true, only return directories (for cd, rmdir)
+ * @return LLE_SUCCESS or error code
  */
 static lle_result_t lle_completion_source_files_internal(
     lle_memory_pool_t *memory_pool, const char *prefix,
@@ -534,6 +594,17 @@ static lle_result_t lle_completion_source_files_internal(
     return final_result;
 }
 
+/**
+ * @brief Generate file and directory completions
+ *
+ * Scans the filesystem for files and directories matching the prefix.
+ * Supports tilde (~) and variable ($VAR) expansion in paths.
+ *
+ * @param memory_pool Memory pool for allocations
+ * @param prefix Prefix string to match
+ * @param result Completion result set to populate
+ * @return LLE_SUCCESS or error code
+ */
 lle_result_t lle_completion_source_files(lle_memory_pool_t *memory_pool,
                                          const char *prefix,
                                          lle_completion_result_t *result) {
@@ -541,6 +612,17 @@ lle_result_t lle_completion_source_files(lle_memory_pool_t *memory_pool,
                                                 false);
 }
 
+/**
+ * @brief Generate directory-only completions
+ *
+ * Scans the filesystem for directories matching the prefix.
+ * Used for commands like cd and rmdir that only accept directories.
+ *
+ * @param memory_pool Memory pool for allocations
+ * @param prefix Prefix string to match
+ * @param result Completion result set to populate
+ * @return LLE_SUCCESS or error code
+ */
 lle_result_t
 lle_completion_source_directories(lle_memory_pool_t *memory_pool,
                                   const char *prefix,
@@ -549,10 +631,23 @@ lle_completion_source_directories(lle_memory_pool_t *memory_pool,
                                                 true);
 }
 
-// ============================================================================
-// VARIABLES SOURCE
-// ============================================================================
+/* ============================================================================
+ * VARIABLES SOURCE
+ * ============================================================================
+ */
 
+/**
+ * @brief Generate environment variable completions
+ *
+ * Scans the environment and shell special variables for matches.
+ * Includes both regular environment variables and special shell
+ * variables like $?, $$, $!, etc.
+ *
+ * @param memory_pool Memory pool for allocations
+ * @param prefix Prefix string to match (without leading $)
+ * @param result Completion result set to populate
+ * @return LLE_SUCCESS or error code
+ */
 lle_result_t lle_completion_source_variables(lle_memory_pool_t *memory_pool,
                                              const char *prefix,
                                              lle_completion_result_t *result) {
@@ -608,10 +703,23 @@ lle_result_t lle_completion_source_variables(lle_memory_pool_t *memory_pool,
     return final_result;
 }
 
-// ============================================================================
-// HISTORY SOURCE
-// ============================================================================
+/* ============================================================================
+ * HISTORY SOURCE
+ * ============================================================================
+ */
 
+/**
+ * @brief Generate history completions
+ *
+ * Provides completions from command history. Currently a placeholder
+ * that returns success with no completions until history integration
+ * is complete.
+ *
+ * @param memory_pool Memory pool for allocations
+ * @param prefix Prefix string to match
+ * @param result Completion result set to populate
+ * @return LLE_SUCCESS or error code
+ */
 lle_result_t lle_completion_source_history(lle_memory_pool_t *memory_pool,
                                            const char *prefix,
                                            lle_completion_result_t *result) {
@@ -626,12 +734,24 @@ lle_result_t lle_completion_source_history(lle_memory_pool_t *memory_pool,
     return LLE_SUCCESS;
 }
 
-// ============================================================================
-// SSH HOST SOURCE
-// ============================================================================
+/* ============================================================================
+ * SSH HOST SOURCE
+ * ============================================================================
+ */
 
 #include "lle/completion/ssh_hosts.h"
 
+/**
+ * @brief Generate SSH host completions
+ *
+ * Provides completions from the SSH host cache, which includes
+ * hosts from ~/.ssh/config and ~/.ssh/known_hosts.
+ *
+ * @param memory_pool Memory pool for allocations
+ * @param prefix Prefix string to match
+ * @param result Completion result set to populate
+ * @return LLE_SUCCESS or error code
+ */
 lle_result_t lle_completion_source_ssh_hosts(lle_memory_pool_t *memory_pool,
                                              const char *prefix,
                                              lle_completion_result_t *result) {

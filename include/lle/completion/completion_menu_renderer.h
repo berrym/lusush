@@ -1,6 +1,8 @@
 /**
  * @file completion_menu_renderer.h
  * @brief Completion Menu Renderer - Text Formatting from Menu State
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Converts completion menu state (from completion_menu_state.h) into
  * formatted text ready for display via screen_buffer system.

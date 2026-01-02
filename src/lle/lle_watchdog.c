@@ -1,6 +1,8 @@
 /**
  * @file lle_watchdog.c
  * @brief LLE Watchdog Timer Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Implements a SIGALRM-based watchdog mechanism for detecting deadlocks
  * and stuck conditions in the readline input loop.
@@ -53,10 +55,13 @@ static atomic_uint g_stats_recoveries = 0;
  */
 
 /**
- * SIGALRM handler - must be async-signal-safe.
+ * @brief SIGALRM signal handler for watchdog timeout
  *
- * Only uses atomic operations and avoids any non-reentrant functions.
- * This is called from signal context, so must be minimal.
+ * Must be async-signal-safe. Only uses atomic operations and avoids
+ * any non-reentrant functions. This is called from signal context,
+ * so must be minimal.
+ *
+ * @param sig Signal number (unused, but required by signal handler signature)
  */
 static void watchdog_signal_handler(int sig) {
     (void)sig; /* Unused, but required by signal handler signature */
@@ -76,6 +81,16 @@ static void watchdog_signal_handler(int sig) {
  * ============================================================================
  */
 
+/**
+ * @brief Initialize the watchdog subsystem
+ *
+ * Installs the SIGALRM handler and initializes watchdog state.
+ * Safe to call multiple times - subsequent calls return success
+ * without reinitializing.
+ *
+ * @return LLE_SUCCESS on success
+ * @return LLE_ERROR_SYSTEM_CALL if sigaction fails
+ */
 lle_result_t lle_watchdog_init(void) {
     if (g_initialized) {
         return LLE_SUCCESS; /* Already initialized */
@@ -98,6 +113,11 @@ lle_result_t lle_watchdog_init(void) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Cleanup the watchdog subsystem
+ *
+ * Cancels any pending alarm and restores the previous SIGALRM handler.
+ */
 void lle_watchdog_cleanup(void) {
     if (!g_initialized) {
         return;
@@ -115,6 +135,14 @@ void lle_watchdog_cleanup(void) {
     g_current_timeout = 0;
 }
 
+/**
+ * @brief Pet (reset) the watchdog timer
+ *
+ * Resets the watchdog timer to the specified timeout. Must be called
+ * periodically to prevent the watchdog from firing.
+ *
+ * @param timeout_seconds Timeout in seconds (0 = use default)
+ */
 void lle_watchdog_pet(unsigned int timeout_seconds) {
     if (!g_initialized) {
         return;
@@ -136,6 +164,11 @@ void lle_watchdog_pet(unsigned int timeout_seconds) {
     atomic_fetch_add(&g_stats_pets, 1);
 }
 
+/**
+ * @brief Stop the watchdog timer
+ *
+ * Cancels any pending alarm and disarms the watchdog.
+ */
 void lle_watchdog_stop(void) {
     if (!g_initialized) {
         return;
@@ -150,6 +183,14 @@ void lle_watchdog_stop(void) {
     g_current_timeout = 0;
 }
 
+/**
+ * @brief Check if watchdog fired and clear the flag
+ *
+ * Atomically checks and clears the fired flag. Use this to detect
+ * and recover from watchdog timeouts.
+ *
+ * @return true if watchdog had fired, false otherwise
+ */
 bool lle_watchdog_check_and_clear(void) {
     bool was_fired = atomic_exchange(&g_watchdog_fired, false);
 
@@ -161,12 +202,36 @@ bool lle_watchdog_check_and_clear(void) {
     return was_fired;
 }
 
+/**
+ * @brief Check if watchdog has fired without clearing
+ *
+ * @return true if watchdog has fired, false otherwise
+ */
 bool lle_watchdog_check(void) { return atomic_load(&g_watchdog_fired); }
 
+/**
+ * @brief Check if watchdog is currently armed
+ *
+ * @return true if watchdog is armed and timing, false otherwise
+ */
 bool lle_watchdog_is_armed(void) { return atomic_load(&g_watchdog_armed); }
 
+/**
+ * @brief Get the current timeout setting
+ *
+ * @return Current timeout in seconds, or 0 if not set
+ */
 unsigned int lle_watchdog_get_timeout(void) { return g_current_timeout; }
 
+/**
+ * @brief Get watchdog statistics
+ *
+ * Retrieves counters for pets, fires, and recoveries.
+ *
+ * @param stats Pointer to receive statistics
+ * @return LLE_SUCCESS on success
+ * @return LLE_ERROR_INVALID_PARAMETER if stats is NULL
+ */
 lle_result_t lle_watchdog_get_stats(lle_watchdog_stats_t *stats) {
     if (!stats) {
         return LLE_ERROR_INVALID_PARAMETER;

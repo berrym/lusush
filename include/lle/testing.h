@@ -1,6 +1,8 @@
 /**
  * @file testing.h
  * @brief LLE Testing Framework - Type Definitions and Function Declarations
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Specification: Spec 17 - Testing Framework Complete Specification
  * Version: 1.0.0

@@ -114,7 +114,9 @@ static uint8_t rgb_to_256_color(uint8_t r, uint8_t g, uint8_t b);
 // ============================================================================
 
 /**
- * Create a new terminal control instance
+ * @brief Create a new terminal control instance
+ * @param base_terminal Base terminal layer to build upon
+ * @return Pointer to new terminal control instance, or NULL on failure
  */
 terminal_control_t *terminal_control_create(base_terminal_t *base_terminal) {
     if (!base_terminal) {
@@ -163,7 +165,9 @@ terminal_control_t *terminal_control_create(base_terminal_t *base_terminal) {
 }
 
 /**
- * Initialize the terminal control system
+ * @brief Initialize the terminal control system
+ * @param control Terminal control instance to initialize
+ * @return TERMINAL_CONTROL_SUCCESS on success, error code otherwise
  */
 terminal_control_error_t terminal_control_init(terminal_control_t *control) {
     if (!control || !control->base_terminal) {
@@ -202,7 +206,9 @@ terminal_control_error_t terminal_control_init(terminal_control_t *control) {
 }
 
 /**
- * Clean up terminal control resources
+ * @brief Clean up terminal control resources
+ * @param control Terminal control instance to cleanup
+ * @return TERMINAL_CONTROL_SUCCESS on success, error code otherwise
  */
 terminal_control_error_t terminal_control_cleanup(terminal_control_t *control) {
     if (!control) {
@@ -226,7 +232,8 @@ terminal_control_error_t terminal_control_cleanup(terminal_control_t *control) {
 }
 
 /**
- * Destroy terminal control instance
+ * @brief Destroy terminal control instance and free resources
+ * @param control Terminal control instance to destroy
  */
 void terminal_control_destroy(terminal_control_t *control) {
     if (!control) {
@@ -242,7 +249,9 @@ void terminal_control_destroy(terminal_control_t *control) {
 // ============================================================================
 
 /**
- * Detect terminal capabilities
+ * @brief Detect terminal capabilities
+ * @param control Terminal control instance
+ * @return TERMINAL_CONTROL_SUCCESS on success, error code otherwise
  */
 terminal_control_error_t
 terminal_control_detect_capabilities(terminal_control_t *control) {
@@ -272,7 +281,9 @@ terminal_control_detect_capabilities(terminal_control_t *control) {
 }
 
 /**
- * Get current terminal capabilities
+ * @brief Get current terminal capabilities
+ * @param control Terminal control instance
+ * @return Terminal capabilities structure (empty if control invalid)
  */
 terminal_capabilities_t
 terminal_control_get_capabilities(terminal_control_t *control) {
@@ -286,7 +297,10 @@ terminal_control_get_capabilities(terminal_control_t *control) {
 }
 
 /**
- * Check if terminal supports specific capability
+ * @brief Check if terminal supports specific capability
+ * @param control Terminal control instance
+ * @param capability Capability flag to check
+ * @return true if capability is supported, false otherwise
  */
 bool terminal_control_has_capability(terminal_control_t *control,
                                      terminal_capability_flags_t capability) {
@@ -298,7 +312,9 @@ bool terminal_control_has_capability(terminal_control_t *control,
 }
 
 /**
- * Update terminal size
+ * @brief Update terminal size from system
+ * @param control Terminal control instance
+ * @return TERMINAL_CONTROL_SUCCESS on success, error code otherwise
  */
 terminal_control_error_t
 terminal_control_update_size(terminal_control_t *control) {
@@ -325,7 +341,11 @@ terminal_control_update_size(terminal_control_t *control) {
 // ============================================================================
 
 /**
- * Move cursor to specified position
+ * @brief Move cursor to specified position
+ * @param control Terminal control instance
+ * @param row Target row (1-based)
+ * @param column Target column (1-based)
+ * @return TERMINAL_CONTROL_SUCCESS on success, error code otherwise
  */
 terminal_control_error_t
 terminal_control_move_cursor(terminal_control_t *control, int row, int column) {
@@ -359,7 +379,11 @@ terminal_control_move_cursor(terminal_control_t *control, int row, int column) {
 }
 
 /**
- * Move cursor by relative offset
+ * @brief Move cursor by relative offset from current position
+ * @param control Terminal control instance
+ * @param row_offset Row offset to move (positive = down)
+ * @param column_offset Column offset to move (positive = right)
+ * @return TERMINAL_CONTROL_SUCCESS on success, error code otherwise
  */
 terminal_control_error_t
 terminal_control_move_cursor_relative(terminal_control_t *control,
@@ -375,7 +399,9 @@ terminal_control_move_cursor_relative(terminal_control_t *control,
 }
 
 /**
- * Get current cursor position
+ * @brief Get current cursor position
+ * @param control Terminal control instance
+ * @return Current cursor position (row=-1, column=-1 if invalid)
  */
 terminal_position_t
 terminal_control_get_cursor_position(terminal_control_t *control) {
@@ -389,7 +415,10 @@ terminal_control_get_cursor_position(terminal_control_t *control) {
 }
 
 /**
- * Show or hide cursor
+ * @brief Show or hide cursor
+ * @param control Terminal control instance
+ * @param visible true to show cursor, false to hide
+ * @return TERMINAL_CONTROL_SUCCESS on success, error code otherwise
  */
 terminal_control_error_t
 terminal_control_set_cursor_visible(terminal_control_t *control, bool visible) {
@@ -410,7 +439,9 @@ terminal_control_set_cursor_visible(terminal_control_t *control, bool visible) {
 }
 
 /**
- * Save current cursor position
+ * @brief Save current cursor position to terminal stack
+ * @param control Terminal control instance
+ * @return TERMINAL_CONTROL_SUCCESS on success, error code otherwise
  */
 terminal_control_error_t
 terminal_control_save_cursor(terminal_control_t *control) {
@@ -426,7 +457,9 @@ terminal_control_save_cursor(terminal_control_t *control) {
 }
 
 /**
- * Restore saved cursor position
+ * @brief Restore saved cursor position from terminal stack
+ * @param control Terminal control instance
+ * @return TERMINAL_CONTROL_SUCCESS on success, error code otherwise
  */
 terminal_control_error_t
 terminal_control_restore_cursor(terminal_control_t *control) {
@@ -446,7 +479,9 @@ terminal_control_restore_cursor(terminal_control_t *control) {
 // ============================================================================
 
 /**
- * Clear entire screen
+ * @brief Clear entire screen and move cursor to home position
+ * @param control Terminal control instance
+ * @return TERMINAL_CONTROL_SUCCESS on success, error code otherwise
  */
 terminal_control_error_t
 terminal_control_clear_screen(terminal_control_t *control) {
@@ -467,7 +502,9 @@ terminal_control_clear_screen(terminal_control_t *control) {
 }
 
 /**
- * Clear from cursor to end of line
+ * @brief Clear from cursor to end of line
+ * @param control Terminal control instance
+ * @return TERMINAL_CONTROL_SUCCESS on success, error code otherwise
  */
 terminal_control_error_t
 terminal_control_clear_to_end_of_line(terminal_control_t *control) {
@@ -483,7 +520,9 @@ terminal_control_clear_to_end_of_line(terminal_control_t *control) {
 }
 
 /**
- * Clear from cursor to beginning of line
+ * @brief Clear from cursor to beginning of line
+ * @param control Terminal control instance
+ * @return TERMINAL_CONTROL_SUCCESS on success, error code otherwise
  */
 terminal_control_error_t
 terminal_control_clear_to_beginning_of_line(terminal_control_t *control) {
@@ -499,7 +538,9 @@ terminal_control_clear_to_beginning_of_line(terminal_control_t *control) {
 }
 
 /**
- * Clear entire current line
+ * @brief Clear entire current line
+ * @param control Terminal control instance
+ * @return TERMINAL_CONTROL_SUCCESS on success, error code otherwise
  */
 terminal_control_error_t
 terminal_control_clear_line(terminal_control_t *control) {
@@ -515,7 +556,9 @@ terminal_control_clear_line(terminal_control_t *control) {
 }
 
 /**
- * Clear from cursor to end of screen
+ * @brief Clear from cursor to end of screen
+ * @param control Terminal control instance
+ * @return TERMINAL_CONTROL_SUCCESS on success, error code otherwise
  */
 terminal_control_error_t
 terminal_control_clear_to_end_of_screen(terminal_control_t *control) {
@@ -535,7 +578,10 @@ terminal_control_clear_to_end_of_screen(terminal_control_t *control) {
 // ============================================================================
 
 /**
- * Set foreground color
+ * @brief Set foreground color for subsequent text output
+ * @param control Terminal control instance
+ * @param color Color specification to apply
+ * @return TERMINAL_CONTROL_SUCCESS on success, error code otherwise
  */
 terminal_control_error_t
 terminal_control_set_foreground_color(terminal_control_t *control,
@@ -566,7 +612,10 @@ terminal_control_set_foreground_color(terminal_control_t *control,
 }
 
 /**
- * Set background color
+ * @brief Set background color for subsequent text output
+ * @param control Terminal control instance
+ * @param color Color specification to apply
+ * @return TERMINAL_CONTROL_SUCCESS on success, error code otherwise
  */
 terminal_control_error_t
 terminal_control_set_background_color(terminal_control_t *control,
@@ -597,7 +646,10 @@ terminal_control_set_background_color(terminal_control_t *control,
 }
 
 /**
- * Set text style attributes
+ * @brief Set text style attributes (bold, italic, underline, etc.)
+ * @param control Terminal control instance
+ * @param style Style flags to apply
+ * @return TERMINAL_CONTROL_SUCCESS on success, error code otherwise
  */
 terminal_control_error_t
 terminal_control_set_style(terminal_control_t *control,
@@ -624,7 +676,9 @@ terminal_control_set_style(terminal_control_t *control,
 }
 
 /**
- * Reset all colors and styles
+ * @brief Reset all colors and styles to terminal defaults
+ * @param control Terminal control instance
+ * @return TERMINAL_CONTROL_SUCCESS on success, error code otherwise
  */
 terminal_control_error_t
 terminal_control_reset_formatting(terminal_control_t *control) {
@@ -650,7 +704,13 @@ terminal_control_reset_formatting(terminal_control_t *control) {
 // ============================================================================
 
 /**
- * Generate ANSI sequence for cursor movement
+ * @brief Generate ANSI sequence for cursor movement
+ * @param control Terminal control instance
+ * @param row Target row position (1-based)
+ * @param column Target column position (1-based)
+ * @param buffer Output buffer for generated sequence
+ * @param buffer_size Size of output buffer
+ * @return Length of generated sequence, or -1 on error
  */
 ssize_t terminal_control_generate_cursor_sequence(terminal_control_t *control,
                                                   int row, int column,
@@ -668,7 +728,13 @@ ssize_t terminal_control_generate_cursor_sequence(terminal_control_t *control,
 }
 
 /**
- * Generate ANSI sequence for color setting
+ * @brief Generate ANSI sequence for color setting
+ * @param control Terminal control instance
+ * @param color Color specification to generate sequence for
+ * @param is_background true for background color, false for foreground
+ * @param buffer Output buffer for generated sequence
+ * @param buffer_size Size of output buffer
+ * @return Length of generated sequence, or -1 on error
  */
 ssize_t terminal_control_generate_color_sequence(terminal_control_t *control,
                                                  terminal_color_t color,
@@ -711,7 +777,12 @@ ssize_t terminal_control_generate_color_sequence(terminal_control_t *control,
 }
 
 /**
- * Generate ANSI sequence for style setting
+ * @brief Generate ANSI sequence for style setting
+ * @param control Terminal control instance
+ * @param style Style flags to generate sequence for
+ * @param buffer Output buffer for generated sequence
+ * @param buffer_size Size of output buffer
+ * @return Length of generated sequence, or -1 on error
  */
 ssize_t terminal_control_generate_style_sequence(terminal_control_t *control,
                                                  terminal_style_flags_t style,
@@ -757,7 +828,12 @@ ssize_t terminal_control_generate_style_sequence(terminal_control_t *control,
 // ============================================================================
 
 /**
- * Create color specification from RGB values
+ * @brief Create color specification from RGB values
+ * @param control Terminal control instance (used for capability detection)
+ * @param r Red component (0-255)
+ * @param g Green component (0-255)
+ * @param b Blue component (0-255)
+ * @return Color specification appropriate for terminal capabilities
  */
 terminal_color_t terminal_control_color_from_rgb(terminal_control_t *control,
                                                  uint8_t r, uint8_t g,
@@ -794,7 +870,9 @@ terminal_color_t terminal_control_color_from_rgb(terminal_control_t *control,
 }
 
 /**
- * Create color specification from basic color index
+ * @brief Create color specification from basic color index
+ * @param color_index Basic color index (0-15)
+ * @return Color specification for basic color
  */
 terminal_color_t terminal_control_color_from_basic(uint8_t color_index) {
     terminal_color_t color;
@@ -804,7 +882,8 @@ terminal_color_t terminal_control_color_from_basic(uint8_t color_index) {
 }
 
 /**
- * Create color specification for default color
+ * @brief Create color specification for default color
+ * @return Color specification for terminal default color
  */
 terminal_color_t terminal_control_color_default(void) {
     terminal_color_t color;
@@ -813,7 +892,10 @@ terminal_color_t terminal_control_color_default(void) {
 }
 
 /**
- * Validate color against terminal capabilities
+ * @brief Validate color against terminal capabilities
+ * @param control Terminal control instance
+ * @param color Color specification to validate
+ * @return true if color is valid for terminal, false otherwise
  */
 bool terminal_control_validate_color(terminal_control_t *control,
                                      terminal_color_t color) {
@@ -846,7 +928,9 @@ bool terminal_control_validate_color(terminal_control_t *control,
 // ============================================================================
 
 /**
- * Get last error code
+ * @brief Get last error code
+ * @param control Terminal control instance
+ * @return Last error code, or TERMINAL_CONTROL_ERROR_INVALID_PARAM if NULL
  */
 terminal_control_error_t
 terminal_control_get_last_error(terminal_control_t *control) {
@@ -858,7 +942,9 @@ terminal_control_get_last_error(terminal_control_t *control) {
 }
 
 /**
- * Get error description string
+ * @brief Get error description string
+ * @param error Error code to get description for
+ * @return Human-readable error description string
  */
 const char *terminal_control_error_string(terminal_control_error_t error) {
     switch (error) {
@@ -890,7 +976,9 @@ const char *terminal_control_error_string(terminal_control_error_t error) {
 // ============================================================================
 
 /**
- * Detect color support capabilities
+ * @brief Detect color support capabilities from terminal environment
+ * @param control Terminal control instance to update
+ * @return TERMINAL_CONTROL_SUCCESS on success
  */
 static terminal_control_error_t
 detect_color_support(terminal_control_t *control) {
@@ -927,7 +1015,9 @@ detect_color_support(terminal_control_t *control) {
 }
 
 /**
- * Detect cursor positioning capabilities
+ * @brief Detect cursor positioning capabilities
+ * @param control Terminal control instance to update
+ * @return TERMINAL_CONTROL_SUCCESS on success
  */
 static terminal_control_error_t
 detect_cursor_capabilities(terminal_control_t *control) {
@@ -940,7 +1030,9 @@ detect_cursor_capabilities(terminal_control_t *control) {
 }
 
 /**
- * Detect Unicode support
+ * @brief Detect Unicode support from locale environment
+ * @param control Terminal control instance to update
+ * @return TERMINAL_CONTROL_SUCCESS on success
  */
 static terminal_control_error_t
 detect_unicode_support(terminal_control_t *control) {
@@ -960,7 +1052,9 @@ detect_unicode_support(terminal_control_t *control) {
 }
 
 /**
- * Detect text style support
+ * @brief Detect text style support based on terminal type
+ * @param control Terminal control instance to update
+ * @return TERMINAL_CONTROL_SUCCESS on success
  */
 static terminal_control_error_t
 detect_style_support(terminal_control_t *control) {
@@ -980,7 +1074,10 @@ detect_style_support(terminal_control_t *control) {
 }
 
 /**
- * Calculate hash for sequence caching
+ * @brief Calculate hash for sequence caching
+ * @param format Printf-style format string
+ * @param ... Format arguments
+ * @return 32-bit hash value for the formatted sequence
  */
 MAYBE_UNUSED
 static uint32_t calculate_sequence_hash(const char *format, ...) {
@@ -998,7 +1095,10 @@ static uint32_t calculate_sequence_hash(const char *format, ...) {
 }
 
 /**
- * Find cached sequence
+ * @brief Find cached sequence by hash
+ * @param control Terminal control instance containing cache
+ * @param hash Hash value to search for
+ * @return Pointer to cache entry, or NULL if not found
  */
 MAYBE_UNUSED
 static sequence_cache_entry_t *find_cached_sequence(terminal_control_t *control,
@@ -1013,7 +1113,10 @@ static sequence_cache_entry_t *find_cached_sequence(terminal_control_t *control,
 }
 
 /**
- * Cache a sequence
+ * @brief Cache a sequence for future reuse
+ * @param control Terminal control instance containing cache
+ * @param hash Hash value for the sequence
+ * @param sequence ANSI sequence string to cache
  */
 MAYBE_UNUSED
 static void cache_sequence(terminal_control_t *control, uint32_t hash,
@@ -1036,7 +1139,10 @@ static void cache_sequence(terminal_control_t *control, uint32_t hash,
 }
 
 /**
- * Send ANSI sequence to terminal
+ * @brief Send ANSI sequence to terminal
+ * @param control Terminal control instance
+ * @param sequence ANSI sequence string to send
+ * @return Number of bytes written, or -1 on error
  */
 static ssize_t send_sequence(terminal_control_t *control,
                              const char *sequence) {
@@ -1049,7 +1155,12 @@ static ssize_t send_sequence(terminal_control_t *control,
 }
 
 /**
- * Generate formatted sequence
+ * @brief Generate formatted sequence into buffer
+ * @param buffer Output buffer for generated sequence
+ * @param buffer_size Size of output buffer
+ * @param format Printf-style format string
+ * @param ... Format arguments
+ * @return Length of generated sequence, or -1 on error
  */
 static ssize_t generate_sequence(char *buffer, size_t buffer_size,
                                  const char *format, ...) {
@@ -1066,7 +1177,11 @@ static ssize_t generate_sequence(char *buffer, size_t buffer_size,
 }
 
 /**
- * Validate cursor position
+ * @brief Validate cursor position against terminal dimensions
+ * @param control Terminal control instance
+ * @param row Row position to validate (1-based)
+ * @param column Column position to validate (1-based)
+ * @return true if position is valid, false otherwise
  */
 static bool validate_position(terminal_control_t *control, int row,
                               int column) {
@@ -1080,7 +1195,11 @@ static bool validate_position(terminal_control_t *control, int row,
 }
 
 /**
- * Convert RGB to 256-color palette
+ * @brief Convert RGB to 256-color palette index
+ * @param r Red component (0-255)
+ * @param g Green component (0-255)
+ * @param b Blue component (0-255)
+ * @return 256-color palette index (16-255)
  */
 static uint8_t rgb_to_256_color(uint8_t r, uint8_t g, uint8_t b) {
     // Simple RGB to 256-color conversion
@@ -1107,7 +1226,12 @@ static uint8_t rgb_to_256_color(uint8_t r, uint8_t g, uint8_t b) {
 // ============================================================================
 
 /**
- * Get performance metrics
+ * @brief Get performance metrics for terminal control operations
+ * @param control Terminal control instance
+ * @param sequences_generated Output: number of sequences generated
+ * @param cache_hit_rate Output: cache hit rate (0.0-1.0)
+ * @param avg_generation_time_ns Output: average generation time in nanoseconds
+ * @return TERMINAL_CONTROL_SUCCESS on success, error code otherwise
  */
 terminal_control_error_t terminal_control_get_performance_metrics(
     terminal_control_t *control, uint64_t *sequences_generated,
@@ -1139,7 +1263,9 @@ terminal_control_error_t terminal_control_get_performance_metrics(
 }
 
 /**
- * Clear performance metrics
+ * @brief Clear performance metrics and reset counters
+ * @param control Terminal control instance
+ * @return TERMINAL_CONTROL_SUCCESS on success, error code otherwise
  */
 terminal_control_error_t
 terminal_control_clear_metrics(terminal_control_t *control) {
@@ -1157,7 +1283,10 @@ terminal_control_clear_metrics(terminal_control_t *control) {
 }
 
 /**
- * Enable or disable sequence caching
+ * @brief Enable or disable sequence caching
+ * @param control Terminal control instance
+ * @param enabled true to enable caching, false to disable
+ * @return TERMINAL_CONTROL_SUCCESS on success, error code otherwise
  */
 terminal_control_error_t
 terminal_control_set_caching_enabled(terminal_control_t *control,

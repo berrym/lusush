@@ -1,6 +1,8 @@
 /**
  * @file widget_system.c
  * @brief LLE Widget Registry System Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Implementation of the widget registry system providing widget registration,
  * lookup, and execution with performance tracking.
@@ -20,7 +22,8 @@
  */
 
 /**
- * Get current time in microseconds for performance tracking
+ * @brief Get current time in microseconds for performance tracking
+ * @return Current monotonic time in microseconds, or 0 on error
  */
 static uint64_t get_time_microseconds(void) {
     struct timespec ts;
@@ -31,7 +34,10 @@ static uint64_t get_time_microseconds(void) {
 }
 
 /**
- * Duplicate string using memory pool
+ * @brief Duplicate string using memory pool
+ * @param pool Memory pool (reserved for future pool-based allocation)
+ * @param str String to duplicate
+ * @return Duplicated string, or NULL on allocation failure or NULL input
  */
 static char *pool_strdup(lle_memory_pool_t *pool, const char *str) {
     (void)pool; /* Reserved for pool-based allocation */

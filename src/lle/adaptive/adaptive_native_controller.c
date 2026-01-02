@@ -1,5 +1,10 @@
 /**
- * adaptive_native_controller.c - Native Terminal Controller Implementation
+ * @file adaptive_native_controller.c
+ * @brief Native terminal controller for traditional TTY environments
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ *
+ * Specification: Spec 26 Phase 2 - Native Terminal Controller
  *
  * Implements the native controller for traditional TTY terminals.
  * Provides full terminal control with raw mode and comprehensive
@@ -11,9 +16,6 @@
  * - Capability-based optimization
  * - Complete cursor control and formatting
  * - Performance monitoring and statistics
- *
- * Specification: Spec 26 Phase 2 - Native Terminal Controller
- * Date: 2025-11-02
  */
 
 #include "lle/adaptive_terminal_integration.h"
@@ -121,7 +123,12 @@ struct lle_native_controller_t {
  */
 
 /**
- * Create terminal state.
+ * @brief Create and initialize terminal state tracking structure.
+ *
+ * Allocates terminal state and queries current terminal dimensions.
+ * Falls back to 80x24 if dimensions cannot be determined.
+ *
+ * @return Pointer to created terminal state, or NULL on allocation failure.
  */
 static lle_terminal_state_t *lle_terminal_state_create(void) {
     lle_terminal_state_t *state = calloc(1, sizeof(lle_terminal_state_t));
@@ -148,14 +155,21 @@ static lle_terminal_state_t *lle_terminal_state_create(void) {
 }
 
 /**
- * Destroy terminal state.
+ * @brief Destroy a terminal state structure and free its resources.
+ *
+ * @param state The terminal state to destroy, or NULL for no-op.
  */
 static void lle_terminal_state_destroy(lle_terminal_state_t *state) {
     free(state);
 }
 
 /**
- * Update terminal dimensions.
+ * @brief Update terminal dimensions from the TTY.
+ *
+ * Queries the terminal for current width and height using ioctl.
+ *
+ * @param state The terminal state to update.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 LLE_MAYBE_UNUSED
 static lle_result_t
@@ -178,7 +192,9 @@ lle_terminal_state_update_dimensions(lle_terminal_state_t *state) {
  */
 
 /**
- * Create performance statistics.
+ * @brief Create a performance statistics tracking structure.
+ *
+ * @return Pointer to created statistics structure, or NULL on allocation failure.
  */
 static lle_terminal_performance_stats_t *
 lle_terminal_performance_stats_create(void) {
@@ -186,7 +202,9 @@ lle_terminal_performance_stats_create(void) {
 }
 
 /**
- * Destroy performance statistics.
+ * @brief Destroy a performance statistics structure.
+ *
+ * @param stats The statistics structure to destroy, or NULL for no-op.
  */
 static void lle_terminal_performance_stats_destroy(
     lle_terminal_performance_stats_t *stats) {
@@ -199,7 +217,13 @@ static void lle_terminal_performance_stats_destroy(
  */
 
 /**
- * Enter raw mode.
+ * @brief Enter raw terminal mode for character-by-character input.
+ *
+ * Saves the original terminal settings and configures raw mode
+ * with disabled echo, canonical mode, and signal handling.
+ *
+ * @param native The native controller.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 static lle_result_t lle_native_enter_raw_mode(lle_native_controller_t *native) {
     if (native->raw_mode_active) {
@@ -235,7 +259,13 @@ static lle_result_t lle_native_enter_raw_mode(lle_native_controller_t *native) {
 }
 
 /**
- * Exit raw mode.
+ * @brief Exit raw terminal mode and restore original settings.
+ *
+ * Restores the terminal to its original configuration saved
+ * when entering raw mode.
+ *
+ * @param native The native controller.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 static lle_result_t lle_native_exit_raw_mode(lle_native_controller_t *native) {
     if (!native->raw_mode_active || !native->termios_saved) {
@@ -259,7 +289,14 @@ static lle_result_t lle_native_exit_raw_mode(lle_native_controller_t *native) {
  */
 
 /**
- * Append to output buffer.
+ * @brief Append data to the output buffer.
+ *
+ * Grows the buffer as needed to accommodate the new data.
+ *
+ * @param native The native controller.
+ * @param data The data to append.
+ * @param length The length of the data in bytes.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 static lle_result_t lle_native_buffer_append(lle_native_controller_t *native,
                                              const char *data, size_t length) {
@@ -287,7 +324,12 @@ static lle_result_t lle_native_buffer_append(lle_native_controller_t *native,
 }
 
 /**
- * Flush output buffer.
+ * @brief Flush the output buffer to stdout.
+ *
+ * Writes all buffered content to stdout and updates byte statistics.
+ *
+ * @param native The native controller.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 static lle_result_t lle_native_buffer_flush(lle_native_controller_t *native) {
     if (native->buffer_used == 0) {
@@ -307,7 +349,9 @@ static lle_result_t lle_native_buffer_flush(lle_native_controller_t *native) {
 }
 
 /**
- * Clear output buffer.
+ * @brief Clear the output buffer without flushing.
+ *
+ * @param native The native controller.
  */
 static void lle_native_buffer_clear(lle_native_controller_t *native) {
     native->buffer_used = 0;
@@ -319,7 +363,14 @@ static void lle_native_buffer_clear(lle_native_controller_t *native) {
  */
 
 /**
- * Move cursor to position.
+ * @brief Move the cursor to a specific position.
+ *
+ * Appends a cursor positioning escape sequence to the output buffer.
+ *
+ * @param native The native controller.
+ * @param row The target row (0-indexed).
+ * @param col The target column (0-indexed).
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 LLE_MAYBE_UNUSED
 static lle_result_t lle_native_move_cursor(lle_native_controller_t *native,
@@ -343,7 +394,10 @@ static lle_result_t lle_native_move_cursor(lle_native_controller_t *native,
 }
 
 /**
- * Clear screen.
+ * @brief Clear the entire screen and move cursor to home position.
+ *
+ * @param native The native controller.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 LLE_MAYBE_UNUSED
 static lle_result_t lle_native_clear_screen(lle_native_controller_t *native) {
@@ -358,7 +412,10 @@ static lle_result_t lle_native_clear_screen(lle_native_controller_t *native) {
 }
 
 /**
- * Clear to end of line.
+ * @brief Clear from cursor position to end of current line.
+ *
+ * @param native The native controller.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 LLE_MAYBE_UNUSED
 static lle_result_t lle_native_clear_to_eol(lle_native_controller_t *native) {
@@ -371,7 +428,13 @@ static lle_result_t lle_native_clear_to_eol(lle_native_controller_t *native) {
 }
 
 /**
- * Set foreground color (256-color mode).
+ * @brief Set the foreground color using 256-color mode.
+ *
+ * Optimizes by skipping if the color hasn't changed.
+ *
+ * @param native The native controller.
+ * @param color The 256-color palette index.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 static lle_result_t lle_native_set_fg_color(lle_native_controller_t *native,
                                             int color) {
@@ -396,7 +459,12 @@ static lle_result_t lle_native_set_fg_color(lle_native_controller_t *native,
 }
 
 /**
- * Reset all formatting.
+ * @brief Reset all text formatting to terminal defaults.
+ *
+ * Clears colors, bold, italic, underline, and other attributes.
+ *
+ * @param native The native controller.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 static lle_result_t
 lle_native_reset_formatting(lle_native_controller_t *native) {
@@ -414,7 +482,10 @@ lle_native_reset_formatting(lle_native_controller_t *native) {
 }
 
 /**
- * Show cursor.
+ * @brief Show the terminal cursor.
+ *
+ * @param native The native controller.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 LLE_MAYBE_UNUSED
 static lle_result_t lle_native_show_cursor(lle_native_controller_t *native) {
@@ -427,7 +498,10 @@ static lle_result_t lle_native_show_cursor(lle_native_controller_t *native) {
 }
 
 /**
- * Hide cursor.
+ * @brief Hide the terminal cursor.
+ *
+ * @param native The native controller.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 LLE_MAYBE_UNUSED
 static lle_result_t lle_native_hide_cursor(lle_native_controller_t *native) {
@@ -445,7 +519,14 @@ static lle_result_t lle_native_hide_cursor(lle_native_controller_t *native) {
  */
 
 /**
- * Apply capability optimizations.
+ * @brief Apply capability-based optimizations to the native controller.
+ *
+ * Sets optimization flags based on detected terminal capabilities
+ * such as cursor queries, color depth, and advanced features.
+ *
+ * @param native The native controller.
+ * @param detection The terminal detection results.
+ * @return LLE_SUCCESS on success.
  */
 static lle_result_t lle_apply_capability_optimizations(
     lle_native_controller_t *native,
@@ -477,7 +558,12 @@ static lle_result_t lle_apply_capability_optimizations(
 }
 
 /**
- * Calculate optimal buffer size based on terminal size.
+ * @brief Calculate the optimal output buffer size based on capability level.
+ *
+ * Premium terminals get larger buffers, minimal terminals get smaller ones.
+ *
+ * @param detection The terminal detection results.
+ * @return The recommended buffer size in bytes.
  */
 static size_t lle_calculate_optimal_buffer_size(
     const lle_terminal_detection_result_t *detection) {
@@ -504,7 +590,14 @@ static size_t lle_calculate_optimal_buffer_size(
  */
 
 /**
- * Initialize native terminal controller.
+ * @brief Initialize the native terminal controller for full TTY environments.
+ *
+ * Creates and configures a native controller with full terminal control
+ * including raw mode, cursor positioning, colors, and performance monitoring.
+ *
+ * @param context The adaptive context to initialize the controller in.
+ * @param memory_pool Memory pool for allocations.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t
 lle_initialize_native_controller(lle_adaptive_context_t *context,
@@ -587,7 +680,11 @@ lle_initialize_native_controller(lle_adaptive_context_t *context,
 }
 
 /**
- * Cleanup native controller.
+ * @brief Clean up and destroy a native controller.
+ *
+ * Restores terminal state if in raw mode and releases all resources.
+ *
+ * @param native The native controller to destroy, or NULL for no-op.
  */
 void lle_cleanup_native_controller(lle_native_controller_t *native) {
     if (!native) {
@@ -607,7 +704,15 @@ void lle_cleanup_native_controller(lle_native_controller_t *native) {
 }
 
 /**
- * Read line using native controller.
+ * @brief Read a line of input using the native controller.
+ *
+ * Enters raw mode, displays a colored prompt, reads input, and
+ * returns the line. Currently uses fgets for simplicity.
+ *
+ * @param native The native controller.
+ * @param prompt The prompt string to display.
+ * @param line Output pointer to receive the allocated input line.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t lle_native_read_line(lle_native_controller_t *native,
                                   const char *prompt, char **line) {
@@ -660,7 +765,12 @@ lle_result_t lle_native_read_line(lle_native_controller_t *native,
 }
 
 /**
- * Update native display.
+ * @brief Update the native controller's display output.
+ *
+ * Flushes the output buffer to the terminal.
+ *
+ * @param native The native controller.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t lle_native_update_display(lle_native_controller_t *native) {
     if (!native) {
@@ -672,7 +782,14 @@ lle_result_t lle_native_update_display(lle_native_controller_t *native) {
 }
 
 /**
- * Handle terminal resize.
+ * @brief Handle terminal resize events.
+ *
+ * Updates the stored terminal dimensions when the terminal is resized.
+ *
+ * @param native The native controller.
+ * @param new_width The new terminal width in columns.
+ * @param new_height The new terminal height in rows.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t lle_native_handle_resize(lle_native_controller_t *native,
                                       int new_width, int new_height) {
@@ -688,7 +805,13 @@ lle_result_t lle_native_handle_resize(lle_native_controller_t *native,
 }
 
 /**
- * Get native controller statistics.
+ * @brief Get native controller performance statistics.
+ *
+ * Copies the performance statistics to the provided structure.
+ *
+ * @param native The native controller.
+ * @param stats Output structure to receive the statistics.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t lle_native_get_stats(const lle_native_controller_t *native,
                                   lle_terminal_performance_stats_t *stats) {

@@ -1,6 +1,8 @@
 /**
  * @file builtin_widgets.c
  * @brief LLE Built-in Widget Implementations
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Provides core widgets that are automatically registered when the editor
  * is created. These widgets provide essential editing operations that can
@@ -38,6 +40,9 @@
 
 /**
  * @brief Move cursor forward one character
+ * @param editor The LLE editor instance
+ * @param user_data User data (unused)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t widget_forward_char(lle_editor_t *editor, void *user_data) {
     (void)user_data;
@@ -46,6 +51,9 @@ static lle_result_t widget_forward_char(lle_editor_t *editor, void *user_data) {
 
 /**
  * @brief Move cursor backward one character
+ * @param editor The LLE editor instance
+ * @param user_data User data (unused)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t widget_backward_char(lle_editor_t *editor,
                                          void *user_data) {
@@ -55,6 +63,9 @@ static lle_result_t widget_backward_char(lle_editor_t *editor,
 
 /**
  * @brief Move cursor forward one word
+ * @param editor The LLE editor instance
+ * @param user_data User data (unused)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t widget_forward_word(lle_editor_t *editor, void *user_data) {
     (void)user_data;
@@ -63,6 +74,9 @@ static lle_result_t widget_forward_word(lle_editor_t *editor, void *user_data) {
 
 /**
  * @brief Move cursor backward one word
+ * @param editor The LLE editor instance
+ * @param user_data User data (unused)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t widget_backward_word(lle_editor_t *editor,
                                          void *user_data) {
@@ -72,6 +86,9 @@ static lle_result_t widget_backward_word(lle_editor_t *editor,
 
 /**
  * @brief Move cursor to beginning of line
+ * @param editor The LLE editor instance
+ * @param user_data User data (unused)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t widget_beginning_of_line(lle_editor_t *editor,
                                              void *user_data) {
@@ -81,6 +98,9 @@ static lle_result_t widget_beginning_of_line(lle_editor_t *editor,
 
 /**
  * @brief Move cursor to end of line
+ * @param editor The LLE editor instance
+ * @param user_data User data (unused)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t widget_end_of_line(lle_editor_t *editor, void *user_data) {
     (void)user_data;
@@ -89,6 +109,9 @@ static lle_result_t widget_end_of_line(lle_editor_t *editor, void *user_data) {
 
 /**
  * @brief Move cursor to beginning of buffer
+ * @param editor The LLE editor instance
+ * @param user_data User data (unused)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t widget_beginning_of_buffer(lle_editor_t *editor,
                                                void *user_data) {
@@ -98,6 +121,9 @@ static lle_result_t widget_beginning_of_buffer(lle_editor_t *editor,
 
 /**
  * @brief Move cursor to end of buffer
+ * @param editor The LLE editor instance
+ * @param user_data User data (unused)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t widget_end_of_buffer(lle_editor_t *editor,
                                          void *user_data) {
@@ -112,6 +138,9 @@ static lle_result_t widget_end_of_buffer(lle_editor_t *editor,
 
 /**
  * @brief Delete character at cursor (delete-char)
+ * @param editor The LLE editor instance
+ * @param user_data User data (unused)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t widget_delete_char(lle_editor_t *editor, void *user_data) {
     (void)user_data;
@@ -120,6 +149,9 @@ static lle_result_t widget_delete_char(lle_editor_t *editor, void *user_data) {
 
 /**
  * @brief Delete character before cursor (backward-delete-char)
+ * @param editor The LLE editor instance
+ * @param user_data User data (unused)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t widget_backward_delete_char(lle_editor_t *editor,
                                                 void *user_data) {
@@ -129,6 +161,9 @@ static lle_result_t widget_backward_delete_char(lle_editor_t *editor,
 
 /**
  * @brief Kill from cursor to end of line
+ * @param editor The LLE editor instance
+ * @param user_data User data (unused)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t widget_kill_line(lle_editor_t *editor, void *user_data) {
     (void)user_data;
@@ -137,6 +172,9 @@ static lle_result_t widget_kill_line(lle_editor_t *editor, void *user_data) {
 
 /**
  * @brief Kill from beginning of line to cursor (unix-line-discard)
+ * @param editor The LLE editor instance
+ * @param user_data User data (unused)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t widget_backward_kill_line(lle_editor_t *editor,
                                               void *user_data) {
@@ -146,6 +184,9 @@ static lle_result_t widget_backward_kill_line(lle_editor_t *editor,
 
 /**
  * @brief Kill word forward
+ * @param editor The LLE editor instance
+ * @param user_data User data (unused)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t widget_kill_word(lle_editor_t *editor, void *user_data) {
     (void)user_data;
@@ -154,6 +195,9 @@ static lle_result_t widget_kill_word(lle_editor_t *editor, void *user_data) {
 
 /**
  * @brief Kill word backward (unix-word-rubout)
+ * @param editor The LLE editor instance
+ * @param user_data User data (unused)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t widget_backward_kill_word(lle_editor_t *editor,
                                               void *user_data) {
@@ -163,6 +207,9 @@ static lle_result_t widget_backward_kill_word(lle_editor_t *editor,
 
 /**
  * @brief Yank (paste) from kill ring
+ * @param editor The LLE editor instance
+ * @param user_data User data (unused)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t widget_yank(lle_editor_t *editor, void *user_data) {
     (void)user_data;
@@ -171,6 +218,9 @@ static lle_result_t widget_yank(lle_editor_t *editor, void *user_data) {
 
 /**
  * @brief Transpose characters at cursor
+ * @param editor The LLE editor instance
+ * @param user_data User data (unused)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t widget_transpose_chars(lle_editor_t *editor,
                                            void *user_data) {
@@ -180,6 +230,9 @@ static lle_result_t widget_transpose_chars(lle_editor_t *editor,
 
 /**
  * @brief Transpose words at cursor
+ * @param editor The LLE editor instance
+ * @param user_data User data (unused)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t widget_transpose_words(lle_editor_t *editor,
                                            void *user_data) {
@@ -194,6 +247,9 @@ static lle_result_t widget_transpose_words(lle_editor_t *editor,
 
 /**
  * @brief Capitalize word at cursor
+ * @param editor The LLE editor instance
+ * @param user_data User data (unused)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t widget_capitalize_word(lle_editor_t *editor,
                                            void *user_data) {
@@ -203,6 +259,9 @@ static lle_result_t widget_capitalize_word(lle_editor_t *editor,
 
 /**
  * @brief Convert word to uppercase
+ * @param editor The LLE editor instance
+ * @param user_data User data (unused)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t widget_upcase_word(lle_editor_t *editor, void *user_data) {
     (void)user_data;
@@ -211,6 +270,9 @@ static lle_result_t widget_upcase_word(lle_editor_t *editor, void *user_data) {
 
 /**
  * @brief Convert word to lowercase
+ * @param editor The LLE editor instance
+ * @param user_data User data (unused)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t widget_downcase_word(lle_editor_t *editor,
                                          void *user_data) {
@@ -225,6 +287,9 @@ static lle_result_t widget_downcase_word(lle_editor_t *editor,
 
 /**
  * @brief Navigate to previous history entry
+ * @param editor The LLE editor instance
+ * @param user_data User data (unused)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t widget_previous_history(lle_editor_t *editor,
                                             void *user_data) {
@@ -234,6 +299,9 @@ static lle_result_t widget_previous_history(lle_editor_t *editor,
 
 /**
  * @brief Navigate to next history entry
+ * @param editor The LLE editor instance
+ * @param user_data User data (unused)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t widget_next_history(lle_editor_t *editor, void *user_data) {
     (void)user_data;
@@ -251,6 +319,9 @@ static lle_result_t widget_next_history(lle_editor_t *editor, void *user_data) {
 
 /**
  * @brief Trigger tab completion
+ * @param editor The LLE editor instance
+ * @param user_data User data (unused)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t widget_complete(lle_editor_t *editor, void *user_data) {
     (void)user_data;
@@ -264,6 +335,9 @@ static lle_result_t widget_complete(lle_editor_t *editor, void *user_data) {
 
 /**
  * @brief Clear screen and redraw
+ * @param editor The LLE editor instance
+ * @param user_data User data (unused)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t widget_clear_screen(lle_editor_t *editor, void *user_data) {
     (void)user_data;
@@ -277,6 +351,9 @@ static lle_result_t widget_clear_screen(lle_editor_t *editor, void *user_data) {
 
 /**
  * @brief Smart up arrow - line navigation or history
+ * @param editor The LLE editor instance
+ * @param user_data User data (unused)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t widget_smart_up(lle_editor_t *editor, void *user_data) {
     (void)user_data;
@@ -285,6 +362,9 @@ static lle_result_t widget_smart_up(lle_editor_t *editor, void *user_data) {
 
 /**
  * @brief Smart down arrow - line navigation or history
+ * @param editor The LLE editor instance
+ * @param user_data User data (unused)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t widget_smart_down(lle_editor_t *editor, void *user_data) {
     (void)user_data;
@@ -307,10 +387,14 @@ static lle_result_t widget_smart_down(lle_editor_t *editor, void *user_data) {
  * - Display controller can re-render with transient prompt
  *
  * The transient prompt replaces the fancy multi-line prompt with a minimal
- * version (e.g., "❯ ") in the terminal scrollback, reducing visual clutter.
+ * version (e.g., ">" ) in the terminal scrollback, reducing visual clutter.
  *
  * This implementation uses dc_apply_transient_prompt() which goes through
  * the screen buffer system, respecting the LLE architecture.
+ *
+ * @param editor The LLE editor instance
+ * @param user_data User data (unused)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t widget_transient_prompt(lle_editor_t *editor,
                                             void *user_data) {

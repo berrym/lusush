@@ -1,6 +1,8 @@
 /**
  * @file history_storage.c
  * @brief LLE History System - Persistence and File Storage
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Specification: Spec 09 - History System
  * Phase: Phase 1 Day 3 - Persistence Layer
@@ -40,13 +42,14 @@
  */
 
 /**
- * Acquire exclusive lock on history file
+ * @brief Acquire exclusive lock on history file
  *
  * Uses flock() for advisory locking to prevent concurrent writes
  * from multiple shell instances.
  *
- * @param fd File descriptor
- * @return LLE_SUCCESS or error code
+ * @param fd File descriptor to lock
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if fd is invalid,
+ *         LLE_ERROR_TIMEOUT if lock cannot be acquired, or LLE_ERROR_SYSTEM_CALL on error
  */
 static lle_result_t lle_history_file_lock(int fd) {
     if (fd < 0) {
@@ -75,10 +78,11 @@ static lle_result_t lle_history_file_lock(int fd) {
 }
 
 /**
- * Release lock on history file
+ * @brief Release lock on history file
  *
- * @param fd File descriptor
- * @return LLE_SUCCESS or error code
+ * @param fd File descriptor to unlock
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if fd is invalid,
+ *         or LLE_ERROR_SYSTEM_CALL on error
  */
 static lle_result_t lle_history_file_unlock(int fd) {
     if (fd < 0) {
@@ -98,14 +102,14 @@ static lle_result_t lle_history_file_unlock(int fd) {
  */
 
 /**
- * Escape special characters in string for TSV format
+ * @brief Escape special characters in string for TSV format
  *
- * Escapes: \t -> \\t, \n -> \\n, \\ -> \\\\
+ * Escapes: \\t -> \\\\t, \\n -> \\\\n, \\\\ -> \\\\\\\\
  *
- * @param str Input string
- * @param output Output buffer
- * @param output_size Output buffer size
- * @return LLE_SUCCESS or error code
+ * @param str Input string to escape
+ * @param output Output buffer for escaped string
+ * @param output_size Size of output buffer in bytes
+ * @return LLE_SUCCESS on success, or LLE_ERROR_INVALID_PARAMETER if parameters are invalid
  */
 static lle_result_t lle_escape_string(const char *str, char *output,
                                       size_t output_size) {
@@ -143,12 +147,14 @@ static lle_result_t lle_escape_string(const char *str, char *output,
 }
 
 /**
- * Unescape special characters from TSV format
+ * @brief Unescape special characters from TSV format
  *
- * @param str Input string
- * @param output Output buffer
- * @param output_size Output buffer size
- * @return LLE_SUCCESS or error code
+ * Unescapes: \\\\t -> \\t, \\\\n -> \\n, \\\\\\\\ -> \\\\
+ *
+ * @param str Input escaped string
+ * @param output Output buffer for unescaped string
+ * @param output_size Size of output buffer in bytes
+ * @return LLE_SUCCESS on success, or LLE_ERROR_INVALID_PARAMETER if parameters are invalid
  */
 static lle_result_t lle_unescape_string(const char *str, char *output,
                                         size_t output_size) {
@@ -183,14 +189,15 @@ static lle_result_t lle_unescape_string(const char *str, char *output,
 }
 
 /**
- * Format history entry as TSV line
+ * @brief Format history entry as TSV line
  *
- * Format: TIMESTAMP\tCOMMAND\tEXIT_CODE\tWORKING_DIR\n
+ * Format: TIMESTAMP\\tCOMMAND\\tEXIT_CODE\\tWORKING_DIR\\n
  *
- * @param entry Entry to format
- * @param line Output buffer
- * @param line_size Buffer size
- * @return LLE_SUCCESS or error code
+ * @param entry History entry to format
+ * @param line Output buffer for formatted line
+ * @param line_size Size of output buffer in bytes
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if parameters are invalid,
+ *         LLE_ERROR_OUT_OF_MEMORY on allocation failure, or LLE_ERROR_BUFFER_OVERFLOW if line too long
  */
 static lle_result_t lle_history_format_entry(const lle_history_entry_t *entry,
                                              char *line, size_t line_size) {
@@ -233,12 +240,15 @@ static lle_result_t lle_history_format_entry(const lle_history_entry_t *entry,
 }
 
 /**
- * Parse TSV line into history entry
+ * @brief Parse TSV line into history entry
  *
- * @param line Input line
- * @param entry Output entry pointer
- * @param memory_pool Memory pool
- * @return LLE_SUCCESS or error code
+ * Parses a tab-separated line and creates a history entry.
+ * Comments (lines starting with #) and empty lines are skipped.
+ *
+ * @param line Input TSV line to parse
+ * @param entry Output pointer for created entry (NULL if line is comment/empty)
+ * @param memory_pool Memory pool for allocation (currently uses global pool)
+ * @return LLE_SUCCESS on success, or LLE_ERROR_INVALID_PARAMETER if parameters are invalid
  */
 static lle_result_t lle_history_parse_line(const char *line,
                                            lle_history_entry_t **entry,
@@ -309,11 +319,14 @@ static lle_result_t lle_history_parse_line(const char *line,
  */
 
 /**
- * Save all history entries to file
+ * @brief Save all history entries to file
  *
- * @param core History core
- * @param file_path Path to history file
- * @return LLE_SUCCESS or error code
+ * Writes all history entries to a TSV file with locking for multi-process safety.
+ *
+ * @param core History core engine containing entries to save
+ * @param file_path Path to history file to write
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if parameters are invalid,
+ *         LLE_ERROR_IO_ERROR on file operations failure, or other error codes
  */
 lle_result_t lle_history_save_to_file(lle_history_core_t *core,
                                       const char *file_path) {
@@ -395,13 +408,15 @@ lle_result_t lle_history_save_to_file(lle_history_core_t *core,
 }
 
 /**
- * Append single entry to history file
+ * @brief Append single entry to history file
  *
  * For incremental saves without rewriting entire file.
+ * Uses file locking for multi-process safety.
  *
- * @param entry Entry to append
- * @param file_path Path to history file
- * @return LLE_SUCCESS or error code
+ * @param entry History entry to append
+ * @param file_path Path to history file to append to
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if parameters are invalid,
+ *         LLE_ERROR_IO_ERROR on file operations failure, or other error codes
  */
 lle_result_t lle_history_append_entry(const lle_history_entry_t *entry,
                                       const char *file_path) {
@@ -461,11 +476,15 @@ lle_result_t lle_history_append_entry(const lle_history_entry_t *entry,
  */
 
 /**
- * Load history entries from file
+ * @brief Load history entries from file
  *
- * @param core History core
- * @param file_path Path to history file
- * @return LLE_SUCCESS or error code
+ * Reads history entries from a TSV file and populates the history core.
+ * If the file does not exist, returns success with empty history.
+ *
+ * @param core History core engine to populate with loaded entries
+ * @param file_path Path to history file to read
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if parameters are invalid,
+ *         LLE_ERROR_IO_ERROR on file read failure, or other error codes
  */
 lle_result_t lle_history_load_from_file(lle_history_core_t *core,
                                         const char *file_path) {

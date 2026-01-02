@@ -1,6 +1,8 @@
-/*
- * terminal_display_generator.c - Display Content Generation (Spec 02 Subsystem
- * 3)
+/**
+ * @file terminal_display_generator.c
+ * @brief Display Content Generation (Spec 02 Subsystem 3)
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Converts internal state (authoritative model) to display content for
  * submission to Lusush display system. NEVER queries terminal state.
@@ -25,8 +27,12 @@
  * ============================================================================
  */
 
-/*
- * Create display content structure
+/**
+ * @brief Create display content structure
+ *
+ * @param content Output pointer for created content
+ * @param line_capacity Initial line capacity
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_display_content_create(lle_display_content_t **content,
                                         size_t line_capacity) {
@@ -79,8 +85,10 @@ lle_result_t lle_display_content_create(lle_display_content_t **content,
     return LLE_SUCCESS;
 }
 
-/*
- * Destroy display content structure
+/**
+ * @brief Destroy display content structure
+ *
+ * @param content Content to destroy
  */
 void lle_display_content_destroy(lle_display_content_t *content) {
     if (!content) {
@@ -105,8 +113,13 @@ void lle_display_content_destroy(lle_display_content_t *content) {
  * ============================================================================
  */
 
-/*
- * Initialize display generator
+/**
+ * @brief Initialize display generator
+ *
+ * @param generator Output pointer for created generator
+ * @param caps Terminal capabilities reference
+ * @param state Internal state reference
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_display_generator_init(lle_display_generator_t **generator,
                                         lle_terminal_capabilities_t *caps,
@@ -142,8 +155,10 @@ lle_result_t lle_display_generator_init(lle_display_generator_t **generator,
     return LLE_SUCCESS;
 }
 
-/*
- * Destroy display generator
+/**
+ * @brief Destroy display generator
+ *
+ * @param generator Generator to destroy
  */
 void lle_display_generator_destroy(lle_display_generator_t *generator) {
     if (!generator) {
@@ -161,8 +176,14 @@ void lle_display_generator_destroy(lle_display_generator_t *generator) {
     free(generator);
 }
 
-/*
- * Ensure line has sufficient capacity
+/**
+ * @brief Ensure line has sufficient capacity
+ *
+ * Grows the line content buffer if needed using a 1.5x growth strategy.
+ *
+ * @param line Line to check and potentially resize
+ * @param required Required capacity in bytes
+ * @return LLE_SUCCESS on success, LLE_ERROR_OUT_OF_MEMORY on allocation failure
  */
 static lle_result_t ensure_line_capacity(lle_display_line_t *line,
                                          size_t required) {
@@ -187,8 +208,16 @@ static lle_result_t ensure_line_capacity(lle_display_line_t *line,
     return LLE_SUCCESS;
 }
 
-/*
- * Append text to display line
+/**
+ * @brief Append text to display line
+ *
+ * Appends the specified text to the end of the display line content,
+ * growing the buffer if necessary.
+ *
+ * @param line Line to append to
+ * @param text Text to append
+ * @param length Length of text in bytes
+ * @return LLE_SUCCESS on success, LLE_ERROR_OUT_OF_MEMORY on allocation failure
  */
 static lle_result_t append_to_line(lle_display_line_t *line, const char *text,
                                    size_t length) {
@@ -210,8 +239,18 @@ static lle_result_t append_to_line(lle_display_line_t *line, const char *text,
     return LLE_SUCCESS;
 }
 
-/*
- * Calculate display line count for buffer with line wrapping
+/**
+ * @brief Calculate display line count for buffer with line wrapping
+ *
+ * Computes how many display lines are needed to show the buffer content,
+ * accounting for line wrapping at terminal width, newlines, tabs, and
+ * variable-width Unicode characters.
+ *
+ * @param buffer Text buffer to analyze
+ * @param buffer_length Length of buffer in bytes
+ * @param terminal_width Terminal width in columns for wrapping
+ * @param prompt_width Width of prompt in columns
+ * @return Number of display lines needed
  */
 static size_t calculate_display_lines(const char *buffer, size_t buffer_length,
                                       size_t terminal_width,
@@ -260,11 +299,15 @@ static size_t calculate_display_lines(const char *buffer, size_t buffer_length,
     return line_count;
 }
 
-/*
- * Generate display content from internal state
+/**
+ * @brief Generate display content from internal state
  *
  * CRITICAL: This function converts authoritative internal state to
  * display content. It NEVER queries terminal state.
+ *
+ * @param generator Display generator instance
+ * @param content Output pointer for generated content
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t
 lle_display_generator_generate_content(lle_display_generator_t *generator,

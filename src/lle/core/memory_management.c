@@ -1,6 +1,8 @@
 /**
  * @file memory_management.c
  * @brief LLE Memory Management System - Complete Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Specification: Spec 15 - Memory Management Complete Specification
  * Version: 1.0.0
@@ -14,9 +16,6 @@
  * - Provides LLE-specific tracking, optimization, and security
  * - Thread-safe operations throughout
  * - Complete error handling and recovery
- *
- * Copyright (C) 2025 Michael Berry
- * Licensed under GPL v3
  */
 
 #include "lle/memory_management.h"

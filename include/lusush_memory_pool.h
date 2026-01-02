@@ -121,105 +121,195 @@ extern lusush_memory_pool_system_t *global_memory_pool;
  * Core Memory Pool API
  */
 
-// Initialize the memory pool system with configuration
+/**
+ * @brief Initialize the memory pool system with configuration
+ * @param config Pointer to configuration structure, or NULL for defaults
+ * @return LUSUSH_POOL_SUCCESS on success, error code on failure
+ */
 lusush_pool_error_t lusush_pool_init(const lusush_pool_config_t *config);
 
-// Shutdown and cleanup the memory pool system
+/**
+ * @brief Shutdown and cleanup the memory pool system
+ */
 void lusush_pool_shutdown(void);
 
-// Allocate memory from appropriate pool or fallback to malloc
+/**
+ * @brief Allocate memory from appropriate pool or fallback to malloc
+ * @param size Size of memory to allocate in bytes
+ * @return Pointer to allocated memory, or NULL on failure
+ */
 void *lusush_pool_alloc(size_t size);
 
-// Free memory back to pool or call free() for malloc allocations
+/**
+ * @brief Free memory back to pool or call free() for malloc allocations
+ * @param ptr Pointer to memory to free (NULL is safely ignored)
+ */
 void lusush_pool_free(void *ptr);
 
-// Reallocate memory (may use malloc for complex resizing)
+/**
+ * @brief Reallocate memory (may use malloc for complex resizing)
+ * @param ptr Pointer to existing memory allocation (NULL allocates new memory)
+ * @param new_size New size in bytes (0 frees the memory)
+ * @return Pointer to reallocated memory, or NULL on failure
+ */
 void *lusush_pool_realloc(void *ptr, size_t new_size);
 
-// Duplicate string using pool allocation
+/**
+ * @brief Duplicate string using pool allocation
+ * @param str String to duplicate
+ * @return Pointer to duplicated string, or NULL on failure
+ */
 char *lusush_pool_strdup(const char *str);
 
-// Allocate and zero-initialize memory
+/**
+ * @brief Allocate and zero-initialize memory
+ * @param count Number of elements to allocate
+ * @param size Size of each element in bytes
+ * @return Pointer to zero-initialized memory, or NULL on failure
+ */
 void *lusush_pool_calloc(size_t count, size_t size);
 
 /**
  * Pool Management and Information API
  */
 
-// Get current pool statistics
+/**
+ * @brief Get current pool statistics
+ * @return Copy of the current pool statistics structure
+ */
 lusush_pool_stats_t lusush_pool_get_stats(void);
 
-// Reset statistics counters
+/**
+ * @brief Reset statistics counters
+ */
 void lusush_pool_reset_stats(void);
 
-// Analyze malloc fallback patterns for optimization
+/**
+ * @brief Analyze malloc fallback patterns for optimization
+ */
 void lusush_pool_analyze_fallback_patterns(void);
 
-// Get pool system status and health information
+/**
+ * @brief Get pool system status and health information
+ * @return true if all pools have available capacity, false otherwise
+ */
 bool lusush_pool_is_healthy(void);
 
-// Perform pool maintenance (defragmentation, cleanup)
+/**
+ * @brief Perform pool maintenance (defragmentation, cleanup)
+ */
 void lusush_pool_maintenance(void);
 
-// Get recommended pool size for given allocation size
+/**
+ * @brief Get recommended pool size for given allocation size
+ * @param size The allocation size to find a pool for
+ * @return Pool type that can accommodate the size
+ */
 lusush_pool_size_t lusush_pool_get_recommended_size(size_t size);
 
-// Check if pointer was allocated from pool system
+/**
+ * @brief Check if pointer was allocated from pool system
+ * @param ptr Pointer to check
+ * @return true if pointer is from a pool, false otherwise
+ */
 bool lusush_pool_is_pool_pointer(const void *ptr);
 
 /**
  * Advanced Pool Operations
  */
 
-// Pre-allocate blocks in specific pool for performance
+/**
+ * @brief Pre-allocate blocks in specific pool for performance
+ * @param pool_type The pool type to pre-allocate blocks in
+ * @param count Number of blocks to pre-allocate
+ * @return LUSUSH_POOL_SUCCESS on success, error code on failure
+ */
 lusush_pool_error_t lusush_pool_preallocate(lusush_pool_size_t pool_type,
                                             size_t count);
 
-// Get detailed information about specific pool
+/**
+ * @brief Get detailed information about specific pool
+ * @param pool_type The pool type to query
+ * @param block_size Pointer to store block size (may be NULL)
+ * @param free_blocks Pointer to store free block count (may be NULL)
+ * @param total_blocks Pointer to store total block count (may be NULL)
+ */
 void lusush_pool_get_pool_info(lusush_pool_size_t pool_type, size_t *block_size,
                                size_t *free_blocks, size_t *total_blocks);
 
-// Validate pool integrity (debug/testing)
+/**
+ * @brief Validate pool integrity (debug/testing)
+ * @return true if pool integrity is valid, false otherwise
+ */
 bool lusush_pool_validate_integrity(void);
 
-// Generate detailed pool status report for debugging
+/**
+ * @brief Generate detailed pool status report for debugging
+ */
 void lusush_pool_print_status_report(void);
 
 /**
  * Integration with Performance Monitoring System
  */
 
-// Get pool memory usage for display performance reporting
+/**
+ * @brief Get pool memory usage for display performance reporting
+ * @param pool_bytes Pointer to store current pool usage in bytes (may be NULL)
+ * @param malloc_bytes Pointer to store malloc fallback usage in bytes (may be NULL)
+ * @param pool_efficiency Pointer to store pool hit rate percentage (may be NULL)
+ */
 void lusush_pool_get_memory_usage(uint64_t *pool_bytes, uint64_t *malloc_bytes,
                                   double *pool_efficiency);
 
-// Check if pool system is meeting performance targets
+/**
+ * @brief Check if pool system is meeting performance targets
+ * @return true if performance targets are met, false otherwise
+ */
 bool lusush_pool_meets_performance_targets(void);
 
 /**
  * Configuration Helpers
  */
 
-// Get default pool configuration for typical usage
+/**
+ * @brief Get default pool configuration for typical usage
+ * @return Default configuration structure
+ */
 lusush_pool_config_t lusush_pool_get_default_config(void);
 
-// Create optimized configuration for display-heavy workloads
+/**
+ * @brief Create optimized configuration for display-heavy workloads
+ * @return Configuration structure optimized for display operations
+ */
 lusush_pool_config_t lusush_pool_get_display_optimized_config(void);
 
-// Create configuration for memory-constrained environments
+/**
+ * @brief Create configuration for memory-constrained environments
+ * @return Configuration structure with minimal memory footprint
+ */
 lusush_pool_config_t lusush_pool_get_minimal_config(void);
 
 /**
  * Error Handling and Debugging
  */
 
-// Convert error code to human-readable string
+/**
+ * @brief Convert error code to human-readable string
+ * @param error The error code to convert
+ * @return Human-readable error description string
+ */
 const char *lusush_pool_error_string(lusush_pool_error_t error);
 
-// Enable/disable debug mode with detailed logging
+/**
+ * @brief Enable/disable debug mode with detailed logging
+ * @param enabled true to enable debug mode, false to disable
+ */
 void lusush_pool_set_debug_mode(bool enabled);
 
-// Get last error that occurred in pool operations
+/**
+ * @brief Get last error that occurred in pool operations
+ * @return Last error code from pool operations
+ */
 lusush_pool_error_t lusush_pool_get_last_error(void);
 
 /**

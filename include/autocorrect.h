@@ -7,6 +7,7 @@
  * Integrates with existing completion algorithms and configuration system.
  *
  * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  */
 
 #ifndef AUTOCORRECT_H
@@ -15,72 +16,90 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-// Maximum number of correction suggestions to offer
+/** @brief Maximum number of correction suggestions to offer */
 #define MAX_CORRECTIONS 5
 
-// Minimum similarity score to consider for suggestions (0-100)
+/** @brief Minimum similarity score to consider for suggestions (0-100) */
 #define MIN_SIMILARITY_SCORE 40
 
-// Maximum command length to process for corrections
+/** @brief Maximum command length to process for corrections */
 #define MAX_COMMAND_LENGTH 256
 
-// Auto-correction configuration structure
+/**
+ * @brief Auto-correction configuration structure
+ *
+ * Controls all aspects of the auto-correction system behavior.
+ */
 typedef struct {
-    bool enabled;             // Enable/disable auto-correction
-    int max_suggestions;      // Maximum number of suggestions (1-5)
-    int similarity_threshold; // Minimum similarity score (0-100)
-    bool interactive_prompts; // Show "Did you mean?" prompts
-    bool learn_from_history;  // Learn from command history
-    bool correct_builtins;    // Suggest builtin corrections
-    bool correct_external;    // Suggest external command corrections
-    bool case_sensitive;      // Case-sensitive matching
+    bool enabled;             /**< Enable/disable auto-correction */
+    int max_suggestions;      /**< Maximum number of suggestions (1-5) */
+    int similarity_threshold; /**< Minimum similarity score (0-100) */
+    bool interactive_prompts; /**< Show "Did you mean?" prompts */
+    bool learn_from_history;  /**< Learn from command history */
+    bool correct_builtins;    /**< Suggest builtin corrections */
+    bool correct_external;    /**< Suggest external command corrections */
+    bool case_sensitive;      /**< Case-sensitive matching */
 } autocorrect_config_t;
 
-// Correction suggestion structure
+/**
+ * @brief Correction suggestion structure
+ *
+ * Represents a single command correction suggestion with metadata.
+ */
 typedef struct {
-    char *command;      // Suggested command
-    int score;          // Similarity score (0-100)
-    const char *source; // Source: "builtin", "history", "path", "function"
+    char *command;      /**< Suggested command */
+    int score;          /**< Similarity score (0-100) */
+    const char *source; /**< Source: "builtin", "history", "path", "function" */
 } correction_t;
 
-// Correction results structure
+/**
+ * @brief Correction results structure
+ *
+ * Contains all correction suggestions for a misspelled command.
+ */
 typedef struct {
-    correction_t suggestions[MAX_CORRECTIONS]; // Array of suggestions
-    int count;                                 // Number of suggestions found
-    char *original_command;                    // Original misspelled command
+    correction_t suggestions[MAX_CORRECTIONS]; /**< Array of suggestions */
+    int count;                                 /**< Number of suggestions found */
+    char *original_command;                    /**< Original misspelled command */
 } correction_results_t;
 
-// Forward declarations for executor integration
+/** @brief Forward declaration for executor integration */
 typedef struct executor executor_t;
 
 /**
- * Initialize auto-correction system
- * Must be called once during shell startup
+ * @brief Initialize auto-correction system
+ *
+ * Must be called once during shell startup.
+ *
  * @return 0 on success, non-zero on error
  */
 int autocorrect_init(void);
 
 /**
- * Cleanup auto-correction system
- * Called during shell shutdown
+ * @brief Cleanup auto-correction system
+ *
+ * Called during shell shutdown to free resources.
  */
 void autocorrect_cleanup(void);
 
 /**
- * Load auto-correction configuration from config system
+ * @brief Load auto-correction configuration from config system
+ *
  * @param config Configuration values structure
  * @return 0 on success, non-zero on error
  */
 int autocorrect_load_config(const autocorrect_config_t *config);
 
 /**
- * Check if auto-correction is enabled
+ * @brief Check if auto-correction is enabled
+ *
  * @return true if enabled, false otherwise
  */
 bool autocorrect_is_enabled(void);
 
 /**
- * Find correction suggestions for a misspelled command
+ * @brief Find correction suggestions for a misspelled command
+ *
  * @param executor Executor context for accessing functions/variables
  * @param command The misspelled command to correct
  * @param results Output structure to store correction results
@@ -90,23 +109,25 @@ int autocorrect_find_suggestions(executor_t *executor, const char *command,
                                  correction_results_t *results);
 
 /**
- * Present correction suggestions to user and get selection
+ * @brief Present correction suggestions to user and get selection
+ *
  * @param results Correction results from autocorrect_find_suggestions
- * @param selected_command Output buffer for selected command
- * (MAX_COMMAND_LENGTH)
+ * @param selected_command Output buffer for selected command (MAX_COMMAND_LENGTH)
  * @return true if user selected a correction, false if cancelled/declined
  */
 bool autocorrect_prompt_user(const correction_results_t *results,
                              char *selected_command);
 
 /**
- * Free memory allocated in correction results
+ * @brief Free memory allocated in correction results
+ *
  * @param results Results structure to clean up
  */
 void autocorrect_free_results(correction_results_t *results);
 
 /**
- * Calculate similarity score between two commands using multiple algorithms
+ * @brief Calculate similarity score between two commands using multiple algorithms
+ *
  * @param command1 First command
  * @param command2 Second command
  * @param case_sensitive Whether to use case-sensitive comparison
@@ -116,23 +137,24 @@ int autocorrect_similarity_score(const char *command1, const char *command2,
                                  bool case_sensitive);
 
 /**
- * Add command to learning history for future corrections
+ * @brief Add command to learning history for future corrections
+ *
  * @param command Command that was successfully executed
  */
 void autocorrect_learn_command(const char *command);
 
 /**
- * Check if a command exists in the system (builtin, function, or PATH)
+ * @brief Check if a command exists in the system (builtin, function, or PATH)
+ *
  * @param executor Executor context
  * @param command Command to check
  * @return true if command exists, false otherwise
  */
 bool autocorrect_command_exists(executor_t *executor, const char *command);
 
-// Similarity algorithm functions (internal)
-
 /**
- * Calculate Levenshtein distance between two strings
+ * @brief Calculate Levenshtein distance between two strings
+ *
  * @param s1 First string
  * @param s2 Second string
  * @return Edit distance (lower is more similar)
@@ -140,7 +162,8 @@ bool autocorrect_command_exists(executor_t *executor, const char *command);
 int autocorrect_levenshtein_distance(const char *s1, const char *s2);
 
 /**
- * Calculate Jaro-Winkler similarity score
+ * @brief Calculate Jaro-Winkler similarity score
+ *
  * @param s1 First string
  * @param s2 Second string
  * @return Similarity score (0-100)
@@ -148,7 +171,8 @@ int autocorrect_levenshtein_distance(const char *s1, const char *s2);
 int autocorrect_jaro_winkler_score(const char *s1, const char *s2);
 
 /**
- * Calculate common prefix length
+ * @brief Calculate common prefix length
+ *
  * @param s1 First string
  * @param s2 Second string
  * @param case_sensitive Whether to use case-sensitive comparison
@@ -158,7 +182,8 @@ int autocorrect_common_prefix_length(const char *s1, const char *s2,
                                      bool case_sensitive);
 
 /**
- * Check if one string is a subsequence of another (fuzzy matching)
+ * @brief Check if one string is a subsequence of another (fuzzy matching)
+ *
  * @param pattern Pattern string (usually shorter)
  * @param text Text to search in
  * @param case_sensitive Whether to use case-sensitive comparison
@@ -167,10 +192,9 @@ int autocorrect_common_prefix_length(const char *s1, const char *s2,
 int autocorrect_subsequence_score(const char *pattern, const char *text,
                                   bool case_sensitive);
 
-// Correction source functions
-
 /**
- * Find builtin command suggestions
+ * @brief Find builtin command suggestions
+ *
  * @param command Misspelled command
  * @param suggestions Output array
  * @param max_suggestions Maximum suggestions to return
@@ -181,7 +205,8 @@ int autocorrect_suggest_builtins(const char *command, correction_t *suggestions,
                                  int max_suggestions, bool case_sensitive);
 
 /**
- * Find function suggestions from executor context
+ * @brief Find function suggestions from executor context
+ *
  * @param executor Executor context
  * @param command Misspelled command
  * @param suggestions Output array
@@ -194,7 +219,8 @@ int autocorrect_suggest_functions(executor_t *executor, const char *command,
                                   int max_suggestions, bool case_sensitive);
 
 /**
- * Find PATH command suggestions
+ * @brief Find PATH command suggestions
+ *
  * @param command Misspelled command
  * @param suggestions Output array
  * @param max_suggestions Maximum suggestions to return
@@ -206,7 +232,8 @@ int autocorrect_suggest_path_commands(const char *command,
                                       int max_suggestions, bool case_sensitive);
 
 /**
- * Find history-based suggestions
+ * @brief Find history-based suggestions
+ *
  * @param command Misspelled command
  * @param suggestions Output array
  * @param max_suggestions Maximum suggestions to return
@@ -217,48 +244,49 @@ int autocorrect_suggest_from_history(const char *command,
                                      correction_t *suggestions,
                                      int max_suggestions, bool case_sensitive);
 
-// Configuration helper functions
-
 /**
- * Get default auto-correction configuration
+ * @brief Get default auto-correction configuration
+ *
  * @param config Output configuration structure
  */
 void autocorrect_get_default_config(autocorrect_config_t *config);
 
 /**
- * Validate auto-correction configuration values
+ * @brief Validate auto-correction configuration values
+ *
  * @param config Configuration to validate
  * @return true if valid, false otherwise
  */
 bool autocorrect_validate_config(const autocorrect_config_t *config);
 
 /**
- * Apply auto-correction configuration changes at runtime
+ * @brief Apply auto-correction configuration changes at runtime
+ *
  * @param config New configuration values
  * @return 0 on success, non-zero on error
  */
 int autocorrect_apply_config(const autocorrect_config_t *config);
 
-// Debug and statistics functions
-
 /**
- * Get auto-correction statistics
- * @param corrections_offered Total corrections offered
- * @param corrections_accepted Total corrections accepted by user
- * @param commands_learned Total commands learned from history
+ * @brief Get auto-correction statistics
+ *
+ * @param corrections_offered Output: total corrections offered
+ * @param corrections_accepted Output: total corrections accepted by user
+ * @param commands_learned Output: total commands learned from history
  */
 void autocorrect_get_stats(int *corrections_offered, int *corrections_accepted,
                            int *commands_learned);
 
 /**
- * Reset auto-correction statistics
+ * @brief Reset auto-correction statistics
  */
 void autocorrect_reset_stats(void);
 
 /**
- * Enable/disable debug output for auto-correction
+ * @brief Enable/disable debug output for auto-correction
+ *
  * @param enabled Whether to enable debug output
  */
 void autocorrect_set_debug(bool enabled);
 
-#endif // AUTOCORRECT_H
+#endif /* AUTOCORRECT_H */

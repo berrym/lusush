@@ -1,5 +1,8 @@
-/*
- * input_utf8_processor.c - UTF-8 Stream Processing for Input Parsing
+/**
+ * @file input_utf8_processor.c
+ * @brief UTF-8 Stream Processing for Input Parsing
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Provides streaming UTF-8 decoding and validation for terminal input.
  * This is a thin adapter layer over Spec 03's utf8_support.c and
@@ -18,10 +21,14 @@
 #include "lle/utf8_support.h"
 #include <string.h>
 
-/*
- * Initialize a UTF-8 processor
+/**
+ * @brief Initialize a UTF-8 processor
  *
  * Creates and initializes a new UTF-8 processor for streaming input.
+ *
+ * @param processor Output pointer for created processor
+ * @param memory_pool Memory pool for allocations
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_input_utf8_processor_init(lle_utf8_processor_t **processor,
                                            lle_memory_pool_t *memory_pool) {
@@ -55,10 +62,12 @@ lle_result_t lle_input_utf8_processor_init(lle_utf8_processor_t **processor,
     return LLE_SUCCESS;
 }
 
-/*
- * Destroy a UTF-8 processor
+/**
+ * @brief Destroy a UTF-8 processor
  *
  * Frees all resources associated with the processor.
+ *
+ * @param processor Processor to destroy
  */
 void lle_input_utf8_processor_destroy(lle_utf8_processor_t *processor) {
     if (!processor) {
@@ -68,10 +77,13 @@ void lle_input_utf8_processor_destroy(lle_utf8_processor_t *processor) {
     lle_pool_free(processor);
 }
 
-/*
- * Reset a UTF-8 processor to initial state
+/**
+ * @brief Reset a UTF-8 processor to initial state
  *
  * Clears any partial sequences and resets state.
+ *
+ * @param processor Processor to reset
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_input_utf8_processor_reset(lle_utf8_processor_t *processor) {
     if (!processor) {
@@ -91,8 +103,11 @@ lle_result_t lle_input_utf8_processor_reset(lle_utf8_processor_t *processor) {
     return LLE_SUCCESS;
 }
 
-/*
- * Check if processor has a partial sequence buffered
+/**
+ * @brief Check if processor has a partial sequence buffered
+ *
+ * @param processor Processor to check
+ * @return true if partial sequence is buffered, false otherwise
  */
 bool lle_input_utf8_processor_has_partial(
     const lle_utf8_processor_t *processor) {
@@ -104,8 +119,11 @@ bool lle_input_utf8_processor_has_partial(
            processor->utf8_pos < processor->expected_bytes;
 }
 
-/*
- * Get the number of bytes needed to complete current sequence
+/**
+ * @brief Get the number of bytes needed to complete current sequence
+ *
+ * @param processor Processor to query
+ * @return Number of bytes needed, or 0 if sequence is complete
  */
 size_t
 lle_input_utf8_processor_bytes_needed(const lle_utf8_processor_t *processor) {
@@ -120,16 +138,17 @@ lle_input_utf8_processor_bytes_needed(const lle_utf8_processor_t *processor) {
     return processor->expected_bytes - processor->utf8_pos;
 }
 
-/*
- * Process a single byte from input stream
+/**
+ * @brief Process a single byte from input stream
  *
  * This is the main streaming function. It processes bytes one at a time,
  * buffering partial sequences and emitting complete codepoints.
  *
- * Returns:
- *   LLE_SUCCESS - Byte processed, no complete codepoint yet
- *   LLE_ERROR_INVALID_UTF8 - Invalid UTF-8 sequence detected
- *   Positive value - Complete codepoint available (value is codepoint)
+ * @param processor UTF-8 processor instance
+ * @param byte Input byte to process
+ * @param codepoint_out Output for decoded codepoint (if complete)
+ * @param is_grapheme_boundary Output for grapheme boundary detection
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_ENCODING on invalid UTF-8
  */
 lle_result_t lle_input_utf8_processor_process_byte(
     lle_utf8_processor_t *processor, unsigned char byte,
@@ -262,11 +281,20 @@ lle_result_t lle_input_utf8_processor_process_byte(
     return LLE_SUCCESS;
 }
 
-/*
- * Process multiple bytes from input buffer
+/**
+ * @brief Process multiple bytes from input buffer
  *
  * Processes as many complete sequences as possible from the buffer.
  * Returns the number of bytes consumed.
+ *
+ * @param processor UTF-8 processor instance
+ * @param buffer Input buffer to process
+ * @param buffer_len Length of input buffer
+ * @param codepoints Output array for decoded codepoints
+ * @param max_codepoints Maximum codepoints to decode
+ * @param codepoints_decoded Output for number of codepoints decoded
+ * @param bytes_consumed Output for number of bytes consumed
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_input_utf8_processor_process_buffer(
     lle_utf8_processor_t *processor, const char *buffer, size_t buffer_len,
@@ -309,8 +337,12 @@ lle_result_t lle_input_utf8_processor_process_buffer(
     return LLE_SUCCESS;
 }
 
-/*
- * Get statistics from UTF-8 processor
+/**
+ * @brief Get statistics from UTF-8 processor
+ *
+ * @param processor Processor to query
+ * @param stats Output structure for statistics
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t
 lle_input_utf8_processor_get_stats(const lle_utf8_processor_t *processor,
@@ -327,29 +359,45 @@ lle_input_utf8_processor_get_stats(const lle_utf8_processor_t *processor,
     return LLE_SUCCESS;
 }
 
-/*
- * Validate a complete UTF-8 string (convenience wrapper)
+/**
+ * @brief Validate a complete UTF-8 string (convenience wrapper)
+ *
+ * @param text Text to validate
+ * @param length Length of text
+ * @return true if valid UTF-8, false otherwise
  */
 bool lle_input_utf8_validate_string(const char *text, size_t length) {
     return lle_utf8_is_valid(text, length);
 }
 
-/*
- * Count codepoints in a string (convenience wrapper)
+/**
+ * @brief Count codepoints in a string (convenience wrapper)
+ *
+ * @param text Text to count
+ * @param length Length of text
+ * @return Number of codepoints in the string
  */
 size_t lle_input_utf8_count_codepoints(const char *text, size_t length) {
     return lle_utf8_count_codepoints(text, length);
 }
 
-/*
- * Count grapheme clusters in a string (convenience wrapper)
+/**
+ * @brief Count grapheme clusters in a string (convenience wrapper)
+ *
+ * @param text Text to count
+ * @param length Length of text
+ * @return Number of grapheme clusters in the string
  */
 size_t lle_input_utf8_count_graphemes(const char *text, size_t length) {
     return lle_utf8_count_graphemes(text, length);
 }
 
-/*
- * Get display width of string (convenience wrapper)
+/**
+ * @brief Get display width of string (convenience wrapper)
+ *
+ * @param text Text to measure
+ * @param length Length of text
+ * @return Display width in terminal columns
  */
 size_t lle_input_utf8_get_display_width(const char *text, size_t length) {
     return lle_utf8_string_width(text, length);

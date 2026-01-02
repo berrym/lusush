@@ -1,7 +1,11 @@
-/*
- * event_filter.c - Event Filter System (Phase 2C)
+/**
+ * @file event_filter.c
+ * @brief Event Filter System Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Callback-based event filtering, hooks, and system state tracking.
+ * Filters can pass, block, transform, or error on events.
  *
  * Spec 04: Event System - Phase 2C
  */
@@ -17,8 +21,13 @@
  * ============================================================================
  */
 
-/*
- * Initialize event filter system
+/**
+ * @brief Initialize the event filter subsystem
+ * @param system The event system to initialize filters for
+ * @return LLE_SUCCESS on success, or error code on failure
+ *
+ * Allocates the filter system structure and initial filter array.
+ * Safe to call multiple times; subsequent calls return success without changes.
  */
 lle_result_t lle_event_filter_system_init(lle_event_system_t *system) {
     if (!system) {
@@ -59,8 +68,11 @@ lle_result_t lle_event_filter_system_init(lle_event_system_t *system) {
     return LLE_SUCCESS;
 }
 
-/*
- * Destroy event filter system
+/**
+ * @brief Destroy the event filter subsystem and free resources
+ * @param system The event system to clean up filters for
+ *
+ * Frees all registered filters and the filter system structure.
  */
 void lle_event_filter_system_destroy(lle_event_system_t *system) {
     if (!system || !system->filter_system) {
@@ -88,8 +100,16 @@ void lle_event_filter_system_destroy(lle_event_system_t *system) {
     system->filter_system = NULL;
 }
 
-/*
- * Add event filter
+/**
+ * @brief Add an event filter to the system
+ * @param system The event system to add the filter to
+ * @param name Unique name for the filter (used for removal/management)
+ * @param filter The filter callback function
+ * @param user_data User context passed to the filter callback
+ * @return LLE_SUCCESS on success, LLE_ERROR_ALREADY_INITIALIZED if name exists
+ *
+ * Filters are applied in registration order during event dispatch.
+ * The filter array grows automatically when capacity is reached.
  */
 lle_result_t lle_event_filter_add(lle_event_system_t *system, const char *name,
                                   lle_event_filter_fn filter, void *user_data) {
@@ -166,8 +186,11 @@ lle_result_t lle_event_filter_add(lle_event_system_t *system, const char *name,
     return LLE_SUCCESS;
 }
 
-/*
- * Remove event filter by name
+/**
+ * @brief Remove an event filter by name
+ * @param system The event system containing the filter
+ * @param name The name of the filter to remove
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_FOUND if filter not found
  */
 lle_result_t lle_event_filter_remove(lle_event_system_t *system,
                                      const char *name) {
@@ -206,8 +229,11 @@ lle_result_t lle_event_filter_remove(lle_event_system_t *system,
     return LLE_ERROR_NOT_FOUND;
 }
 
-/*
- * Enable event filter by name
+/**
+ * @brief Enable a disabled event filter
+ * @param system The event system containing the filter
+ * @param name The name of the filter to enable
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_FOUND if filter not found
  */
 lle_result_t lle_event_filter_enable(lle_event_system_t *system,
                                      const char *name) {
@@ -236,8 +262,13 @@ lle_result_t lle_event_filter_enable(lle_event_system_t *system,
     return LLE_ERROR_NOT_FOUND;
 }
 
-/*
- * Disable event filter by name
+/**
+ * @brief Disable an event filter without removing it
+ * @param system The event system containing the filter
+ * @param name The name of the filter to disable
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_FOUND if filter not found
+ *
+ * Disabled filters are skipped during event dispatch but retain their statistics.
  */
 lle_result_t lle_event_filter_disable(lle_event_system_t *system,
                                       const char *name) {
@@ -266,8 +297,15 @@ lle_result_t lle_event_filter_disable(lle_event_system_t *system,
     return LLE_ERROR_NOT_FOUND;
 }
 
-/*
- * Apply filters to event (internal helper)
+/**
+ * @brief Apply all enabled filters to an event
+ * @param system The event system with registered filters
+ * @param event The event to filter
+ * @return LLE_FILTER_PASS if all filters pass, LLE_FILTER_BLOCK if blocked
+ *
+ * Filters are applied in registration order. A BLOCK result stops
+ * processing immediately. TRANSFORM and ERROR results continue to next filter.
+ * Statistics are updated for each filter invocation.
  */
 lle_filter_result_t lle_event_filter_apply(lle_event_system_t *system,
                                            lle_event_t *event) {
@@ -327,8 +365,16 @@ lle_filter_result_t lle_event_filter_apply(lle_event_system_t *system,
     return LLE_FILTER_PASS; /* All filters passed or transformed */
 }
 
-/*
- * Get filter statistics
+/**
+ * @brief Get statistics for a specific filter
+ * @param system The event system containing the filter
+ * @param name The name of the filter to query
+ * @param filtered Output: total events processed by filter (may be NULL)
+ * @param passed Output: events that passed the filter (may be NULL)
+ * @param blocked Output: events blocked by filter (may be NULL)
+ * @param transformed Output: events transformed by filter (may be NULL)
+ * @param errored Output: events that caused filter errors (may be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_FOUND if filter not found
  */
 lle_result_t lle_event_filter_get_stats(lle_event_system_t *system,
                                         const char *name, uint64_t *filtered,
@@ -377,8 +423,14 @@ lle_result_t lle_event_filter_get_stats(lle_event_system_t *system,
  * ============================================================================
  */
 
-/*
- * Set pre-dispatch hook
+/**
+ * @brief Set a hook to be called before event dispatch
+ * @param system The event system to configure
+ * @param hook The callback function (NULL to remove hook)
+ * @param user_data Context passed to the hook
+ * @return LLE_SUCCESS on success, or error code on failure
+ *
+ * The pre-dispatch hook can reject events by returning a non-success code.
  */
 lle_result_t lle_event_set_pre_dispatch_hook(lle_event_system_t *system,
                                              lle_event_pre_dispatch_fn hook,
@@ -395,8 +447,14 @@ lle_result_t lle_event_set_pre_dispatch_hook(lle_event_system_t *system,
     return LLE_SUCCESS;
 }
 
-/*
- * Set post-dispatch hook
+/**
+ * @brief Set a hook to be called after event dispatch completes
+ * @param system The event system to configure
+ * @param hook The callback function (NULL to remove hook)
+ * @param user_data Context passed to the hook
+ * @return LLE_SUCCESS on success, or error code on failure
+ *
+ * The post-dispatch hook receives the dispatch result for logging/monitoring.
  */
 lle_result_t lle_event_set_post_dispatch_hook(lle_event_system_t *system,
                                               lle_event_post_dispatch_fn hook,
@@ -418,8 +476,13 @@ lle_result_t lle_event_set_post_dispatch_hook(lle_event_system_t *system,
  * ============================================================================
  */
 
-/*
- * Set system state
+/**
+ * @brief Set the current system state
+ * @param system The event system to update
+ * @param state The new state to transition to
+ * @return LLE_SUCCESS on success, or error code on failure
+ *
+ * Records the previous state and timestamp of the state change.
  */
 lle_result_t lle_event_system_set_state(lle_event_system_t *system,
                                         lle_system_state_t state) {
@@ -438,8 +501,10 @@ lle_result_t lle_event_system_set_state(lle_event_system_t *system,
     return LLE_SUCCESS;
 }
 
-/*
- * Get current system state
+/**
+ * @brief Get the current system state
+ * @param system The event system to query
+ * @return Current state, or LLE_STATE_ERROR if system is NULL
  */
 lle_system_state_t lle_event_system_get_state(lle_event_system_t *system) {
     if (!system) {
@@ -453,8 +518,10 @@ lle_system_state_t lle_event_system_get_state(lle_event_system_t *system) {
     return state;
 }
 
-/*
- * Get previous system state
+/**
+ * @brief Get the previous system state before last transition
+ * @param system The event system to query
+ * @return Previous state, or LLE_STATE_ERROR if system is NULL
  */
 lle_system_state_t
 lle_event_system_get_previous_state(lle_event_system_t *system) {

@@ -7,6 +7,7 @@
  * Integrates with existing completion algorithms and configuration system.
  *
  * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (c) 2025 Michael Berry. All rights reserved.
  */
 
 #include "autocorrect.h"
@@ -43,7 +44,7 @@ static bool debug_enabled = false;
 static char *learned_commands[MAX_LEARNED_COMMANDS];
 static int learned_commands_count = 0;
 
-// Internal helper functions
+/* Forward declarations for internal helper functions */
 static void sort_corrections_by_score(correction_t *corrections, int count);
 static bool is_executable_file(const char *path);
 
@@ -669,12 +670,24 @@ void autocorrect_reset_stats(void) {
 }
 
 /**
- * Set debug mode
+ * @brief Set debug mode for auto-correction system.
+ * @param enabled True to enable debug output, false to disable.
  */
 void autocorrect_set_debug(bool enabled) { debug_enabled = enabled; }
 
-// Internal helper functions
+/* ============================================================================
+ * Internal Helper Functions
+ * ============================================================================ */
 
+/**
+ * @brief Sort correction suggestions by score in descending order.
+ *
+ * Uses bubble sort to order corrections from highest to lowest score,
+ * ensuring the best matches appear first in the results.
+ *
+ * @param corrections Array of correction suggestions to sort.
+ * @param count Number of corrections in the array.
+ */
 static void sort_corrections_by_score(correction_t *corrections, int count) {
     // Simple bubble sort by score (descending)
     for (int i = 0; i < count - 1; i++) {
@@ -688,6 +701,15 @@ static void sort_corrections_by_score(correction_t *corrections, int count) {
     }
 }
 
+/**
+ * @brief Check if a file path points to an executable file.
+ *
+ * Verifies that the path refers to a regular file with execute
+ * permission for the owner.
+ *
+ * @param path Path to the file to check.
+ * @return true if file exists and is executable, false otherwise.
+ */
 static bool is_executable_file(const char *path) {
     struct stat st;
     if (stat(path, &st) != 0) {

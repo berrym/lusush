@@ -1,6 +1,8 @@
 /**
  * @file ssh_hosts.h
  * @brief SSH Host Cache and Parsing for LLE Completion
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Provides SSH host completion by parsing:
  * - ~/.ssh/config for Host entries

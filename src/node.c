@@ -1,3 +1,15 @@
+/**
+ * @file node.c
+ * @brief AST node management
+ *
+ * Implements Abstract Syntax Tree (AST) node creation, manipulation,
+ * and destruction for the shell parser. Nodes represent commands,
+ * pipelines, redirections, and other shell constructs.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ */
+
 #include "node.h"
 
 #include "errors.h"
@@ -8,6 +20,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+/**
+ * @brief Create a new AST node
+ *
+ * Allocates and initializes a new node of the specified type.
+ * All fields are zero-initialized.
+ *
+ * @param type Type of node to create
+ * @return Pointer to new node (never NULL, aborts on allocation failure)
+ */
 node_t *new_node(node_type_t type) {
     node_t *node = NULL;
 
@@ -20,6 +41,15 @@ node_t *new_node(node_type_t type) {
     return node;
 }
 
+/**
+ * @brief Add a child node to a parent
+ *
+ * Appends the child to the parent's list of children. If the parent
+ * already has children, the new child is added as the last sibling.
+ *
+ * @param parent Parent node to add child to
+ * @param child Child node to add
+ */
 void add_child_node(node_t *parent, node_t *child) {
     if (parent == NULL || child == NULL) {
         return;
@@ -41,6 +71,15 @@ void add_child_node(node_t *parent, node_t *child) {
     parent->children++;
 }
 
+/**
+ * @brief Set a node's value to a string
+ *
+ * Sets the node's value type to VAL_STR and stores a copy of
+ * the provided string. If val is NULL, stores NULL.
+ *
+ * @param node Node to set value for
+ * @param val String value to set (will be duplicated)
+ */
 void set_node_val_str(node_t *node, char *val) {
     node->val_type = VAL_STR;
 
@@ -56,6 +95,14 @@ void set_node_val_str(node_t *node, char *val) {
     }
 }
 
+/**
+ * @brief Free an AST node tree
+ *
+ * Recursively frees the node and all its children/siblings.
+ * Also frees any string values stored in nodes.
+ *
+ * @param node Root of the tree to free (may be NULL)
+ */
 void free_node_tree(node_t *node) {
     node_t *child = NULL, *next = NULL;
 

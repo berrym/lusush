@@ -1,6 +1,8 @@
 /**
  * @file lle_shell_event_hub.c
  * @brief LLE Shell Event Hub - Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Implements the shell event hub for coordinating shell lifecycle events.
  * Routes events to registered handlers and propagates to LLE event system.
@@ -49,6 +51,13 @@ __attribute__((weak)) lle_shell_integration_t *g_lle_integration = NULL;
  * ============================================================================
  */
 
+/**
+ * @brief Get current timestamp in microseconds
+ *
+ * Uses CLOCK_MONOTONIC for consistent timing measurements.
+ *
+ * @return Current timestamp in microseconds, or 0 on error
+ */
 uint64_t lle_shell_event_get_timestamp_us(void) {
     struct timespec ts;
     if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0) {
@@ -57,6 +66,12 @@ uint64_t lle_shell_event_get_timestamp_us(void) {
     return 0;
 }
 
+/**
+ * @brief Get human-readable name for an event type
+ *
+ * @param event_type The event type to get the name for
+ * @return String name of the event type
+ */
 const char *lle_shell_event_type_name(lle_shell_event_type_t event_type) {
     switch (event_type) {
     case LLE_SHELL_EVENT_DIRECTORY_CHANGED:
@@ -75,6 +90,16 @@ const char *lle_shell_event_type_name(lle_shell_event_type_t event_type) {
  * ============================================================================
  */
 
+/**
+ * @brief Create a new shell event hub
+ *
+ * Allocates and initializes a new event hub for coordinating shell events.
+ *
+ * @param hub_out Pointer to receive the created hub
+ * @return LLE_SUCCESS on success
+ * @return LLE_ERROR_INVALID_PARAMETER if hub_out is NULL
+ * @return LLE_ERROR_OUT_OF_MEMORY if allocation fails
+ */
 lle_result_t lle_shell_event_hub_create(lle_shell_event_hub_t **hub_out) {
     if (!hub_out) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -106,6 +131,13 @@ lle_result_t lle_shell_event_hub_create(lle_shell_event_hub_t **hub_out) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Destroy a shell event hub
+ *
+ * Frees all resources associated with the event hub.
+ *
+ * @param hub The hub to destroy (may be NULL)
+ */
 void lle_shell_event_hub_destroy(lle_shell_event_hub_t *hub) {
     if (!hub) {
         return;
@@ -120,6 +152,18 @@ void lle_shell_event_hub_destroy(lle_shell_event_hub_t *hub) {
  * ============================================================================
  */
 
+/**
+ * @brief Register an event handler with the hub
+ *
+ * @param hub The event hub
+ * @param event_type Type of event to handle
+ * @param handler Callback function to invoke on event
+ * @param user_data User data passed to handler
+ * @param name Handler name for debugging/unregistration
+ * @return LLE_SUCCESS on success
+ * @return LLE_ERROR_INVALID_PARAMETER if hub or handler is NULL
+ * @return LLE_ERROR_RESOURCE_EXHAUSTED if max handlers reached
+ */
 lle_result_t lle_shell_event_hub_register(lle_shell_event_hub_t *hub,
                                           lle_shell_event_type_t event_type,
                                           lle_shell_event_handler_t handler,
@@ -147,6 +191,16 @@ lle_result_t lle_shell_event_hub_register(lle_shell_event_hub_t *hub,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Unregister an event handler by name
+ *
+ * @param hub The event hub
+ * @param event_type Type of event the handler was registered for
+ * @param name Name of the handler to unregister
+ * @return LLE_SUCCESS on success
+ * @return LLE_ERROR_INVALID_PARAMETER if hub or name is NULL
+ * @return LLE_ERROR_NOT_FOUND if handler not found
+ */
 lle_result_t lle_shell_event_hub_unregister(lle_shell_event_hub_t *hub,
                                             lle_shell_event_type_t event_type,
                                             const char *name) {
@@ -180,6 +234,15 @@ lle_result_t lle_shell_event_hub_unregister(lle_shell_event_hub_t *hub,
  * ============================================================================
  */
 
+/**
+ * @brief Fire an event to all registered handlers
+ *
+ * Dispatches the event to all handlers registered for the event type.
+ *
+ * @param hub The event hub
+ * @param event_type Type of event to fire
+ * @param event_data Event-specific data passed to handlers
+ */
 void lle_shell_event_hub_fire(lle_shell_event_hub_t *hub,
                               lle_shell_event_type_t event_type,
                               void *event_data) {
@@ -235,6 +298,14 @@ void lle_shell_event_hub_fire(lle_shell_event_hub_t *hub,
  * ============================================================================
  */
 
+/**
+ * @brief Fire a directory changed event
+ *
+ * Convenience function to fire DIRECTORY_CHANGED events.
+ *
+ * @param old_dir Previous directory (NULL to use hub's tracked directory)
+ * @param new_dir New directory (NULL to use getcwd)
+ */
 void lle_fire_directory_changed(const char *old_dir, const char *new_dir) {
     /* Get global shell integration */
     if (!g_lle_integration || !g_lle_integration->event_hub) {
@@ -286,6 +357,14 @@ void lle_fire_directory_changed(const char *old_dir, const char *new_dir) {
     lle_shell_event_hub_fire(hub, LLE_SHELL_EVENT_DIRECTORY_CHANGED, &event);
 }
 
+/**
+ * @brief Fire a pre-command event
+ *
+ * Called before a command is executed. Records start time for duration tracking.
+ *
+ * @param command The command about to be executed
+ * @param is_background True if command will run in background
+ */
 void lle_fire_pre_command(const char *command, bool is_background) {
     /* Get global shell integration */
     if (!g_lle_integration || !g_lle_integration->event_hub) {
@@ -329,6 +408,15 @@ void lle_fire_pre_command(const char *command, bool is_background) {
     lle_shell_event_hub_fire(hub, LLE_SHELL_EVENT_PRE_COMMAND, &event);
 }
 
+/**
+ * @brief Fire a post-command event
+ *
+ * Called after a command completes. Calculates duration if not provided.
+ *
+ * @param command The command that was executed (NULL to use stored command)
+ * @param exit_code Exit code of the command
+ * @param duration_us Duration in microseconds (0 to auto-calculate)
+ */
 void lle_fire_post_command(const char *command, int exit_code,
                            uint64_t duration_us) {
     /* Get global shell integration */

@@ -1,6 +1,16 @@
-/* SPDX-License-Identifier: MIT */
-/* LLE Specification 22: History-Buffer Integration - Phase 2 */
-/* Reconstruction Engine Implementation */
+/**
+ * @file reconstruction_engine.c
+ * @brief Command reconstruction with indentation support
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ *
+ * LLE Specification 22: History-Buffer Integration - Phase 2
+ *
+ * This module implements command reconstruction functionality, applying
+ * proper indentation to multiline shell commands based on their syntactic
+ * structure. It supports whitespace normalization and configurable
+ * indentation options.
+ */
 
 #include "lle/reconstruction_engine.h"
 #include "lle/command_structure.h"
@@ -35,6 +45,16 @@ static size_t get_indent_for_line(lle_command_structure_t *structure,
                                   size_t line_number,
                                   const lle_reconstruction_options_t *options);
 
+/* ============================================================================
+ * PUBLIC API - CONFIGURATION
+ * ============================================================================
+ */
+
+/**
+ * @brief Get default reconstruction engine options
+ * @param options Pointer to options structure to populate
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if options is NULL
+ */
 lle_result_t lle_reconstruction_engine_get_default_options(
     lle_reconstruction_options_t *options) {
     if (!options) {
@@ -52,6 +72,20 @@ lle_result_t lle_reconstruction_engine_get_default_options(
     return LLE_SUCCESS;
 }
 
+/* ============================================================================
+ * PUBLIC API - LIFECYCLE
+ * ============================================================================
+ */
+
+/**
+ * @brief Create a new reconstruction engine instance
+ * @param engine Pointer to store the created engine
+ * @param memory_pool Memory pool for allocations (can be NULL for global pool)
+ * @param analyzer Structure analyzer for command analysis
+ * @param parser Multiline parser for line splitting
+ * @param options Reconstruction options (can be NULL for defaults)
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_reconstruction_engine_create(
     lle_reconstruction_engine_t **engine, lle_memory_pool_t *memory_pool,
     lle_structure_analyzer_t *analyzer, lle_multiline_parser_t *parser,
@@ -83,6 +117,11 @@ lle_result_t lle_reconstruction_engine_create(
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Destroy a reconstruction engine and release resources
+ * @param engine The engine to destroy
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if engine is NULL
+ */
 lle_result_t
 lle_reconstruction_engine_destroy(lle_reconstruction_engine_t *engine) {
     if (!engine) {
@@ -95,6 +134,12 @@ lle_reconstruction_engine_destroy(lle_reconstruction_engine_t *engine) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Update reconstruction engine options
+ * @param engine The reconstruction engine
+ * @param options New options to apply
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on error
+ */
 lle_result_t lle_reconstruction_engine_set_options(
     lle_reconstruction_engine_t *engine,
     const lle_reconstruction_options_t *options) {
@@ -107,6 +152,20 @@ lle_result_t lle_reconstruction_engine_set_options(
     return LLE_SUCCESS;
 }
 
+/* ============================================================================
+ * PUBLIC API - RECONSTRUCTION OPERATIONS
+ * ============================================================================
+ */
+
+/**
+ * @brief Normalize whitespace in command text
+ * @param engine The reconstruction engine
+ * @param command_text The command text to normalize
+ * @param command_length Length of the command text
+ * @param normalized_text Pointer to store normalized text
+ * @param normalized_length Pointer to store normalized text length
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_reconstruction_engine_normalize_whitespace(
     lle_reconstruction_engine_t *engine, const char *command_text,
     size_t command_length, char **normalized_text, size_t *normalized_length) {
@@ -176,6 +235,16 @@ lle_result_t lle_reconstruction_engine_normalize_whitespace(
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Apply indentation to command text based on structure
+ * @param engine The reconstruction engine
+ * @param structure Command structure with indentation info
+ * @param original_text The original command text
+ * @param original_length Length of original text
+ * @param indented_text Pointer to store indented text
+ * @param indented_length Pointer to store indented text length
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_reconstruction_engine_apply_indentation(
     lle_reconstruction_engine_t *engine, lle_command_structure_t *structure,
     const char *original_text, size_t original_length, char **indented_text,
@@ -242,6 +311,14 @@ lle_result_t lle_reconstruction_engine_apply_indentation(
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Reconstruct a command with full formatting
+ * @param engine The reconstruction engine
+ * @param command_text The command text to reconstruct
+ * @param command_length Length of the command text
+ * @param result Pointer to store the reconstructed command
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_reconstruction_engine_reconstruct(
     lle_reconstruction_engine_t *engine, const char *command_text,
     size_t command_length, lle_reconstructed_command_t **result) {
@@ -326,6 +403,12 @@ lle_result_t lle_reconstruction_engine_reconstruct(
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Free a reconstructed command result
+ * @param engine The reconstruction engine
+ * @param result The result to free
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on error
+ */
 lle_result_t
 lle_reconstruction_engine_free_result(lle_reconstruction_engine_t *engine,
                                       lle_reconstructed_command_t *result) {
@@ -338,8 +421,19 @@ lle_reconstruction_engine_free_result(lle_reconstruction_engine_t *engine,
     return LLE_SUCCESS;
 }
 
-/* Internal helper functions */
+/* ============================================================================
+ * INTERNAL HELPER FUNCTIONS
+ * ============================================================================
+ */
 
+/**
+ * @brief Calculate the buffer size needed for indented output
+ * @param text The original text
+ * @param length Length of the text
+ * @param structure Command structure with line info
+ * @param options Reconstruction options
+ * @return Estimated size needed for indented output
+ */
 static size_t
 calculate_indented_size(const char *text, size_t length,
                         lle_command_structure_t *structure,
@@ -353,6 +447,13 @@ calculate_indented_size(const char *text, size_t length,
            line_count; /* +line_count for newlines */
 }
 
+/**
+ * @brief Get the indentation spaces for a specific line
+ * @param structure Command structure with indentation info
+ * @param line_number The line number to get indentation for
+ * @param options Reconstruction options
+ * @return Number of spaces for indentation
+ */
 static size_t get_indent_for_line(lle_command_structure_t *structure,
                                   size_t line_number,
                                   const lle_reconstruction_options_t *options) {
@@ -372,6 +473,15 @@ static size_t get_indent_for_line(lle_command_structure_t *structure,
     return indent_level * options->spaces_per_level;
 }
 
+/**
+ * @brief Apply indentation to a list of parsed lines
+ * @param engine The reconstruction engine
+ * @param first_line First line in the parsed line list
+ * @param structure Command structure with indentation info
+ * @param output Output buffer to write to
+ * @param output_length Pointer to store actual output length
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 static lle_result_t apply_indentation_to_lines(
     lle_reconstruction_engine_t *engine, lle_parsed_line_t *first_line,
     lle_command_structure_t *structure, char *output, size_t *output_length) {

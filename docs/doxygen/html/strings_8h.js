@@ -1,0 +1,28 @@
+var strings_8h =
+[
+    [ "alloc_str", "strings_8h.html#ac0210e1c09539544c9dff4de5b57bacb", null ],
+    [ "check_buffer_bounds", "strings_8h.html#a101f58d3a234ec7770caf547b683c379", null ],
+    [ "delete_char_at", "strings_8h.html#ac0355b1d38fceacb0d1ef019ef1fceb3", null ],
+    [ "find_closing_brace", "strings_8h.html#ab116de927b9a9a23f76d853a41d31950", null ],
+    [ "find_closing_quote", "strings_8h.html#af18b9296b0c1f2e82f3eda7215131ed3", null ],
+    [ "find_last_quote", "strings_8h.html#a2be247ef85ebbce32c48947615f11190", null ],
+    [ "find_opening_quote_type", "strings_8h.html#acadd6faec7deeff9e568449600002e43", null ],
+    [ "free_alloced_str", "strings_8h.html#ab69aa2dccfe667a622beae22a31c3c9d", null ],
+    [ "free_argv", "strings_8h.html#a56853e45ed0b73f04ee7d08a02941339", null ],
+    [ "free_str", "strings_8h.html#ae65abea68d7a5ec7f9a0228d1e65b7f4", null ],
+    [ "get_alloced_str", "strings_8h.html#ac00a69330b0c84110a68e0a15e537734", null ],
+    [ "get_alloced_str_direct", "strings_8h.html#ad7dc38d89e41ade03a061e9245c32d58", null ],
+    [ "init_str_symtable", "strings_8h.html#a6fb005bd774e81b278fa6acd8ec7167d", null ],
+    [ "null_replace_newline", "strings_8h.html#a5fba7f30aa049337aacf03e72db0db46", null ],
+    [ "null_terminate_str", "strings_8h.html#a2f90c474c9cb402a33eab913eac01091", null ],
+    [ "process_token_escapes", "strings_8h.html#afb8176160f1c48832b615e3abe5f8124", null ],
+    [ "quote_val", "strings_8h.html#acfe9cde10ac76ba98657e9efa16f5f66", null ],
+    [ "str_skip_whitespace", "strings_8h.html#afe1b5a1970f9ccff1059a27d330d9f6d", null ],
+    [ "str_strip_leading_whitespace", "strings_8h.html#a592208fae22a81dde69c47aa94690b6a", null ],
+    [ "str_strip_trailing_whitespace", "strings_8h.html#affd4503919c3220467688d584a220c8e", null ],
+    [ "str_strip_whitespace", "strings_8h.html#a41b44ecd586de7ba9e2eb42a5281a197", null ],
+    [ "strchr_any", "strings_8h.html#a231d8ef1490d40da0f253c9e23d80ae0", null ],
+    [ "strlower", "strings_8h.html#ab3bb3487c51260fbd4579cebd2dad6b1", null ],
+    [ "strupper", "strings_8h.html#a815835ffb26d3c3755a1500599680572", null ],
+    [ "substitute_str", "strings_8h.html#a9cee5a993c37e6021dce83d4421c2fcf", null ]
+];

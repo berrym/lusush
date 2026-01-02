@@ -1,5 +1,10 @@
 /**
- * adaptive_display_client_controller.c - Enhanced Display Client Controller
+ * @file adaptive_display_client_controller.c
+ * @brief Enhanced display client controller for non-TTY stdin environments
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ *
+ * Specification: Spec 26 Phase 2 - Display Client Controller
  *
  * Implements the display client controller for Enhanced mode terminals.
  * This mode is used for editor terminals (Zed, VS Code) and AI assistants
@@ -10,9 +15,6 @@
  * - Color and formatting output despite non-TTY stdin
  * - Content generation for display layer integration
  * - Line-oriented rendering without raw terminal control
- *
- * Specification: Spec 26 Phase 2 - Display Client Controller
- * Date: 2025-11-02
  */
 
 #include "lle/adaptive_terminal_integration.h"
@@ -145,7 +147,16 @@ struct lle_display_client_controller_t {
  */
 
 /**
- * Create render pipeline.
+ * @brief Create a new render pipeline for display output.
+ *
+ * Allocates and initializes a render pipeline with the specified
+ * color and cursor capabilities.
+ *
+ * @param pipeline Output pointer to receive the created pipeline.
+ * @param color_enabled Whether color output is supported.
+ * @param cursor_enabled Whether cursor control is supported.
+ * @param color_depth Color depth (0=none, 1=8, 2=256, 3=truecolor).
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 static lle_result_t lle_render_pipeline_create(lle_render_pipeline_t **pipeline,
                                                bool color_enabled,
@@ -186,7 +197,9 @@ static lle_result_t lle_render_pipeline_create(lle_render_pipeline_t **pipeline,
 }
 
 /**
- * Destroy render pipeline.
+ * @brief Destroy a render pipeline and free its resources.
+ *
+ * @param pipeline The render pipeline to destroy, or NULL for no-op.
  */
 static void lle_render_pipeline_destroy(lle_render_pipeline_t *pipeline) {
     if (!pipeline) {
@@ -199,7 +212,14 @@ static void lle_render_pipeline_destroy(lle_render_pipeline_t *pipeline) {
 }
 
 /**
- * Generate ANSI color escape sequence.
+ * @brief Generate and append ANSI color escape sequence to buffer.
+ *
+ * Generates appropriate color sequences based on the pipeline's
+ * color depth. Optimizes by skipping if colors haven't changed.
+ *
+ * @param pipe The render pipeline.
+ * @param fg_color Foreground color index, or -1 for no change.
+ * @param bg_color Background color index, or -1 for no change.
  */
 static void lle_render_pipeline_append_color(lle_render_pipeline_t *pipe,
                                              int fg_color, int bg_color) {
@@ -250,7 +270,15 @@ static void lle_render_pipeline_append_color(lle_render_pipeline_t *pipe,
 }
 
 /**
- * Append text to render buffer.
+ * @brief Append text to the render pipeline buffer.
+ *
+ * Appends raw text to the content buffer, growing the buffer
+ * as needed to accommodate the new content.
+ *
+ * @param pipe The render pipeline.
+ * @param text The text to append.
+ * @param length The length of the text in bytes.
+ * @return LLE_SUCCESS on success, LLE_ERROR_OUT_OF_MEMORY on allocation failure.
  */
 static lle_result_t lle_render_pipeline_append_text(lle_render_pipeline_t *pipe,
                                                     const char *text,
@@ -283,7 +311,12 @@ static lle_result_t lle_render_pipeline_append_text(lle_render_pipeline_t *pipe,
 }
 
 /**
- * Reset color formatting to defaults.
+ * @brief Reset all formatting attributes to terminal defaults.
+ *
+ * Emits the ANSI reset sequence and clears the pipeline's
+ * internal formatting state.
+ *
+ * @param pipe The render pipeline.
  */
 static void lle_render_pipeline_reset_formatting(lle_render_pipeline_t *pipe) {
     if (!pipe->color_enabled) {
@@ -300,7 +333,14 @@ static void lle_render_pipeline_reset_formatting(lle_render_pipeline_t *pipe) {
 }
 
 /**
- * Render prompt with formatting.
+ * @brief Render a prompt string with color formatting.
+ *
+ * Clears the content buffer and renders the prompt with
+ * green foreground color if colors are enabled.
+ *
+ * @param pipe The render pipeline.
+ * @param prompt The prompt string to render.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 static lle_result_t
 lle_render_pipeline_render_prompt(lle_render_pipeline_t *pipe,
@@ -330,7 +370,15 @@ lle_render_pipeline_render_prompt(lle_render_pipeline_t *pipe,
  */
 
 /**
- * Create enhanced input processor.
+ * @brief Create an enhanced input processor for non-TTY input handling.
+ *
+ * Allocates and configures an input processor based on terminal
+ * detection results. Configures echo, line buffering, and UTF-8
+ * support appropriately.
+ *
+ * @param processor Output pointer to receive the created processor.
+ * @param detection Terminal detection results for configuration.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t lle_enhanced_input_processor_create(
     lle_enhanced_input_processor_t **processor,
@@ -363,7 +411,9 @@ lle_result_t lle_enhanced_input_processor_create(
 }
 
 /**
- * Destroy enhanced input processor.
+ * @brief Destroy an enhanced input processor and free its resources.
+ *
+ * @param processor The input processor to destroy, or NULL for no-op.
  */
 static void lle_enhanced_input_processor_destroy(
     lle_enhanced_input_processor_t *processor) {
@@ -377,7 +427,15 @@ static void lle_enhanced_input_processor_destroy(
 }
 
 /**
- * Read line from input processor.
+ * @brief Read a line of input using the enhanced input processor.
+ *
+ * Reads a line from stdin using cooked mode (fgets). Removes
+ * trailing newlines and updates processing statistics.
+ *
+ * @param processor The input processor.
+ * @param line Output pointer to receive the input buffer (not duplicated).
+ * @param length Output pointer to receive the line length.
+ * @return LLE_SUCCESS on success, or an error code on failure/EOF.
  */
 static lle_result_t lle_enhanced_input_processor_read_line(
     lle_enhanced_input_processor_t *processor, char **line, size_t *length) {
@@ -416,7 +474,14 @@ static lle_result_t lle_enhanced_input_processor_read_line(
  */
 
 /**
- * Format prompt for display.
+ * @brief Format a prompt string for display output.
+ *
+ * Applies color formatting to the prompt if colors are supported.
+ * Uses green foreground color for prompts.
+ *
+ * @param gen The content generator.
+ * @param prompt The raw prompt string.
+ * @return Formatted prompt string, or NULL on memory failure.
  */
 static char *
 lle_content_generator_format_prompt(lle_display_content_generator_t *gen,
@@ -447,7 +512,14 @@ lle_content_generator_format_prompt(lle_display_content_generator_t *gen,
 }
 
 /**
- * Format line for display.
+ * @brief Format a content line for display output.
+ *
+ * Copies the line to the generator's internal buffer for output.
+ * Does not apply additional formatting to regular content lines.
+ *
+ * @param gen The content generator.
+ * @param line The raw line content.
+ * @return Formatted line string, or NULL on memory failure.
  */
 static char *
 lle_content_generator_format_line(lle_display_content_generator_t *gen,
@@ -472,7 +544,14 @@ lle_content_generator_format_line(lle_display_content_generator_t *gen,
 }
 
 /**
- * Format completion suggestion for display.
+ * @brief Format a completion suggestion for display output.
+ *
+ * Applies gray color formatting to completion suggestions if
+ * colors are supported, making them visually distinct.
+ *
+ * @param gen The content generator.
+ * @param completion The completion suggestion text.
+ * @return Formatted completion string, or NULL on memory failure.
  */
 static char *
 lle_content_generator_format_completion(lle_display_content_generator_t *gen,
@@ -503,7 +582,16 @@ lle_content_generator_format_completion(lle_display_content_generator_t *gen,
 }
 
 /**
- * Create display content generator.
+ * @brief Create a display content generator.
+ *
+ * Allocates and initializes a content generator with the specified
+ * capabilities. Configures formatting functions for prompts, lines,
+ * and completions.
+ *
+ * @param generator Output pointer to receive the created generator.
+ * @param supports_colors Whether color output is supported.
+ * @param supports_cursor Whether cursor positioning is supported.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t lle_display_content_generator_create(
     lle_display_content_generator_t **generator, bool supports_colors,
@@ -537,7 +625,9 @@ lle_result_t lle_display_content_generator_create(
 }
 
 /**
- * Destroy display content generator.
+ * @brief Destroy a display content generator and free its resources.
+ *
+ * @param generator The content generator to destroy, or NULL for no-op.
  */
 void lle_display_content_generator_destroy(
     lle_display_content_generator_t *generator) {
@@ -556,7 +646,15 @@ void lle_display_content_generator_destroy(
  */
 
 /**
- * Initialize display client controller (Enhanced mode).
+ * @brief Initialize the display client controller for Enhanced mode.
+ *
+ * Creates and configures a display client controller for use in
+ * environments where stdin is not a TTY but stdout has display
+ * capabilities (e.g., editor terminals, AI assistants).
+ *
+ * @param context The adaptive context to initialize the controller in.
+ * @param memory_pool Memory pool for allocations.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t
 lle_initialize_display_client_controller(lle_adaptive_context_t *context,
@@ -625,7 +723,12 @@ lle_initialize_display_client_controller(lle_adaptive_context_t *context,
 }
 
 /**
- * Cleanup display client controller.
+ * @brief Clean up and destroy a display client controller.
+ *
+ * Releases all resources associated with the display client controller
+ * including render pipeline, input processor, and content generator.
+ *
+ * @param client The display client controller to destroy, or NULL for no-op.
  */
 void lle_cleanup_display_client_controller(
     lle_display_client_controller_t *client) {
@@ -643,7 +746,15 @@ void lle_cleanup_display_client_controller(
 }
 
 /**
- * Read line using display client controller.
+ * @brief Read a line of input using the display client controller.
+ *
+ * Renders the prompt with formatting, writes it to stdout, and reads
+ * a line of input from stdin using cooked mode.
+ *
+ * @param client The display client controller.
+ * @param prompt The prompt string to display.
+ * @param line Output pointer to receive the allocated input line.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t
 lle_display_client_read_line(lle_display_client_controller_t *client,
@@ -688,7 +799,13 @@ lle_display_client_read_line(lle_display_client_controller_t *client,
 }
 
 /**
- * Update display client display.
+ * @brief Update the display client's visual output.
+ *
+ * For display client mode, updates are minimal as content is
+ * rendered on-demand during read_line operations.
+ *
+ * @param client The display client controller.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t
 lle_display_client_update_display(lle_display_client_controller_t *client) {
@@ -705,7 +822,14 @@ lle_display_client_update_display(lle_display_client_controller_t *client) {
 }
 
 /**
- * Handle terminal resize in display client mode.
+ * @brief Handle terminal resize events in display client mode.
+ *
+ * Updates the stored terminal dimensions when the terminal is resized.
+ *
+ * @param client The display client controller.
+ * @param new_width The new terminal width in columns.
+ * @param new_height The new terminal height in rows.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t
 lle_display_client_handle_resize(lle_display_client_controller_t *client,
@@ -722,7 +846,16 @@ lle_display_client_handle_resize(lle_display_client_controller_t *client,
 }
 
 /**
- * Get display client statistics.
+ * @brief Get display client controller statistics.
+ *
+ * Retrieves performance and usage statistics from the display client
+ * controller.
+ *
+ * @param client The display client controller.
+ * @param lines_read Output pointer for lines read count, or NULL to skip.
+ * @param displays_updated Output pointer for display update count, or NULL to skip.
+ * @param errors Output pointer for error count, or NULL to skip.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t
 lle_display_client_get_stats(const lle_display_client_controller_t *client,

@@ -1,3 +1,17 @@
+/**
+ * @file posix_opts.c
+ * @brief POSIX shell options management
+ *
+ * Implements POSIX-compliant shell options including:
+ * - Option initialization with sensible defaults
+ * - Option query functions (errexit, xtrace, etc.)
+ * - The 'set' builtin command for runtime option control
+ * - Named option mapping (-o optname / +o optname)
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ */
+
 #include "errors.h"
 #include "lle/lle_shell_integration.h"
 #include "lusush.h"
@@ -8,10 +22,15 @@
 #include <stdlib.h>
 #include <string.h>
 
-// Global shell options instance
+/** @brief Global shell options instance */
 shell_options_t shell_opts = {0};
 
-// Initialize POSIX shell options with defaults
+/**
+ * @brief Initialize POSIX shell options with defaults
+ *
+ * Sets all shell options to their default values. Called during
+ * shell initialization before command line parsing.
+ */
 void init_posix_options(void) {
     // Set default values
     shell_opts.command_mode = false;
@@ -47,7 +66,12 @@ void init_posix_options(void) {
     shell_opts.privileged_mode = false; // Default to unrestricted mode
 }
 
-// Check if a specific POSIX option is set
+/**
+ * @brief Check if a specific POSIX option is set
+ *
+ * @param option Single character option flag (e.g., 'e', 'x', 'n')
+ * @return true if the option is enabled, false otherwise
+ */
 bool is_posix_option_set(char option) {
     switch (option) {
     case 'c':
@@ -87,44 +111,67 @@ bool is_posix_option_set(char option) {
     }
 }
 
-// Option checking functions
+/** @brief Check if errexit (-e) is enabled */
 bool should_exit_on_error(void) { return shell_opts.exit_on_error; }
 
+/** @brief Check if xtrace (-x) is enabled */
 bool should_trace_execution(void) { return shell_opts.trace_execution; }
 
+/** @brief Check if noexec (-n) syntax check mode is enabled */
 bool is_syntax_check_mode(void) { return shell_opts.syntax_check; }
 
+/** @brief Check if nounset (-u) is enabled */
 bool should_error_unset_vars(void) { return shell_opts.unset_error; }
 
+/** @brief Check if verbose (-v) mode is enabled */
 bool is_verbose_mode(void) { return shell_opts.verbose; }
 
+/** @brief Check if noglob (-f) is enabled */
 bool is_globbing_disabled(void) { return shell_opts.no_globbing; }
 
+/** @brief Check if allexport (-a) is enabled */
 bool should_auto_export(void) { return shell_opts.allexport; }
 
+/** @brief Check if noclobber (-C) is enabled */
 bool is_noclobber_enabled(void) { return shell_opts.noclobber; }
 
+/** @brief Check if ignoreeof is enabled */
 bool is_ignoreeof_enabled(void) { return shell_opts.ignoreeof; }
 
+/** @brief Check if nolog is enabled */
 bool is_nolog_enabled(void) { return shell_opts.nolog; }
 
+/** @brief Check if emacs editing mode is enabled */
 bool is_emacs_mode_enabled(void) { return shell_opts.emacs_mode; }
 
+/** @brief Check if vi editing mode is enabled */
 bool is_vi_mode_enabled(void) { return shell_opts.vi_mode; }
 
+/** @brief Check if strict POSIX mode is enabled */
 bool is_posix_mode_enabled(void) { return shell_opts.posix_mode; }
 
+/** @brief Check if pipefail is enabled */
 bool is_pipefail_enabled(void) { return shell_opts.pipefail_mode; }
 
+/** @brief Check if history expansion (!!) is enabled */
 bool is_histexpand_enabled(void) { return shell_opts.histexpand_mode; }
 
+/** @brief Check if command history recording is enabled */
 bool is_history_enabled(void) { return shell_opts.history_mode; }
 
+/** @brief Check if interactive comments (#) are enabled */
 bool is_interactive_comments_enabled(void) {
     return shell_opts.interactive_comments_mode;
 }
 
-// Print command trace for -x option
+/**
+ * @brief Print command trace for -x option
+ *
+ * When xtrace is enabled, prints each command before execution
+ * prefixed with "+ ".
+ *
+ * @param command Command string to trace
+ */
 void print_command_trace(const char *command) {
     if (should_trace_execution()) {
         fprintf(stderr, "+ %s\n", command);
@@ -132,14 +179,18 @@ void print_command_trace(const char *command) {
     }
 }
 
-// Named option mapping structure
+/**
+ * @brief Named option mapping structure
+ *
+ * Maps long option names to their flag pointers and short option characters.
+ */
 typedef struct option_mapping {
-    const char *name;
-    bool *flag;
-    char short_opt;
+    const char *name;  /**< Long option name (e.g., "errexit") */
+    bool *flag;        /**< Pointer to the option flag */
+    char short_opt;    /**< Short option character (e.g., 'e'), 0 if none */
 } option_mapping_t;
 
-// Map option names to flags
+/** @brief Map of option names to flags */
 static option_mapping_t option_map[] = {
     {"errexit", &shell_opts.exit_on_error, 'e'},
     {"xtrace", &shell_opts.trace_execution, 'x'},
@@ -166,7 +217,12 @@ static option_mapping_t option_map[] = {
     {"privileged", &shell_opts.privileged_mode, 0},
     {NULL, NULL, 0}};
 
-// Find option mapping by name
+/**
+ * @brief Find option mapping by long name
+ *
+ * @param name Long option name to search for
+ * @return Pointer to option mapping, or NULL if not found
+ */
 static option_mapping_t *find_option_by_name(const char *name) {
     for (int i = 0; option_map[i].name; i++) {
         if (strcmp(option_map[i].name, name) == 0) {
@@ -176,7 +232,12 @@ static option_mapping_t *find_option_by_name(const char *name) {
     return NULL;
 }
 
-// Find option mapping by short option
+/**
+ * @brief Find option mapping by short option character
+ *
+ * @param opt Short option character to search for
+ * @return Pointer to option mapping, or NULL if not found
+ */
 static option_mapping_t *find_option_by_short(char opt) {
     for (int i = 0; option_map[i].name; i++) {
         if (option_map[i].short_opt == opt) {
@@ -186,7 +247,20 @@ static option_mapping_t *find_option_by_short(char opt) {
     return NULL;
 }
 
-// Implementation of the `set` builtin command
+/**
+ * @brief Implementation of the 'set' builtin command
+ *
+ * Handles shell option management including:
+ * - No args: display current option values
+ * - -o name: enable named option
+ * - +o name: disable named option
+ * - -x, -e, etc.: enable short options
+ * - +x, +e, etc.: disable short options
+ * - --: set positional parameters
+ *
+ * @param args Argument array (NULL-terminated)
+ * @return 0 on success, 1 on error
+ */
 int builtin_set(char **args) {
     // Privileged mode security check - block all set operations
     if (shell_opts.privileged_mode && args[1]) {

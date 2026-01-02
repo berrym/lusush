@@ -1,0 +1,27 @@
+var structcontinuation__state__t =
+[
+    [ "backtick_count", "structcontinuation__state__t.html#a7f528fa0e19f7a14d089a2d048616295", null ],
+    [ "brace_count", "structcontinuation__state__t.html#ad4887b30fd359dc26d2fe52943831cb4", null ],
+    [ "bracket_count", "structcontinuation__state__t.html#ae71f4d4019ddfd1517f1a210719a69eb", null ],
+    [ "compound_command_depth", "structcontinuation__state__t.html#ac43b350abc7c7a8a2a7826a03ec4c804", null ],
+    [ "context_stack", "structcontinuation__state__t.html#a48997e7c88da9515a8c17214c2bcedf2", null ],
+    [ "context_stack_depth", "structcontinuation__state__t.html#aecef64edf91c32d7a3b9e639c7e046ec", null ],
+    [ "double_quote_count", "structcontinuation__state__t.html#a536f9ce1602370c9d816fef15656e46d", null ],
+    [ "escaped", "structcontinuation__state__t.html#ab1c042d95d6af8cf4b062b57be486ad0", null ],
+    [ "has_continuation", "structcontinuation__state__t.html#aca64ede50d149ad0939927e84d48b064", null ],
+    [ "here_doc_delimiter", "structcontinuation__state__t.html#a302f7ca5ccb796044ee6559a4911265d", null ],
+    [ "in_arithmetic", "structcontinuation__state__t.html#a1232bc192e82a475684b74d4e3184ca3", null ],
+    [ "in_backtick", "structcontinuation__state__t.html#a71e9529184551df5d63ac52a97a6b76e", null ],
+    [ "in_case_statement", "structcontinuation__state__t.html#a43bd8a674893ab77db44f08a830b44a9", null ],
+    [ "in_command_substitution", "structcontinuation__state__t.html#a5de4a84f9830d372c4d63f96f6712060", null ],
+    [ "in_double_quote", "structcontinuation__state__t.html#a9527247e8c430fe6cabcaf6e36cf9ae7", null ],
+    [ "in_for_loop", "structcontinuation__state__t.html#af30f52bea39f7037d6b94a3247f0f37a", null ],
+    [ "in_function_definition", "structcontinuation__state__t.html#a0354649378685006a04d22cb934fa65b", null ],
+    [ "in_here_doc", "structcontinuation__state__t.html#a4d9e4a326076345eb46c53002a605988", null ],
+    [ "in_if_statement", "structcontinuation__state__t.html#a2f078c92fd55b0fa4f5af7bb951343d3", null ],
+    [ "in_single_quote", "structcontinuation__state__t.html#aa5d08ca0b30c0408e5736b664dfc511e", null ],
+    [ "in_until_loop", "structcontinuation__state__t.html#ad2fff44c937940c2ceb641f6bd46c5d7", null ],
+    [ "in_while_loop", "structcontinuation__state__t.html#a37a5f673e5e8675585bf4df09b77a67d", null ],
+    [ "paren_count", "structcontinuation__state__t.html#a3ad2ecd9fbfad9d9ec986d80f8fdf1e9", null ],
+    [ "quote_count", "structcontinuation__state__t.html#a15ae98ad1d87f787b4ef3c2aa30121da", null ]
+];

@@ -1,15 +1,13 @@
-/*
- * Lusush Shell - Completion Config File Parser
- * Copyright (C) 2021-2026  Michael Berry
+/**
+ * @file completion_config.c
+ * @brief Completion Config File Parser
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- *
- * ============================================================================
- *
- * COMPLETION CONFIG PARSER - Layer 3 Implementation
  *
  * Parses ~/.config/lusush/completions.toml and registers command-based
  * completion sources using the custom source API (Layer 2).
@@ -70,7 +68,12 @@ static struct {
  */
 
 /**
- * Get XDG config path for completions.toml
+ * @brief Get XDG config path for completions.toml
+ *
+ * Returns the path to the user's completion configuration file,
+ * checking XDG_CONFIG_HOME first, then falling back to ~/.config.
+ *
+ * @return Allocated path string or NULL on failure
  */
 static char *get_config_path(void) {
     const char *config_home = getenv("XDG_CONFIG_HOME");
@@ -97,7 +100,14 @@ static char *get_config_path(void) {
 }
 
 /**
- * Read entire file into string
+ * @brief Read entire file into string
+ *
+ * Reads the contents of the specified file into a newly allocated
+ * string buffer. Limited to 1MB maximum file size.
+ *
+ * @param path Path to the file to read
+ * @param out_size Optional output for the number of bytes read
+ * @return Allocated string with file contents, or NULL on error
  */
 static char *read_file(const char *path, size_t *out_size) {
     FILE *fp = fopen(path, "r");
@@ -133,7 +143,13 @@ static char *read_file(const char *path, size_t *out_size) {
 }
 
 /**
- * Free a command source config
+ * @brief Free a command source config
+ *
+ * Frees all memory associated with a command source configuration,
+ * including the name, description, command, suffix, applies_to array,
+ * and cached results.
+ *
+ * @param config Configuration to free
  */
 void lle_command_source_config_free(lle_command_source_config_t *config) {
     if (!config) {
@@ -163,7 +179,11 @@ void lle_command_source_config_free(lle_command_source_config_t *config) {
 }
 
 /**
- * Clear cached results for a config source
+ * @brief Clear cached results for a config source
+ *
+ * Frees the cached completion results and resets the cache timestamp.
+ *
+ * @param config Configuration whose cache to clear
  */
 void lle_command_source_clear_cache(lle_command_source_config_t *config) {
     if (!config || !config->cached_results) {
@@ -181,7 +201,10 @@ void lle_command_source_clear_cache(lle_command_source_config_t *config) {
 }
 
 /**
- * Clear all config source caches
+ * @brief Clear all config source caches
+ *
+ * Clears the cached results for all loaded completion sources.
+ * Thread-safe via mutex protection.
  */
 void lle_completion_clear_all_caches(void) {
     pthread_mutex_lock(&g_completion_config.mutex);
@@ -199,7 +222,16 @@ void lle_completion_clear_all_caches(void) {
  */
 
 /**
- * Execute command and return output lines
+ * @brief Execute command and return output lines
+ *
+ * Executes a shell command with a timeout and returns the output
+ * as an array of lines. Handles forking, pipe management, and
+ * timeout enforcement.
+ *
+ * @param command Shell command to execute
+ * @param out_lines Output array of line strings
+ * @param out_count Output count of lines
+ * @return LLE_SUCCESS or error code
  */
 static lle_result_t execute_command(const char *command, char ***out_lines,
                                     size_t *out_count) {
@@ -369,8 +401,15 @@ static lle_result_t execute_command(const char *command, char ***out_lines,
  */
 
 /**
- * Check if pattern matches context
- * Pattern: "cmd" or "cmd subcmd"
+ * @brief Check if pattern matches context
+ *
+ * Checks if a pattern matches the current command context.
+ * Pattern format: "cmd" or "cmd subcmd"
+ *
+ * @param pattern Pattern string to match
+ * @param command_name Current command name
+ * @param argument_index Current argument position
+ * @return true if pattern matches, false otherwise
  */
 static bool pattern_matches(const char *pattern, const char *command_name,
                             int argument_index) {
@@ -418,7 +457,15 @@ static bool pattern_matches(const char *pattern, const char *command_name,
 }
 
 /**
- * is_applicable callback for config-based sources
+ * @brief is_applicable callback for config-based sources
+ *
+ * Determines if a config-based completion source should be used
+ * for the current completion context based on argument position
+ * and applies_to patterns.
+ *
+ * @param user_data Pointer to lle_command_source_config_t
+ * @param context Current completion context
+ * @return true if source is applicable, false otherwise
  */
 static bool config_source_is_applicable(void *user_data,
                                         const lle_context_analyzer_t *context) {
@@ -446,7 +493,16 @@ static bool config_source_is_applicable(void *user_data,
 }
 
 /**
- * generate callback for config-based sources
+ * @brief generate callback for config-based sources
+ *
+ * Generates completions by executing the configured shell command
+ * and filtering the output by prefix. Supports result caching.
+ *
+ * @param user_data Pointer to lle_command_source_config_t
+ * @param context Current completion context
+ * @param prefix Prefix to filter completions by
+ * @param result Result set to populate
+ * @return LLE_SUCCESS or error code
  */
 static lle_result_t
 config_source_generate(void *user_data, const lle_context_analyzer_t *context,
@@ -523,7 +579,9 @@ config_source_generate(void *user_data, const lle_context_analyzer_t *context,
  */
 
 /**
- * Parser context for callback
+ * @brief Parser context for callback
+ *
+ * Holds state during TOML config file parsing.
  */
 typedef struct {
     lle_completion_config_t *config;
@@ -534,7 +592,14 @@ typedef struct {
 } config_parser_ctx_t;
 
 /**
- * Find or create source entry
+ * @brief Find or create source entry
+ *
+ * Looks up an existing source by name or creates a new one
+ * if not found. Manages array growth as needed.
+ *
+ * @param ctx Parser context containing config state
+ * @param name Source name to find or create
+ * @return Pointer to source config or NULL on error
  */
 static lle_command_source_config_t *
 get_or_create_source(config_parser_ctx_t *ctx, const char *name) {
@@ -585,7 +650,16 @@ get_or_create_source(config_parser_ctx_t *ctx, const char *name) {
 }
 
 /**
- * Config parser callback
+ * @brief Config parser callback
+ *
+ * Called for each key-value pair during TOML parsing.
+ * Processes [sources.NAME] sections and populates source configs.
+ *
+ * @param section Current section name
+ * @param key Key name
+ * @param value Parsed value
+ * @param user_data Parser context pointer
+ * @return LLE_SUCCESS or error code
  */
 static lle_result_t config_parser_callback(const char *section, const char *key,
                                            const lle_theme_value_t *value,
@@ -674,7 +748,12 @@ static lle_result_t config_parser_callback(const char *section, const char *key,
  */
 
 /**
- * Load completion sources from config file
+ * @brief Load completion sources from config file
+ *
+ * Loads the completion configuration from the default path
+ * (~/.config/lusush/completions.toml or XDG equivalent).
+ *
+ * @return LLE_SUCCESS or error code (LLE_ERROR_NOT_FOUND is OK)
  */
 lle_result_t lle_completion_load_config(void) {
     char *path = get_config_path();
@@ -694,7 +773,13 @@ lle_result_t lle_completion_load_config(void) {
 }
 
 /**
- * Load completion sources from specific path
+ * @brief Load completion sources from specific path
+ *
+ * Parses a TOML config file and registers all defined completion
+ * sources with the custom source API.
+ *
+ * @param path Path to the config file
+ * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_completion_load_config_file(const char *path) {
     if (!path) {
@@ -793,7 +878,12 @@ lle_result_t lle_completion_load_config_file(const char *path) {
 }
 
 /**
- * Reload completion config
+ * @brief Reload completion config
+ *
+ * Reloads the completion configuration from the previously
+ * loaded path, or from the default path if none was loaded.
+ *
+ * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_completion_reload_config(void) {
     pthread_mutex_lock(&g_completion_config.mutex);
@@ -815,7 +905,12 @@ lle_result_t lle_completion_reload_config(void) {
 }
 
 /**
- * Get the currently loaded config
+ * @brief Get the currently loaded config
+ *
+ * Returns a pointer to the global completion configuration.
+ * Thread-safe via mutex protection.
+ *
+ * @return Pointer to config or NULL if not initialized
  */
 const lle_completion_config_t *lle_completion_get_config(void) {
     pthread_mutex_lock(&g_completion_config.mutex);

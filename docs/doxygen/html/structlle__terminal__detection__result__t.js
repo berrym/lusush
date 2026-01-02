@@ -1,0 +1,26 @@
+var structlle__terminal__detection__result__t =
+[
+    [ "capability_level", "structlle__terminal__detection__result__t.html#a5366218a7165294cf6f81c80a1d76e45", null ],
+    [ "colorterm", "structlle__terminal__detection__result__t.html#a633e26882e3e2e076e1b1002a4844dbc", null ],
+    [ "detection_confidence_high", "structlle__terminal__detection__result__t.html#a431d755fbea76fc8512e67d19f61567f", null ],
+    [ "detection_time_us", "structlle__terminal__detection__result__t.html#a25826a7407f3d0c587b4eebfb78895e7", null ],
+    [ "matched_signature", "structlle__terminal__detection__result__t.html#a8b81cf934e8f1cc3506020a76f755f10", null ],
+    [ "multiplexer_type", "structlle__terminal__detection__result__t.html#ab2196463769cce6658d22fc94e6e89ef", null ],
+    [ "probing_successful", "structlle__terminal__detection__result__t.html#aa895f09916aefe334dd173fe0db66c05", null ],
+    [ "recommended_mode", "structlle__terminal__detection__result__t.html#aeab9c38199c7a36358a27af88207750b", null ],
+    [ "stderr_is_tty", "structlle__terminal__detection__result__t.html#a49cbf6ade261d4072b4b7134151800ff", null ],
+    [ "stdin_is_tty", "structlle__terminal__detection__result__t.html#a1c671f791d3d7a927f1f5f71611d8107", null ],
+    [ "stdout_is_tty", "structlle__terminal__detection__result__t.html#abb30faa99fe0aa7c5515964f344f6602", null ],
+    [ "supports_256_colors", "structlle__terminal__detection__result__t.html#a3ff5ad9a5da4638c48b56b1efd0bfd2f", null ],
+    [ "supports_bracketed_paste", "structlle__terminal__detection__result__t.html#a0d78d9fbf533d9aa5e8d09fd3c0341c6", null ],
+    [ "supports_colors", "structlle__terminal__detection__result__t.html#a0971dabc07b057195944d61b78757d95", null ],
+    [ "supports_cursor_positioning", "structlle__terminal__detection__result__t.html#a25aa389823fbc77077e26bf34d552d8e", null ],
+    [ "supports_cursor_queries", "structlle__terminal__detection__result__t.html#a6623e4f0cc98d5ab69aa6a1b4469e9cb", null ],
+    [ "supports_mouse", "structlle__terminal__detection__result__t.html#a4b9a090ebc9c1f5e6bc7efa023ece74c", null ],
+    [ "supports_truecolor", "structlle__terminal__detection__result__t.html#ac7e8df79c3fda6ea7370aee59d38fca8", null ],
+    [ "supports_unicode", "structlle__terminal__detection__result__t.html#ac394d552c7cbc0496a049dc90fae8fcf", null ],
+    [ "term_name", "structlle__terminal__detection__result__t.html#a956fb275e9f395222096c706c9fad4c0", null ],
+    [ "term_program", "structlle__terminal__detection__result__t.html#aae1aa523c375f185a6c1945256160a59", null ],
+    [ "terminal_cols", "structlle__terminal__detection__result__t.html#aee8ad82814597dd857609f8726107eff", null ],
+    [ "terminal_rows", "structlle__terminal__detection__result__t.html#a29ba79df0afb2eb5951aed84fa5c9533", null ]
+];

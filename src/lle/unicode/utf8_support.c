@@ -1,16 +1,21 @@
-/*
- * utf8_support.c - Complete UTF-8 Unicode Support Implementation
+/**
+ * @file utf8_support.c
+ * @brief Complete UTF-8 Unicode Support Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Provides comprehensive UTF-8 encoding/decoding, validation, and
- * manipulation functions.
+ * manipulation functions including codepoint width calculation.
  */
 
 #include "lle/utf8_support.h"
 #include "lle/unicode_grapheme.h"
 #include <string.h>
 
-/*
- * Get the length of a UTF-8 sequence from its first byte
+/**
+ * @brief Get the length of a UTF-8 sequence from its first byte
+ * @param first_byte The first byte of a UTF-8 sequence
+ * @return Sequence length (1-4), or 0 if invalid start byte
  */
 int lle_utf8_sequence_length(unsigned char first_byte) {
     // Single-byte character (ASCII): 0xxxxxxx
@@ -37,8 +42,13 @@ int lle_utf8_sequence_length(unsigned char first_byte) {
     return 0;
 }
 
-/*
- * Validate a complete UTF-8 sequence
+/**
+ * @brief Validate a complete UTF-8 sequence
+ * @param ptr Pointer to the start of the sequence
+ * @param length Expected length of the sequence (1-4)
+ * @return true if valid UTF-8, false otherwise
+ *
+ * Checks continuation bytes, overlong encodings, and invalid ranges.
  */
 bool lle_utf8_is_valid_sequence(const char *ptr, int length) {
     if (!ptr || length <= 0 || length > 4) {
@@ -100,8 +110,11 @@ bool lle_utf8_is_valid_sequence(const char *ptr, int length) {
     return true;
 }
 
-/*
- * Validate an entire UTF-8 string
+/**
+ * @brief Validate an entire UTF-8 string
+ * @param text The UTF-8 text to validate
+ * @param length Length of text in bytes
+ * @return true if entire string is valid UTF-8, false otherwise
  */
 bool lle_utf8_is_valid(const char *text, size_t length) {
     if (!text) {
@@ -127,8 +140,12 @@ bool lle_utf8_is_valid(const char *text, size_t length) {
     return true;
 }
 
-/*
- * Decode a UTF-8 sequence to a Unicode codepoint
+/**
+ * @brief Decode a UTF-8 sequence to a Unicode codepoint
+ * @param ptr Pointer to the start of the sequence
+ * @param max_len Maximum bytes available to read
+ * @param codepoint Output: decoded Unicode codepoint
+ * @return Number of bytes consumed, or -1 on error
  */
 int lle_utf8_decode_codepoint(const char *ptr, size_t max_len,
                               uint32_t *codepoint) {
@@ -168,8 +185,11 @@ int lle_utf8_decode_codepoint(const char *ptr, size_t max_len,
     return seq_len;
 }
 
-/*
- * Encode a Unicode codepoint to UTF-8
+/**
+ * @brief Encode a Unicode codepoint to UTF-8
+ * @param codepoint The Unicode codepoint to encode
+ * @param buffer Output buffer (must have room for 4 bytes)
+ * @return Number of bytes written (1-4), or 0 if invalid codepoint
  */
 int lle_utf8_encode_codepoint(uint32_t codepoint, char *buffer) {
     if (!buffer) {
@@ -206,8 +226,11 @@ int lle_utf8_encode_codepoint(uint32_t codepoint, char *buffer) {
     }
 }
 
-/*
- * Count the number of Unicode codepoints in a UTF-8 string
+/**
+ * @brief Count the number of Unicode codepoints in a UTF-8 string
+ * @param text The UTF-8 text to analyze
+ * @param length Length of text in bytes
+ * @return Number of codepoints in the string
  */
 size_t lle_utf8_count_codepoints(const char *text, size_t length) {
     if (!text || length == 0) {
@@ -231,8 +254,12 @@ size_t lle_utf8_count_codepoints(const char *text, size_t length) {
     return count;
 }
 
-/*
- * Convert byte offset to codepoint index
+/**
+ * @brief Convert byte offset to codepoint index
+ * @param text The UTF-8 text
+ * @param byte_offset Byte offset to convert
+ * @param cp_index Output: codepoint index at that byte offset
+ * @return 0 on success, -1 on error
  */
 int lle_utf8_byte_to_codepoint_index(const char *text, size_t byte_offset,
                                      size_t *cp_index) {
@@ -261,8 +288,12 @@ int lle_utf8_byte_to_codepoint_index(const char *text, size_t byte_offset,
     return 0;
 }
 
-/*
- * Convert codepoint index to byte offset
+/**
+ * @brief Convert codepoint index to byte offset
+ * @param text The UTF-8 text
+ * @param cp_index Codepoint index to convert
+ * @param byte_offset Output: byte offset of that codepoint
+ * @return 0 on success, -1 on error
  */
 int lle_utf8_codepoint_to_byte_offset(const char *text, size_t cp_index,
                                       size_t *byte_offset) {
@@ -289,8 +320,12 @@ int lle_utf8_codepoint_to_byte_offset(const char *text, size_t cp_index,
     return 0;
 }
 
-/*
- * Convert codepoint index to grapheme cluster index
+/**
+ * @brief Convert codepoint index to grapheme cluster index
+ * @param text The UTF-8 text
+ * @param cp_index Codepoint index to convert
+ * @param grapheme_index Output: grapheme cluster index
+ * @return 0 on success, -1 on error
  */
 int lle_utf8_codepoint_to_grapheme_index(const char *text, size_t cp_index,
                                          size_t *grapheme_index) {
@@ -329,11 +364,13 @@ int lle_utf8_codepoint_to_grapheme_index(const char *text, size_t cp_index,
     return 0;
 }
 
-/*
- * Get the display width of a Unicode codepoint
+/**
+ * @brief Get the display width of a Unicode codepoint
+ * @param codepoint The Unicode codepoint to measure
+ * @return Display width (0 for combining, 1 for normal, 2 for wide/CJK)
  *
- * This implements a subset of wcwidth() functionality for common cases.
- * Based on Unicode character width properties.
+ * Implements a subset of wcwidth() functionality for common cases.
+ * Based on Unicode character width properties including CJK and emoji.
  */
 int lle_utf8_codepoint_width(uint32_t codepoint) {
     // Zero-width characters
@@ -407,8 +444,11 @@ int lle_utf8_codepoint_width(uint32_t codepoint) {
     return 1;
 }
 
-/*
- * Get the display width of a UTF-8 string
+/**
+ * @brief Get the display width of a UTF-8 string
+ * @param text The UTF-8 text to measure
+ * @param length Length of text in bytes
+ * @return Total display width in terminal columns
  */
 size_t lle_utf8_string_width(const char *text, size_t length) {
     if (!text || length == 0) {

@@ -1,6 +1,8 @@
 /**
  * @file lle_readline_state.h
  * @brief LLE Readline State Machine
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Provides explicit state management for the readline input loop with
  * guaranteed exit paths. This replaces implicit flag-based state tracking

@@ -1,0 +1,27 @@
+var structlle__memory__access__optimizer__t =
+[
+    [ "access_index", "structlle__memory__access__optimizer__t.html#a5c4b4b3f3eee12add5d36822bfe47cba", null ],
+    [ "access_tracking", "structlle__memory__access__optimizer__t.html#a429bb14e1ae3be7663c5189026d27a25", null ],
+    [ "address", "structlle__memory__access__optimizer__t.html#a5b0b31da613356d0c916738a4c5fdc18", null ],
+    [ "cache_line_size", "structlle__memory__access__optimizer__t.html#aef40d4b6d5cbee2d5f18696bb95db7b2", null ],
+    [ "cache_optimization", "structlle__memory__access__optimizer__t.html#a6aafa0b3fc76bd2323821c8569b130c7", null ],
+    [ "enable_cache_alignment", "structlle__memory__access__optimizer__t.html#a62de13194719ef0a64179027ef2ce856", null ],
+    [ "enable_prefetching", "structlle__memory__access__optimizer__t.html#af3d0a754127ae0f7d105fa496c9df547", null ],
+    [ "hot_memory_regions", "structlle__memory__access__optimizer__t.html#ae8a90ae2a207d10bba4f5dee8e46169a", null ],
+    [ "hot_region_scores", "structlle__memory__access__optimizer__t.html#abb4071e22dc6460ee81e21f6eece3167", null ],
+    [ "hot_region_sizes", "structlle__memory__access__optimizer__t.html#acae7a06a0d193aaee41040f5978d8779", null ],
+    [ "l1_cache_size", "structlle__memory__access__optimizer__t.html#aad210b29cd6dd5e189f1dee1ded725ac", null ],
+    [ "l2_cache_size", "structlle__memory__access__optimizer__t.html#a316eb729ff5b0543d9b31edd96dd3bad", null ],
+    [ "l3_cache_size", "structlle__memory__access__optimizer__t.html#a1410dc7958141e387aea7026a4714cd3", null ],
+    [ "last_score_update", "structlle__memory__access__optimizer__t.html#a29809c2d2805f41ef5955244481088a6", null ],
+    [ "locality_optimization", "structlle__memory__access__optimizer__t.html#af3b1bf5da4dcbcc3876d7f222636fe8d", null ],
+    [ "prefetch_accuracy", "structlle__memory__access__optimizer__t.html#a1a2f5ebc48f738fed46bbdb9cbe1a2f9", null ],
+    [ "prefetch_config", "structlle__memory__access__optimizer__t.html#a4cbddabf42a4f984ca273cccebd7ed03", null ],
+    [ "prefetch_distance", "structlle__memory__access__optimizer__t.html#acf2fb5099ccd7268148e3493821dd0ba", null ],
+    [ "recent_accesses", "structlle__memory__access__optimizer__t.html#acb8d90ddbcf697f575644d100a7c7007", null ],
+    [ "size", "structlle__memory__access__optimizer__t.html#a7ad4336240df18cc9b90a8de565c3190", null ],
+    [ "strategy", "structlle__memory__access__optimizer__t.html#a6fef1581294194e89896433b881cea49", null ],
+    [ "timestamp", "structlle__memory__access__optimizer__t.html#a19dba93d7f40b7293792189419ea4850", null ],
+    [ "total_accesses", "structlle__memory__access__optimizer__t.html#a53a47118ead0d7069f7f32f9d4dafae5", null ],
+    [ "type", "structlle__memory__access__optimizer__t.html#af0ce2f11d46bc754d219538342c36893", null ]
+];

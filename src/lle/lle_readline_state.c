@@ -1,6 +1,8 @@
 /**
  * @file lle_readline_state.c
  * @brief LLE Readline State Machine Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Implements explicit state management for the readline input loop.
  * This provides guaranteed exit paths and replaces scattered flag checks
@@ -38,6 +40,12 @@ static const char *const g_state_names[] = {
     [LLE_READLINE_STATE_ERROR] = "ERROR",
 };
 
+/**
+ * @brief Get human-readable name for a readline state
+ *
+ * @param state The state to get the name for
+ * @return String name of the state, or "INVALID" for unknown states
+ */
 const char *lle_readline_state_name(lle_readline_state_t state) {
     if (state >= LLE_READLINE_STATE_COUNT) {
         return "INVALID";
@@ -46,11 +54,15 @@ const char *lle_readline_state_name(lle_readline_state_t state) {
 }
 
 /**
- * State transition validation table
+ * @brief Validate a state transition
  *
  * For each (from_state, to_state) pair, indicates if transition is valid.
  * Terminal states can be reached from ANY state (escape hatch).
  * Normal state transitions are more restricted.
+ *
+ * @param from Current state
+ * @param to Desired target state
+ * @return true if transition is valid, false otherwise
  */
 static bool is_valid_transition(lle_readline_state_t from,
                                 lle_readline_state_t to) {
@@ -100,6 +112,17 @@ static bool is_valid_transition(lle_readline_state_t from,
     }
 }
 
+/**
+ * @brief Transition to a new readline state
+ *
+ * Validates the transition and updates the context state if valid.
+ *
+ * @param ctx Readline context containing current state
+ * @param new_state Target state to transition to
+ * @return LLE_SUCCESS on successful transition
+ * @return LLE_ERROR_INVALID_PARAMETER if ctx is NULL or state invalid
+ * @return LLE_ERROR_INVALID_STATE if transition is not allowed
+ */
 lle_result_t lle_readline_state_transition(struct readline_context *ctx,
                                            lle_readline_state_t new_state) {
     if (!ctx) {
@@ -130,6 +153,13 @@ lle_result_t lle_readline_state_transition(struct readline_context *ctx,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Force transition to ABORT state
+ *
+ * Emergency exit path - always succeeds regardless of current state.
+ *
+ * @param ctx Readline context to update
+ */
 void lle_readline_state_force_abort(struct readline_context *ctx) {
     if (!ctx) {
         return;
@@ -139,6 +169,13 @@ void lle_readline_state_force_abort(struct readline_context *ctx) {
     ctx->state = LLE_READLINE_STATE_ABORT;
 }
 
+/**
+ * @brief Force transition to EOF state
+ *
+ * Emergency exit path for end-of-file - always succeeds.
+ *
+ * @param ctx Readline context to update
+ */
 void lle_readline_state_force_eof(struct readline_context *ctx) {
     if (!ctx) {
         return;
@@ -148,6 +185,13 @@ void lle_readline_state_force_eof(struct readline_context *ctx) {
     ctx->state = LLE_READLINE_STATE_EOF;
 }
 
+/**
+ * @brief Force transition to TIMEOUT state
+ *
+ * Emergency exit path for timeout conditions - always succeeds.
+ *
+ * @param ctx Readline context to update
+ */
 void lle_readline_state_force_timeout(struct readline_context *ctx) {
     if (!ctx) {
         return;
@@ -157,6 +201,13 @@ void lle_readline_state_force_timeout(struct readline_context *ctx) {
     ctx->state = LLE_READLINE_STATE_TIMEOUT;
 }
 
+/**
+ * @brief Force transition to ERROR state
+ *
+ * Emergency exit path for error conditions - always succeeds.
+ *
+ * @param ctx Readline context to update
+ */
 void lle_readline_state_force_error(struct readline_context *ctx) {
     if (!ctx) {
         return;
@@ -166,6 +217,13 @@ void lle_readline_state_force_error(struct readline_context *ctx) {
     ctx->state = LLE_READLINE_STATE_ERROR;
 }
 
+/**
+ * @brief Reset state machine to initial IDLE state
+ *
+ * Resets both current and previous state to IDLE.
+ *
+ * @param ctx Readline context to reset
+ */
 void lle_readline_state_reset(struct readline_context *ctx) {
     if (!ctx) {
         return;
@@ -175,6 +233,12 @@ void lle_readline_state_reset(struct readline_context *ctx) {
     ctx->previous_state = LLE_READLINE_STATE_IDLE;
 }
 
+/**
+ * @brief Get current readline state
+ *
+ * @param ctx Readline context to query
+ * @return Current state, or LLE_READLINE_STATE_ERROR if ctx is NULL
+ */
 lle_readline_state_t
 lle_readline_state_get(const struct readline_context *ctx) {
     if (!ctx) {
@@ -183,6 +247,14 @@ lle_readline_state_get(const struct readline_context *ctx) {
     return ctx->state;
 }
 
+/**
+ * @brief Get previous readline state
+ *
+ * Useful for debugging and recovery logic.
+ *
+ * @param ctx Readline context to query
+ * @return Previous state, or LLE_READLINE_STATE_ERROR if ctx is NULL
+ */
 lle_readline_state_t
 lle_readline_state_get_previous(const struct readline_context *ctx) {
     if (!ctx) {

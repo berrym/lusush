@@ -1,3 +1,15 @@
+/**
+ * @file debug_trace.c
+ * @brief Execution Tracing and Variable Inspection
+ *
+ * Provides execution tracing for commands, builtins, and functions,
+ * along with stack frame management and variable inspection capabilities
+ * for interactive debugging sessions.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ */
+
 #include "debug.h"
 #include "errors.h"
 #include "executor.h"
@@ -9,7 +21,13 @@
 #include <string.h>
 #include <time.h>
 
-// Trace node execution
+/**
+ * @brief Trace execution of an AST node
+ * @param ctx Debug context
+ * @param node AST node being executed
+ * @param file Source file name
+ * @param line Line number in source file
+ */
 void debug_trace_node(debug_context_t *ctx, node_t *node, const char *file,
                       int line) {
     if (!ctx || !ctx->enabled || !ctx->trace_execution || !node) {
@@ -42,7 +60,13 @@ void debug_trace_node(debug_context_t *ctx, node_t *node, const char *file,
     ctx->total_commands++;
 }
 
-// Trace command execution
+/**
+ * @brief Trace execution of a command
+ * @param ctx Debug context
+ * @param command Command name
+ * @param argv Argument vector
+ * @param argc Argument count
+ */
 void debug_trace_command(debug_context_t *ctx, const char *command, char **argv,
                          int argc) {
     if (!ctx || !ctx->enabled || !ctx->trace_execution || !command) {
@@ -68,7 +92,13 @@ void debug_trace_command(debug_context_t *ctx, const char *command, char **argv,
     fflush(ctx->debug_output);
 }
 
-// Trace builtin command execution
+/**
+ * @brief Trace execution of a builtin command
+ * @param ctx Debug context
+ * @param builtin Builtin command name
+ * @param argv Argument vector
+ * @param argc Argument count
+ */
 void debug_trace_builtin(debug_context_t *ctx, const char *builtin, char **argv,
                          int argc) {
     if (!ctx || !ctx->enabled || !ctx->trace_execution || !builtin) {
@@ -94,7 +124,13 @@ void debug_trace_builtin(debug_context_t *ctx, const char *builtin, char **argv,
     fflush(ctx->debug_output);
 }
 
-// Trace function call
+/**
+ * @brief Trace a function call
+ * @param ctx Debug context
+ * @param function Function name
+ * @param argv Argument vector
+ * @param argc Argument count
+ */
 void debug_trace_function_call(debug_context_t *ctx, const char *function,
                                char **argv, int argc) {
     if (!ctx || !ctx->enabled || !ctx->trace_execution || !function) {
@@ -120,7 +156,14 @@ void debug_trace_function_call(debug_context_t *ctx, const char *function,
     fflush(ctx->debug_output);
 }
 
-// Stack frame management
+/**
+ * @brief Push a new stack frame
+ * @param ctx Debug context
+ * @param function Function name for the frame
+ * @param file Source file name
+ * @param line Line number
+ * @return Pointer to the new frame, or NULL on failure
+ */
 debug_frame_t *debug_push_frame(debug_context_t *ctx, const char *function,
                                 const char *file, int line) {
     if (!ctx || !function) {
@@ -165,7 +208,10 @@ debug_frame_t *debug_push_frame(debug_context_t *ctx, const char *function,
     return frame;
 }
 
-// Pop stack frame
+/**
+ * @brief Pop the current stack frame
+ * @param ctx Debug context
+ */
 void debug_pop_frame(debug_context_t *ctx) {
     if (!ctx || !ctx->current_frame) {
         return;
@@ -201,7 +247,11 @@ void debug_pop_frame(debug_context_t *ctx) {
     free(frame);
 }
 
-// Update current frame node
+/**
+ * @brief Update the current frame's AST node
+ * @param ctx Debug context
+ * @param node Current AST node
+ */
 void debug_update_frame_node(debug_context_t *ctx, node_t *node) {
     if (!ctx || !ctx->current_frame) {
         return;
@@ -210,7 +260,10 @@ void debug_update_frame_node(debug_context_t *ctx, node_t *node) {
     ctx->current_frame->current_node = node;
 }
 
-// Show current stack
+/**
+ * @brief Show the current call stack
+ * @param ctx Debug context
+ */
 void debug_show_stack(debug_context_t *ctx) {
     if (!ctx || !ctx->enabled) {
         return;
@@ -253,7 +306,11 @@ void debug_show_stack(debug_context_t *ctx) {
     }
 }
 
-// Variable inspection
+/**
+ * @brief Inspect a variable by name
+ * @param ctx Debug context
+ * @param name Variable name (with or without $ prefix)
+ */
 void debug_inspect_variable(debug_context_t *ctx, const char *name) {
     if (!ctx || !ctx->enabled || !name) {
         return;
@@ -350,13 +407,20 @@ void debug_inspect_variable(debug_context_t *ctx, const char *name) {
     }
 }
 
-// Structure for passing callback data
+/**
+ * @brief Structure for passing callback data during variable enumeration
+ */
 typedef struct {
-    debug_context_t *ctx;
-    bool found_any;
+    debug_context_t *ctx;  /**< Debug context for output */
+    bool found_any;        /**< Flag indicating if any variables were found */
 } debug_var_callback_data_t;
 
-// Static callback function for variable enumeration
+/**
+ * @brief Callback function for variable enumeration
+ * @param key Variable name
+ * @param value Variable value
+ * @param userdata Pointer to debug_var_callback_data_t
+ */
 static void debug_var_enum_callback(const char *key, const char *value,
                                     void *userdata) {
     debug_var_callback_data_t *data = (debug_var_callback_data_t *)userdata;
@@ -384,7 +448,10 @@ static void debug_var_enum_callback(const char *key, const char *value,
     }
 }
 
-// Inspect all variables
+/**
+ * @brief Inspect all variables in scope
+ * @param ctx Debug context
+ */
 void debug_inspect_all_variables(debug_context_t *ctx) {
     if (!ctx || !ctx->enabled) {
         return;
@@ -465,7 +532,11 @@ void debug_inspect_all_variables(debug_context_t *ctx) {
     }
 }
 
-// Watch variable
+/**
+ * @brief Add a variable to the watch list
+ * @param ctx Debug context
+ * @param name Variable name to watch
+ */
 void debug_watch_variable(debug_context_t *ctx, const char *name) {
     if (!ctx || !ctx->enabled || !name) {
         return;
@@ -492,7 +563,10 @@ void debug_watch_variable(debug_context_t *ctx, const char *name) {
     // For now, just acknowledge the watch request
 }
 
-// Show variable changes
+/**
+ * @brief Show variable changes since last check
+ * @param ctx Debug context
+ */
 void debug_show_variable_changes(debug_context_t *ctx) {
     if (!ctx || !ctx->enabled) {
         return;

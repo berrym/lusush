@@ -1,6 +1,16 @@
-/* SPDX-License-Identifier: MIT */
-/* LLE Specification 22: History-Buffer Integration - Phase 4 */
-/* Edit Cache Implementation */
+/**
+ * @file edit_cache.c
+ * @brief LRU cache for edited history entries
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ *
+ * LLE Specification 22: History-Buffer Integration - Phase 4
+ *
+ * This module implements an LRU (Least Recently Used) cache for storing
+ * edited history entries. The cache allows quick lookup of previously
+ * edited entries by their history index, with automatic expiration and
+ * eviction policies to manage memory usage.
+ */
 
 #include "lle/edit_cache.h"
 #include "lle/memory_management.h"
@@ -36,6 +46,16 @@ static bool is_expired(lle_edit_cache_entry_t *entry, uint32_t ttl_ms);
 static int64_t timespec_diff_ms(const struct timespec *start,
                                 const struct timespec *end);
 
+/* ============================================================================
+ * PUBLIC API - CONFIGURATION
+ * ============================================================================
+ */
+
+/**
+ * @brief Get default edit cache configuration
+ * @param config Pointer to configuration structure to populate
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if config is NULL
+ */
 lle_result_t
 lle_edit_cache_get_default_config(lle_edit_cache_config_t *config) {
     if (!config) {
@@ -50,6 +70,18 @@ lle_edit_cache_get_default_config(lle_edit_cache_config_t *config) {
     return LLE_SUCCESS;
 }
 
+/* ============================================================================
+ * PUBLIC API - LIFECYCLE
+ * ============================================================================
+ */
+
+/**
+ * @brief Create a new edit cache instance
+ * @param cache Pointer to store the created cache
+ * @param memory_pool Memory pool for allocations (can be NULL for global pool)
+ * @param config Cache configuration (can be NULL for defaults)
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_edit_cache_create(lle_edit_cache_t **cache,
                                    lle_memory_pool_t *memory_pool,
                                    const lle_edit_cache_config_t *config) {
@@ -83,6 +115,11 @@ lle_result_t lle_edit_cache_create(lle_edit_cache_t **cache,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Destroy an edit cache and release resources
+ * @param cache The cache to destroy
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if cache is NULL
+ */
 lle_result_t lle_edit_cache_destroy(lle_edit_cache_t *cache) {
     if (!cache) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -94,6 +131,18 @@ lle_result_t lle_edit_cache_destroy(lle_edit_cache_t *cache) {
     return LLE_SUCCESS;
 }
 
+/* ============================================================================
+ * PUBLIC API - CACHE OPERATIONS
+ * ============================================================================
+ */
+
+/**
+ * @brief Look up a cache entry by history index
+ * @param cache The edit cache
+ * @param history_index Index of the history entry to look up
+ * @param entry Pointer to store the found entry (NULL if not found)
+ * @return LLE_SUCCESS on success (entry may still be NULL if not found)
+ */
 lle_result_t lle_edit_cache_lookup(lle_edit_cache_t *cache,
                                    size_t history_index,
                                    lle_edit_cache_entry_t **entry) {
@@ -142,6 +191,17 @@ lle_result_t lle_edit_cache_lookup(lle_edit_cache_t *cache,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Insert a new entry into the cache
+ * @param cache The edit cache
+ * @param history_index Index of the history entry
+ * @param entry_id Unique identifier for the entry
+ * @param original_text Original command text
+ * @param original_length Length of original text
+ * @param reconstructed_text Reconstructed/formatted text (can be NULL)
+ * @param reconstructed_length Length of reconstructed text
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_edit_cache_insert(lle_edit_cache_t *cache,
                                    size_t history_index, uint64_t entry_id,
                                    const char *original_text,
@@ -224,6 +284,12 @@ lle_result_t lle_edit_cache_insert(lle_edit_cache_t *cache,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Invalidate and remove a cache entry by history index
+ * @param cache The edit cache
+ * @param history_index Index of the entry to invalidate
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on error
+ */
 lle_result_t lle_edit_cache_invalidate(lle_edit_cache_t *cache,
                                        size_t history_index) {
     if (!cache || !cache->active) {
@@ -244,6 +310,11 @@ lle_result_t lle_edit_cache_invalidate(lle_edit_cache_t *cache,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Clear all entries from the cache
+ * @param cache The edit cache to clear
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on error
+ */
 lle_result_t lle_edit_cache_clear(lle_edit_cache_t *cache) {
     if (!cache || !cache->active) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -258,6 +329,17 @@ lle_result_t lle_edit_cache_clear(lle_edit_cache_t *cache) {
     return LLE_SUCCESS;
 }
 
+/* ============================================================================
+ * PUBLIC API - STATISTICS AND MAINTENANCE
+ * ============================================================================
+ */
+
+/**
+ * @brief Get cache statistics
+ * @param cache The edit cache
+ * @param stats Pointer to statistics structure to populate
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on error
+ */
 lle_result_t lle_edit_cache_get_stats(lle_edit_cache_t *cache,
                                       lle_edit_cache_stats_t *stats) {
     if (!cache || !cache->active || !stats) {
@@ -269,6 +351,12 @@ lle_result_t lle_edit_cache_get_stats(lle_edit_cache_t *cache,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Evict all expired entries from the cache
+ * @param cache The edit cache
+ * @param expired_count Pointer to store count of evicted entries (can be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on error
+ */
 lle_result_t lle_edit_cache_evict_expired(lle_edit_cache_t *cache,
                                           size_t *expired_count) {
     if (!cache || !cache->active) {
@@ -304,8 +392,16 @@ lle_result_t lle_edit_cache_evict_expired(lle_edit_cache_t *cache,
     return LLE_SUCCESS;
 }
 
-/* Internal helper functions */
+/* ============================================================================
+ * INTERNAL HELPER FUNCTIONS
+ * ============================================================================
+ */
 
+/**
+ * @brief Move an entry to the head of the LRU list
+ * @param cache The edit cache
+ * @param entry The entry to move to head (most recently used)
+ */
 static void move_to_head(lle_edit_cache_t *cache,
                          lle_edit_cache_entry_t *entry) {
     if (cache->head == entry) {
@@ -337,6 +433,11 @@ static void move_to_head(lle_edit_cache_t *cache,
     }
 }
 
+/**
+ * @brief Remove an entry from the doubly-linked LRU list
+ * @param cache The edit cache
+ * @param entry The entry to remove from the list
+ */
 static void remove_from_list(lle_edit_cache_t *cache,
                              lle_edit_cache_entry_t *entry) {
     if (entry->prev) {
@@ -352,6 +453,10 @@ static void remove_from_list(lle_edit_cache_t *cache,
     }
 }
 
+/**
+ * @brief Evict the least recently used entry from the cache
+ * @param cache The edit cache
+ */
 static void evict_lru(lle_edit_cache_t *cache) {
     if (!cache->tail) {
         return; /* Cache is empty */
@@ -363,6 +468,12 @@ static void evict_lru(lle_edit_cache_t *cache) {
     cache->stats.evictions++;
 }
 
+/**
+ * @brief Check if a cache entry has expired based on TTL
+ * @param entry The cache entry to check
+ * @param ttl_ms Time-to-live in milliseconds
+ * @return true if the entry has expired, false otherwise
+ */
 static bool is_expired(lle_edit_cache_entry_t *entry, uint32_t ttl_ms) {
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
@@ -372,6 +483,12 @@ static bool is_expired(lle_edit_cache_entry_t *entry, uint32_t ttl_ms) {
     return (age_ms >= (int64_t)ttl_ms);
 }
 
+/**
+ * @brief Calculate the difference between two timespecs in milliseconds
+ * @param start Start time
+ * @param end End time
+ * @return Difference in milliseconds (end - start)
+ */
 static int64_t timespec_diff_ms(const struct timespec *start,
                                 const struct timespec *end) {
     int64_t sec_diff = end->tv_sec - start->tv_sec;

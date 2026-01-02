@@ -1,6 +1,8 @@
 /**
  * @file theme_loader.h
  * @brief LLE Theme File Loader - File I/O and Theme Loading API
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Specification: Issue #21 - Theme File Loading System
  * Version: 1.0.0

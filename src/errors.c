@@ -1,3 +1,18 @@
+/**
+ * @file errors.c
+ * @brief Error reporting and handling utilities
+ *
+ * Provides standardized error reporting functions for:
+ * - System call errors (with errno)
+ * - Non-system errors
+ * - Fatal errors (with exit or abort)
+ * - Informational messages (warning, info, success)
+ * - Signal handlers (SIGSEGV)
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ */
+
 #include "errors.h"
 
 #include "lusush.h"
@@ -9,9 +24,15 @@
 #include <stdlib.h>
 #include <string.h>
 
-/*
- * do_error:
- *      Print an error message and return to caller.
+/**
+ * @brief Internal error printing function
+ *
+ * Formats and prints error messages, optionally including errno info.
+ *
+ * @param errnoflag If true, append strerror(err) to message
+ * @param err Error number to use with strerror
+ * @param fmt Format string
+ * @param args Variable argument list
  */
 static void do_error(bool errnoflag, int err, const char *fmt, va_list args) {
     char buf[MAXLINE + 1] = {'\0'};
@@ -30,10 +51,13 @@ static void do_error(bool errnoflag, int err, const char *fmt, va_list args) {
     fflush(NULL); // flush all stdio output streams
 }
 
-/*
- * error_return:
- *      Nonfatal error related to a system call.
- *      Print an error message and return.
+/**
+ * @brief Nonfatal error related to a system call
+ *
+ * Prints an error message with errno information and returns.
+ *
+ * @param fmt Format string (printf-style)
+ * @param ... Variable arguments
  */
 void error_return(const char *fmt, ...) {
     va_list args;
@@ -42,10 +66,14 @@ void error_return(const char *fmt, ...) {
     va_end(args);
 }
 
-/*
- * error_syscall:
- *      Fatal error related to a system call.
- *      Print an error message and terminate.
+/**
+ * @brief Fatal error related to a system call
+ *
+ * Prints an error message with errno information and exits with
+ * EXIT_FAILURE.
+ *
+ * @param fmt Format string (printf-style)
+ * @param ... Variable arguments
  */
 void error_syscall(const char *fmt, ...) {
     va_list args;
@@ -55,10 +83,13 @@ void error_syscall(const char *fmt, ...) {
     exit(EXIT_FAILURE);
 }
 
-/*
- * error_message:
- *      Nonfatal error unrelated to a system call.
- *      Print an error message and return.
+/**
+ * @brief Nonfatal error unrelated to a system call
+ *
+ * Prints an error message without errno information and returns.
+ *
+ * @param fmt Format string (printf-style)
+ * @param ... Variable arguments
  */
 void error_message(const char *fmt, ...) {
     va_list args;
@@ -67,10 +98,13 @@ void error_message(const char *fmt, ...) {
     va_end(args);
 }
 
-/*
- * error_quit:
- *      Fatal error unrelated to a system call.
- *      Print an error message and return.
+/**
+ * @brief Fatal error unrelated to a system call
+ *
+ * Prints an error message and exits with EXIT_FAILURE.
+ *
+ * @param fmt Format string (printf-style)
+ * @param ... Variable arguments
  */
 void error_quit(const char *fmt, ...) {
     va_list args;
@@ -80,10 +114,14 @@ void error_quit(const char *fmt, ...) {
     exit(EXIT_FAILURE);
 }
 
-/*
- * error_abort:
- *      Fatal error related to a system call.
- *      Print an error message, dump core, and terminate.
+/**
+ * @brief Fatal error with core dump
+ *
+ * Prints an error message, calls abort() to generate a core dump,
+ * and terminates the process.
+ *
+ * @param fmt Format string (printf-style)
+ * @param ... Variable arguments
  */
 void error_abort(const char *fmt, ...) {
     va_list args;
@@ -94,8 +132,11 @@ void error_abort(const char *fmt, ...) {
     exit(EXIT_FAILURE); // should never happen
 }
 
-/*
- * Enhanced colored message functions for better user experience
+/**
+ * @brief Print a warning message
+ *
+ * @param fmt Format string (printf-style)
+ * @param ... Variable arguments
  */
 void warning_message(const char *fmt, ...) {
     va_list args;
@@ -106,6 +147,12 @@ void warning_message(const char *fmt, ...) {
     va_end(args);
 }
 
+/**
+ * @brief Print an informational message
+ *
+ * @param fmt Format string (printf-style)
+ * @param ... Variable arguments
+ */
 void info_message(const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
@@ -115,6 +162,12 @@ void info_message(const char *fmt, ...) {
     va_end(args);
 }
 
+/**
+ * @brief Print a success message
+ *
+ * @param fmt Format string (printf-style)
+ * @param ... Variable arguments
+ */
 void success_message(const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
@@ -124,10 +177,13 @@ void success_message(const char *fmt, ...) {
     va_end(args);
 }
 
-/*
- * NOTE: NECESSARALY FATAL
- * sigsegv_handler:
- *      Segmentation fault handler, insult programmer then abort.
+/**
+ * @brief Segmentation fault signal handler
+ *
+ * Prints an error message with the signal number and aborts.
+ * This handler is necessarily fatal.
+ *
+ * @param signo Signal number (SIGSEGV)
  */
 void sigsegv_handler(int signo) {
     error_abort(

@@ -1,6 +1,8 @@
 /**
  * @file change_tracker.c
  * @brief LLE Change Tracking and Undo/Redo System Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Specification: Spec 03 - Buffer Management, Section 7
  *

@@ -49,7 +49,7 @@ const fuzzy_match_options_t FUZZY_MATCH_FAST = {.case_sensitive = false,
 #define MAX_CODEPOINTS 1024
 
 /**
- * Internal structure for holding decoded codepoints
+ * @brief Internal structure for holding decoded codepoints
  */
 typedef struct {
     uint32_t codepoints[MAX_CODEPOINTS];
@@ -57,7 +57,11 @@ typedef struct {
 } codepoint_array_t;
 
 /**
- * Decode UTF-8 string to codepoint array with optional normalization
+ * @brief Decode UTF-8 string to codepoint array with optional normalization
+ * @param str Input UTF-8 string to decode
+ * @param out Output codepoint array
+ * @param opts Fuzzy match options for normalization and case folding
+ * @return Number of codepoints decoded, or -1 on error
  */
 static int decode_to_codepoints(const char *str, codepoint_array_t *out,
                                 const fuzzy_match_options_t *opts) {
@@ -117,12 +121,19 @@ static int decode_to_codepoints(const char *str, codepoint_array_t *out,
 }
 
 /**
- * Helper: minimum of two integers
+ * @brief Return minimum of two integers
+ * @param a First integer
+ * @param b Second integer
+ * @return The smaller of a and b
  */
 static inline int min2(int a, int b) { return (a < b) ? a : b; }
 
 /**
- * Helper: minimum of three integers
+ * @brief Return minimum of three integers
+ * @param a First integer
+ * @param b Second integer
+ * @param c Third integer
+ * @return The smallest of a, b, and c
  */
 static inline int min3(int a, int b, int c) {
     int min_ab = (a < b) ? a : b;
@@ -130,7 +141,10 @@ static inline int min3(int a, int b, int c) {
 }
 
 /**
- * Helper: maximum of two integers
+ * @brief Return maximum of two integers
+ * @param a First integer
+ * @param b Second integer
+ * @return The larger of a and b
  */
 static inline int max2(int a, int b) { return (a > b) ? a : b; }
 
@@ -140,7 +154,11 @@ static inline int max2(int a, int b) { return (a > b) ? a : b; }
  */
 
 /**
- * Calculate Levenshtein distance between two codepoint arrays
+ * @brief Calculate Levenshtein distance between two codepoint arrays
+ * @param s1 First codepoint array
+ * @param s2 Second codepoint array
+ * @param max_dist Maximum distance threshold (0 for unlimited)
+ * @return Edit distance between the arrays
  */
 static int levenshtein_codepoints(const codepoint_array_t *s1,
                                   const codepoint_array_t *s2, int max_dist) {
@@ -213,6 +231,13 @@ static int levenshtein_codepoints(const codepoint_array_t *s1,
     return result;
 }
 
+/**
+ * @brief Calculate Levenshtein edit distance between two strings
+ * @param s1 First string
+ * @param s2 Second string
+ * @param options Fuzzy match options (NULL for defaults)
+ * @return Edit distance between the strings
+ */
 int fuzzy_levenshtein_distance(const char *s1, const char *s2,
                                const fuzzy_match_options_t *options) {
     if (!s1 && !s2)
@@ -241,8 +266,14 @@ int fuzzy_levenshtein_distance(const char *s1, const char *s2,
  */
 
 /**
- * Calculate Damerau-Levenshtein distance between two codepoint arrays
- * Includes transpositions as a single edit operation
+ * @brief Calculate Damerau-Levenshtein distance between two codepoint arrays
+ *
+ * Includes transpositions as a single edit operation.
+ *
+ * @param s1 First codepoint array
+ * @param s2 Second codepoint array
+ * @param max_dist Maximum distance threshold (0 for unlimited)
+ * @return Edit distance between the arrays
  */
 static int damerau_levenshtein_codepoints(const codepoint_array_t *s1,
                                           const codepoint_array_t *s2,
@@ -310,6 +341,16 @@ static int damerau_levenshtein_codepoints(const codepoint_array_t *s1,
     return result;
 }
 
+/**
+ * @brief Calculate Damerau-Levenshtein edit distance between two strings
+ *
+ * Includes transpositions as a single edit operation.
+ *
+ * @param s1 First string
+ * @param s2 Second string
+ * @param options Fuzzy match options (NULL for defaults)
+ * @return Edit distance between the strings
+ */
 int fuzzy_damerau_levenshtein_distance(const char *s1, const char *s2,
                                        const fuzzy_match_options_t *options) {
     if (!s1 && !s2)
@@ -337,7 +378,10 @@ int fuzzy_damerau_levenshtein_distance(const char *s1, const char *s2,
  */
 
 /**
- * Calculate Jaro similarity between two codepoint arrays
+ * @brief Calculate Jaro similarity between two codepoint arrays
+ * @param s1 First codepoint array
+ * @param s2 Second codepoint array
+ * @return Jaro similarity score between 0.0 and 1.0
  */
 static double jaro_codepoints(const codepoint_array_t *s1,
                               const codepoint_array_t *s2) {
@@ -411,6 +455,13 @@ static double jaro_codepoints(const codepoint_array_t *s1,
     return jaro;
 }
 
+/**
+ * @brief Calculate Jaro similarity score between two strings
+ * @param s1 First string
+ * @param s2 Second string
+ * @param options Fuzzy match options (NULL for defaults)
+ * @return Similarity score from 0 to 100
+ */
 int fuzzy_jaro_score(const char *s1, const char *s2,
                      const fuzzy_match_options_t *options) {
     if (!s1 && !s2)
@@ -431,6 +482,16 @@ int fuzzy_jaro_score(const char *s1, const char *s2,
     return (int)(jaro * 100);
 }
 
+/**
+ * @brief Calculate Jaro-Winkler similarity score between two strings
+ *
+ * Applies a prefix bonus to the Jaro similarity score.
+ *
+ * @param s1 First string
+ * @param s2 Second string
+ * @param options Fuzzy match options (NULL for defaults)
+ * @return Similarity score from 0 to 100
+ */
 int fuzzy_jaro_winkler_score(const char *s1, const char *s2,
                              const fuzzy_match_options_t *options) {
     if (!s1 && !s2)
@@ -472,6 +533,13 @@ int fuzzy_jaro_winkler_score(const char *s1, const char *s2,
  * ============================================================================
  */
 
+/**
+ * @brief Calculate the length of the common prefix between two strings
+ * @param s1 First string
+ * @param s2 Second string
+ * @param options Fuzzy match options (NULL for defaults)
+ * @return Length of common prefix in codepoints
+ */
 int fuzzy_common_prefix_length(const char *s1, const char *s2,
                                const fuzzy_match_options_t *options) {
     if (!s1 || !s2)
@@ -500,6 +568,13 @@ int fuzzy_common_prefix_length(const char *s1, const char *s2,
     return prefix_len;
 }
 
+/**
+ * @brief Calculate subsequence match score between pattern and text
+ * @param pattern Pattern string to match
+ * @param text Text string to search in
+ * @param options Fuzzy match options (NULL for defaults)
+ * @return Score from 0 to 100 based on how much of pattern matches as subsequence
+ */
 int fuzzy_subsequence_score(const char *pattern, const char *text,
                             const fuzzy_match_options_t *options) {
     if (!pattern || !text)
@@ -539,6 +614,13 @@ int fuzzy_subsequence_score(const char *pattern, const char *text,
     return (matches * 100) / pat.length;
 }
 
+/**
+ * @brief Check if pattern is a subsequence of text
+ * @param pattern Pattern string to match
+ * @param text Text string to search in
+ * @param options Fuzzy match options (NULL for defaults)
+ * @return true if pattern is a subsequence of text, false otherwise
+ */
 bool fuzzy_is_subsequence(const char *pattern, const char *text,
                           const fuzzy_match_options_t *options) {
     if (!pattern || *pattern == '\0')
@@ -577,6 +659,17 @@ bool fuzzy_is_subsequence(const char *pattern, const char *text,
  * ============================================================================
  */
 
+/**
+ * @brief Calculate combined fuzzy match score between two strings
+ *
+ * Uses weighted combination of edit distance, Jaro-Winkler, prefix, and
+ * subsequence scores for comprehensive matching.
+ *
+ * @param s1 First string
+ * @param s2 Second string
+ * @param options Fuzzy match options (NULL for defaults)
+ * @return Combined similarity score from 0 to 100
+ */
 int fuzzy_match_score(const char *s1, const char *s2,
                       const fuzzy_match_options_t *options) {
     if (!s1 && !s2)
@@ -642,6 +735,15 @@ int fuzzy_match_score(const char *s1, const char *s2,
     return final_score;
 }
 
+/**
+ * @brief Calculate fuzzy match score for length-specified strings
+ * @param s1 First string
+ * @param len1 Length of first string
+ * @param s2 Second string
+ * @param len2 Length of second string
+ * @param options Fuzzy match options (NULL for defaults)
+ * @return Combined similarity score from 0 to 100
+ */
 int fuzzy_match_score_n(const char *s1, size_t len1, const char *s2,
                         size_t len2, const fuzzy_match_options_t *options) {
     /* Create null-terminated copies */
@@ -667,6 +769,14 @@ int fuzzy_match_score_n(const char *s1, size_t len1, const char *s2,
     return result;
 }
 
+/**
+ * @brief Check if two strings match above a threshold
+ * @param s1 First string
+ * @param s2 Second string
+ * @param threshold Minimum score to consider a match (0-100)
+ * @param options Fuzzy match options (NULL for defaults)
+ * @return true if match score is at or above threshold, false otherwise
+ */
 bool fuzzy_match_is_match(const char *s1, const char *s2, int threshold,
                           const fuzzy_match_options_t *options) {
     return fuzzy_match_score(s1, s2, options) >= threshold;
@@ -678,7 +788,10 @@ bool fuzzy_match_is_match(const char *s1, const char *s2, int threshold,
  */
 
 /**
- * Comparison function for sorting results by score (descending)
+ * @brief Comparison function for sorting results by score (descending)
+ * @param a First result to compare
+ * @param b Second result to compare
+ * @return Negative if a > b, positive if a < b, zero if equal
  */
 static int compare_results(const void *a, const void *b) {
     const fuzzy_match_result_t *ra = (const fuzzy_match_result_t *)a;
@@ -686,6 +799,17 @@ static int compare_results(const void *a, const void *b) {
     return rb->score - ra->score; /* Descending */
 }
 
+/**
+ * @brief Find best matches for a pattern among candidates
+ * @param pattern Pattern string to match against
+ * @param candidates Array of candidate strings
+ * @param num_candidates Number of candidates in array
+ * @param results Output array for results (sorted by score descending)
+ * @param max_results Maximum number of results to return
+ * @param threshold Minimum score to include in results (0-100)
+ * @param options Fuzzy match options (NULL for defaults)
+ * @return Number of results returned
+ */
 int fuzzy_match_best(const char *pattern, const char **candidates,
                      int num_candidates, fuzzy_match_result_t *results,
                      int max_results, int threshold,
@@ -728,6 +852,17 @@ int fuzzy_match_best(const char *pattern, const char **candidates,
     return result_count;
 }
 
+/**
+ * @brief Filter candidates that match pattern above threshold
+ * @param pattern Pattern string to match against
+ * @param candidates Array of candidate strings
+ * @param num_candidates Number of candidates in array
+ * @param indices Output array for indices of matching candidates
+ * @param max_indices Maximum number of indices to return
+ * @param threshold Minimum score to include (0-100)
+ * @param options Fuzzy match options (NULL for defaults)
+ * @return Number of matching candidates found
+ */
 int fuzzy_match_filter(const char *pattern, const char **candidates,
                        int num_candidates, int *indices, int max_indices,
                        int threshold, const fuzzy_match_options_t *options) {
@@ -757,6 +892,12 @@ int fuzzy_match_filter(const char *pattern, const char **candidates,
  * ============================================================================
  */
 
+/**
+ * @brief Convert edit distance to similarity score
+ * @param distance Edit distance value
+ * @param max_len Maximum string length for normalization
+ * @return Similarity score from 0 to 100
+ */
 int fuzzy_distance_to_score(int distance, int max_len) {
     if (max_len <= 0)
         return 100;
@@ -768,6 +909,12 @@ int fuzzy_distance_to_score(int distance, int max_len) {
     return ((max_len - distance) * 100) / max_len;
 }
 
+/**
+ * @brief Get Unicode-aware string length in codepoints
+ * @param s Input string
+ * @param options Fuzzy match options (NULL for defaults)
+ * @return Length in codepoints, or byte length on decode failure
+ */
 int fuzzy_string_length(const char *s, const fuzzy_match_options_t *options) {
     if (!s)
         return 0;

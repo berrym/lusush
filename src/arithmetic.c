@@ -1,16 +1,26 @@
-/*
- * Modern Arithmetic Expansion Module for Lusush Shell
+/**
+ * @file arithmetic.c
+ * @brief POSIX-Compliant Arithmetic Expansion Module for Lusush Shell
  *
- * This module provides POSIX-compliant arithmetic expansion using the shunting
- * yard algorithm. It replaces the legacy shunt.c implementation with a modern,
- * clean interface that integrates with the modern shell architecture.
+ * This module provides arithmetic expansion using the shunting yard algorithm.
+ * It handles $((...)) expressions with full support for:
+ * - Integer arithmetic (+, -, *, /, %)
+ * - Comparison operators (<, <=, >, >=, ==, !=)
+ * - Logical operators (&&, ||, !)
+ * - Bitwise operators (&, |, ^, ~, <<, >>)
+ * - Assignment operators (=, +=, -=, *=, /=, %=)
+ * - Increment/decrement (++, --)
+ * - Exponentiation (**)
+ * - Variable references and command substitution
+ * - Hexadecimal and octal number formats
  *
  * Based on the shunting yard algorithm implementation from:
  * - Original: http://en.literateprograms.org/Shunting_yard_algorithm_(C)
  * - Modified by Mohammed Isam for Layla shell
  * - Further modernized for Lusush shell
  *
- * Copyright (c) 2024 Michael Berry <trismegustis@gmail.com>
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  */
 
 #include "arithmetic.h"
@@ -66,7 +76,14 @@ typedef struct {
     void *executor; // Store executor context for scoped variable resolution
 } arithm_context_t;
 
-// Cleanup function for arithmetic context
+/**
+ * @brief Clean up an arithmetic evaluation context
+ *
+ * Frees any dynamically allocated memory in the context, including
+ * variable names stored in the number stack and error messages.
+ *
+ * @param ctx The arithmetic context to clean up
+ */
 static void arithm_context_cleanup(arithm_context_t *ctx) {
     if (!ctx) {
         return;
@@ -91,7 +108,7 @@ static void arithm_context_cleanup(arithm_context_t *ctx) {
 bool arithm_error_flag = false;
 char *arithm_error_message = NULL;
 
-// Forward declarations
+// Forward declarations for internal functions
 static ssize_t long_value(stack_item_t *item);
 static void push_opstack(arithm_context_t *ctx, op_t *op);
 static op_t *pop_opstack(arithm_context_t *ctx);
@@ -104,39 +121,55 @@ static ssize_t get_num(const char *expr, int *nchars);
 static char *get_var_name(const char *expr, int *nchars);
 static bool valid_name_char(char c);
 
-// Operator evaluation functions
+// ============================================================================
+// OPERATOR EVALUATION FUNCTIONS
+// ============================================================================
+
+/**
+ * @brief Unary minus operator evaluation
+ * @param a1 Operand
+ * @param a2 Unused
+ * @return Negated value
+ */
 static ssize_t eval_uminus(stack_item_t *a1, stack_item_t *a2) {
     (void)a2;
     return -long_value(a1);
 }
 
+/** @brief Unary plus operator (identity) */
 static ssize_t eval_uplus(stack_item_t *a1, stack_item_t *a2) {
     (void)a2;
     return long_value(a1);
 }
 
+/** @brief Logical NOT operator */
 static ssize_t eval_lognot(stack_item_t *a1, stack_item_t *a2) {
     (void)a2;
     return !long_value(a1);
 }
 
+/** @brief Bitwise NOT (complement) operator */
 static ssize_t eval_bitnot(stack_item_t *a1, stack_item_t *a2) {
     (void)a2;
     return ~long_value(a1);
 }
 
+/** @brief Multiplication operator */
 static ssize_t eval_mul(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) * long_value(a2);
 }
 
+/** @brief Addition operator */
 static ssize_t eval_add(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) + long_value(a2);
 }
 
+/** @brief Subtraction operator */
 static ssize_t eval_sub(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) - long_value(a2);
 }
 
+/** @brief Division operator with zero-check */
 static ssize_t eval_div(stack_item_t *a1, stack_item_t *a2) {
     ssize_t divisor = long_value(a2);
     if (divisor == 0) {
@@ -146,6 +179,7 @@ static ssize_t eval_div(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) / divisor;
 }
 
+/** @brief Modulo operator with zero-check */
 static ssize_t eval_mod(stack_item_t *a1, stack_item_t *a2) {
     ssize_t divisor = long_value(a2);
     if (divisor == 0) {
@@ -155,59 +189,76 @@ static ssize_t eval_mod(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) % divisor;
 }
 
+/** @brief Left shift operator */
 static ssize_t eval_lsh(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) << long_value(a2);
 }
 
+/** @brief Right shift operator */
 static ssize_t eval_rsh(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) >> long_value(a2);
 }
 
+/** @brief Less than comparison */
 static ssize_t eval_lt(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) < long_value(a2);
 }
 
+/** @brief Less than or equal comparison */
 static ssize_t eval_le(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) <= long_value(a2);
 }
 
+/** @brief Greater than comparison */
 static ssize_t eval_gt(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) > long_value(a2);
 }
 
+/** @brief Greater than or equal comparison */
 static ssize_t eval_ge(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) >= long_value(a2);
 }
 
+/** @brief Equality comparison */
 static ssize_t eval_eq(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) == long_value(a2);
 }
 
+/** @brief Inequality comparison */
 static ssize_t eval_ne(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) != long_value(a2);
 }
 
+/** @brief Bitwise AND operator */
 static ssize_t eval_bitand(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) & long_value(a2);
 }
 
+/** @brief Bitwise XOR operator */
 static ssize_t eval_bitxor(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) ^ long_value(a2);
 }
 
+/** @brief Bitwise OR operator */
 static ssize_t eval_bitor(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) | long_value(a2);
 }
 
+/** @brief Logical AND operator (short-circuit) */
 static ssize_t eval_logand(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) && long_value(a2);
 }
 
+/** @brief Logical OR operator (short-circuit) */
 static ssize_t eval_logor(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) || long_value(a2);
 }
 
-// Assignment operator evaluation
+// ============================================================================
+// ASSIGNMENT OPERATORS
+// ============================================================================
+
+/** @brief Simple assignment operator */
 static ssize_t eval_assign(stack_item_t *a1, stack_item_t *a2) {
     if (a1->type != ITEM_VAR_PTR || !a1->var_name) {
         arithm_set_error("invalid assignment target");
@@ -221,7 +272,7 @@ static ssize_t eval_assign(stack_item_t *a1, stack_item_t *a2) {
     return value;
 }
 
-// Compound assignment operators
+/** @brief Addition assignment operator (+=) */
 static ssize_t eval_addeq(stack_item_t *a1, stack_item_t *a2) {
     if (a1->type != ITEM_VAR_PTR || !a1->var_name) {
         arithm_set_error("invalid assignment target");
@@ -243,6 +294,7 @@ static ssize_t eval_addeq(stack_item_t *a1, stack_item_t *a2) {
     return result;
 }
 
+/** @brief Subtraction assignment operator (-=) */
 static ssize_t eval_subeq(stack_item_t *a1, stack_item_t *a2) {
     if (a1->type != ITEM_VAR_PTR || !a1->var_name) {
         arithm_set_error("invalid assignment target");
@@ -264,6 +316,7 @@ static ssize_t eval_subeq(stack_item_t *a1, stack_item_t *a2) {
     return result;
 }
 
+/** @brief Multiplication assignment operator (*=) */
 static ssize_t eval_muleq(stack_item_t *a1, stack_item_t *a2) {
     if (a1->type != ITEM_VAR_PTR || !a1->var_name) {
         arithm_set_error("invalid assignment target");
@@ -285,6 +338,7 @@ static ssize_t eval_muleq(stack_item_t *a1, stack_item_t *a2) {
     return result;
 }
 
+/** @brief Division assignment operator (/=) with zero-check */
 static ssize_t eval_diveq(stack_item_t *a1, stack_item_t *a2) {
     if (a1->type != ITEM_VAR_PTR || !a1->var_name) {
         arithm_set_error("invalid assignment target");
@@ -311,6 +365,7 @@ static ssize_t eval_diveq(stack_item_t *a1, stack_item_t *a2) {
     return result;
 }
 
+/** @brief Modulo assignment operator (%=) with zero-check */
 static ssize_t eval_modeq(stack_item_t *a1, stack_item_t *a2) {
     if (a1->type != ITEM_VAR_PTR || !a1->var_name) {
         arithm_set_error("invalid assignment target");
@@ -337,7 +392,11 @@ static ssize_t eval_modeq(stack_item_t *a1, stack_item_t *a2) {
     return result;
 }
 
-// Pre-increment operator evaluation
+// ============================================================================
+// INCREMENT/DECREMENT OPERATORS
+// ============================================================================
+
+/** @brief Pre-increment operator (++x) */
 static ssize_t eval_preinc(stack_item_t *a1, stack_item_t *a2) {
     (void)a2;
     if (a1->type != ITEM_VAR_PTR || !a1->var_name) {
@@ -352,7 +411,7 @@ static ssize_t eval_preinc(stack_item_t *a1, stack_item_t *a2) {
     return value;
 }
 
-// Pre-decrement operator evaluation
+/** @brief Pre-decrement operator (--x) */
 static ssize_t eval_predec(stack_item_t *a1, stack_item_t *a2) {
     (void)a2;
     if (a1->type != ITEM_VAR_PTR || !a1->var_name) {
@@ -367,7 +426,7 @@ static ssize_t eval_predec(stack_item_t *a1, stack_item_t *a2) {
     return value;
 }
 
-// Post-increment operator evaluation
+/** @brief Post-increment operator (x++) - returns old value */
 static ssize_t eval_postinc(stack_item_t *a1, stack_item_t *a2) {
     (void)a2;
     if (a1->type != ITEM_VAR_PTR || !a1->var_name) {
@@ -383,7 +442,7 @@ static ssize_t eval_postinc(stack_item_t *a1, stack_item_t *a2) {
     return old_value;
 }
 
-// Post-decrement operator evaluation
+/** @brief Post-decrement operator (x--) - returns old value */
 static ssize_t eval_postdec(stack_item_t *a1, stack_item_t *a2) {
     (void)a2;
     if (a1->type != ITEM_VAR_PTR || !a1->var_name) {
@@ -399,6 +458,16 @@ static ssize_t eval_postdec(stack_item_t *a1, stack_item_t *a2) {
     return old_value;
 }
 
+/**
+ * @brief Exponentiation operator (**)
+ *
+ * Calculates base raised to the power of exponent.
+ * Only non-negative integer exponents are supported.
+ *
+ * @param a1 Base value
+ * @param a2 Exponent value (must be non-negative)
+ * @return Result of base^exponent, or 0 on error
+ */
 static ssize_t eval_exp(stack_item_t *a1, stack_item_t *a2) {
     ssize_t base = long_value(a1);
     ssize_t exp = long_value(a2);
@@ -485,7 +554,20 @@ static op_t op_postdec = {CH_POSTDEC, 1, ASSOC_LEFT, 1, 2, eval_postdec};
 #define OP_POSTINC (&op_postinc)
 #define OP_POSTDEC (&op_postdec)
 
-// Get long value from stack item
+// ============================================================================
+// STACK MANAGEMENT AND VALUE CONVERSION
+// ============================================================================
+
+/**
+ * @brief Get the numeric value from a stack item
+ *
+ * Converts a stack item to its numeric value. For literal integers,
+ * returns the stored value. For variable references, looks up the
+ * variable value in the symbol table using executor context if available.
+ *
+ * @param item The stack item to evaluate
+ * @return The numeric value, or 0 for undefined variables
+ */
 static ssize_t long_value(stack_item_t *item) {
     switch (item->type) {
     case ITEM_LONG_INT:
@@ -522,7 +604,11 @@ static ssize_t long_value(stack_item_t *item) {
     }
 }
 
-// Stack management functions
+/**
+ * @brief Push an operator onto the operator stack
+ * @param ctx Arithmetic evaluation context
+ * @param op Operator to push
+ */
 static void push_opstack(arithm_context_t *ctx, op_t *op) {
     if (ctx->nopstack >= MAXOPSTACK) {
         ctx->errflag = true;
@@ -532,6 +618,11 @@ static void push_opstack(arithm_context_t *ctx, op_t *op) {
     ctx->opstack[ctx->nopstack++] = op;
 }
 
+/**
+ * @brief Pop an operator from the operator stack
+ * @param ctx Arithmetic evaluation context
+ * @return Popped operator, or NULL on underflow
+ */
 static op_t *pop_opstack(arithm_context_t *ctx) {
     if (ctx->nopstack <= 0) {
         ctx->errflag = true;
@@ -541,6 +632,11 @@ static op_t *pop_opstack(arithm_context_t *ctx) {
     return ctx->opstack[--ctx->nopstack];
 }
 
+/**
+ * @brief Push a literal integer value onto the number stack
+ * @param ctx Arithmetic evaluation context
+ * @param val Integer value to push
+ */
 static void push_numstackl(arithm_context_t *ctx, ssize_t val) {
     if (ctx->nnumstack >= MAXNUMSTACK) {
         ctx->errflag = true;
@@ -552,6 +648,11 @@ static void push_numstackl(arithm_context_t *ctx, ssize_t val) {
     ctx->nnumstack++;
 }
 
+/**
+ * @brief Push a variable reference onto the number stack with executor context
+ * @param ctx Arithmetic evaluation context
+ * @param var_name Name of the variable to reference
+ */
 static void push_numstackv_with_context(arithm_context_t *ctx,
                                         const char *var_name) {
     if (ctx->nnumstack >= MAXNUMSTACK) {
@@ -570,6 +671,11 @@ static void push_numstackv(arithm_context_t *ctx, const char *var_name) {
     push_numstackv_with_context(ctx, var_name);
 }
 
+/**
+ * @brief Pop a value from the number stack
+ * @param ctx Arithmetic evaluation context
+ * @return Popped stack item, or empty item on underflow
+ */
 static stack_item_t pop_numstack(arithm_context_t *ctx) {
     stack_item_t empty = {ITEM_LONG_INT, {0}, NULL};
     if (ctx->nnumstack <= 0) {
@@ -580,10 +686,27 @@ static stack_item_t pop_numstack(arithm_context_t *ctx) {
     return ctx->numstack[--ctx->nnumstack];
 }
 
-// Check if character is valid for variable names
+/**
+ * @brief Check if a character is valid in a variable name
+ * @param c Character to check
+ * @return true if character is alphanumeric or underscore
+ */
 static bool valid_name_char(char c) { return isalnum(c) || c == '_'; }
 
-// Get operator from expression
+// ============================================================================
+// EXPRESSION PARSING
+// ============================================================================
+
+/**
+ * @brief Look up an operator from expression text
+ *
+ * Identifies operators in the expression, handling both single-character
+ * and two-character operators. Two-character operators are checked first
+ * to avoid conflicts (e.g., == vs =).
+ *
+ * @param expr Pointer to current position in expression
+ * @return Pointer to operator structure, or NULL if not an operator
+ */
 static op_t *get_op(const char *expr) {
     // Check for increment/decrement operators first (they are 2-char)
     if (expr[0] == '+' && expr[1] == '+') {
@@ -637,7 +760,15 @@ static op_t *get_op(const char *expr) {
     return NULL;
 }
 
-// Parse number from expression
+/**
+ * @brief Parse a numeric literal from expression text
+ *
+ * Parses decimal, hexadecimal (0x prefix), or octal (0 prefix) numbers.
+ *
+ * @param expr Pointer to current position in expression
+ * @param nchars Output: number of characters consumed
+ * @return Parsed numeric value
+ */
 static ssize_t get_num(const char *expr, int *nchars) {
     char *endptr;
     ssize_t result;
@@ -657,7 +788,18 @@ static ssize_t get_num(const char *expr, int *nchars) {
     return result;
 }
 
-// Get variable name from expression
+/**
+ * @brief Extract a variable name from expression text
+ *
+ * Parses a variable name starting at the current position. Variable names
+ * can start with a letter, underscore, or digit (for positional parameters).
+ * Ensures the variable exists in the symbol table with a default value of "0".
+ *
+ * @param ctx Arithmetic evaluation context (for executor access)
+ * @param expr Pointer to current position in expression
+ * @param nchars Output: number of characters consumed
+ * @return Allocated variable name string, or NULL on error
+ */
 static char *get_var_name_with_context(arithm_context_t *ctx
                                        __attribute__((unused)),
                                        const char *expr, int *nchars) {
@@ -708,7 +850,16 @@ static char *get_var_name(const char *expr, int *nchars) {
     return get_var_name_with_context(NULL, expr, nchars);
 }
 
-// Shunting yard algorithm implementation
+/**
+ * @brief Process an operator using the shunting yard algorithm
+ *
+ * Implements the core shunting yard logic for operator precedence parsing.
+ * Handles parentheses matching, operator precedence, and associativity
+ * to convert infix notation to evaluation order.
+ *
+ * @param ctx Arithmetic evaluation context with operator and number stacks
+ * @param op Operator to process
+ */
 static void shunt_op(arithm_context_t *ctx, op_t *op) {
     if (op->op == '(') {
         push_opstack(ctx, op);

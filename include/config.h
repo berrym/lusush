@@ -15,298 +15,739 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-// Configuration file paths
+/** @brief User configuration file name */
 #define USER_CONFIG_FILE ".lusushrc"
+
+/** @brief System-wide configuration file path */
 #define SYSTEM_CONFIG_FILE "/etc/lusush/lusushrc"
+
+/** @brief Maximum length of a configuration line */
 #define MAX_CONFIG_LINE 1024
+
+/** @brief Maximum length of a configuration value */
 #define MAX_CONFIG_VALUE 512
 
-// Configuration sections
+/**
+ * @brief Configuration section identifiers
+ *
+ * Enumerates the different sections in configuration files.
+ */
 typedef enum {
-    CONFIG_SECTION_NONE,
-    CONFIG_SECTION_HISTORY,
-    CONFIG_SECTION_COMPLETION,
-    CONFIG_SECTION_PROMPT,
-    CONFIG_SECTION_BEHAVIOR,
-    CONFIG_SECTION_ALIASES,
-    CONFIG_SECTION_KEYS,
-    CONFIG_SECTION_NETWORK,
-    CONFIG_SECTION_SCRIPTS,
-    CONFIG_SECTION_SHELL,
-    CONFIG_SECTION_DISPLAY
+    CONFIG_SECTION_NONE,       /**< No section (default) */
+    CONFIG_SECTION_HISTORY,    /**< History settings */
+    CONFIG_SECTION_COMPLETION, /**< Completion settings */
+    CONFIG_SECTION_PROMPT,     /**< Prompt settings */
+    CONFIG_SECTION_BEHAVIOR,   /**< Behavior settings */
+    CONFIG_SECTION_ALIASES,    /**< Alias definitions */
+    CONFIG_SECTION_KEYS,       /**< Key binding settings */
+    CONFIG_SECTION_NETWORK,    /**< Network settings */
+    CONFIG_SECTION_SCRIPTS,    /**< Script settings */
+    CONFIG_SECTION_SHELL,      /**< Shell options */
+    CONFIG_SECTION_DISPLAY     /**< Display settings */
 } config_section_t;
 
-// LLE History - Arrow key behavior modes
+/**
+ * @brief LLE History arrow key behavior modes
+ *
+ * Controls how arrow keys behave in multiline editing contexts.
+ */
 typedef enum {
-    LLE_ARROW_MODE_CONTEXT_AWARE,  // Smart: multiline navigation when in
-                                   // multiline
-    LLE_ARROW_MODE_CLASSIC,        // GNU Readline: always history navigation
-    LLE_ARROW_MODE_ALWAYS_HISTORY, // Always history, use Ctrl-P/N only
-    LLE_ARROW_MODE_MULTILINE_FIRST // Prioritize multiline navigation
+    LLE_ARROW_MODE_CONTEXT_AWARE,  /**< Smart: multiline navigation when in multiline */
+    LLE_ARROW_MODE_CLASSIC,        /**< GNU Readline: always history navigation */
+    LLE_ARROW_MODE_ALWAYS_HISTORY, /**< Always history, use Ctrl-P/N only */
+    LLE_ARROW_MODE_MULTILINE_FIRST /**< Prioritize multiline navigation */
 } lle_arrow_key_mode_t;
 
-// LLE History - Storage modes
+/**
+ * @brief LLE History storage modes
+ *
+ * Controls how history is stored on disk.
+ */
 typedef enum {
-    LLE_STORAGE_MODE_LLE_ONLY,       // Store only in LLE format
-    LLE_STORAGE_MODE_BASH_ONLY,      // Store only in bash format
-    LLE_STORAGE_MODE_DUAL,           // Store in both formats (recommended)
-    LLE_STORAGE_MODE_READLINE_COMPAT // Use GNU Readline's storage
+    LLE_STORAGE_MODE_LLE_ONLY,       /**< Store only in LLE format */
+    LLE_STORAGE_MODE_BASH_ONLY,      /**< Store only in bash format */
+    LLE_STORAGE_MODE_DUAL,           /**< Store in both formats (recommended) */
+    LLE_STORAGE_MODE_READLINE_COMPAT /**< Use GNU Readline's storage */
 } lle_history_storage_mode_t;
 
-// LLE History - Deduplication scope
+/**
+ * @brief LLE History deduplication scope
+ *
+ * Controls the scope of duplicate detection.
+ */
 typedef enum {
-    LLE_DEDUP_SCOPE_NONE,    // No deduplication
-    LLE_DEDUP_SCOPE_SESSION, // Within current session
-    LLE_DEDUP_SCOPE_RECENT,  // Last N entries
-    LLE_DEDUP_SCOPE_GLOBAL   // Entire history
+    LLE_DEDUP_SCOPE_NONE,    /**< No deduplication */
+    LLE_DEDUP_SCOPE_SESSION, /**< Within current session */
+    LLE_DEDUP_SCOPE_RECENT,  /**< Last N entries */
+    LLE_DEDUP_SCOPE_GLOBAL   /**< Entire history */
 } lle_dedup_scope_t;
 
-// LLE History - Deduplication strategy
+/**
+ * @brief LLE History deduplication strategy
+ *
+ * Controls how duplicates are handled when detected.
+ */
 typedef enum {
-    LLE_DEDUP_STRATEGY_IGNORE,        // Reject new duplicates, keep old
-    LLE_DEDUP_STRATEGY_KEEP_RECENT,   // Keep newest, mark old as deleted
-                                      // (default)
-    LLE_DEDUP_STRATEGY_KEEP_FREQUENT, // Keep entry with highest usage count
-    LLE_DEDUP_STRATEGY_MERGE,         // Merge forensic metadata, keep existing
-    LLE_DEDUP_STRATEGY_KEEP_ALL       // No dedup (track frequency only)
+    LLE_DEDUP_STRATEGY_IGNORE,        /**< Reject new duplicates, keep old */
+    LLE_DEDUP_STRATEGY_KEEP_RECENT,   /**< Keep newest, mark old as deleted (default) */
+    LLE_DEDUP_STRATEGY_KEEP_FREQUENT, /**< Keep entry with highest usage count */
+    LLE_DEDUP_STRATEGY_MERGE,         /**< Merge forensic metadata, keep existing */
+    LLE_DEDUP_STRATEGY_KEEP_ALL       /**< No dedup (track frequency only) */
 } lle_dedup_strategy_t;
 
-// Configuration context
+/**
+ * @brief Configuration context structure
+ *
+ * Tracks the current parsing context during configuration file processing.
+ */
 typedef struct {
-    char *user_config_path;
-    char *system_config_path;
-    bool user_config_exists;
-    bool system_config_exists;
-    int line_number;
-    const char *current_file;
+    char *user_config_path;    /**< Path to user configuration file */
+    char *system_config_path;  /**< Path to system configuration file */
+    bool user_config_exists;   /**< Whether user config file exists */
+    bool system_config_exists; /**< Whether system config file exists */
+    int line_number;           /**< Current line number being parsed */
+    const char *current_file;  /**< Current file being parsed */
 } config_context_t;
 
-// Configuration values structure
+/**
+ * @brief Configuration values structure
+ *
+ * Contains all configuration settings for the shell.
+ */
 typedef struct {
-    // History settings
-    bool history_enabled;
-    int history_size;
-    bool history_no_dups;
-    bool history_timestamps;
-    char *history_file;
+    /* History settings */
+    bool history_enabled;      /**< Enable command history */
+    int history_size;          /**< Maximum history entries */
+    bool history_no_dups;      /**< Ignore duplicate entries */
+    bool history_timestamps;   /**< Record timestamps */
+    char *history_file;        /**< History file path */
 
-    // LLE History Configuration
-    // Arrow key behavior
-    lle_arrow_key_mode_t lle_arrow_key_mode;
-    bool lle_enable_multiline_navigation;
+    /* LLE History Configuration */
+    lle_arrow_key_mode_t lle_arrow_key_mode;     /**< Arrow key behavior mode */
+    bool lle_enable_multiline_navigation;        /**< Enable multiline navigation */
+    bool lle_wrap_history_navigation;            /**< Wrap at history ends */
+    bool lle_save_line_on_history_nav;           /**< Save line when navigating */
+    bool lle_preserve_multiline_structure;       /**< Preserve multiline structure */
+    bool lle_enable_multiline_editing;           /**< Enable multiline editing */
+    bool lle_show_multiline_indicators;          /**< Show multiline indicators */
+    bool lle_enable_interactive_search;          /**< Enable interactive search */
+    bool lle_search_fuzzy_matching;              /**< Enable fuzzy search matching */
+    bool lle_search_case_sensitive;              /**< Case-sensitive search */
+    lle_history_storage_mode_t lle_storage_mode; /**< History storage mode */
+    char *lle_history_file;                      /**< LLE history file path */
+    bool lle_sync_with_readline;                 /**< Sync with readline history */
+    bool lle_export_to_bash_history;             /**< Export to bash history */
+    bool lle_enable_forensic_tracking;           /**< Enable forensic tracking */
+    bool lle_enable_deduplication;               /**< Enable deduplication */
+    lle_dedup_scope_t lle_dedup_scope;           /**< Deduplication scope */
+    lle_dedup_strategy_t lle_dedup_strategy;     /**< Deduplication strategy */
+    bool lle_dedup_navigation;                   /**< Skip duplicates during navigation */
+    bool lle_dedup_navigation_unique;            /**< Show only unique entries */
+    bool lle_dedup_unicode_normalize;            /**< Use Unicode NFC normalization */
+    bool lle_enable_history_cache;               /**< Enable history cache */
+    int lle_cache_size;                          /**< Cache size */
+    bool lle_readline_compatible_mode;           /**< Readline compatibility mode */
 
-    // History navigation
-    bool lle_wrap_history_navigation;
-    bool lle_save_line_on_history_nav;
+    /* Completion settings */
+    bool completion_enabled;        /**< Enable tab completion */
+    bool fuzzy_completion;          /**< Enable fuzzy matching */
+    int completion_threshold;       /**< Minimum match score */
+    bool completion_case_sensitive; /**< Case-sensitive completion */
+    bool completion_show_all;       /**< Show all completions */
+    bool hints_enabled;             /**< Enable inline hints */
 
-    // Multiline support
-    bool lle_preserve_multiline_structure;
-    bool lle_enable_multiline_editing;
-    bool lle_show_multiline_indicators;
+    /* Prompt settings */
+    bool use_theme_prompt;   /**< Use theme system for prompts */
+    char *prompt_theme;      /**< Theme name */
+    bool git_prompt_enabled; /**< Enable git info in prompt */
+    int git_cache_timeout;   /**< Git info cache timeout (seconds) */
+    char *prompt_format;     /**< Custom prompt format string */
 
-    // Search behavior
-    bool lle_enable_interactive_search;
-    bool lle_search_fuzzy_matching;
-    bool lle_search_case_sensitive;
+    /* Theme settings */
+    char *theme_name;                  /**< Active theme name */
+    bool theme_auto_detect_colors;     /**< Auto-detect color support */
+    bool theme_fallback_basic;         /**< Fall back to basic theme */
+    char *theme_corporate_company;     /**< Company name for corporate theme */
+    char *theme_corporate_department;  /**< Department for corporate theme */
+    char *theme_corporate_project;     /**< Project for corporate theme */
+    char *theme_corporate_environment; /**< Environment for corporate theme */
+    bool theme_show_company;           /**< Show company in prompt */
+    bool theme_show_department;        /**< Show department in prompt */
+    bool theme_show_right_prompt;      /**< Enable right-side prompt */
+    bool theme_enable_animations;      /**< Enable prompt animations */
+    bool theme_enable_icons;           /**< Enable Unicode icons */
+    int theme_color_support_override;  /**< Override detected color support */
 
-    // File format and storage
-    lle_history_storage_mode_t lle_storage_mode;
-    char *lle_history_file;
-    bool lle_sync_with_readline;
-    bool lle_export_to_bash_history;
+    /* Behavior settings */
+    bool auto_cd;         /**< Auto-cd to directories */
+    bool spell_correction; /**< Enable spell correction */
+    bool confirm_exit;    /**< Confirm before exit */
+    int tab_width;        /**< Tab display width */
+    bool no_word_expand;  /**< Disable word expansion */
+    bool multiline_mode;  /**< Enable multiline editing */
 
-    // Advanced features
-    bool lle_enable_forensic_tracking;
-    bool lle_enable_deduplication;
-    lle_dedup_scope_t lle_dedup_scope;
-    lle_dedup_strategy_t
-        lle_dedup_strategy;    // Dedup strategy (default: KEEP_RECENT)
-    bool lle_dedup_navigation; // Skip duplicates during history navigation
-                               // (default: true)
-    bool lle_dedup_navigation_unique; // Show only unique entries during
-                                      // navigation session (default: true)
-    bool lle_dedup_unicode_normalize; // Use Unicode NFC normalization for
-                                      // comparison (default: true)
+    /* Auto-correction settings */
+    int autocorrect_max_suggestions;  /**< Maximum suggestions */
+    int autocorrect_threshold;        /**< Minimum similarity threshold */
+    bool autocorrect_interactive;     /**< Interactive prompts */
+    bool autocorrect_learn_history;   /**< Learn from history */
+    bool autocorrect_builtins;        /**< Correct builtin names */
+    bool autocorrect_external;        /**< Correct external commands */
+    bool autocorrect_case_sensitive;  /**< Case-sensitive matching */
 
-    // Performance
-    bool lle_enable_history_cache;
-    int lle_cache_size;
+    /* Color settings */
+    char *color_scheme;   /**< Active color scheme name */
+    bool colors_enabled;  /**< Enable colored output */
 
-    // Compatibility mode
-    bool lle_readline_compatible_mode;
+    /* Advanced settings */
+    bool verbose_errors; /**< Verbose error messages */
+    bool debug_mode;     /**< Enable debug mode */
 
-    // Completion settings
-    bool completion_enabled;
-    bool fuzzy_completion;
-    int completion_threshold;
-    bool completion_case_sensitive;
-    bool completion_show_all;
-    bool hints_enabled;
+    /* Display system settings */
+    bool display_syntax_highlighting;    /**< Enable syntax highlighting */
+    bool display_autosuggestions;        /**< Enable autosuggestions */
+    bool display_transient_prompt;       /**< Enable transient prompts */
+    bool display_newline_before_prompt;  /**< Print newline before prompt */
+    bool display_performance_monitoring; /**< Enable performance monitoring */
+    int display_optimization_level;      /**< Optimization level (0-4) */
+    bool enhanced_display_mode;          /**< Legacy display setting (deprecated) */
 
-    // Prompt settings
-    bool use_theme_prompt; // Use theme system for prompts (false = respect user
-                           // PS1/PS2)
-    char *prompt_theme;
-    bool git_prompt_enabled;
-    int git_cache_timeout;
-    char *prompt_format;
+    /* Network settings */
+    bool ssh_completion_enabled;  /**< Enable SSH host completion */
+    bool cloud_discovery_enabled; /**< Enable cloud host discovery */
+    bool cache_ssh_hosts;         /**< Cache SSH hosts */
+    int cache_timeout_minutes;    /**< Cache timeout in minutes */
+    bool show_remote_context;     /**< Show remote context */
+    bool auto_detect_cloud;       /**< Auto-detect cloud environment */
+    int max_completion_hosts;     /**< Maximum hosts for completion */
 
-    // Theme settings (Phase 3 Target 2)
-    char *theme_name;
-    bool theme_auto_detect_colors;
-    bool theme_fallback_basic;
-    char *theme_corporate_company;
-    char *theme_corporate_department;
-    char *theme_corporate_project;
-    char *theme_corporate_environment;
-    bool theme_show_company;
-    bool theme_show_department;
-    bool theme_show_right_prompt;
-    bool theme_enable_animations;
-    bool theme_enable_icons;
-    int theme_color_support_override;
-
-    // Behavior settings
-    bool auto_cd;
-    bool spell_correction;
-    bool confirm_exit;
-    int tab_width;
-    bool no_word_expand;
-    bool multiline_mode;
-
-    // Auto-correction settings
-    int autocorrect_max_suggestions;
-    int autocorrect_threshold;
-    bool autocorrect_interactive;
-    bool autocorrect_learn_history;
-    bool autocorrect_builtins;
-    bool autocorrect_external;
-    bool autocorrect_case_sensitive;
-
-    // Color settings
-    char *color_scheme;
-    bool colors_enabled;
-
-    // Advanced settings
-    bool verbose_errors;
-    bool debug_mode;
-
-    // Display system settings - v1.3.0: Layered display is now exclusive
-    bool display_syntax_highlighting; // Enable syntax highlighting
-    bool display_autosuggestions;     // Enable autosuggestions
-    bool display_transient_prompt; // Enable transient prompts (Spec 25 Section
-                                   // 12)
-    bool display_newline_before_prompt;  // Print newline before prompt (visual
-                                         // separation)
-    bool display_performance_monitoring; // Enable performance monitoring
-    int display_optimization_level;      // Optimization level (0-4)
-
-    // Legacy display setting (deprecated)
-    bool enhanced_display_mode;
-
-    // Network settings
-    bool ssh_completion_enabled;
-    bool cloud_discovery_enabled;
-    bool cache_ssh_hosts;
-    int cache_timeout_minutes;
-    bool show_remote_context;
-    bool auto_detect_cloud;
-    int max_completion_hosts;
-
-    // Script execution control
-    bool script_execution;
+    /* Script execution control */
+    bool script_execution; /**< Enable script execution */
 } config_values_t;
 
-// Global configuration instance
+/** @brief Global configuration instance */
 extern config_values_t config;
+
+/** @brief Global configuration context */
 extern config_context_t config_ctx;
 
-// Core configuration functions
+/* ============================================================================
+ * Core Configuration Functions
+ * ============================================================================ */
+
+/**
+ * @brief Initialize the configuration system
+ *
+ * Sets up default values and prepares for configuration loading.
+ *
+ * @return 0 on success, non-zero on error
+ */
 int config_init(void);
+
+/**
+ * @brief Load user configuration file
+ *
+ * Loads configuration from the user's home directory.
+ *
+ * @return 0 on success, non-zero on error
+ */
 int config_load_user(void);
+
+/**
+ * @brief Load system configuration file
+ *
+ * Loads configuration from the system-wide configuration file.
+ *
+ * @return 0 on success, non-zero on error
+ */
 int config_load_system(void);
+
+/**
+ * @brief Load configuration from a specific file
+ *
+ * @param path Path to configuration file
+ * @return 0 on success, non-zero on error
+ */
 int config_load_file(const char *path);
+
+/**
+ * @brief Save current configuration to user file
+ *
+ * @return 0 on success, non-zero on error
+ */
 int config_save_user(void);
+
+/**
+ * @brief Clean up configuration system resources
+ *
+ * Frees all dynamically allocated configuration data.
+ */
 void config_cleanup(void);
 
-// Configuration parsing functions
+/* ============================================================================
+ * Configuration Parsing Functions
+ * ============================================================================ */
+
+/**
+ * @brief Parse a single configuration line
+ *
+ * @param line Line to parse
+ * @param line_num Line number for error reporting
+ * @param filename Filename for error reporting
+ * @return 0 on success, non-zero on error
+ */
 int config_parse_line(const char *line, int line_num, const char *filename);
+
+/**
+ * @brief Parse a section header
+ *
+ * @param section_name Section name from header
+ * @return 0 on success, non-zero on error
+ */
 int config_parse_section(const char *section_name);
+
+/**
+ * @brief Parse a configuration option
+ *
+ * @param key Option key
+ * @param value Option value
+ * @return 0 on success, non-zero on error
+ */
 int config_parse_option(const char *key, const char *value);
 
-// Shell option integration functions
+/* ============================================================================
+ * Shell Option Integration Functions
+ * ============================================================================ */
+
+/**
+ * @brief Validate a shell option value
+ *
+ * @param value Value to validate
+ * @return true if valid, false otherwise
+ */
 bool config_validate_shell_option(const char *value);
+
+/**
+ * @brief Set a shell option by name
+ *
+ * @param option_name Option name
+ * @param value Boolean value to set
+ */
 void config_set_shell_option(const char *option_name, bool value);
+
+/**
+ * @brief Get a shell option by name
+ *
+ * @param option_name Option name
+ * @return Current value of the option
+ */
 bool config_get_shell_option(const char *option_name);
+
+/**
+ * @brief Get the current configuration section
+ *
+ * @return Current section being parsed
+ */
 config_section_t config_get_current_section(void);
 
-// Configuration validation functions
+/* ============================================================================
+ * Configuration Validation Functions
+ * ============================================================================ */
+
+/**
+ * @brief Validate a boolean configuration value
+ *
+ * @param value Value string to validate
+ * @return true if valid boolean, false otherwise
+ */
 bool config_validate_bool(const char *value);
+
+/**
+ * @brief Validate an integer configuration value
+ *
+ * @param value Value string to validate
+ * @return true if valid integer, false otherwise
+ */
 bool config_validate_int(const char *value);
+
+/**
+ * @brief Validate a string configuration value
+ *
+ * @param value Value string to validate
+ * @return true if valid string, false otherwise
+ */
 bool config_validate_string(const char *value);
+
+/**
+ * @brief Validate a color configuration value
+ *
+ * @param value Color value to validate
+ * @return true if valid color, false otherwise
+ */
 bool config_validate_color(const char *value);
 
+/**
+ * @brief Validate a float configuration value
+ *
+ * @param value Value string to validate
+ * @return true if valid float, false otherwise
+ */
 bool config_validate_float(const char *value);
+
+/**
+ * @brief Validate a path configuration value
+ *
+ * @param value Path string to validate
+ * @return true if valid path, false otherwise
+ */
 bool config_validate_path(const char *value);
-bool config_validate_shell_option(const char *value);
+
+/**
+ * @brief Validate a display mode value
+ *
+ * @param value Display mode string to validate
+ * @return true if valid display mode, false otherwise
+ */
 bool config_validate_display_mode(const char *value);
+
+/**
+ * @brief Validate an optimization level value
+ *
+ * @param value Optimization level string to validate
+ * @return true if valid optimization level, false otherwise
+ */
 bool config_validate_optimization_level(const char *value);
+
+/**
+ * @brief Validate a color scheme value
+ *
+ * @param value Color scheme name to validate
+ * @return true if valid color scheme, false otherwise
+ */
 bool config_validate_color_scheme(const char *value);
+
+/**
+ * @brief Validate an LLE arrow mode value
+ *
+ * @param value Arrow mode string to validate
+ * @return true if valid arrow mode, false otherwise
+ */
 bool config_validate_lle_arrow_mode(const char *value);
+
+/**
+ * @brief Validate an LLE storage mode value
+ *
+ * @param value Storage mode string to validate
+ * @return true if valid storage mode, false otherwise
+ */
 bool config_validate_lle_storage_mode(const char *value);
+
+/**
+ * @brief Validate an LLE dedup scope value
+ *
+ * @param value Dedup scope string to validate
+ * @return true if valid dedup scope, false otherwise
+ */
 bool config_validate_lle_dedup_scope(const char *value);
+
+/**
+ * @brief Validate an LLE dedup strategy value
+ *
+ * @param value Dedup strategy string to validate
+ * @return true if valid dedup strategy, false otherwise
+ */
 bool config_validate_lle_dedup_strategy(const char *value);
 
-// Configuration value setters and getters
+/* ============================================================================
+ * Configuration Value Setters and Getters
+ * ============================================================================ */
+
+/**
+ * @brief Set a boolean configuration value
+ *
+ * @param key Configuration key
+ * @param value Boolean value
+ * @return 0 on success, non-zero on error
+ */
 int config_set_bool(const char *key, bool value);
+
+/**
+ * @brief Set an integer configuration value
+ *
+ * @param key Configuration key
+ * @param value Integer value
+ * @return 0 on success, non-zero on error
+ */
 int config_set_int(const char *key, int value);
+
+/**
+ * @brief Set a string configuration value
+ *
+ * @param key Configuration key
+ * @param value String value
+ * @return 0 on success, non-zero on error
+ */
 int config_set_string(const char *key, const char *value);
+
+/**
+ * @brief Get a boolean configuration value
+ *
+ * @param key Configuration key
+ * @param default_value Default if key not found
+ * @return Configuration value or default
+ */
 bool config_get_bool(const char *key, bool default_value);
+
+/**
+ * @brief Get an integer configuration value
+ *
+ * @param key Configuration key
+ * @param default_value Default if key not found
+ * @return Configuration value or default
+ */
 int config_get_int(const char *key, int default_value);
+
+/**
+ * @brief Get a string configuration value
+ *
+ * @param key Configuration key
+ * @param default_value Default if key not found
+ * @return Configuration value or default
+ */
 const char *config_get_string(const char *key, const char *default_value);
 
-// Configuration utility functions
+/* ============================================================================
+ * Configuration Utility Functions
+ * ============================================================================ */
+
+/**
+ * @brief Set all configuration values to defaults
+ */
 void config_set_defaults(void);
+
+/**
+ * @brief Apply loaded configuration settings
+ *
+ * Applies all configuration values to their respective subsystems.
+ */
 void config_apply_settings(void);
+
+/**
+ * @brief Create a default user configuration file
+ *
+ * @return 0 on success, non-zero on error
+ */
 int config_create_user_config(void);
+
+/**
+ * @brief Get the path to the user configuration file
+ *
+ * @return Path string (caller must free), or NULL on error
+ */
 char *config_get_user_config_path(void);
+
+/**
+ * @brief Get the path to the system configuration file
+ *
+ * @return Path string (caller must free), or NULL on error
+ */
 char *config_get_system_config_path(void);
 
-// Script execution support for traditional shell compatibility
+/* ============================================================================
+ * Script Execution Support
+ * ============================================================================ */
+
+/**
+ * @brief Execute startup scripts
+ *
+ * Runs shell startup scripts in the proper order.
+ *
+ * @return 0 on success, non-zero on error
+ */
 int config_execute_startup_scripts(void);
+
+/**
+ * @brief Execute login scripts
+ *
+ * Runs login-specific shell scripts.
+ *
+ * @return 0 on success, non-zero on error
+ */
 int config_execute_login_scripts(void);
+
+/**
+ * @brief Execute logout scripts
+ *
+ * Runs shell logout scripts.
+ *
+ * @return 0 on success, non-zero on error
+ */
 int config_execute_logout_scripts(void);
+
+/**
+ * @brief Execute a specific script file
+ *
+ * @param path Path to script file
+ * @return 0 on success, non-zero on error
+ */
 int config_execute_script_file(const char *path);
+
+/**
+ * @brief Check if script execution is enabled
+ *
+ * @return true if script execution is enabled, false otherwise
+ */
 bool config_should_execute_scripts(void);
+
+/**
+ * @brief Enable or disable script execution
+ *
+ * @param enabled Whether to enable script execution
+ */
 void config_set_script_execution(bool enabled);
 
-// Traditional shell script file detection
+/* ============================================================================
+ * Traditional Shell Script File Detection
+ * ============================================================================ */
+
+/**
+ * @brief Get path to profile script
+ *
+ * @return Path string (caller must free), or NULL if not found
+ */
 char *config_get_profile_script_path(void);
+
+/**
+ * @brief Get path to login script
+ *
+ * @return Path string (caller must free), or NULL if not found
+ */
 char *config_get_login_script_path(void);
+
+/**
+ * @brief Get path to rc script
+ *
+ * @return Path string (caller must free), or NULL if not found
+ */
 char *config_get_rc_script_path(void);
+
+/**
+ * @brief Get path to logout script
+ *
+ * @return Path string (caller must free), or NULL if not found
+ */
 char *config_get_logout_script_path(void);
+
+/**
+ * @brief Check if a script file exists
+ *
+ * @param path Path to script file
+ * @return true if exists and is readable, false otherwise
+ */
 bool config_script_exists(const char *path);
 
-// Configuration error handling
+/* ============================================================================
+ * Configuration Error Handling
+ * ============================================================================ */
+
+/**
+ * @brief Report a configuration error
+ *
+ * Prints a formatted error message with file and line information.
+ *
+ * @param format printf-style format string
+ * @param ... Format arguments
+ */
 void config_error(const char *format, ...);
+
+/**
+ * @brief Report a configuration warning
+ *
+ * Prints a formatted warning message with file and line information.
+ *
+ * @param format printf-style format string
+ * @param ... Format arguments
+ */
 void config_warning(const char *format, ...);
+
+/**
+ * @brief Get the last configuration error message
+ *
+ * @return Error message string, or NULL if no error
+ */
 const char *config_get_last_error(void);
 
-// Configuration display functions
+/* ============================================================================
+ * Configuration Display Functions
+ * ============================================================================ */
+
+/**
+ * @brief Display all configuration settings
+ *
+ * Prints all current configuration values to stdout.
+ */
 void config_show_all(void);
+
+/**
+ * @brief Display configuration settings for a section
+ *
+ * @param section Section to display
+ */
 void config_show_section(config_section_t section);
+
+/**
+ * @brief Display a specific configuration option
+ *
+ * @param key Option key to display
+ */
 void config_show_option(const char *key);
+
+/**
+ * @brief Get a configuration value by key
+ *
+ * Prints the value of the specified configuration key.
+ *
+ * @param key Configuration key
+ */
 void config_get_value(const char *key);
+
+/**
+ * @brief Set a configuration value by key
+ *
+ * Sets the specified configuration key to the given value.
+ *
+ * @param key Configuration key
+ * @param value Value to set
+ */
 void config_set_value(const char *key, const char *value);
 
-// Configuration save functions
-int config_save_user(void);
+/* ============================================================================
+ * Configuration Save Functions
+ * ============================================================================ */
+
+/**
+ * @brief Save configuration to a specific file
+ *
+ * @param path File path to save to
+ * @return 0 on success, non-zero on error
+ */
 int config_save_file(const char *path);
 
-// Built-in command integration
+/* ============================================================================
+ * Built-in Command Integration
+ * ============================================================================ */
+
+/**
+ * @brief Configuration builtin command handler
+ *
+ * Implements the 'config' builtin command for runtime configuration.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector
+ */
 void builtin_config(int argc, char **argv);
 
-// Configuration file template
+/** @brief Configuration file template for new installations */
 extern const char *CONFIG_FILE_TEMPLATE;
 
-#endif // CONFIG_H
+#endif /* CONFIG_H */

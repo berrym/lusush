@@ -1,6 +1,8 @@
 /**
  * @file ssh_hosts.c
  * @brief SSH Host Cache and Parsing for LLE Completion
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Provides SSH host completion by parsing:
  * - ~/.ssh/config for Host entries
@@ -62,6 +64,11 @@ static void extract_ssh_config_value(const char *line, char *value,
  * ============================================================================
  */
 
+/**
+ * @brief Create a new SSH host cache
+ * @param initial_capacity Initial capacity for host entries
+ * @return New cache or NULL on allocation failure
+ */
 ssh_host_cache_t *ssh_host_cache_create(size_t initial_capacity) {
     ssh_host_cache_t *cache = calloc(1, sizeof(ssh_host_cache_t));
     if (!cache) {
@@ -86,6 +93,10 @@ ssh_host_cache_t *ssh_host_cache_create(size_t initial_capacity) {
     return cache;
 }
 
+/**
+ * @brief Destroy an SSH host cache and free resources
+ * @param cache Cache to destroy
+ */
 void ssh_host_cache_destroy(ssh_host_cache_t *cache) {
     if (!cache) {
         return;
@@ -95,6 +106,12 @@ void ssh_host_cache_destroy(ssh_host_cache_t *cache) {
     free(cache);
 }
 
+/**
+ * @brief Add a host entry to the cache
+ * @param cache Cache to add to
+ * @param host Host entry to add (copied)
+ * @return 0 on success, -1 on failure
+ */
 int ssh_host_cache_add(ssh_host_cache_t *cache, const ssh_host_t *host) {
     if (!cache || !host) {
         return -1;
@@ -119,6 +136,12 @@ int ssh_host_cache_add(ssh_host_cache_t *cache, const ssh_host_t *host) {
     return 0;
 }
 
+/**
+ * @brief Find a host entry by hostname or alias
+ * @param cache Cache to search
+ * @param hostname Hostname or alias to find
+ * @return Pointer to host entry or NULL if not found
+ */
 ssh_host_t *ssh_host_cache_find(ssh_host_cache_t *cache, const char *hostname) {
     if (!cache || !hostname) {
         return NULL;
@@ -139,6 +162,12 @@ ssh_host_t *ssh_host_cache_find(ssh_host_cache_t *cache, const char *hostname) {
  * ============================================================================
  */
 
+/**
+ * @brief Parse SSH config file for host entries
+ * @param config_path Path to SSH config file
+ * @param cache Cache to populate
+ * @return Number of hosts added, or -1 on error
+ */
 int ssh_parse_config(const char *config_path, ssh_host_cache_t *cache) {
     if (!config_path || !cache) {
         return -1;
@@ -212,6 +241,12 @@ int ssh_parse_config(const char *config_path, ssh_host_cache_t *cache) {
     return hosts_added;
 }
 
+/**
+ * @brief Parse known_hosts file for previously connected hosts
+ * @param known_hosts_path Path to known_hosts file
+ * @param cache Cache to populate
+ * @return Number of hosts added, or -1 on error
+ */
 int ssh_parse_known_hosts(const char *known_hosts_path,
                           ssh_host_cache_t *cache) {
     if (!known_hosts_path || !cache) {
@@ -287,6 +322,10 @@ int ssh_parse_known_hosts(const char *known_hosts_path,
  * ============================================================================
  */
 
+/**
+ * @brief Initialize the global SSH host cache
+ * @return 0 on success, -1 on failure
+ */
 int ssh_hosts_init(void) {
     if (g_ssh_host_cache) {
         return 0; /* Already initialized */
@@ -301,6 +340,9 @@ int ssh_hosts_init(void) {
     return 0;
 }
 
+/**
+ * @brief Clean up global SSH host cache
+ */
 void ssh_hosts_cleanup(void) {
     if (g_ssh_host_cache) {
         ssh_host_cache_destroy(g_ssh_host_cache);
@@ -308,6 +350,9 @@ void ssh_hosts_cleanup(void) {
     }
 }
 
+/**
+ * @brief Refresh global SSH host cache from config files
+ */
 void ssh_hosts_refresh(void) {
     if (!g_ssh_host_cache) {
         return;
@@ -339,6 +384,10 @@ void ssh_hosts_refresh(void) {
     g_ssh_host_cache->needs_refresh = false;
 }
 
+/**
+ * @brief Get the global SSH host cache, initializing if needed
+ * @return Pointer to global cache
+ */
 ssh_host_cache_t *get_ssh_host_cache(void) {
     if (!g_ssh_host_cache) {
         ssh_hosts_init();
@@ -365,6 +414,14 @@ ssh_host_cache_t *get_ssh_host_cache(void) {
  * ============================================================================
  */
 
+/**
+ * @brief Trim leading and trailing whitespace from a string
+ *
+ * Modifies the string in place by removing whitespace characters
+ * from both ends.
+ *
+ * @param str String to trim (modified in place)
+ */
 static void trim_whitespace(char *str) {
     if (!str) {
         return;
@@ -385,26 +442,60 @@ static void trim_whitespace(char *str) {
     }
 }
 
+/**
+ * @brief Check if line is an SSH Host directive
+ *
+ * @param line Line to check
+ * @return true if line starts with "Host " or "Host\t"
+ */
 static bool is_ssh_host_line(const char *line) {
     return strncasecmp(line, "Host ", 5) == 0 ||
            strncasecmp(line, "Host\t", 5) == 0;
 }
 
+/**
+ * @brief Check if line is an SSH HostName directive
+ *
+ * @param line Line to check
+ * @return true if line starts with "HostName " or "HostName\t"
+ */
 static bool is_ssh_hostname_line(const char *line) {
     return strncasecmp(line, "HostName ", 9) == 0 ||
            strncasecmp(line, "HostName\t", 9) == 0;
 }
 
+/**
+ * @brief Check if line is an SSH User directive
+ *
+ * @param line Line to check
+ * @return true if line starts with "User " or "User\t"
+ */
 static bool is_ssh_user_line(const char *line) {
     return strncasecmp(line, "User ", 5) == 0 ||
            strncasecmp(line, "User\t", 5) == 0;
 }
 
+/**
+ * @brief Check if line is an SSH Port directive
+ *
+ * @param line Line to check
+ * @return true if line starts with "Port " or "Port\t"
+ */
 static bool is_ssh_port_line(const char *line) {
     return strncasecmp(line, "Port ", 5) == 0 ||
            strncasecmp(line, "Port\t", 5) == 0;
 }
 
+/**
+ * @brief Extract value from an SSH config directive line
+ *
+ * Extracts the value portion of a config line (after the keyword
+ * and whitespace), with trailing whitespace trimmed.
+ *
+ * @param line Config line to parse
+ * @param value Output buffer for extracted value
+ * @param max_len Maximum length of output buffer
+ */
 static void extract_ssh_config_value(const char *line, char *value,
                                      size_t max_len) {
     if (!line || !value || max_len == 0) {

@@ -1,6 +1,8 @@
 /**
  * @file syntax_highlighting.c
  * @brief LLE Syntax Highlighting Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Provides real-time syntax highlighting for shell command input.
  * Core implementation focusing on:
@@ -29,7 +31,7 @@
 /*                         DEFAULT COLOR SCHEME                               */
 /* ========================================================================== */
 
-/* Default colors (solarized-inspired dark theme) */
+/** @brief Default colors (solarized-inspired dark theme) */
 static const lle_syntax_colors_t default_colors = {
     /* Commands */
     .command_valid = 0x00859900,    /* Green */
@@ -102,16 +104,33 @@ static const lle_syntax_colors_t default_colors = {
 #define CMD_CACHE_SIZE 128
 #define CMD_CACHE_TTL 30 /* seconds */
 
+/**
+ * @brief Command cache entry structure
+ *
+ * Stores a cached command lookup result with its type and timestamp
+ * for cache expiration checking.
+ */
 typedef struct cmd_cache_entry {
-    char *command;
-    lle_syntax_token_type_t type;
-    time_t timestamp;
+    char *command;                  /**< @brief Command string (heap-allocated) */
+    lle_syntax_token_type_t type;   /**< @brief Cached token type result */
+    time_t timestamp;               /**< @brief Cache entry creation timestamp */
 } cmd_cache_entry_t;
 
+/**
+ * @brief Command cache structure
+ *
+ * Hash-based cache for command existence lookups to avoid
+ * repeated PATH searches for frequently used commands.
+ */
 typedef struct cmd_cache {
-    cmd_cache_entry_t entries[CMD_CACHE_SIZE];
+    cmd_cache_entry_t entries[CMD_CACHE_SIZE];  /**< @brief Cache entries array */
 } cmd_cache_t;
 
+/**
+ * @brief Hash a string for cache lookup
+ * @param str String to hash
+ * @return Hash value modulo CMD_CACHE_SIZE
+ */
 static unsigned int hash_string(const char *str) {
     unsigned int hash = 5381;
     int c;
@@ -125,15 +144,22 @@ static unsigned int hash_string(const char *str) {
 /*                         SHELL KEYWORDS                                     */
 /* ========================================================================== */
 
+/** @brief Shell keywords for syntax highlighting */
 static const char *shell_keywords[] = {
     "if",     "then",  "else",  "elif", "fi",   "for",    "in",       "do",
     "done",   "while", "until", "case", "esac", "select", "function", "time",
     "coproc", "!",     "{",     "}",    "[[",   "]]",     NULL};
 
-/* Keywords that END blocks - these don't expect a command after them */
+/** @brief Keywords that END blocks - these don't expect a command after them */
 static const char *block_ending_keywords[] = {"fi", "done", "esac",
                                               "}",  "]]",   NULL};
 
+/**
+ * @brief Check if a word is a shell keyword
+ * @param word Pointer to the word
+ * @param len Length of the word
+ * @return true if the word is a shell keyword
+ */
 static bool is_shell_keyword(const char *word, size_t len) {
     for (int i = 0; shell_keywords[i]; i++) {
         if (strlen(shell_keywords[i]) == len &&
@@ -144,6 +170,12 @@ static bool is_shell_keyword(const char *word, size_t len) {
     return false;
 }
 
+/**
+ * @brief Check if a word is a block-ending keyword
+ * @param word Pointer to the word
+ * @param len Length of the word
+ * @return true if the word ends a block (fi, done, esac, etc.)
+ */
 static bool is_block_ending_keyword(const char *word, size_t len) {
     for (int i = 0; block_ending_keywords[i]; i++) {
         if (strlen(block_ending_keywords[i]) == len &&
@@ -158,6 +190,11 @@ static bool is_block_ending_keyword(const char *word, size_t len) {
 /*                         LEXER HELPERS                                      */
 /* ========================================================================== */
 
+/**
+ * @brief Check if a character is part of a word token
+ * @param c Character to check
+ * @return true if the character can be part of a word
+ */
 static bool is_word_char(char c) {
     unsigned char uc = (unsigned char)c;
 
@@ -172,6 +209,12 @@ static bool is_word_char(char c) {
            c == '~' || c == '+' || c == '@' || c == ':' || c == '=';
 }
 
+/**
+ * @brief Check if a string starts with an option flag
+ * @param s Pointer to string
+ * @param remaining Remaining characters in string
+ * @return true if string starts with - or --
+ */
 static bool is_option_start(const char *s, size_t remaining) {
     return remaining >= 2 && s[0] == '-' &&
            (isalnum((unsigned char)s[1]) || s[1] == '-');
@@ -184,12 +227,22 @@ static bool is_variable_start(char c) {
 }
 #endif
 
+/**
+ * @brief Check if a character is a glob metacharacter
+ * @param c Character to check
+ * @return true if the character is *, ?, or [
+ */
 static bool is_glob_char(char c) { return c == '*' || c == '?' || c == '['; }
 
 /**
- * Check if a word is a variable assignment (VAR=value pattern)
+ * @brief Check if a word is a variable assignment (VAR=value pattern)
+ *
  * Valid variable names start with letter or underscore, followed by
  * alphanumeric or underscore, then '='
+ *
+ * @param word Pointer to the word
+ * @param len Length of the word
+ * @return true if the word matches VAR=value pattern
  */
 static bool is_assignment(const char *word, size_t len) {
     if (len < 2)
@@ -220,6 +273,13 @@ static bool is_assignment(const char *word, size_t len) {
     return true;
 }
 
+/**
+ * @brief Skip whitespace characters in input
+ * @param input Input string
+ * @param pos Current position
+ * @param len Total length of input
+ * @return New position after skipping whitespace
+ */
 static size_t skip_whitespace(const char *input, size_t pos, size_t len) {
     while (pos < len && isspace((unsigned char)input[pos])) {
         pos++;
@@ -234,6 +294,11 @@ static size_t skip_whitespace(const char *input, size_t pos, size_t len) {
 /* Use is_builtin() from builtins.h (already included above) */
 /* Use is_alias() from alias.h (already included above) */
 
+/**
+ * @brief Check if a command exists in PATH
+ * @param command Command name to check
+ * @return true if command is found and executable
+ */
 static bool command_exists_in_path(const char *command) {
     /* Check if command contains a path separator */
     if (strchr(command, '/')) {
@@ -313,6 +378,11 @@ lle_syntax_check_command(lle_syntax_highlighter_t *highlighter,
     return type;
 }
 
+/**
+ * @brief Check if a path exists on the filesystem
+ * @param path Path to check
+ * @return true if path exists
+ */
 static bool path_exists(const char *path) {
     struct stat st;
     return stat(path, &st) == 0;
@@ -322,6 +392,12 @@ static bool path_exists(const char *path) {
 /*                         TOKENIZER                                          */
 /* ========================================================================== */
 
+/**
+ * @brief Ensure token array has sufficient capacity
+ * @param h Highlighter instance
+ * @param needed Minimum number of tokens needed
+ * @return 0 on success, -1 on allocation failure
+ */
 static int ensure_token_capacity(lle_syntax_highlighter_t *h, size_t needed) {
     if (needed <= h->token_capacity)
         return 0;
@@ -340,6 +416,14 @@ static int ensure_token_capacity(lle_syntax_highlighter_t *h, size_t needed) {
     return 0;
 }
 
+/**
+ * @brief Add a token to the highlighter's token list
+ * @param h Highlighter instance
+ * @param type Token type
+ * @param start Start byte offset in input
+ * @param end End byte offset in input
+ * @return 0 on success, -1 on allocation failure
+ */
 static int add_token(lle_syntax_highlighter_t *h, lle_syntax_token_type_t type,
                      size_t start, size_t end) {
     if (ensure_token_capacity(h, h->token_count + 1) < 0)
@@ -355,6 +439,17 @@ static int add_token(lle_syntax_highlighter_t *h, lle_syntax_token_type_t type,
     return 0;
 }
 
+/**
+ * @brief Tokenize and highlight shell input
+ *
+ * Parses the input string and generates syntax tokens with appropriate
+ * types and colors based on shell syntax rules.
+ *
+ * @param highlighter Highlighter instance
+ * @param input Input string to highlight
+ * @param input_len Length of input in bytes
+ * @return Number of tokens generated, or -1 on error
+ */
 int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
                          const char *input, size_t input_len) {
     if (!highlighter || !input)
@@ -889,6 +984,19 @@ int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
 /*                         ANSI RENDERING                                     */
 /* ========================================================================== */
 
+/**
+ * @brief Convert color and attributes to ANSI escape sequence
+ *
+ * Generates an ANSI escape sequence for the given color and text attributes.
+ * Supports 8-color, 256-color, and truecolor modes.
+ *
+ * @param color RGB color value (0x00RRGGBB format)
+ * @param attributes Text attributes (bold, dim, italic, underline)
+ * @param color_depth Color depth (1=8 colors, 2=256 colors, 3=truecolor)
+ * @param output Buffer to write escape sequence
+ * @param output_size Size of output buffer
+ * @return Number of bytes written, or -1 on error
+ */
 int lle_syntax_color_to_ansi(uint32_t color, uint8_t attributes,
                              int color_depth, char *output,
                              size_t output_size) {
@@ -969,6 +1077,18 @@ int lle_syntax_color_to_ansi(uint32_t color, uint8_t attributes,
     return (int)(p - output);
 }
 
+/**
+ * @brief Render highlighted input as ANSI-colored string
+ *
+ * Converts the tokenized input into a string with ANSI escape sequences
+ * for terminal display.
+ *
+ * @param highlighter Highlighter instance with tokens
+ * @param input Original input string
+ * @param output Buffer to write ANSI-colored output
+ * @param output_size Size of output buffer
+ * @return Number of bytes written, or -1 on error
+ */
 int lle_syntax_render_ansi(lle_syntax_highlighter_t *highlighter,
                            const char *input, char *output,
                            size_t output_size) {
@@ -1030,6 +1150,11 @@ int lle_syntax_render_ansi(lle_syntax_highlighter_t *highlighter,
 /*                         PUBLIC API                                         */
 /* ========================================================================== */
 
+/**
+ * @brief Create a new syntax highlighter instance
+ * @param highlighter Output pointer to receive created highlighter
+ * @return 0 on success, -1 on error
+ */
 int lle_syntax_highlighter_create(lle_syntax_highlighter_t **highlighter) {
     if (!highlighter)
         return -1;
@@ -1053,6 +1178,10 @@ int lle_syntax_highlighter_create(lle_syntax_highlighter_t **highlighter) {
     return 0;
 }
 
+/**
+ * @brief Destroy a syntax highlighter instance
+ * @param highlighter Highlighter to destroy
+ */
 void lle_syntax_highlighter_destroy(lle_syntax_highlighter_t *highlighter) {
     if (!highlighter)
         return;
@@ -1070,6 +1199,11 @@ void lle_syntax_highlighter_destroy(lle_syntax_highlighter_t *highlighter) {
     free(highlighter);
 }
 
+/**
+ * @brief Set custom color scheme for highlighter
+ * @param highlighter Highlighter instance
+ * @param colors Color scheme to apply
+ */
 void lle_syntax_highlighter_set_colors(lle_syntax_highlighter_t *highlighter,
                                        const lle_syntax_colors_t *colors) {
     if (!highlighter || !colors)
@@ -1077,12 +1211,22 @@ void lle_syntax_highlighter_set_colors(lle_syntax_highlighter_t *highlighter,
     highlighter->colors = *colors;
 }
 
+/**
+ * @brief Get the default color scheme
+ * @param colors Output structure to receive default colors
+ */
 void lle_syntax_colors_get_default(lle_syntax_colors_t *colors) {
     if (!colors)
         return;
     *colors = default_colors;
 }
 
+/**
+ * @brief Get the array of tokens from last highlight operation
+ * @param highlighter Highlighter instance
+ * @param count Output pointer to receive token count (may be NULL)
+ * @return Pointer to token array, or NULL on error
+ */
 const lle_syntax_token_t *
 lle_syntax_get_tokens(lle_syntax_highlighter_t *highlighter, size_t *count) {
     if (!highlighter) {
@@ -1095,6 +1239,14 @@ lle_syntax_get_tokens(lle_syntax_highlighter_t *highlighter, size_t *count) {
     return highlighter->tokens;
 }
 
+/**
+ * @brief Clear the command existence cache
+ *
+ * Invalidates all cached command lookup results. Call this when PATH
+ * changes or commands are installed/removed.
+ *
+ * @param highlighter Highlighter instance
+ */
 void lle_syntax_clear_cache(lle_syntax_highlighter_t *highlighter) {
     if (!highlighter || !highlighter->command_cache)
         return;

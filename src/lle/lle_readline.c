@@ -1,6 +1,8 @@
 /**
  * @file lle_readline.c
  * @brief LLE Readline Function - Core Orchestration
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * This file implements lle_readline(), the main readline loop that orchestrates
  * all LLE subsystems to provide interactive line editing.

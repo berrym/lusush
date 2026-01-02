@@ -1,6 +1,8 @@
 /**
  * @file lle_shell_integration.c
  * @brief LLE Shell Integration - Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Implements the centralized LLE initialization and lifecycle management.
  * Provides shell-level LLE init, three-tier reset hierarchy, and error
@@ -141,6 +143,16 @@ static void populate_history_config(lle_history_config_t *hist_config) {
  * ============================================================================
  */
 
+/**
+ * @brief Initialize the LLE shell integration subsystem
+ *
+ * Creates and initializes all LLE subsystems in dependency order:
+ * memory pool verification, terminal detection, event hub, editor,
+ * history, prompt composer, and watchdog. Registers atexit handler
+ * for automatic cleanup.
+ *
+ * @return LLE_SUCCESS on success, or error code on failure
+ */
 lle_result_t lle_shell_integration_init(void) {
     /* Already initialized? */
     if (g_lle_integration) {
@@ -221,6 +233,13 @@ lle_result_t lle_shell_integration_init(void) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Shutdown the LLE shell integration subsystem
+ *
+ * Saves history and destroys all LLE subsystems in reverse dependency
+ * order. Cleans up prompt composer, editor, event hub, and watchdog.
+ * Safe to call multiple times.
+ */
 void lle_shell_integration_shutdown(void) {
     if (!g_lle_integration) {
         return;
@@ -277,10 +296,20 @@ static void lle_shell_integration_atexit_handler(void) {
     lle_shell_integration_shutdown();
 }
 
+/**
+ * @brief Get the global shell integration instance
+ *
+ * @return Pointer to the global shell integration instance, or NULL if not initialized
+ */
 lle_shell_integration_t *lle_get_shell_integration(void) {
     return g_lle_integration;
 }
 
+/**
+ * @brief Check if LLE is active and ready for use
+ *
+ * @return true if LLE is initialized and editor is ready, false otherwise
+ */
 bool lle_is_active(void) {
     return g_lle_integration != NULL &&
            g_lle_integration->init_state.editor_initialized;
@@ -474,6 +503,12 @@ static void destroy_prompt_composer(lle_shell_integration_t *integ) {
  * ============================================================================
  */
 
+/**
+ * @brief Perform a soft reset of the LLE editor
+ *
+ * Tier 1 reset: Sets abort flag, clears buffer, and resets history
+ * navigation. Does not destroy or recreate any subsystems.
+ */
 void lle_soft_reset(void) {
     if (!g_lle_integration || !g_lle_integration->editor) {
         return;
@@ -494,6 +529,13 @@ void lle_soft_reset(void) {
     editor->history_nav_seen_count = 0;
 }
 
+/**
+ * @brief Perform a hard reset of the LLE editor
+ *
+ * Tier 2 reset: Saves history, destroys and recreates the editor
+ * instance. Resets error counters and recovery mode. More aggressive
+ * than soft reset but preserves history.
+ */
 void lle_hard_reset(void) {
     if (!g_lle_integration) {
         return;
@@ -533,6 +575,12 @@ void lle_hard_reset(void) {
     integ->last_reset_time_us = get_timestamp_us();
 }
 
+/**
+ * @brief Perform a nuclear reset of the LLE editor and terminal
+ *
+ * Tier 3 reset: Performs hard reset plus sends terminal reset sequence
+ * (ESC c = RIS). Used for severe terminal corruption recovery.
+ */
 void lle_nuclear_reset(void) {
     if (!g_lle_integration) {
         return;
@@ -557,6 +605,13 @@ void lle_nuclear_reset(void) {
  * ============================================================================
  */
 
+/**
+ * @brief Update the shell prompt using the prompt composer
+ *
+ * Renders the prompt using the Spec 25 prompt composer and updates
+ * PS1/PS2 shell variables. Falls back to minimal prompts if composer
+ * is not available or rendering fails.
+ */
 void lle_shell_update_prompt(void) {
     /* Use minimal fallback if LLE integration not available */
     if (!g_lle_integration || !g_lle_integration->prompt_composer) {
@@ -596,6 +651,14 @@ void lle_shell_update_prompt(void) {
  * ============================================================================
  */
 
+/**
+ * @brief Record an error occurrence in the integration subsystem
+ *
+ * Increments error counter and triggers automatic hard reset if
+ * the error threshold (LLE_ERROR_THRESHOLD) is reached.
+ *
+ * @param error The error code that occurred
+ */
 void lle_record_error(lle_result_t error) {
     if (!g_lle_integration) {
         return;
@@ -613,6 +676,12 @@ void lle_record_error(lle_result_t error) {
     }
 }
 
+/**
+ * @brief Reset the error counter and exit recovery mode
+ *
+ * Clears the accumulated error count and disables recovery mode.
+ * Called after successful operations to reset error tracking.
+ */
 void lle_reset_error_counter(void) {
     if (!g_lle_integration) {
         return;
@@ -622,6 +691,13 @@ void lle_reset_error_counter(void) {
     g_lle_integration->recovery_mode = false;
 }
 
+/**
+ * @brief Record a Ctrl+G (abort) keypress for panic detection
+ *
+ * Tracks Ctrl+G presses within a time window. If three Ctrl+G presses
+ * occur within LLE_CTRL_G_PANIC_WINDOW_US microseconds, triggers an
+ * automatic hard reset (panic recovery mechanism).
+ */
 void lle_record_ctrl_g(void) {
     if (!g_lle_integration) {
         return;
@@ -649,8 +725,10 @@ void lle_record_ctrl_g(void) {
 }
 
 /**
- * Update LLE editing mode based on shell options (vi/emacs mode).
+ * @brief Update LLE editing mode based on shell options
+ *
  * Called when user changes editing mode via set -o vi/emacs.
+ * Updates the editor's editing_mode field accordingly.
  */
 void lusush_update_editing_mode(void) {
     if (!g_lle_integration || !g_lle_integration->editor) {
@@ -668,8 +746,14 @@ void lusush_update_editing_mode(void) {
 }
 
 /**
- * Shell-facing readline wrapper.
- * Calls LLE's lle_readline() and tracks statistics.
+ * @brief Shell-facing readline wrapper with statistics tracking
+ *
+ * Calls LLE's lle_readline() and tracks readline statistics.
+ * Handles NULL prompts by retrieving from PS1 after updating
+ * the prompt via lle_shell_update_prompt().
+ *
+ * @param prompt The prompt string to display, or NULL to use PS1
+ * @return Newly allocated line from user, or NULL on EOF/error
  */
 char *lusush_readline_with_prompt(const char *prompt) {
     if (!g_lle_integration || !g_lle_integration->editor) {

@@ -1,5 +1,8 @@
-/*
- * event_timer.c - Timer Event Implementation (Phase 2D)
+/**
+ * @file event_timer.c
+ * @brief Timer Event Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Implements timer event support for the LLE event system.
  *
@@ -15,6 +18,8 @@
  * - Sorted by trigger_time_us for efficient processing
  * - Timers own their events (deep copy on creation)
  * - Manual processing via lle_event_timer_process()
+ *
+ * Spec 04: Event System - Phase 2D
  */
 
 #include "lle/event_system.h"
@@ -25,7 +30,13 @@
 /* Initial capacity for timer array */
 #define TIMER_INITIAL_CAPACITY 16
 
-/* Helper function to find timer by ID (must be called with mutex held) */
+/**
+ * @brief Find timer index by ID (internal helper)
+ * @param ts The timer system to search
+ * @param timer_id The timer ID to find
+ * @return Index of timer, or -1 if not found
+ * @note Must be called with timer mutex held
+ */
 static int find_timer_index(lle_timer_system_t *ts, uint64_t timer_id) {
     for (size_t i = 0; i < ts->timer_count; i++) {
         if (ts->timers[i]->timer_id == timer_id) {
@@ -35,7 +46,15 @@ static int find_timer_index(lle_timer_system_t *ts, uint64_t timer_id) {
     return -1;
 }
 
-/* Helper function to insert timer in sorted position (by trigger_time_us) */
+/**
+ * @brief Insert timer in sorted position by trigger time (internal helper)
+ * @param ts The timer system to insert into
+ * @param timer The timer to insert
+ * @return LLE_SUCCESS on success, LLE_ERROR_OUT_OF_MEMORY if allocation fails
+ *
+ * Maintains array sorted by trigger_time_us for efficient processing.
+ * Grows the array automatically when capacity is reached.
+ */
 static lle_result_t insert_timer_sorted(lle_timer_system_t *ts,
                                         lle_timer_event_t *timer) {
     /* Grow array if needed */
@@ -72,7 +91,12 @@ static lle_result_t insert_timer_sorted(lle_timer_system_t *ts,
     return LLE_SUCCESS;
 }
 
-/* Helper function to remove timer at index (must be called with mutex held) */
+/**
+ * @brief Remove timer at specific index (internal helper)
+ * @param ts The timer system to remove from
+ * @param index The index of the timer to remove
+ * @note Must be called with timer mutex held. Frees the timer and its event.
+ */
 static void remove_timer_at_index(lle_timer_system_t *ts, size_t index) {
     if (index >= ts->timer_count) {
         return;
@@ -98,7 +122,12 @@ static void remove_timer_at_index(lle_timer_system_t *ts, size_t index) {
     ts->timer_count--;
 }
 
-/* Initialize timer system */
+/**
+ * @brief Initialize the timer subsystem
+ * @param system The event system to initialize timers for
+ * @return LLE_SUCCESS on success, LLE_ERROR_ALREADY_INITIALIZED if already init,
+ *         or other error code on failure
+ */
 lle_result_t lle_event_timer_system_init(lle_event_system_t *system) {
     if (!system) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -140,7 +169,12 @@ lle_result_t lle_event_timer_system_init(lle_event_system_t *system) {
     return LLE_SUCCESS;
 }
 
-/* Destroy timer system */
+/**
+ * @brief Destroy the timer subsystem and all timers
+ * @param system The event system to clean up timers for
+ *
+ * Cancels all pending timers and frees all associated resources.
+ */
 void lle_event_timer_system_destroy(lle_event_system_t *system) {
     if (!system || !system->timer_system) {
         return;
@@ -170,7 +204,17 @@ void lle_event_timer_system_destroy(lle_event_system_t *system) {
     system->timer_system = NULL;
 }
 
-/* Create a one-shot timer */
+/**
+ * @brief Create a one-shot timer that fires once after a delay
+ * @param system The event system to add the timer to
+ * @param event The event to dispatch when the timer fires (deep copied)
+ * @param delay_us Delay in microseconds before the timer fires
+ * @param timer_id_out Output to receive the timer ID (may be NULL)
+ * @return LLE_SUCCESS on success, or error code on failure
+ *
+ * The event is deep copied; the caller retains ownership of the original.
+ * The timer is automatically removed after it fires.
+ */
 lle_result_t lle_event_timer_add_oneshot(lle_event_system_t *system,
                                          lle_event_t *event, uint64_t delay_us,
                                          uint64_t *timer_id_out) {
@@ -253,7 +297,18 @@ lle_result_t lle_event_timer_add_oneshot(lle_event_system_t *system,
     return LLE_SUCCESS;
 }
 
-/* Create a repeating timer */
+/**
+ * @brief Create a repeating timer that fires at regular intervals
+ * @param system The event system to add the timer to
+ * @param event The event to dispatch each time the timer fires (deep copied)
+ * @param initial_delay_us Initial delay before first fire in microseconds
+ * @param interval_us Interval between subsequent fires in microseconds
+ * @param timer_id_out Output to receive the timer ID (may be NULL)
+ * @return LLE_SUCCESS on success, or error code on failure
+ *
+ * The event is deep copied; the caller retains ownership of the original.
+ * The timer continues to fire until cancelled or disabled.
+ */
 lle_result_t lle_event_timer_add_repeating(lle_event_system_t *system,
                                            lle_event_t *event,
                                            uint64_t initial_delay_us,
@@ -338,7 +393,14 @@ lle_result_t lle_event_timer_add_repeating(lle_event_system_t *system,
     return LLE_SUCCESS;
 }
 
-/* Cancel a timer */
+/**
+ * @brief Cancel and remove a timer
+ * @param system The event system containing the timer
+ * @param timer_id The ID of the timer to cancel
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_FOUND if timer not found
+ *
+ * The timer is removed and its resources freed. It will not fire again.
+ */
 lle_result_t lle_event_timer_cancel(lle_event_system_t *system,
                                     uint64_t timer_id) {
     if (!system || !system->timer_system) {
@@ -362,7 +424,12 @@ lle_result_t lle_event_timer_cancel(lle_event_system_t *system,
     return LLE_SUCCESS;
 }
 
-/* Enable a timer */
+/**
+ * @brief Enable a disabled timer
+ * @param system The event system containing the timer
+ * @param timer_id The ID of the timer to enable
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_FOUND if timer not found
+ */
 lle_result_t lle_event_timer_enable(lle_event_system_t *system,
                                     uint64_t timer_id) {
     if (!system || !system->timer_system) {
@@ -385,7 +452,14 @@ lle_result_t lle_event_timer_enable(lle_event_system_t *system,
     return LLE_SUCCESS;
 }
 
-/* Disable a timer */
+/**
+ * @brief Disable a timer without removing it
+ * @param system The event system containing the timer
+ * @param timer_id The ID of the timer to disable
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_FOUND if timer not found
+ *
+ * Disabled timers are skipped during processing but retain their state.
+ */
 lle_result_t lle_event_timer_disable(lle_event_system_t *system,
                                      uint64_t timer_id) {
     if (!system || !system->timer_system) {
@@ -408,7 +482,15 @@ lle_result_t lle_event_timer_disable(lle_event_system_t *system,
     return LLE_SUCCESS;
 }
 
-/* Get timer information */
+/**
+ * @brief Get information about a timer
+ * @param system The event system containing the timer
+ * @param timer_id The ID of the timer to query
+ * @param next_fire_time_us Output: next scheduled fire time (may be NULL)
+ * @param fire_count Output: number of times timer has fired (may be NULL)
+ * @param is_repeating Output: whether timer is repeating (may be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_FOUND if timer not found
+ */
 lle_result_t lle_event_timer_get_info(lle_event_system_t *system,
                                       uint64_t timer_id,
                                       uint64_t *next_fire_time_us,
@@ -444,7 +526,17 @@ lle_result_t lle_event_timer_get_info(lle_event_system_t *system,
     return LLE_SUCCESS;
 }
 
-/* Process all timers that are ready to fire */
+/**
+ * @brief Process all timers that are ready to fire
+ * @param system The event system to process timers for
+ * @return LLE_SUCCESS on success, or error code on failure
+ *
+ * Checks all timers against the current time and dispatches events
+ * for any that have reached their trigger time. Repeating timers
+ * are rescheduled; one-shot timers are removed after firing.
+ *
+ * This function should be called periodically (e.g., in the main loop).
+ */
 lle_result_t lle_event_timer_process(lle_event_system_t *system) {
     if (!system) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -561,7 +653,16 @@ lle_result_t lle_event_timer_process(lle_event_system_t *system) {
     return LLE_SUCCESS;
 }
 
-/* Get timer system statistics */
+/**
+ * @brief Get timer system statistics
+ * @param system The event system to query
+ * @param created Output: total timers created (may be NULL)
+ * @param fired Output: total timer fire events (may be NULL)
+ * @param cancelled Output: total timers cancelled (may be NULL)
+ * @return LLE_SUCCESS on success, or error code on failure
+ *
+ * Returns zeros if the timer system has not been initialized.
+ */
 lle_result_t lle_event_timer_get_stats(lle_event_system_t *system,
                                        uint64_t *created, uint64_t *fired,
                                        uint64_t *cancelled) {

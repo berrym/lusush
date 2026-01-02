@@ -1,6 +1,8 @@
 /**
  * @file async_worker.c
  * @brief LLE Async Worker Thread Pool Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Implements a pthread-based worker thread for async operations.
  *

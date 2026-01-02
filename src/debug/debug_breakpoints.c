@@ -1,3 +1,15 @@
+/**
+ * @file debug_breakpoints.c
+ * @brief Breakpoint Management and Interactive Debugging
+ *
+ * Provides breakpoint creation, management, and interactive debugging
+ * capabilities including step execution, condition evaluation, and
+ * user input handling for the shell debugger.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ */
+
 #include "debug.h"
 #include "errors.h"
 #include "executor.h"
@@ -11,7 +23,14 @@
 #include <termios.h>
 #include <unistd.h>
 
-// Add breakpoint
+/**
+ * @brief Add a new breakpoint
+ * @param ctx Debug context
+ * @param file Source file for breakpoint
+ * @param line Line number for breakpoint
+ * @param condition Optional condition expression
+ * @return Breakpoint ID on success, -1 on failure
+ */
 int debug_add_breakpoint(debug_context_t *ctx, const char *file, int line,
                          const char *condition) {
     if (!ctx || !file || line <= 0) {
@@ -44,7 +63,12 @@ int debug_add_breakpoint(debug_context_t *ctx, const char *file, int line,
     return bp->id;
 }
 
-// Remove breakpoint
+/**
+ * @brief Remove a breakpoint by ID
+ * @param ctx Debug context
+ * @param id Breakpoint ID to remove
+ * @return true if removed, false if not found
+ */
 bool debug_remove_breakpoint(debug_context_t *ctx, int id) {
     if (!ctx || id <= 0) {
         return false;
@@ -71,7 +95,13 @@ bool debug_remove_breakpoint(debug_context_t *ctx, int id) {
     return false;
 }
 
-// Enable/disable breakpoint
+/**
+ * @brief Enable or disable a breakpoint
+ * @param ctx Debug context
+ * @param id Breakpoint ID
+ * @param enable true to enable, false to disable
+ * @return true if successful, false if breakpoint not found
+ */
 bool debug_enable_breakpoint(debug_context_t *ctx, int id, bool enable) {
     if (!ctx || id <= 0) {
         return false;
@@ -92,7 +122,13 @@ bool debug_enable_breakpoint(debug_context_t *ctx, int id, bool enable) {
     return false;
 }
 
-// Check if we hit a breakpoint
+/**
+ * @brief Check if execution should stop at a breakpoint
+ * @param ctx Debug context
+ * @param file Current source file
+ * @param line Current line number
+ * @return true if breakpoint hit, false otherwise
+ */
 bool debug_check_breakpoint(debug_context_t *ctx, const char *file, int line) {
     if (!ctx || !ctx->enabled || !file || line <= 0) {
         return false;
@@ -151,7 +187,10 @@ bool debug_check_breakpoint(debug_context_t *ctx, const char *file, int line) {
     return false;
 }
 
-// List all breakpoints
+/**
+ * @brief List all breakpoints
+ * @param ctx Debug context
+ */
 void debug_list_breakpoints(debug_context_t *ctx) {
     if (!ctx || !ctx->enabled) {
         return;
@@ -178,7 +217,10 @@ void debug_list_breakpoints(debug_context_t *ctx) {
     }
 }
 
-// Clear all breakpoints
+/**
+ * @brief Clear all breakpoints
+ * @param ctx Debug context
+ */
 void debug_clear_breakpoints(debug_context_t *ctx) {
     if (!ctx) {
         return;
@@ -199,7 +241,10 @@ void debug_clear_breakpoints(debug_context_t *ctx) {
     debug_printf(ctx, "All breakpoints cleared\n");
 }
 
-// Step execution functions
+/**
+ * @brief Step into the next statement
+ * @param ctx Debug context
+ */
 void debug_step_into(debug_context_t *ctx) {
     if (!ctx || !ctx->enabled) {
         return;
@@ -211,6 +256,10 @@ void debug_step_into(debug_context_t *ctx) {
     debug_printf(ctx, "Stepping into...\n");
 }
 
+/**
+ * @brief Step over the next statement
+ * @param ctx Debug context
+ */
 void debug_step_over(debug_context_t *ctx) {
     if (!ctx || !ctx->enabled) {
         return;
@@ -222,6 +271,10 @@ void debug_step_over(debug_context_t *ctx) {
     debug_printf(ctx, "Stepping over...\n");
 }
 
+/**
+ * @brief Step out of the current function
+ * @param ctx Debug context
+ */
 void debug_step_out(debug_context_t *ctx) {
     if (!ctx || !ctx->enabled) {
         return;
@@ -235,6 +288,10 @@ void debug_step_out(debug_context_t *ctx) {
     debug_printf(ctx, "Stepping out...\n");
 }
 
+/**
+ * @brief Continue execution until next breakpoint
+ * @param ctx Debug context
+ */
 void debug_continue(debug_context_t *ctx) {
     if (!ctx || !ctx->enabled) {
         return;
@@ -246,7 +303,11 @@ void debug_continue(debug_context_t *ctx) {
     debug_printf(ctx, "Continuing execution...\n");
 }
 
-// Handle user input during debugging
+/**
+ * @brief Handle user input during interactive debugging
+ * @param ctx Debug context
+ * @param input User input string
+ */
 void debug_handle_user_input(debug_context_t *ctx, const char *input) {
     if (!ctx || !input) {
         return;
@@ -327,7 +388,10 @@ void debug_handle_user_input(debug_context_t *ctx, const char *input) {
     free(cmd);
 }
 
-// Navigate stack frames
+/**
+ * @brief Navigate up one stack frame
+ * @param ctx Debug context
+ */
 void debug_stack_up(debug_context_t *ctx) {
     if (!ctx) {
         return;
@@ -337,6 +401,10 @@ void debug_stack_up(debug_context_t *ctx) {
     // TODO: Implement stack frame navigation
 }
 
+/**
+ * @brief Navigate down one stack frame
+ * @param ctx Debug context
+ */
 void debug_stack_down(debug_context_t *ctx) {
     if (!ctx) {
         return;
@@ -346,7 +414,10 @@ void debug_stack_down(debug_context_t *ctx) {
     // TODO: Implement stack frame navigation
 }
 
-// Show current location
+/**
+ * @brief Show the current execution location
+ * @param ctx Debug context
+ */
 void debug_show_current_location(debug_context_t *ctx) {
     if (!ctx) {
         return;
@@ -367,7 +438,11 @@ void debug_show_current_location(debug_context_t *ctx) {
     }
 }
 
-// Set variable value
+/**
+ * @brief Set a variable value during debugging
+ * @param ctx Debug context
+ * @param assignment Variable assignment string (name=value)
+ */
 void debug_set_variable(debug_context_t *ctx, const char *assignment) {
     if (!ctx || !assignment) {
         return;
@@ -378,7 +453,11 @@ void debug_set_variable(debug_context_t *ctx, const char *assignment) {
     // TODO: Implement variable assignment
 }
 
-// Evaluate expression
+/**
+ * @brief Evaluate an expression during debugging
+ * @param ctx Debug context
+ * @param expression Expression to evaluate
+ */
 void debug_evaluate_expression(debug_context_t *ctx, const char *expression) {
     if (!ctx || !expression) {
         return;
@@ -389,7 +468,12 @@ void debug_evaluate_expression(debug_context_t *ctx, const char *expression) {
     // TODO: Implement expression evaluator
 }
 
-// Show context around current line
+/**
+ * @brief Show source context around current line
+ * @param ctx Debug context
+ * @param file Source file name
+ * @param line Current line number
+ */
 void debug_show_context(debug_context_t *ctx, const char *file, int line) {
     if (!ctx || !file) {
         return;
@@ -424,7 +508,10 @@ void debug_show_context(debug_context_t *ctx, const char *file, int line) {
     }
 }
 
-// Enter interactive debugging mode
+/**
+ * @brief Enter interactive debugging mode
+ * @param ctx Debug context
+ */
 void debug_enter_interactive_mode(debug_context_t *ctx) {
     if (!ctx) {
         return;
@@ -512,7 +599,12 @@ void debug_enter_interactive_mode(debug_context_t *ctx) {
     // context
 }
 
-// Evaluate breakpoint condition
+/**
+ * @brief Evaluate a breakpoint condition
+ * @param ctx Debug context
+ * @param condition Condition expression to evaluate
+ * @return true if condition is met, false otherwise
+ */
 bool debug_evaluate_condition(debug_context_t *ctx, const char *condition) {
     if (!ctx || !condition) {
         return true; // No condition means always true
@@ -540,7 +632,10 @@ bool debug_evaluate_condition(debug_context_t *ctx, const char *condition) {
     return true; // Default to true
 }
 
-// Print debug help
+/**
+ * @brief Print debug help information
+ * @param ctx Debug context
+ */
 void debug_print_help(debug_context_t *ctx) {
     if (!ctx || !ctx->enabled) {
         return;
@@ -569,7 +664,12 @@ void debug_print_help(debug_context_t *ctx) {
     debug_printf(ctx, "\nTip: Use Tab for command completion\n");
 }
 
-// Execution context preservation functions (for loop debugging fix)
+/**
+ * @brief Save execution context for loop debugging
+ * @param ctx Debug context
+ * @param executor Current executor instance
+ * @param node Current AST node
+ */
 void debug_save_execution_context(debug_context_t *ctx, executor_t *executor,
                                   node_t *node) {
     if (!ctx || !executor || !node) {
@@ -608,6 +708,12 @@ void debug_save_execution_context(debug_context_t *ctx, executor_t *executor,
     }
 }
 
+/**
+ * @brief Restore execution context after debugging
+ * @param ctx Debug context
+ * @param executor Current executor instance
+ * @param node Current AST node
+ */
 void debug_restore_execution_context(debug_context_t *ctx, executor_t *executor,
                                      node_t *node) {
     (void)executor; /* Reserved for execution state restoration */
@@ -631,6 +737,10 @@ void debug_restore_execution_context(debug_context_t *ctx, executor_t *executor,
     debug_printf(ctx, "[DEBUG] Loop context restoration (placeholder)\n");
 }
 
+/**
+ * @brief Clean up execution context
+ * @param ctx Debug context
+ */
 void debug_cleanup_execution_context(debug_context_t *ctx) {
     if (!ctx) {
         return;
@@ -650,7 +760,13 @@ void debug_cleanup_execution_context(debug_context_t *ctx) {
     ctx->execution_context.loop_body_start_line = 0;
 }
 
-// Loop context tracking functions (architectural fix)
+/**
+ * @brief Enter a loop for debugging tracking
+ * @param ctx Debug context
+ * @param loop_type Type of loop (for, while, until)
+ * @param variable Loop variable name
+ * @param value Current loop variable value
+ */
 void debug_enter_loop(debug_context_t *ctx, const char *loop_type,
                       const char *variable, const char *value) {
     if (!ctx || !ctx->enabled) {
@@ -676,6 +792,12 @@ void debug_enter_loop(debug_context_t *ctx, const char *loop_type,
     ctx->execution_context.loop_iteration = 0;
 }
 
+/**
+ * @brief Update the loop variable during iteration
+ * @param ctx Debug context
+ * @param variable Variable name
+ * @param value New variable value
+ */
 void debug_update_loop_variable(debug_context_t *ctx, const char *variable,
                                 const char *value) {
     if (!ctx || !ctx->enabled || !ctx->execution_context.in_loop) {
@@ -691,6 +813,10 @@ void debug_update_loop_variable(debug_context_t *ctx, const char *variable,
     ctx->execution_context.loop_iteration++;
 }
 
+/**
+ * @brief Exit a loop for debugging tracking
+ * @param ctx Debug context
+ */
 void debug_exit_loop(debug_context_t *ctx) {
     if (!ctx || !ctx->enabled || !ctx->execution_context.in_loop) {
         return;

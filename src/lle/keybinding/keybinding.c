@@ -1,14 +1,18 @@
 /**
- * keybinding.c - Keybinding Engine Implementation
+ * @file keybinding.c
+ * @brief Keybinding Engine Implementation
  *
  * Implements fast key sequence lookup and binding management using libhashtable
- * through LLE's hashtable wrapper for O(1) lookup performance.
+ * through LLE's hashtable wrapper for O(1) lookup performance. Supports both
+ * simple and context-aware keybinding actions with Emacs and Vi mode presets.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Specification:
  * docs/lle_specification/critical_gaps/25_default_keybindings_complete.md
  * Implementation Plan:
- * docs/lle_specification/critical_gaps/25_IMPLEMENTATION_PLAN.md Date:
- * 2025-11-02
+ * docs/lle_specification/critical_gaps/25_IMPLEMENTATION_PLAN.md
  */
 
 #include "lle/keybinding.h"
@@ -65,7 +69,8 @@ struct lle_keybinding_manager {
  */
 
 /**
- * Get current time in microseconds
+ * @brief Get current time in microseconds
+ * @return Current time as microseconds since epoch
  */
 static uint64_t get_time_us(void) {
     struct timeval tv;
@@ -74,7 +79,10 @@ static uint64_t get_time_us(void) {
 }
 
 /**
- * Allocate string using memory pool or malloc
+ * @brief Allocate string using memory pool or malloc
+ * @param pool Memory pool to use (NULL for malloc)
+ * @param str Source string to duplicate
+ * @return Pointer to duplicated string, or NULL on failure
  */
 static char *keybinding_strdup(lusush_memory_pool_t *pool, const char *str) {
     if (str == NULL) {
@@ -98,7 +106,9 @@ static char *keybinding_strdup(lusush_memory_pool_t *pool, const char *str) {
 }
 
 /**
- * Free string from memory pool or malloc
+ * @brief Free string from memory pool or malloc
+ * @param pool Memory pool used for allocation (NULL if malloc was used)
+ * @param str String to free (may be NULL)
  */
 static void keybinding_free_string(lusush_memory_pool_t *pool, char *str) {
     if (str == NULL) {
@@ -113,7 +123,9 @@ static void keybinding_free_string(lusush_memory_pool_t *pool, char *str) {
 }
 
 /**
- * Free keybinding entry
+ * @brief Free keybinding entry and its allocated strings
+ * @param pool Memory pool used for allocation
+ * @param entry Keybinding entry to free (may be NULL)
  */
 static void free_keybinding_entry(lusush_memory_pool_t *pool,
                                   lle_keybinding_entry_t *entry) {
@@ -133,7 +145,10 @@ static void free_keybinding_entry(lusush_memory_pool_t *pool,
 }
 
 /**
- * Parse special key name to key code
+ * @brief Parse special key name to key code
+ * @param name Key name string (e.g., "RET", "TAB", "UP", "F1")
+ * @param key_out Pointer to store the parsed special key code
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_FORMAT if unknown key
  */
 static lle_result_t parse_special_key(const char *name,
                                       lle_special_key_t *key_out) {
@@ -185,6 +200,12 @@ static lle_result_t parse_special_key(const char *name,
  * ============================================================================
  */
 
+/**
+ * @brief Create a new keybinding manager instance
+ * @param manager Pointer to store the created manager
+ * @param pool Memory pool for allocations (NULL to use malloc/free)
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_keybinding_manager_create(lle_keybinding_manager_t **manager,
                                            lusush_memory_pool_t *pool) {
     if (manager == NULL) {
@@ -246,6 +267,11 @@ lle_result_t lle_keybinding_manager_create(lle_keybinding_manager_t **manager,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Destroy a keybinding manager and free all resources
+ * @param manager Keybinding manager to destroy
+ * @return LLE_SUCCESS on success, LLE_ERROR_NULL_POINTER if manager is NULL
+ */
 lle_result_t lle_keybinding_manager_destroy(lle_keybinding_manager_t *manager) {
     if (manager == NULL) {
         return LLE_ERROR_NULL_POINTER;
@@ -292,6 +318,12 @@ lle_result_t lle_keybinding_manager_destroy(lle_keybinding_manager_t *manager) {
  * ============================================================================
  */
 
+/**
+ * @brief Parse a key sequence string into a key event structure
+ * @param key_sequence Key sequence string (e.g., "C-x", "M-f", "RET")
+ * @param key_event_out Pointer to store the parsed key event
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_key_sequence_parse(const char *key_sequence,
                                     lle_key_event_t *key_event_out) {
     if (key_sequence == NULL || key_event_out == NULL) {
@@ -345,6 +377,13 @@ lle_result_t lle_key_sequence_parse(const char *key_sequence,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Convert a key event structure to a string representation
+ * @param key_event Key event to convert
+ * @param buffer Buffer to store the string
+ * @param buffer_size Size of the buffer
+ * @return LLE_SUCCESS on success, LLE_ERROR_BUFFER_OVERFLOW if buffer too small
+ */
 lle_result_t lle_key_event_to_string(const lle_key_event_t *key_event,
                                      char *buffer, size_t buffer_size) {
     if (key_event == NULL || buffer == NULL || buffer_size == 0) {
@@ -459,6 +498,14 @@ lle_result_t lle_key_event_to_string(const lle_key_event_t *key_event,
  * ============================================================================
  */
 
+/**
+ * @brief Bind a simple action to a key sequence
+ * @param manager Keybinding manager instance
+ * @param key_sequence Key sequence string (e.g., "C-f", "M-x")
+ * @param action Simple action function pointer
+ * @param function_name Human-readable function name for introspection
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_keybinding_manager_bind(lle_keybinding_manager_t *manager,
                                          const char *key_sequence,
                                          lle_action_simple_t action,
@@ -506,6 +553,14 @@ lle_result_t lle_keybinding_manager_bind(lle_keybinding_manager_t *manager,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Bind a context-aware action to a key sequence
+ * @param manager Keybinding manager instance
+ * @param key_sequence Key sequence string (e.g., "C-f", "M-x")
+ * @param action Context-aware action function pointer
+ * @param function_name Human-readable function name for introspection
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_keybinding_manager_bind_context(
     lle_keybinding_manager_t *manager, const char *key_sequence,
     lle_action_context_t action, const char *function_name) {
@@ -552,6 +607,12 @@ lle_result_t lle_keybinding_manager_bind_context(
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Remove a keybinding for a key sequence
+ * @param manager Keybinding manager instance
+ * @param key_sequence Key sequence string to unbind
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_keybinding_manager_unbind(lle_keybinding_manager_t *manager,
                                            const char *key_sequence) {
     if (manager == NULL || key_sequence == NULL) {
@@ -571,6 +632,11 @@ lle_result_t lle_keybinding_manager_unbind(lle_keybinding_manager_t *manager,
     return lle_strstr_hashtable_delete(manager->bindings, key_sequence);
 }
 
+/**
+ * @brief Clear all keybindings from the manager
+ * @param manager Keybinding manager instance
+ * @return LLE_SUCCESS on success, LLE_ERROR_NULL_POINTER if manager is NULL
+ */
 lle_result_t lle_keybinding_manager_clear(lle_keybinding_manager_t *manager) {
     if (manager == NULL) {
         return LLE_ERROR_NULL_POINTER;
@@ -590,6 +656,13 @@ lle_result_t lle_keybinding_manager_clear(lle_keybinding_manager_t *manager) {
  * ============================================================================
  */
 
+/**
+ * @brief Process a key event and execute the bound action
+ * @param manager Keybinding manager instance
+ * @param editor Editor instance for action execution
+ * @param key_event Key event to process
+ * @return LLE_SUCCESS if action executed, LLE_ERROR_NOT_FOUND if unbound
+ */
 lle_result_t
 lle_keybinding_manager_process_key(lle_keybinding_manager_t *manager,
                                    lle_editor_t *editor,
@@ -645,6 +718,11 @@ lle_keybinding_manager_process_key(lle_keybinding_manager_t *manager,
     }
 }
 
+/**
+ * @brief Reset the multi-key sequence buffer
+ * @param manager Keybinding manager instance
+ * @return LLE_SUCCESS on success, LLE_ERROR_NULL_POINTER if manager is NULL
+ */
 lle_result_t
 lle_keybinding_manager_reset_sequence(lle_keybinding_manager_t *manager) {
     if (manager == NULL) {
@@ -660,6 +738,12 @@ lle_keybinding_manager_reset_sequence(lle_keybinding_manager_t *manager) {
  * ============================================================================
  */
 
+/**
+ * @brief Set the current keymap mode (Emacs, Vi insert, Vi command)
+ * @param manager Keybinding manager instance
+ * @param mode Keymap mode to set
+ * @return LLE_SUCCESS on success, LLE_ERROR_NULL_POINTER if manager is NULL
+ */
 lle_result_t lle_keybinding_manager_set_mode(lle_keybinding_manager_t *manager,
                                              lle_keymap_mode_t mode) {
     if (manager == NULL) {
@@ -670,6 +754,12 @@ lle_result_t lle_keybinding_manager_set_mode(lle_keybinding_manager_t *manager,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Get the current keymap mode
+ * @param manager Keybinding manager instance
+ * @param mode_out Pointer to store the current mode
+ * @return LLE_SUCCESS on success, LLE_ERROR_NULL_POINTER on NULL argument
+ */
 lle_result_t lle_keybinding_manager_get_mode(lle_keybinding_manager_t *manager,
                                              lle_keymap_mode_t *mode_out) {
     if (manager == NULL || mode_out == NULL) {
@@ -685,6 +775,15 @@ lle_result_t lle_keybinding_manager_get_mode(lle_keybinding_manager_t *manager,
  * ============================================================================
  */
 
+/**
+ * @brief Load the Emacs-style keybinding preset
+ *
+ * Configures all GNU Readline compatible Emacs keybindings including
+ * movement, editing, history, completion, and shell operations.
+ *
+ * @param manager Keybinding manager instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t
 lle_keybinding_manager_load_emacs_preset(lle_keybinding_manager_t *manager) {
     if (manager == NULL) {
@@ -1006,6 +1105,11 @@ lle_keybinding_manager_load_emacs_preset(lle_keybinding_manager_t *manager) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Load the Vi insert mode keybinding preset
+ * @param manager Keybinding manager instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_keybinding_manager_load_vi_insert_preset(
     lle_keybinding_manager_t *manager) {
     if (manager == NULL) {
@@ -1025,6 +1129,13 @@ lle_result_t lle_keybinding_manager_load_vi_insert_preset(
  * ============================================================================
  */
 
+/**
+ * @brief List all current keybindings
+ * @param manager Keybinding manager instance
+ * @param bindings_out Pointer to store the bindings array
+ * @param count_out Pointer to store the count of bindings
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t
 lle_keybinding_manager_list_bindings(lle_keybinding_manager_t *manager,
                                      lle_keybinding_info_t **bindings_out,
@@ -1064,6 +1175,13 @@ lle_keybinding_manager_list_bindings(lle_keybinding_manager_t *manager,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Look up the action bound to a key sequence
+ * @param manager Keybinding manager instance
+ * @param key_sequence Key sequence string to look up
+ * @param action_out Pointer to store the action (not a copy)
+ * @return LLE_SUCCESS if found, LLE_ERROR_NOT_FOUND if unbound
+ */
 lle_result_t
 lle_keybinding_manager_lookup(lle_keybinding_manager_t *manager,
                               const char *key_sequence,
@@ -1086,6 +1204,12 @@ lle_keybinding_manager_lookup(lle_keybinding_manager_t *manager,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Get the number of registered keybindings
+ * @param manager Keybinding manager instance
+ * @param count_out Pointer to store the count
+ * @return LLE_SUCCESS on success, LLE_ERROR_NULL_POINTER on NULL argument
+ */
 lle_result_t lle_keybinding_manager_get_count(lle_keybinding_manager_t *manager,
                                               size_t *count_out) {
     if (manager == NULL || count_out == NULL) {
@@ -1101,6 +1225,13 @@ lle_result_t lle_keybinding_manager_get_count(lle_keybinding_manager_t *manager,
  * ============================================================================
  */
 
+/**
+ * @brief Get performance statistics for keybinding lookups
+ * @param manager Keybinding manager instance
+ * @param avg_lookup_time_us Pointer to store average lookup time (may be NULL)
+ * @param max_lookup_time_us Pointer to store max lookup time (may be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_NULL_POINTER if manager is NULL
+ */
 lle_result_t lle_keybinding_manager_get_stats(lle_keybinding_manager_t *manager,
                                               uint64_t *avg_lookup_time_us,
                                               uint64_t *max_lookup_time_us) {
@@ -1124,6 +1255,11 @@ lle_result_t lle_keybinding_manager_get_stats(lle_keybinding_manager_t *manager,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Reset performance statistics counters
+ * @param manager Keybinding manager instance
+ * @return LLE_SUCCESS on success, LLE_ERROR_NULL_POINTER if manager is NULL
+ */
 lle_result_t
 lle_keybinding_manager_reset_stats(lle_keybinding_manager_t *manager) {
     if (manager == NULL) {

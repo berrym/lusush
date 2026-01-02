@@ -1,6 +1,8 @@
-/*
- * terminal_lusush_client.c - Lusush Display Layer Integration (Spec 02
- * Subsystem 4)
+/**
+ * @file terminal_lusush_client.c
+ * @brief Lusush Display Layer Integration (Spec 02 Subsystem 4)
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * CRITICAL DESIGN PRINCIPLE:
  * LLE NEVER directly controls terminal or sends escape sequences.
@@ -24,8 +26,13 @@
  * ============================================================================
  */
 
-/*
- * Initialize Lusush display client
+/**
+ * @brief Initialize Lusush display client
+ *
+ * @param client Output pointer for created client
+ * @param display_context Lusush display context
+ * @param capabilities Terminal capabilities reference
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t
 lle_lusush_display_client_init(lle_lusush_display_client_t **client,
@@ -63,8 +70,10 @@ lle_lusush_display_client_init(lle_lusush_display_client_t **client,
     return LLE_SUCCESS;
 }
 
-/*
- * Destroy Lusush display client
+/**
+ * @brief Destroy Lusush display client
+ *
+ * @param client Client to destroy
  */
 void lle_lusush_display_client_destroy(lle_lusush_display_client_t *client) {
     if (!client) {
@@ -77,11 +86,18 @@ void lle_lusush_display_client_destroy(lle_lusush_display_client_t *client) {
     free(client);
 }
 
-/*
- * Convert LLE display content to Lusush layer format
+/**
+ * @brief Convert LLE display content to Lusush layer format
  *
  * This function translates LLE's internal display representation to
- * the format expected by Lusush display system.
+ * the format expected by Lusush display system. It handles line-by-line
+ * conversion, cursor position mapping, and attribute translation based
+ * on terminal capabilities.
+ *
+ * @param client Display client instance with capability information
+ * @param content LLE display content to convert
+ * @param lusush_content Output pointer for Lusush format content (allocated)
+ * @return LLE_SUCCESS on success, LLE_ERROR_OUT_OF_MEMORY on allocation failure
  */
 static lle_result_t LLE_MAYBE_UNUSED convert_to_lusush_format(
     lle_lusush_display_client_t *client, lle_display_content_t *content,
@@ -106,16 +122,20 @@ static lle_result_t LLE_MAYBE_UNUSED convert_to_lusush_format(
     return LLE_SUCCESS;
 }
 
-/*
- * Submit display content to Lusush display system
+/**
+ * @brief Submit display content to Lusush display system
  *
  * CRITICAL: This is the ONLY way LLE updates the terminal display.
  * LLE renders through the Lusush display system - NEVER sends escape sequences
  * directly.
  *
- * Architecture: LLE display_content → Lusush display_controller → Terminal
+ * Architecture: LLE display_content -> Lusush display_controller -> Terminal
  * output Following the proven pattern from Fish, Zsh, and other modern line
  * editors.
+ *
+ * @param client Display client instance
+ * @param content Display content to submit
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t
 lle_lusush_display_client_submit_content(lle_lusush_display_client_t *client,
@@ -205,8 +225,11 @@ lle_lusush_display_client_submit_content(lle_lusush_display_client_t *client,
     return LLE_SUCCESS;
 }
 
-/*
- * Convert Lusush error codes to LLE error codes
+/**
+ * @brief Convert Lusush error codes to LLE error codes
+ *
+ * @param lusush_error Lusush error code
+ * @return Corresponding LLE error code
  */
 lle_result_t lle_convert_lusush_error(lusush_result_t lusush_error) {
     /* Note: When Lusush display system is implemented, this will map

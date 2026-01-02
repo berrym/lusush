@@ -1,5 +1,8 @@
-/*
- * sequence_parser.c - Terminal Escape Sequence Parser
+/**
+ * @file sequence_parser.c
+ * @brief Terminal Escape Sequence Parser
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Comprehensive state machine-based parser for terminal escape sequences.
  * Handles CSI, OSC, DCS, and all other terminal sequence types with
@@ -13,21 +16,33 @@
 #include <string.h>
 #include <time.h>
 
-/* Helper macros */
+/** Check if character is a control character */
 #define IS_CONTROL_CHAR(c) ((c) < 0x20 || (c) == 0x7F)
+/** Check if character is a CSI parameter byte */
 #define IS_CSI_PARAMETER(c) (((c) >= '0' && (c) <= '9') || (c) == ';')
+/** Check if character is a CSI intermediate byte */
 #define IS_CSI_INTERMEDIATE(c) ((c) >= 0x20 && (c) <= 0x2F)
+/** Check if character is a CSI final byte */
 #define IS_CSI_FINAL(c) ((c) >= 0x40 && (c) <= 0x7E)
 
-/* Get current time in microseconds */
+/**
+ * @brief Get current time in microseconds
+ *
+ * @return Current monotonic time in microseconds
+ */
 static uint64_t get_current_time_us(void) {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (uint64_t)ts.tv_sec * 1000000 + (uint64_t)ts.tv_nsec / 1000;
 }
 
-/*
- * Initialize a sequence parser
+/**
+ * @brief Initialize a sequence parser
+ *
+ * @param parser Output pointer for created parser
+ * @param terminal_caps Terminal capabilities for feature detection
+ * @param memory_pool Memory pool for allocations
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t
 lle_sequence_parser_init(lle_sequence_parser_t **parser,
@@ -67,8 +82,11 @@ lle_sequence_parser_init(lle_sequence_parser_t **parser,
     return LLE_SUCCESS;
 }
 
-/*
- * Destroy a sequence parser
+/**
+ * @brief Destroy a sequence parser
+ *
+ * @param parser Parser to destroy
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_sequence_parser_destroy(lle_sequence_parser_t *parser) {
     if (!parser) {
@@ -79,8 +97,11 @@ lle_result_t lle_sequence_parser_destroy(lle_sequence_parser_t *parser) {
     return LLE_SUCCESS;
 }
 
-/*
- * Reset parser state to normal
+/**
+ * @brief Reset parser state to normal
+ *
+ * @param parser Parser to reset
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_sequence_parser_reset_state(lle_sequence_parser_t *parser) {
     if (!parser) {
@@ -102,8 +123,11 @@ lle_result_t lle_sequence_parser_reset_state(lle_sequence_parser_t *parser) {
     return LLE_SUCCESS;
 }
 
-/*
- * Check if sequence has timed out
+/**
+ * @brief Check if sequence has timed out
+ *
+ * @param parser Parser to check
+ * @return true if sequence has timed out, false otherwise
  */
 static bool has_sequence_timed_out(lle_sequence_parser_t *parser) {
     if (parser->sequence_start_time == 0) {
@@ -116,11 +140,16 @@ static bool has_sequence_timed_out(lle_sequence_parser_t *parser) {
     return elapsed > LLE_MAX_SEQUENCE_TIMEOUT_US;
 }
 
-/*
- * Parse CSI parameters from buffer
+/**
+ * @brief Parse CSI parameters from buffer
  *
  * CSI format: ESC [ [parameters] [intermediate bytes] final_byte
- * Parameters are semicolon-separated decimal numbers
+ * Parameters are semicolon-separated decimal numbers.
+ *
+ * @param parser Parser instance
+ * @param params_start Start of parameter string
+ * @param params_len Length of parameter string
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t parse_csi_parameters(lle_sequence_parser_t *parser,
                                          const char *params_start,
@@ -161,14 +190,18 @@ static lle_result_t parse_csi_parameters(lle_sequence_parser_t *parser,
     return LLE_SUCCESS;
 }
 
-/*
- * Process a complete CSI sequence
+/**
+ * @brief Process a complete CSI sequence
  *
  * CSI sequences have the format: ESC [ [params] [intermediates] final
  * Examples:
  *   ESC[2J - Clear screen
  *   ESC[1;5H - Move cursor to row 1, col 5
  *   ESC[31m - Set foreground color to red
+ *
+ * @param parser Parser instance
+ * @param parsed_input Output pointer for parsed result
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t process_csi_sequence(lle_sequence_parser_t *parser,
                                          lle_parsed_input_t **parsed_input) {
@@ -232,8 +265,13 @@ static lle_result_t process_csi_sequence(lle_sequence_parser_t *parser,
     return LLE_SUCCESS;
 }
 
-/*
- * Process a control character
+/**
+ * @brief Process a control character
+ *
+ * @param parser Parser instance
+ * @param c Control character to process
+ * @param parsed_input Output pointer for parsed result
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t process_control_char(lle_sequence_parser_t *parser, char c,
                                          lle_parsed_input_t **parsed_input) {
@@ -260,10 +298,16 @@ static lle_result_t process_control_char(lle_sequence_parser_t *parser, char c,
     return LLE_SUCCESS;
 }
 
-/*
- * Process data through the sequence parser
+/**
+ * @brief Process data through the sequence parser
  *
  * This is the main parsing loop that implements the state machine.
+ *
+ * @param parser Parser instance
+ * @param data Input data to process
+ * @param data_len Length of input data
+ * @param parsed_input Output pointer for parsed result
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t
 lle_sequence_parser_process_data(lle_sequence_parser_t *parser,
@@ -476,8 +520,11 @@ lle_sequence_parser_process_data(lle_sequence_parser_t *parser,
     return LLE_SUCCESS;
 }
 
-/*
- * Get current parser state
+/**
+ * @brief Get current parser state
+ *
+ * @param parser Parser to query
+ * @return Current parser state
  */
 lle_parser_state_t
 lle_sequence_parser_get_state(const lle_sequence_parser_t *parser) {
@@ -488,8 +535,11 @@ lle_sequence_parser_get_state(const lle_sequence_parser_t *parser) {
     return parser->state;
 }
 
-/*
- * Get current sequence type
+/**
+ * @brief Get current sequence type
+ *
+ * @param parser Parser to query
+ * @return Current sequence type
  */
 lle_sequence_type_t
 lle_sequence_parser_get_type(const lle_sequence_parser_t *parser) {
@@ -500,8 +550,13 @@ lle_sequence_parser_get_type(const lle_sequence_parser_t *parser) {
     return parser->type;
 }
 
-/*
- * Get buffered sequence data
+/**
+ * @brief Get buffered sequence data
+ *
+ * @param parser Parser to query
+ * @param buffer Output pointer to buffer data
+ * @param buffer_len Output for buffer length
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_sequence_parser_get_buffer(const lle_sequence_parser_t *parser,
                                             const char **buffer,
@@ -516,8 +571,13 @@ lle_result_t lle_sequence_parser_get_buffer(const lle_sequence_parser_t *parser,
     return LLE_SUCCESS;
 }
 
-/*
- * Get CSI parameters
+/**
+ * @brief Get CSI parameters
+ *
+ * @param parser Parser to query
+ * @param params Output pointer to parameter array
+ * @param param_count Output for parameter count
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t
 lle_sequence_parser_get_csi_params(const lle_sequence_parser_t *parser,
@@ -533,8 +593,13 @@ lle_sequence_parser_get_csi_params(const lle_sequence_parser_t *parser,
     return LLE_SUCCESS;
 }
 
-/*
- * Get error statistics
+/**
+ * @brief Get error statistics
+ *
+ * @param parser Parser to query
+ * @param malformed Output for malformed sequence count
+ * @param timeout Output for timeout count
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_sequence_parser_get_stats(const lle_sequence_parser_t *parser,
                                            uint32_t *malformed,
@@ -549,8 +614,9 @@ lle_result_t lle_sequence_parser_get_stats(const lle_sequence_parser_t *parser,
     return LLE_SUCCESS;
 }
 
-/*
- * Check if parser has timed out waiting for sequence completion.
+/**
+ * @brief Check if parser has timed out waiting for sequence completion
+ *
  * If in ESCAPE state and timeout exceeded, returns the ESC as a standalone key.
  *
  * @param parser The sequence parser

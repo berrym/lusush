@@ -1,6 +1,15 @@
-/* SPDX-License-Identifier: MIT */
-/* LLE Specification 22: History-Buffer Integration - Phase 2 */
-/* Formatting Engine Implementation */
+/**
+ * @file formatting_engine.c
+ * @brief Command formatting with multiple style options
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ *
+ * LLE Specification 22: History-Buffer Integration - Phase 2
+ *
+ * This module provides command formatting capabilities with support for
+ * multiple formatting styles (compact, readable, expanded). It handles
+ * whitespace normalization, operator spacing, and pipeline formatting.
+ */
 
 #include "lle/formatting_engine.h"
 #include "lle/command_structure.h"
@@ -34,6 +43,16 @@ static lle_result_t format_expanded(lle_formatting_engine_t *engine,
 static bool should_add_space_before(char c);
 static bool should_add_space_after(char c);
 
+/* ============================================================================
+ * PUBLIC API - CONFIGURATION
+ * ============================================================================
+ */
+
+/**
+ * @brief Get default formatting engine options
+ * @param options Pointer to options structure to populate
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if options is NULL
+ */
 lle_result_t
 lle_formatting_engine_get_default_options(lle_formatting_options_t *options) {
     if (!options) {
@@ -56,6 +75,12 @@ lle_formatting_engine_get_default_options(lle_formatting_options_t *options) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Get preset options for a specific formatting style
+ * @param style The formatting style preset
+ * @param options Pointer to options structure to populate
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if options is NULL
+ */
 lle_result_t
 lle_formatting_engine_get_preset_options(lle_formatting_style_t style,
                                          lle_formatting_options_t *options) {
@@ -96,6 +121,19 @@ lle_formatting_engine_get_preset_options(lle_formatting_style_t style,
     return LLE_SUCCESS;
 }
 
+/* ============================================================================
+ * PUBLIC API - LIFECYCLE
+ * ============================================================================
+ */
+
+/**
+ * @brief Create a new formatting engine instance
+ * @param engine Pointer to store the created engine
+ * @param memory_pool Memory pool for allocations (can be NULL for global pool)
+ * @param analyzer Structure analyzer for command analysis
+ * @param options Formatting options (can be NULL for defaults)
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t
 lle_formatting_engine_create(lle_formatting_engine_t **engine,
                              lle_memory_pool_t *memory_pool,
@@ -126,6 +164,11 @@ lle_formatting_engine_create(lle_formatting_engine_t **engine,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Destroy a formatting engine and release resources
+ * @param engine The engine to destroy
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if engine is NULL
+ */
 lle_result_t lle_formatting_engine_destroy(lle_formatting_engine_t *engine) {
     if (!engine) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -137,6 +180,12 @@ lle_result_t lle_formatting_engine_destroy(lle_formatting_engine_t *engine) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Update formatting engine options
+ * @param engine The formatting engine
+ * @param options New options to apply
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on error
+ */
 lle_result_t
 lle_formatting_engine_set_options(lle_formatting_engine_t *engine,
                                   const lle_formatting_options_t *options) {
@@ -149,6 +198,20 @@ lle_formatting_engine_set_options(lle_formatting_engine_t *engine,
     return LLE_SUCCESS;
 }
 
+/* ============================================================================
+ * PUBLIC API - FORMATTING OPERATIONS
+ * ============================================================================
+ */
+
+/**
+ * @brief Normalize whitespace in command text
+ * @param engine The formatting engine
+ * @param command_text The command text to normalize
+ * @param command_length Length of the command text
+ * @param normalized_text Pointer to store normalized text
+ * @param normalized_length Pointer to store normalized text length
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_formatting_engine_normalize(lle_formatting_engine_t *engine,
                                              const char *command_text,
                                              size_t command_length,
@@ -230,6 +293,16 @@ lle_result_t lle_formatting_engine_normalize(lle_formatting_engine_t *engine,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Apply a specific formatting style to command text
+ * @param engine The formatting engine
+ * @param command_text The command text to format
+ * @param command_length Length of the command text
+ * @param style The formatting style to apply
+ * @param formatted_text Pointer to store formatted text
+ * @param formatted_length Pointer to store formatted text length
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_formatting_engine_apply_style(lle_formatting_engine_t *engine,
                                                const char *command_text,
                                                size_t command_length,
@@ -272,6 +345,14 @@ lle_result_t lle_formatting_engine_apply_style(lle_formatting_engine_t *engine,
     return result;
 }
 
+/**
+ * @brief Format command text using configured options
+ * @param engine The formatting engine
+ * @param command_text The command text to format
+ * @param command_length Length of the command text
+ * @param result Pointer to store the formatted command result
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_formatting_engine_format(lle_formatting_engine_t *engine,
                                           const char *command_text,
                                           size_t command_length,
@@ -312,6 +393,12 @@ lle_result_t lle_formatting_engine_format(lle_formatting_engine_t *engine,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Free a formatted command result
+ * @param engine The formatting engine
+ * @param result The result to free
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on error
+ */
 lle_result_t
 lle_formatting_engine_free_result(lle_formatting_engine_t *engine,
                                   lle_formatted_command_t *result) {
@@ -324,8 +411,20 @@ lle_formatting_engine_free_result(lle_formatting_engine_t *engine,
     return LLE_SUCCESS;
 }
 
-/* Internal helper functions */
+/* ============================================================================
+ * INTERNAL HELPER FUNCTIONS
+ * ============================================================================
+ */
 
+/**
+ * @brief Format command in compact style (minimize whitespace)
+ * @param engine The formatting engine
+ * @param text The text to format
+ * @param length Length of the text
+ * @param output Pointer to store formatted output
+ * @param output_len Pointer to store output length
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 static lle_result_t format_compact(lle_formatting_engine_t *engine,
                                    const char *text, size_t length,
                                    char **output, size_t *output_len) {
@@ -382,6 +481,15 @@ static lle_result_t format_compact(lle_formatting_engine_t *engine,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Format command in readable style (balanced whitespace)
+ * @param engine The formatting engine
+ * @param text The text to format
+ * @param length Length of the text
+ * @param output Pointer to store formatted output
+ * @param output_len Pointer to store output length
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 static lle_result_t format_readable(lle_formatting_engine_t *engine,
                                     const char *text, size_t length,
                                     char **output, size_t *output_len) {
@@ -444,6 +552,15 @@ static lle_result_t format_readable(lle_formatting_engine_t *engine,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Format command in expanded style (maximum readability)
+ * @param engine The formatting engine
+ * @param text The text to format
+ * @param length Length of the text
+ * @param output Pointer to store formatted output
+ * @param output_len Pointer to store output length
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 static lle_result_t format_expanded(lle_formatting_engine_t *engine,
                                     const char *text, size_t length,
                                     char **output, size_t *output_len) {
@@ -495,10 +612,20 @@ static lle_result_t format_expanded(lle_formatting_engine_t *engine,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Check if a space should be added before a character
+ * @param c The character to check
+ * @return true if space should be added before, false otherwise
+ */
 static bool should_add_space_before(char c) {
     return (c == '|' || c == '&' || c == ';');
 }
 
+/**
+ * @brief Check if a space should be added after a character
+ * @param c The character to check
+ * @return true if space should be added after, false otherwise
+ */
 static bool should_add_space_after(char c) {
     return (c == '|' || c == '&' || c == ';');
 }

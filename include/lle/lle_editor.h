@@ -1,5 +1,8 @@
 /**
- * lle_editor.h - LLE Editor Context Structure
+ * @file lle_editor.h
+ * @brief LLE Editor Context Structure
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Central editor context that provides access to all LLE subsystems.
  * This structure is passed to all keybinding action functions and provides

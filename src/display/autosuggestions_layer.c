@@ -73,7 +73,8 @@
 // ============================================================================
 
 /**
- * Get current timestamp in nanoseconds
+ * @brief Get current timestamp in nanoseconds
+ * @return Current monotonic timestamp in nanoseconds, or 0 on failure
  */
 static uint64_t get_timestamp_ns(void) {
     struct timespec ts;
@@ -84,7 +85,9 @@ static uint64_t get_timestamp_ns(void) {
 }
 
 /**
- * Set layer error and update metrics
+ * @brief Set layer error and update metrics
+ * @param layer Pointer to the autosuggestions layer
+ * @param error Error code to set
  */
 static void set_layer_error(autosuggestions_layer_t *layer,
                             autosuggestions_layer_error_t error) {
@@ -98,7 +101,9 @@ static void set_layer_error(autosuggestions_layer_t *layer,
 }
 
 /**
- * Validate layer pointer and initialization
+ * @brief Validate layer pointer for initialization
+ * @param layer Pointer to the autosuggestions layer to validate
+ * @return true if valid for initialization, false otherwise
  */
 static bool validate_layer_for_init(const autosuggestions_layer_t *layer) {
     // During initialization, don't check initialized flag to avoid circular
@@ -111,7 +116,9 @@ static bool validate_layer(const autosuggestions_layer_t *layer) {
 }
 
 /**
- * Calculate cache hash for input
+ * @brief Calculate cache hash for input string
+ * @param input Input string to hash
+ * @return 32-bit hash value, or 0 if input is NULL
  */
 MAYBE_UNUSED
 static uint32_t calculate_cache_hash(const char *input) {
@@ -126,7 +133,10 @@ static uint32_t calculate_cache_hash(const char *input) {
 }
 
 /**
- * Find cache entry for input
+ * @brief Find cache entry for input string
+ * @param layer Pointer to the autosuggestions layer
+ * @param input Input string to search for in cache
+ * @return Pointer to cache entry if found, NULL otherwise
  */
 static autosuggestions_cache_entry_t *
 find_cache_entry(autosuggestions_layer_t *layer, const char *input) {
@@ -161,7 +171,13 @@ find_cache_entry(autosuggestions_layer_t *layer, const char *input) {
 }
 
 /**
- * Add entry to cache
+ * @brief Add an entry to the suggestion cache
+ * @param layer Pointer to the autosuggestions layer
+ * @param input Input string that generated the suggestion
+ * @param suggestion Suggestion text to cache
+ * @param score Suggestion score/relevance
+ * @param generation_time Time taken to generate the suggestion in nanoseconds
+ * @return AUTOSUGGESTIONS_LAYER_SUCCESS on success, error code on failure
  */
 static autosuggestions_layer_error_t
 add_cache_entry(autosuggestions_layer_t *layer, const char *input,
@@ -210,13 +226,18 @@ add_cache_entry(autosuggestions_layer_t *layer, const char *input,
 }
 
 /**
- * Generate suggestion placeholder
+ * @brief Generate suggestion placeholder (stub function)
  *
  * NOTE: In v1.3.0, suggestions are generated externally by LLE's history system
  * and set via autosuggestions_layer_set_suggestion(). This function is a stub
  * that returns NULL - the actual suggestion generation happens in
  * lle_readline.c which calls autosuggestions_layer_set_suggestion() with
  * history-based suggestions.
+ *
+ * @param layer Pointer to the autosuggestions layer
+ * @param context Context information for suggestion generation
+ * @param generation_time_ns Output parameter for generation time
+ * @return Always returns NULL (stub implementation)
  */
 static char *generate_suggestion(autosuggestions_layer_t *layer,
                                  const autosuggestions_context_t *context,
@@ -238,7 +259,10 @@ static char *generate_suggestion(autosuggestions_layer_t *layer,
 }
 
 /**
- * Update performance metrics
+ * @brief Update performance metrics after suggestion operation
+ * @param layer Pointer to the autosuggestions layer
+ * @param generation_time_ns Time taken to generate suggestion in nanoseconds
+ * @param display_time_ns Time taken to display suggestion in nanoseconds
  */
 static void update_performance_metrics(autosuggestions_layer_t *layer,
                                        uint64_t generation_time_ns,
@@ -276,7 +300,13 @@ static void update_performance_metrics(autosuggestions_layer_t *layer,
 }
 
 /**
- * Compose suggestion display using terminal control
+ * @brief Compose suggestion display with terminal control sequences
+ * @param layer Pointer to the autosuggestions layer
+ * @param suggestion Suggestion text to compose
+ * @param buffer Output buffer for composed display
+ * @param buffer_size Size of output buffer
+ * @param bytes_written Output parameter for bytes written to buffer
+ * @return AUTOSUGGESTIONS_LAYER_SUCCESS on success, error code on failure
  */
 static autosuggestions_layer_error_t
 compose_suggestion_display(autosuggestions_layer_t *layer,

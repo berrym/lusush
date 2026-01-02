@@ -1,5 +1,8 @@
 /**
- * LLE Input Parsing System
+ * @file input_parsing.h
+ * @brief LLE Input Parsing System
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Comprehensive, high-performance parsing of terminal input streams, converting
  * raw terminal data into structured events for the LLE event system.

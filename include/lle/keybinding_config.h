@@ -1,6 +1,8 @@
 /**
  * @file keybinding_config.h
  * @brief LLE User Keybinding Configuration System
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Provides user-customizable keybindings via configuration files.
  * Users can override default Emacs keybindings by creating:

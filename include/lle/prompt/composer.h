@@ -1,6 +1,8 @@
 /**
  * @file composer.h
  * @brief LLE Prompt Composer - Template/Segment/Theme Integration
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Specification: Spec 25 - Prompt Composer
  * Version: 1.1.0

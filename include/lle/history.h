@@ -1,6 +1,8 @@
 /**
  * @file history.h
  * @brief LLE History System - Public API
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Specification: Spec 09 - History System Complete Specification
  * Version: 1.0.0

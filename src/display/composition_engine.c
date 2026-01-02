@@ -91,7 +91,8 @@ static composition_engine_error_t translate_cursor_to_screen_position(
 // ============================================================================
 
 /**
- * Get current timestamp in microseconds
+ * @brief Get current timestamp in nanoseconds
+ * @return Current timestamp in nanoseconds
  */
 static uint64_t get_timestamp_ns(void) {
     struct timeval tv;
@@ -100,7 +101,10 @@ static uint64_t get_timestamp_ns(void) {
 }
 
 /**
- * Calculate simple hash of string content
+ * @brief Calculate simple hash of string content using djb2 algorithm
+ * @param content Content string to hash
+ * @param hash_output Buffer to store the hash string
+ * @param hash_size Size of the hash output buffer
  */
 static void calculate_content_hash(const char *content, char *hash_output,
                                    size_t hash_size) {
@@ -124,7 +128,9 @@ static void calculate_content_hash(const char *content, char *hash_output,
 }
 
 /**
- * Count lines in text content
+ * @brief Count the number of lines in text content
+ * @param text Text content to count lines in
+ * @return Number of lines in the text
  */
 static size_t count_lines(const char *text) {
     if (!text)
@@ -149,7 +155,9 @@ static size_t count_lines(const char *text) {
 }
 
 /**
- * Get width of last line in text
+ * @brief Get the visual width of the last line in text
+ * @param text Text content to analyze
+ * @return Visual width of the last line (excluding ANSI sequences)
  */
 static size_t get_last_line_width(const char *text) {
     if (!text)
@@ -177,7 +185,9 @@ static size_t get_last_line_width(const char *text) {
 }
 
 /**
- * Check if text contains ANSI escape sequences
+ * @brief Check if text contains ANSI escape sequences
+ * @param text Text content to check
+ * @return true if text contains ANSI sequences, false otherwise
  */
 static bool contains_ansi_sequences(const char *text) {
     if (!text)
@@ -186,7 +196,9 @@ static bool contains_ansi_sequences(const char *text) {
 }
 
 /**
- * Detect if prompt is ASCII art style
+ * @brief Detect if prompt is ASCII art style
+ * @param text Text content to analyze for ASCII art characters
+ * @return true if prompt appears to be ASCII art, false otherwise
  */
 static bool is_ascii_art_prompt(const char *text) {
     if (!text)
@@ -217,7 +229,8 @@ static bool is_ascii_art_prompt(const char *text) {
 }
 
 /**
- * Clear composition cache entry
+ * @brief Clear composition cache entry and free associated resources
+ * @param entry Cache entry to clear
  */
 static void clear_cache_entry(composition_cache_entry_t *entry) {
     if (!entry)
@@ -237,7 +250,11 @@ static void clear_cache_entry(composition_cache_entry_t *entry) {
 }
 
 /**
- * Find cache entry by hash
+ * @brief Find cache entry by prompt and command hash
+ * @param engine Composition engine instance
+ * @param prompt_hash Hash of prompt content to search for
+ * @param command_hash Hash of command content to search for
+ * @return Pointer to matching cache entry, or NULL if not found
  */
 static composition_cache_entry_t *find_cache_entry(composition_engine_t *engine,
                                                    const char *prompt_hash,
@@ -257,7 +274,9 @@ static composition_cache_entry_t *find_cache_entry(composition_engine_t *engine,
 }
 
 /**
- * Get least recently used cache entry
+ * @brief Get least recently used cache entry for replacement
+ * @param engine Composition engine instance
+ * @return Pointer to LRU cache entry, or NULL if engine is invalid
  */
 static composition_cache_entry_t *
 get_lru_cache_entry(composition_engine_t *engine) {
@@ -285,7 +304,10 @@ get_lru_cache_entry(composition_engine_t *engine) {
 }
 
 /**
- * Check if cache entry is expired
+ * @brief Check if cache entry is expired based on max cache age
+ * @param engine Composition engine instance with cache age configuration
+ * @param entry Cache entry to check for expiration
+ * @return true if entry is expired or invalid, false if still valid
  */
 static bool is_cache_entry_expired(const composition_engine_t *engine,
                                    const composition_cache_entry_t *entry) {
@@ -307,7 +329,11 @@ static bool is_cache_entry_expired(const composition_engine_t *engine,
 // ============================================================================
 
 /**
- * Analyze prompt structure non-invasively
+ * @brief Analyze prompt structure non-invasively
+ * @param engine Composition engine instance
+ * @param prompt_content Prompt content to analyze
+ * @param analysis Output structure to store analysis results
+ * @return COMPOSITION_ENGINE_SUCCESS on success, error code otherwise
  */
 static composition_engine_error_t
 analyze_prompt_structure(composition_engine_t *engine,
@@ -384,7 +410,11 @@ analyze_prompt_structure(composition_engine_t *engine,
 // ============================================================================
 
 /**
- * Calculate optimal positioning for command layer
+ * @brief Calculate optimal positioning for command layer
+ * @param engine Composition engine instance
+ * @param analysis Prompt analysis results to base positioning on
+ * @param positioning Output structure to store calculated positioning
+ * @return COMPOSITION_ENGINE_SUCCESS on success, error code otherwise
  */
 static composition_engine_error_t
 calculate_optimal_positioning(composition_engine_t *engine,
@@ -440,7 +470,14 @@ calculate_optimal_positioning(composition_engine_t *engine,
 // ============================================================================
 
 /**
- * Compose layers using simple strategy
+ * @brief Compose layers using simple strategy for single-line prompts
+ * @param engine Composition engine instance
+ * @param prompt_content Prompt layer content
+ * @param command_content Command layer content
+ * @param positioning Calculated positioning information
+ * @param output Output buffer for composed result
+ * @param output_size Size of output buffer
+ * @return COMPOSITION_ENGINE_SUCCESS on success, error code otherwise
  */
 static composition_engine_error_t
 compose_simple_strategy(composition_engine_t *engine,
@@ -498,7 +535,14 @@ compose_simple_strategy(composition_engine_t *engine,
 }
 
 /**
- * Compose layers using multiline strategy
+ * @brief Compose layers using multiline strategy for complex prompts
+ * @param engine Composition engine instance
+ * @param prompt_content Prompt layer content
+ * @param command_content Command layer content
+ * @param positioning Calculated positioning information
+ * @param output Output buffer for composed result
+ * @param output_size Size of output buffer
+ * @return COMPOSITION_ENGINE_SUCCESS on success, error code otherwise
  */
 static composition_engine_error_t compose_multiline_strategy(
     composition_engine_t *engine, const char *prompt_content,
@@ -558,7 +602,13 @@ static composition_engine_error_t compose_multiline_strategy(
 }
 
 /**
- * Compose layers using the appropriate strategy
+ * @brief Compose layers using the appropriate strategy based on analysis
+ * @param engine Composition engine instance
+ * @param prompt_content Prompt layer content
+ * @param command_content Command layer content
+ * @param analysis Prompt analysis results for strategy selection
+ * @param positioning Calculated positioning information
+ * @return COMPOSITION_ENGINE_SUCCESS on success, error code otherwise
  */
 static composition_engine_error_t
 compose_layers(composition_engine_t *engine, const char *prompt_content,
@@ -616,7 +666,13 @@ compose_layers(composition_engine_t *engine, const char *prompt_content,
 // ============================================================================
 
 /**
- * Store composition in cache
+ * @brief Store composition result in cache for future reuse
+ * @param engine Composition engine instance
+ * @param prompt_hash Hash of prompt content for cache key
+ * @param command_hash Hash of command content for cache key
+ * @param analysis Analysis results to cache
+ * @param positioning Positioning results to cache
+ * @return COMPOSITION_ENGINE_SUCCESS on success, error code otherwise
  */
 static composition_engine_error_t
 store_in_cache(composition_engine_t *engine, const char *prompt_hash,
@@ -1425,9 +1481,13 @@ composition_engine_calculate_hash(const composition_engine_t *engine,
 // ============================================================================
 
 /**
- * Calculate visual width of a text string, stripping ANSI escape sequences
- * and GNU Readline markers (\001 and \002).
+ * @brief Calculate visual width of a text string, stripping ANSI escape sequences
+ *
+ * Strips ANSI escape sequences and GNU Readline markers (\001 and \002).
  * This is needed to calculate the prompt width correctly.
+ *
+ * @param text Text content to calculate visual width for
+ * @return Visual width in columns (excluding escape sequences)
  */
 static size_t calculate_visual_width(const char *text) {
     if (!text)
@@ -1620,7 +1680,7 @@ composition_engine_set_screen_buffer(composition_engine_t *engine,
 // ============================================================================
 
 /**
- * Split command content by newlines
+ * @brief Split command content by newlines into line info structures
  *
  * This implements the line splitting logic:
  * - Track byte offsets for each line
@@ -1628,8 +1688,8 @@ composition_engine_set_screen_buffer(composition_engine_t *engine,
  * - Handle empty lines
  * - Handle last line without trailing \n
  *
- * @param command_text Full command text
- * @param lines Output array for line info
+ * @param command_text Full command text to split
+ * @param lines Output array for line info structures
  * @param max_lines Maximum number of lines to store
  * @return Number of lines found (0 if empty or error)
  */
@@ -1674,20 +1734,20 @@ static size_t split_command_lines(const char *command_text,
 }
 
 /**
- * Build continuation prompts for all lines
+ * @brief Build continuation prompts for all lines in a multiline command
  *
  * Note: Context-aware continuation prompts are handled in display_controller.c
  * via screen_buffer_render_with_continuation() callback. This function is only
  * used as a fallback in the composition engine's multiline strategy.
  *
- * @param engine Composition engine
+ * @param engine Composition engine instance
  * @param primary_prompt Primary prompt (for first line)
- * @param command_text Full command text
- * @param lines Array of line info
- * @param line_count Number of lines
+ * @param command_text Full command text (unused, for display_controller callback)
+ * @param lines Array of line info (unused, for display_controller callback)
+ * @param line_count Number of lines to build prompts for
  * @param prompts Output array for prompts (must have line_count entries)
  * @param prompt_size Size of each prompt buffer
- * @return COMPOSITION_ENGINE_SUCCESS or error code
+ * @return COMPOSITION_ENGINE_SUCCESS on success, error code otherwise
  */
 static composition_engine_error_t
 build_continuation_prompts(composition_engine_t *engine,
@@ -1716,7 +1776,7 @@ build_continuation_prompts(composition_engine_t *engine,
 }
 
 /**
- * Coordinate with screen_buffer to render multiline with prefixes
+ * @brief Coordinate with screen_buffer to render multiline with prefixes
  *
  * This implements the screen buffer coordination:
  * - Call screen_buffer_set_line_prefix() for each line
@@ -1726,13 +1786,13 @@ build_continuation_prompts(composition_engine_t *engine,
  * and renders the combined output. The screen_buffer is responsible for
  * managing the actual line content separately.
  *
- * @param engine Composition engine
- * @param lines Array of line info
- * @param line_count Number of lines
- * @param prompts Array of prompts for each line
- * @param output Output buffer
+ * @param engine Composition engine instance with screen buffer
+ * @param lines Array of line info for each command line
+ * @param line_count Number of lines to render
+ * @param prompts Array of prompts/prefixes for each line
+ * @param output Output buffer for rendered result
  * @param output_size Size of output buffer
- * @return COMPOSITION_ENGINE_SUCCESS or error code
+ * @return COMPOSITION_ENGINE_SUCCESS on success, error code otherwise
  */
 static composition_engine_error_t coordinate_screen_buffer_rendering(
     composition_engine_t *engine, const command_line_info_t *lines,
@@ -1766,7 +1826,7 @@ static composition_engine_error_t coordinate_screen_buffer_rendering(
 }
 
 /**
- * Translate cursor byte offset to screen position in multiline command
+ * @brief Translate cursor byte offset to screen position in multiline command
  *
  * This implements the cursor translation logic using
  * incremental character-by-character tracking (the proven approach from
@@ -1778,16 +1838,15 @@ static composition_engine_error_t coordinate_screen_buffer_rendering(
  * - Handle UTF-8, wide characters, ANSI codes, tabs
  * - Record position when reaching cursor byte offset
  *
- * @param command_text Full command text
+ * @param command_text Full command text to analyze
  * @param cursor_byte_offset Cursor position in command (byte offset)
- * @param lines Array of line info
- * @param line_count Number of lines
+ * @param lines Array of line info for each command line
+ * @param line_count Number of lines in the command
  * @param prompts Array of prompts for each line
  * @param terminal_width Terminal width in columns
  * @param out_line Output: cursor line number (0-based)
- * @param out_column Output: cursor column number (0-based, includes prompt
- * width)
- * @return COMPOSITION_ENGINE_SUCCESS or error code
+ * @param out_column Output: cursor column number (0-based, includes prompt width)
+ * @return COMPOSITION_ENGINE_SUCCESS on success, error code otherwise
  */
 MAYBE_UNUSED
 static composition_engine_error_t translate_cursor_to_screen_position(

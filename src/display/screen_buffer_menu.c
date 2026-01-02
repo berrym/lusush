@@ -20,7 +20,7 @@
 #include <string.h>
 
 /**
- * Render completion menu through screen buffer virtual layout
+ * @brief Render completion menu through screen buffer virtual layout
  *
  * Unlike direct terminal writes, this:
  * 1. Parses ANSI codes properly
@@ -118,8 +118,12 @@ int screen_buffer_render_menu(screen_buffer_t *buffer, const char *menu_text,
 }
 
 /**
- * Calculate visual width of menu without rendering
- * Useful for determining if menu needs multiple columns
+ * @brief Calculate visual width of menu without rendering
+ *
+ * Useful for determining if menu needs multiple columns.
+ *
+ * @param menu_text The menu text with ANSI codes
+ * @return Maximum visual width of any line in the menu
  */
 int screen_buffer_calculate_menu_width(const char *menu_text) {
     if (!menu_text || !*menu_text) {
@@ -180,11 +184,16 @@ int screen_buffer_calculate_menu_width(const char *menu_text) {
 }
 
 /**
- * Add plain text rows to screen buffer (for menu, hints, etc.)
+ * @brief Add plain text rows to screen buffer for menu, hints, etc.
  *
  * This is the key function for proper menu integration per
  * SCREEN_BUFFER_MENU_INTEGRATION_PLAN.md - menu rows become part of
  * the virtual screen so cursor positioning works correctly.
+ *
+ * @param buffer Screen buffer to add rows to
+ * @param start_row Row index to start adding text
+ * @param text Plain text with optional ANSI codes to add
+ * @return Number of rows added, or -1 on error
  */
 int screen_buffer_add_text_rows(screen_buffer_t *buffer, int start_row,
                                 const char *text) {
@@ -322,7 +331,9 @@ int screen_buffer_add_text_rows(screen_buffer_t *buffer, int start_row,
 }
 
 /**
- * Get total display rows including any added text rows
+ * @brief Get total display rows including any added text rows
+ * @param buffer Screen buffer to query
+ * @return Total number of display rows
  */
 int screen_buffer_get_total_display_rows(const screen_buffer_t *buffer) {
     if (!buffer) {
@@ -332,11 +343,14 @@ int screen_buffer_get_total_display_rows(const screen_buffer_t *buffer) {
 }
 
 /**
- * Calculate rows from cursor to end of display
+ * @brief Calculate rows from cursor to end of display
  *
  * This is critical for cursor positioning after drawing menu:
  * After writing all content (command + menu), we need to move
  * cursor back UP this many rows to reach cursor position.
+ *
+ * @param buffer Screen buffer to query
+ * @return Number of rows below the cursor position
  */
 int screen_buffer_get_rows_below_cursor(const screen_buffer_t *buffer) {
     if (!buffer) {

@@ -1,6 +1,8 @@
 /**
  * @file widget_system.h
  * @brief LLE Widget Registry System
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * ZSH-inspired widget system for LLE. Widgets are named editing operations
  * that can be bound to keys, triggered by hooks, or invoked programmatically.

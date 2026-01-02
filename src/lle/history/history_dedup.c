@@ -1,5 +1,8 @@
 /**
- * history_dedup.c - Intelligent deduplication engine for LLE history system
+ * @file history_dedup.c
+ * @brief Intelligent deduplication engine for LLE history system
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Part of Spec 09: History System (Phase 4 Day 12)
  *
@@ -57,13 +60,17 @@ struct lle_history_dedup_engine {
  */
 
 /**
- * Normalize command for comparison
+ * @brief Normalize command for comparison
  *
- * @param dedup Dedup engine
- * @param command Command string
- * @param normalized Buffer for normalized command
- * @param normalized_size Size of normalized buffer
- * @return LLE_SUCCESS on success, error code on failure
+ * Applies configured normalization (case conversion, whitespace trimming)
+ * to prepare a command for duplicate comparison.
+ *
+ * @param dedup Dedup engine with configuration (must not be NULL)
+ * @param command Command string to normalize (must not be NULL)
+ * @param normalized Output buffer for normalized command (must not be NULL)
+ * @param normalized_size Size of normalized buffer in bytes
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if any parameter is NULL,
+ *         LLE_ERROR_BUFFER_OVERFLOW if command is too long for buffer
  */
 static lle_result_t normalize_command(const lle_history_dedup_engine_t *dedup,
                                       const char *command, char *normalized,
@@ -114,12 +121,15 @@ static lle_result_t normalize_command(const lle_history_dedup_engine_t *dedup,
 }
 
 /**
- * Compare two commands for equality (respecting dedup config)
+ * @brief Compare two commands for equality (respecting dedup config)
  *
- * @param dedup Dedup engine
- * @param cmd1 First command
- * @param cmd2 Second command
- * @return true if commands are equal, false otherwise
+ * Compares commands using the engine's configuration for case sensitivity,
+ * whitespace handling, and Unicode normalization.
+ *
+ * @param dedup Dedup engine with comparison configuration (may be NULL)
+ * @param cmd1 First command to compare (may be NULL)
+ * @param cmd2 Second command to compare (may be NULL)
+ * @return true if commands are equal, false otherwise or if any parameter is NULL
  */
 static bool commands_equal(const lle_history_dedup_engine_t *dedup,
                            const char *cmd1, const char *cmd2) {
@@ -168,11 +178,14 @@ static bool commands_equal(const lle_history_dedup_engine_t *dedup,
 }
 
 /**
- * Merge forensic metadata from old entry to new entry
+ * @brief Merge forensic metadata from old entry to new entry
  *
- * @param new_entry Entry to update (keep)
- * @param old_entry Entry being merged (will be discarded)
- * @return LLE_SUCCESS on success, error code on failure
+ * Combines usage counts, preserves earliest start time, keeps most recent
+ * access time, and accumulates execution duration.
+ *
+ * @param new_entry Entry to update (keep) (must not be NULL)
+ * @param old_entry Entry being merged (will be discarded) (must not be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if either entry is NULL
  */
 static lle_result_t
 merge_forensic_metadata(lle_history_entry_t *new_entry,
@@ -224,7 +237,17 @@ merge_forensic_metadata(lle_history_entry_t *new_entry,
  */
 
 /**
- * Create deduplication engine
+ * @brief Create deduplication engine
+ *
+ * Allocates and initializes a new deduplication engine with the specified
+ * strategy and default configuration (case-sensitive, trim whitespace,
+ * merge forensics, Unicode normalize).
+ *
+ * @param dedup Output pointer for created engine (must not be NULL)
+ * @param history_core History core to deduplicate (must not be NULL)
+ * @param strategy Deduplication strategy to use
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if dedup or history_core is NULL,
+ *         LLE_ERROR_OUT_OF_MEMORY on allocation failure
  */
 lle_result_t lle_history_dedup_create(lle_history_dedup_engine_t **dedup,
                                       lle_history_core_t *history_core,
@@ -259,7 +282,12 @@ lle_result_t lle_history_dedup_create(lle_history_dedup_engine_t **dedup,
 }
 
 /**
- * Destroy deduplication engine
+ * @brief Destroy deduplication engine
+ *
+ * Frees all resources associated with the deduplication engine.
+ *
+ * @param dedup Engine to destroy (must not be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if dedup is NULL
  */
 lle_result_t lle_history_dedup_destroy(lle_history_dedup_engine_t *dedup) {
     if (!dedup) {
@@ -271,7 +299,17 @@ lle_result_t lle_history_dedup_destroy(lle_history_dedup_engine_t *dedup) {
 }
 
 /**
- * Check if entry is duplicate of existing entry
+ * @brief Check if entry is duplicate of existing entry
+ *
+ * Scans the last 100 history entries for a matching command.
+ * Note: Must be called from within add_entry which holds the write lock.
+ *
+ * @param dedup Dedup engine (must not be NULL)
+ * @param new_entry Entry to check for duplicates (must not be NULL)
+ * @param duplicate_entry Output for found duplicate entry (may be NULL)
+ * @return LLE_SUCCESS if duplicate found, LLE_ERROR_NOT_FOUND if not a duplicate,
+ *         LLE_ERROR_INVALID_PARAMETER if dedup or new_entry is NULL,
+ *         LLE_ERROR_INVALID_STATE if history_core is not set
  */
 lle_result_t lle_history_dedup_check(lle_history_dedup_engine_t *dedup,
                                      const lle_history_entry_t *new_entry,
@@ -333,7 +371,15 @@ lle_result_t lle_history_dedup_check(lle_history_dedup_engine_t *dedup,
 }
 
 /**
- * Merge duplicate entry with existing entry
+ * @brief Merge duplicate entry with existing entry
+ *
+ * Merges forensic metadata (if enabled) and marks the discard entry as deleted.
+ *
+ * @param dedup Dedup engine (must not be NULL)
+ * @param keep_entry Entry to keep (must not be NULL)
+ * @param discard_entry Entry to discard (must not be NULL, will be marked deleted)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if any parameter is NULL
+ *         or entries are not duplicates
  */
 lle_result_t lle_history_dedup_merge(lle_history_dedup_engine_t *dedup,
                                      lle_history_entry_t *keep_entry,
@@ -364,7 +410,15 @@ lle_result_t lle_history_dedup_merge(lle_history_dedup_engine_t *dedup,
 }
 
 /**
- * Apply deduplication strategy to new entry
+ * @brief Apply deduplication strategy to new entry
+ *
+ * Checks for duplicates and applies the configured strategy (IGNORE, KEEP_RECENT,
+ * KEEP_FREQUENT, MERGE_METADATA, or KEEP_ALL).
+ *
+ * @param dedup Dedup engine (must not be NULL)
+ * @param new_entry New entry to check and possibly reject (must not be NULL)
+ * @param entry_rejected Output indicating if entry was rejected (may be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if dedup or new_entry is NULL
  */
 lle_result_t lle_history_dedup_apply(lle_history_dedup_engine_t *dedup,
                                      lle_history_entry_t *new_entry,
@@ -458,7 +512,15 @@ lle_result_t lle_history_dedup_apply(lle_history_dedup_engine_t *dedup,
 }
 
 /**
- * Cleanup old duplicate entries
+ * @brief Cleanup old duplicate entries
+ *
+ * Scans history for entries marked as deleted and counts them.
+ * Note: Full implementation would physically remove deleted entries.
+ *
+ * @param dedup Dedup engine (must not be NULL)
+ * @param entries_removed Output for count of removed entries (may be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if dedup is NULL,
+ *         LLE_ERROR_INVALID_STATE if history_core is not set
  */
 lle_result_t lle_history_dedup_cleanup(lle_history_dedup_engine_t *dedup,
                                        size_t *entries_removed) {
@@ -509,7 +571,13 @@ lle_result_t lle_history_dedup_cleanup(lle_history_dedup_engine_t *dedup,
 }
 
 /**
- * Set deduplication strategy
+ * @brief Set deduplication strategy
+ *
+ * Changes the active deduplication strategy.
+ *
+ * @param dedup Dedup engine (must not be NULL)
+ * @param strategy New strategy to use (must be valid)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if dedup is NULL or strategy invalid
  */
 lle_result_t
 lle_history_dedup_set_strategy(lle_history_dedup_engine_t *dedup,
@@ -528,7 +596,13 @@ lle_history_dedup_set_strategy(lle_history_dedup_engine_t *dedup,
 }
 
 /**
- * Get deduplication statistics
+ * @brief Get deduplication statistics
+ *
+ * Returns counts of detected, merged, and ignored duplicates, plus current strategy.
+ *
+ * @param dedup Dedup engine (must not be NULL)
+ * @param stats Output structure for statistics (must not be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if either parameter is NULL
  */
 lle_result_t
 lle_history_dedup_get_stats(const lle_history_dedup_engine_t *dedup,
@@ -546,7 +620,15 @@ lle_history_dedup_get_stats(const lle_history_dedup_engine_t *dedup,
 }
 
 /**
- * Set deduplication configuration options
+ * @brief Set deduplication configuration options
+ *
+ * Configures how commands are compared and how duplicates are handled.
+ *
+ * @param dedup Dedup engine (must not be NULL)
+ * @param case_sensitive Whether comparison is case-sensitive
+ * @param trim_whitespace Whether to trim whitespace before comparison
+ * @param merge_forensics Whether to merge forensic metadata on dedup
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if dedup is NULL
  */
 lle_result_t lle_history_dedup_configure(lle_history_dedup_engine_t *dedup,
                                          bool case_sensitive,
@@ -564,7 +646,14 @@ lle_result_t lle_history_dedup_configure(lle_history_dedup_engine_t *dedup,
 }
 
 /**
- * Set Unicode normalization for deduplication
+ * @brief Set Unicode normalization for deduplication
+ *
+ * Enables or disables Unicode NFC normalization during command comparison.
+ * When enabled, visually identical Unicode strings will match.
+ *
+ * @param dedup Dedup engine (must not be NULL)
+ * @param unicode_normalize Whether to use Unicode NFC normalization
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if dedup is NULL
  */
 lle_result_t
 lle_history_dedup_set_unicode_normalize(lle_history_dedup_engine_t *dedup,

@@ -1,15 +1,13 @@
-/*
- * Lusush Shell - LLE Completion State
- * Copyright (C) 2021-2026  Michael Berry
+/**
+ * @file completion_state.h
+ * @brief LLE Completion State - Spec 12 Core Component
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- *
- * ============================================================================
- *
- * COMPLETION STATE - Spec 12 Core Component
  *
  * Tracks state of current completion session.
  * Used for inline TAB cycling and menu navigation.
@@ -32,36 +30,36 @@ extern "C" {
 #endif
 
 /**
- * Tracks state of current completion session
+ * @brief Tracks state of current completion session
  */
 typedef struct lle_completion_state {
     /* Input state */
-    char *buffer_snapshot;  /* Buffer at completion start */
-    size_t cursor_position; /* Cursor at completion start */
+    char *buffer_snapshot;  /**< Buffer at completion start */
+    size_t cursor_position; /**< Cursor at completion start */
 
     /* Context */
-    lle_context_analyzer_t *context; /* Analyzed context */
+    lle_context_analyzer_t *context; /**< Analyzed context */
 
     /* Results */
-    lle_completion_result_t *results; /* Generated completions */
+    lle_completion_result_t *results; /**< Generated completions */
 
     /* Cycling state (for inline completion) */
-    int current_index;   /* Current selection (for TAB cycling) */
-    char *original_word; /* Original partial word */
+    int current_index;   /**< Current selection (for TAB cycling) */
+    char *original_word; /**< Original partial word */
 
     /* Timing */
-    uint64_t generation_time_us; /* Time to generate completions */
+    uint64_t generation_time_us; /**< Time to generate completions */
 
     /* Flags */
-    bool active;    /* Completion session active? */
-    bool menu_mode; /* Menu shown or inline cycling? */
+    bool active;    /**< Completion session active? */
+    bool menu_mode; /**< Menu shown or inline cycling? */
 
     /* Memory pool reference */
-    lle_memory_pool_t *pool; /* For allocations */
+    lle_memory_pool_t *pool; /**< For allocations */
 } lle_completion_state_t;
 
 /**
- * Create completion state
+ * @brief Create completion state
  *
  * @param pool Memory pool
  * @param buffer Buffer snapshot
@@ -78,14 +76,14 @@ lle_result_t lle_completion_state_create(lle_memory_pool_t *pool,
                                          lle_completion_state_t **out_state);
 
 /**
- * Free completion state
+ * @brief Free completion state
  *
  * @param state State to free
  */
 void lle_completion_state_free(lle_completion_state_t *state);
 
 /**
- * Cycle to next completion (for inline TAB cycling)
+ * @brief Cycle to next completion (for inline TAB cycling)
  *
  * @param state Completion state
  * @return Next completion text or NULL
@@ -93,7 +91,7 @@ void lle_completion_state_free(lle_completion_state_t *state);
 const char *lle_completion_state_cycle_next(lle_completion_state_t *state);
 
 /**
- * Cycle to previous completion (for Shift+TAB)
+ * @brief Cycle to previous completion (for Shift+TAB)
  *
  * @param state Completion state
  * @return Previous completion text or NULL
@@ -101,7 +99,7 @@ const char *lle_completion_state_cycle_next(lle_completion_state_t *state);
 const char *lle_completion_state_cycle_prev(lle_completion_state_t *state);
 
 /**
- * Get current selected completion
+ * @brief Get current selected completion
  *
  * @param state Completion state
  * @return Current completion text or NULL

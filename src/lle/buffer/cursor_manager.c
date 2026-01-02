@@ -1,6 +1,8 @@
 /**
  * @file cursor_manager.c
  * @brief LLE Cursor Position Management Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Specification: Spec 03 - Buffer Management, Section 6
  *

@@ -1,7 +1,8 @@
 /**
  * @file history_interactive_search.c
- * @brief LLE History System - Interactive Search Implementation (Spec 09 Phase
- * 3 Day 9)
+ * @brief LLE History System - Interactive Search Implementation (Spec 09 Phase 3 Day 9)
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Implements Ctrl+R reverse incremental search for the LLE history system:
  * - Real-time search as user types
@@ -18,9 +19,6 @@
  * - Enter accepts current match and exits search
  * - Ctrl+C/Ctrl+G cancels search and returns to original line
  * - Other keys exit search and process the key
- *
- * @date 2025-11-01
- * @author LLE Implementation Team
  */
 
 #include "lle/error_handling.h"
@@ -45,7 +43,12 @@
  */
 
 /**
- * Duplicate a string using pool allocation
+ * @brief Duplicate a string using pool allocation
+ *
+ * Allocates memory from the LLE memory pool and copies the input string.
+ *
+ * @param str String to duplicate (may be NULL)
+ * @return Pointer to duplicated string, or NULL if str is NULL or allocation fails
  */
 static char *pool_strdup(const char *str) {
     if (!str)
@@ -121,7 +124,10 @@ static lle_interactive_search_session_t g_search_session = {
  */
 
 /**
- * Update prompt string based on current search state
+ * @brief Update prompt string based on current search state
+ *
+ * Generates the appropriate prompt string for display during interactive
+ * search, such as "(reverse-i-search)`query': " or "(failed reverse-i-search)".
  */
 static void update_prompt_string(void) {
     lle_interactive_search_session_t *session = &g_search_session;
@@ -160,7 +166,10 @@ static void update_prompt_string(void) {
 }
 
 /**
- * Perform search with current query
+ * @brief Perform search with current query
+ *
+ * Executes a substring search using the current query string.
+ * Updates search state and statistics.
  *
  * @return true if search succeeded and found results, false otherwise
  */
@@ -227,15 +236,16 @@ static bool perform_search(void) {
  */
 
 /**
- * Initialize interactive search session
+ * @brief Initialize interactive search session
  *
  * Starts a new Ctrl+R search session. Saves the current line and cursor
- * position so they can be restored on cancel.
+ * position so they can be restored on cancel. If a previous session is
+ * active, it will be cancelled first.
  *
- * @param history_core History core engine
- * @param current_line Current line buffer (will be saved for cancel)
+ * @param history_core History core engine (must not be NULL)
+ * @param current_line Current line buffer (will be saved for cancel, may be NULL)
  * @param cursor_pos Current cursor position
- * @return LLE_SUCCESS or error code
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if history_core is NULL
  */
 lle_result_t
 lle_history_interactive_search_init(lle_history_core_t *history_core,
@@ -285,13 +295,14 @@ lle_history_interactive_search_init(lle_history_core_t *history_core,
 }
 
 /**
- * Update search query with new character
+ * @brief Update search query with new character
  *
  * Appends a character to the search query and re-runs the search.
  * This is called for each keypress during interactive search.
  *
  * @param c Character to append to query
- * @return LLE_SUCCESS or error code
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_STATE if no active session,
+ *         LLE_ERROR_BUFFER_OVERFLOW if query is at maximum length
  */
 lle_result_t lle_history_interactive_search_update_query(char c) {
     lle_interactive_search_session_t *session = &g_search_session;
@@ -317,9 +328,12 @@ lle_result_t lle_history_interactive_search_update_query(char c) {
 }
 
 /**
- * Remove last character from search query (backspace)
+ * @brief Remove last character from search query (backspace)
  *
- * @return LLE_SUCCESS or error code
+ * Removes the last character from the query and re-runs the search.
+ * Does nothing if query is already empty.
+ *
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_STATE if no active session
  */
 lle_result_t lle_history_interactive_search_backspace(void) {
     lle_interactive_search_session_t *session = &g_search_session;
@@ -345,12 +359,13 @@ lle_result_t lle_history_interactive_search_backspace(void) {
 }
 
 /**
- * Move to next (older) search result
+ * @brief Move to next (older) search result
  *
  * Called when user presses Ctrl+R during an active search.
  * Moves to the next match in the result list (older command).
+ * Wraps around to first result when reaching the end.
  *
- * @return LLE_SUCCESS or error code
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_STATE if no active session
  */
 lle_result_t lle_history_interactive_search_next(void) {
     lle_interactive_search_session_t *session = &g_search_session;
@@ -380,12 +395,13 @@ lle_result_t lle_history_interactive_search_next(void) {
 }
 
 /**
- * Move to previous (newer) search result
+ * @brief Move to previous (newer) search result
  *
  * Called when user presses Ctrl+S during an active search.
  * Moves to the previous match in the result list (newer command).
+ * Wraps around to last result when reaching the beginning.
  *
- * @return LLE_SUCCESS or error code
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_STATE if no active session
  */
 lle_result_t lle_history_interactive_search_prev(void) {
     lle_interactive_search_session_t *session = &g_search_session;
@@ -417,12 +433,13 @@ lle_result_t lle_history_interactive_search_prev(void) {
 }
 
 /**
- * Accept current search result and exit search mode
+ * @brief Accept current search result and exit search mode
  *
  * Returns the selected command for execution. The caller is responsible
- * for placing this command in the input buffer.
+ * for placing this command in the input buffer. The returned string is
+ * owned by the search session and must be copied before the next search.
  *
- * @return Command string (owned by search session, must be copied) or NULL
+ * @return Command string (owned by search session, must be copied) or NULL if no active session or no results
  */
 const char *lle_history_interactive_search_accept(void) {
     lle_interactive_search_session_t *session = &g_search_session;
@@ -461,11 +478,12 @@ const char *lle_history_interactive_search_accept(void) {
 }
 
 /**
- * Cancel search and restore original line
+ * @brief Cancel search and restore original line
  *
  * Returns the original line that was active when search started.
+ * Frees search results and marks the session as inactive.
  *
- * @return Original line (owned by session, must be copied) or NULL
+ * @return Original line (owned by session, must be copied) or NULL if no active session
  */
 const char *lle_history_interactive_search_cancel(void) {
     lle_interactive_search_session_t *session = &g_search_session;
@@ -498,18 +516,22 @@ const char *lle_history_interactive_search_cancel(void) {
  */
 
 /**
- * Check if search is currently active
+ * @brief Check if search is currently active
  *
- * @return true if search session is active
+ * Returns whether an interactive search session is currently in progress.
+ *
+ * @return true if search session is active, false otherwise
  */
 bool lle_history_interactive_search_is_active(void) {
     return g_search_session.active;
 }
 
 /**
- * Get current search query
+ * @brief Get current search query
  *
- * @return Current query string (read-only)
+ * Returns the current search query string entered by the user.
+ *
+ * @return Current query string (read-only), or empty string if no active session
  */
 const char *lle_history_interactive_search_get_query(void) {
     if (!g_search_session.active) {
@@ -519,11 +541,12 @@ const char *lle_history_interactive_search_get_query(void) {
 }
 
 /**
- * Get current search prompt string
+ * @brief Get current search prompt string
  *
- * Returns the prompt string to display (e.g., "(reverse-i-search)`query': ")
+ * Returns the prompt string to display (e.g., "(reverse-i-search)`query': ").
+ * Updates based on search state (active, no results, failed).
  *
- * @return Prompt string (read-only)
+ * @return Prompt string (read-only), or empty string if no active session
  */
 const char *lle_history_interactive_search_get_prompt(void) {
     if (!g_search_session.active) {
@@ -533,11 +556,12 @@ const char *lle_history_interactive_search_get_prompt(void) {
 }
 
 /**
- * Get currently selected command
+ * @brief Get currently selected command
  *
  * Returns the command that is currently highlighted in the search results.
+ * This is what would be accepted if the user presses Enter.
  *
- * @return Current command (read-only) or NULL if no results
+ * @return Current command (read-only) or NULL if no active session, no results, or index out of bounds
  */
 const char *lle_history_interactive_search_get_current_command(void) {
     lle_interactive_search_session_t *session = &g_search_session;
@@ -563,9 +587,11 @@ const char *lle_history_interactive_search_get_current_command(void) {
 }
 
 /**
- * Get search state
+ * @brief Get search state
  *
- * @return Current search state
+ * Returns the current state of the interactive search session.
+ *
+ * @return Current search state (INACTIVE, ACTIVE, NO_RESULTS, or FAILED)
  */
 lle_interactive_search_state_t lle_history_interactive_search_get_state(void) {
     return g_search_session.state;
@@ -577,12 +603,14 @@ lle_interactive_search_state_t lle_history_interactive_search_get_state(void) {
  */
 
 /**
- * Get search statistics
+ * @brief Get search statistics
  *
- * @param searches_performed Number of searches performed (output)
- * @param total_time_us Total search time in microseconds (output)
- * @param avg_time_us Average search time in microseconds (output)
- * @return LLE_SUCCESS or error code
+ * Returns cumulative statistics about search performance since last reset.
+ *
+ * @param searches_performed Output for number of searches performed (may be NULL)
+ * @param total_time_us Output for total search time in microseconds (may be NULL)
+ * @param avg_time_us Output for average search time in microseconds (may be NULL)
+ * @return LLE_SUCCESS always
  */
 lle_result_t
 lle_history_interactive_search_get_stats(uint64_t *searches_performed,
@@ -611,7 +639,10 @@ lle_history_interactive_search_get_stats(uint64_t *searches_performed,
 }
 
 /**
- * Print search statistics (for debugging)
+ * @brief Print search statistics (for debugging)
+ *
+ * Outputs detailed search session statistics to stdout, including
+ * active state, query, search counts, timing, and current results.
  */
 void lle_history_interactive_search_print_stats(void) {
     lle_interactive_search_session_t *session = &g_search_session;
@@ -640,7 +671,9 @@ void lle_history_interactive_search_print_stats(void) {
 }
 
 /**
- * Reset search statistics
+ * @brief Reset search statistics
+ *
+ * Clears the cumulative search statistics (searches performed and total time).
  */
 void lle_history_interactive_search_reset_stats(void) {
     g_search_session.searches_performed = 0;

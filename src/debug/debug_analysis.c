@@ -1,3 +1,15 @@
+/**
+ * @file debug_analysis.c
+ * @brief Script Analysis and Issue Detection
+ *
+ * Provides static analysis capabilities for shell scripts, detecting
+ * syntax errors, style issues, security vulnerabilities, performance
+ * anti-patterns, and portability concerns.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ */
+
 #include "debug.h"
 #include "errors.h"
 #include "node.h"
@@ -23,7 +35,11 @@ static void debug_analyze_security(debug_context_t *ctx, const char *file,
 static void debug_analyze_portability(debug_context_t *ctx, const char *file,
                                       const char *content);
 
-// Analyze a script file for issues
+/**
+ * @brief Analyze a script file for various issues
+ * @param ctx Debug context for output
+ * @param script_path Path to the script file to analyze
+ */
 void debug_analyze_script(debug_context_t *ctx, const char *script_path) {
     if (!ctx || !script_path) {
         return;
@@ -77,7 +93,16 @@ void debug_analyze_script(debug_context_t *ctx, const char *script_path) {
     free(script_content);
 }
 
-// Add analysis issue
+/**
+ * @brief Add an analysis issue to the context
+ * @param ctx Debug context
+ * @param file File path where issue was found
+ * @param line Line number of the issue
+ * @param severity Severity level (error, warning, info)
+ * @param category Category of issue (syntax, style, security, etc.)
+ * @param message Description of the issue
+ * @param suggestion Suggested fix for the issue
+ */
 void debug_add_analysis_issue(debug_context_t *ctx, const char *file, int line,
                               const char *severity, const char *category,
                               const char *message, const char *suggestion) {
@@ -102,7 +127,12 @@ void debug_add_analysis_issue(debug_context_t *ctx, const char *file, int line,
     ctx->issue_count++;
 }
 
-// Analyze syntax issues
+/**
+ * @brief Analyze script for syntax issues
+ * @param ctx Debug context
+ * @param file File path being analyzed
+ * @param content Script content to analyze
+ */
 static void debug_analyze_syntax(debug_context_t *ctx, const char *file,
                                  const char *content) {
     if (!ctx || !file || !content) {
@@ -136,7 +166,12 @@ static void debug_analyze_syntax(debug_context_t *ctx, const char *file,
     }
 }
 
-// Analyze style issues
+/**
+ * @brief Analyze script for style issues
+ * @param ctx Debug context
+ * @param file File path being analyzed
+ * @param content Script content to analyze
+ */
 static void debug_analyze_style(debug_context_t *ctx, const char *file,
                                 const char *content) {
     if (!ctx || !file || !content) {
@@ -208,7 +243,12 @@ static void debug_analyze_style(debug_context_t *ctx, const char *file,
     }
 }
 
-// Analyze performance issues
+/**
+ * @brief Analyze script for performance issues
+ * @param ctx Debug context
+ * @param file File path being analyzed
+ * @param content Script content to analyze
+ */
 static void debug_analyze_performance(debug_context_t *ctx, const char *file,
                                       const char *content) {
     if (!ctx || !file || !content) {
@@ -247,7 +287,12 @@ static void debug_analyze_performance(debug_context_t *ctx, const char *file,
     }
 }
 
-// Analyze security issues
+/**
+ * @brief Analyze script for security issues
+ * @param ctx Debug context
+ * @param file File path being analyzed
+ * @param content Script content to analyze
+ */
 static void debug_analyze_security(debug_context_t *ctx, const char *file,
                                    const char *content) {
     if (!ctx || !file || !content) {
@@ -305,7 +350,12 @@ static void debug_analyze_security(debug_context_t *ctx, const char *file,
     }
 }
 
-// Analyze portability issues
+/**
+ * @brief Analyze script for portability issues
+ * @param ctx Debug context
+ * @param file File path being analyzed
+ * @param content Script content to analyze
+ */
 static void debug_analyze_portability(debug_context_t *ctx, const char *file,
                                       const char *content) {
     if (!ctx || !file || !content) {
@@ -351,7 +401,10 @@ static void debug_analyze_portability(debug_context_t *ctx, const char *file,
     }
 }
 
-// Show analysis report
+/**
+ * @brief Display the analysis report
+ * @param ctx Debug context containing analysis results
+ */
 void debug_show_analysis_report(debug_context_t *ctx) {
     if (!ctx) {
         return;

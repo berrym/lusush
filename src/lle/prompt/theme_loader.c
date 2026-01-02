@@ -1,6 +1,8 @@
 /**
  * @file theme_loader.c
  * @brief LLE Theme File Loader - File I/O and Theme Loading Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Specification: Issue #21 - Theme File Loading System
  * Version: 1.0.0
@@ -31,7 +33,12 @@ int strcasecmp(const char *s1, const char *s2);
  */
 
 /**
- * @brief Read entire file into buffer
+ * @brief Read entire file contents into a dynamically allocated buffer.
+ *
+ * @param filepath The path to the file to read.
+ * @param content Output pointer to receive the allocated buffer.
+ * @param content_len Output pointer to receive the content length.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 static lle_result_t read_file_contents(const char *filepath, char **content,
                                        size_t *content_len) {
@@ -86,7 +93,10 @@ static lle_result_t read_file_contents(const char *filepath, char **content,
 }
 
 /**
- * @brief Check if a path has the .toml extension
+ * @brief Check if a path has the .toml extension.
+ *
+ * @param path The file path to check.
+ * @return true if the path ends with .toml, false otherwise.
  */
 static bool has_toml_extension(const char *path) {
     size_t len = strlen(path);
@@ -100,7 +110,12 @@ static bool has_toml_extension(const char *path) {
 }
 
 /**
- * @brief Get home directory path
+ * @brief Get the user's home directory path.
+ *
+ * Checks the HOME environment variable first, then falls back
+ * to the passwd entry.
+ *
+ * @return The home directory path, or NULL if not found.
  */
 static const char *get_home_dir(void) {
     const char *home = getenv("HOME");
@@ -118,7 +133,10 @@ static const char *get_home_dir(void) {
 }
 
 /**
- * @brief Create directory recursively
+ * @brief Create a directory and all parent directories recursively.
+ *
+ * @param path The directory path to create.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 static lle_result_t mkdir_recursive(const char *path) {
     char tmp[LLE_THEME_PATH_MAX];
@@ -155,7 +173,15 @@ static lle_result_t mkdir_recursive(const char *path) {
  */
 
 /**
- * @brief Load a theme from a file path
+ * @brief Load a theme from a TOML file.
+ *
+ * Reads and parses a theme file, populating the theme structure
+ * with the parsed configuration.
+ *
+ * @param filepath The path to the theme file.
+ * @param theme Output structure to receive the loaded theme.
+ * @param result Optional output for detailed load results and errors.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t lle_theme_load_from_file(const char *filepath, lle_theme_t *theme,
                                       lle_theme_load_result_t *result) {
@@ -202,7 +228,14 @@ lle_result_t lle_theme_load_from_file(const char *filepath, lle_theme_t *theme,
 }
 
 /**
- * @brief Load a theme from a string
+ * @brief Load a theme from a TOML string.
+ *
+ * Parses TOML content and populates the theme structure.
+ *
+ * @param content The TOML content string.
+ * @param theme Output structure to receive the loaded theme.
+ * @param result Optional output for detailed load results and errors.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t lle_theme_load_from_string(const char *content, lle_theme_t *theme,
                                         lle_theme_load_result_t *result) {
@@ -265,7 +298,15 @@ lle_result_t lle_theme_load_from_string(const char *content, lle_theme_t *theme,
 }
 
 /**
- * @brief Load all themes from a directory
+ * @brief Load all theme files from a directory.
+ *
+ * Scans the directory for .toml files and loads each as a theme,
+ * registering them with the provided registry.
+ *
+ * @param dirpath The directory path to scan.
+ * @param registry The theme registry to register loaded themes with.
+ * @param result Optional output for batch load results.
+ * @return The number of themes successfully loaded.
  */
 size_t lle_theme_load_directory(const char *dirpath,
                                 lle_theme_registry_t *registry,
@@ -380,7 +421,13 @@ size_t lle_theme_load_directory(const char *dirpath,
 }
 
 /**
- * @brief Load user themes from standard locations
+ * @brief Load user themes from standard locations.
+ *
+ * Loads themes from both the user directory (~/.config/lusush/themes)
+ * and the system directory (/usr/share/lusush/themes).
+ *
+ * @param registry The theme registry to register loaded themes with.
+ * @return The total number of themes loaded.
  */
 size_t lle_theme_load_user_themes(lle_theme_registry_t *registry) {
     if (!registry) {
@@ -411,7 +458,13 @@ size_t lle_theme_load_user_themes(lle_theme_registry_t *registry) {
  */
 
 /**
- * @brief Reload all user themes
+ * @brief Reload all user themes from standard locations.
+ *
+ * Scans user and system directories for new themes and loads them.
+ * Existing themes are not replaced.
+ *
+ * @param registry The theme registry to update.
+ * @return The number of new themes loaded.
  */
 size_t lle_theme_reload_user_themes(lle_theme_registry_t *registry) {
     if (!registry) {
@@ -441,7 +494,14 @@ size_t lle_theme_reload_user_themes(lle_theme_registry_t *registry) {
 }
 
 /**
- * @brief Reload a specific theme from its file
+ * @brief Reload a specific theme by name from its file.
+ *
+ * Finds the theme file and reloads its content, updating the
+ * existing theme in the registry.
+ *
+ * @param registry The theme registry containing the theme.
+ * @param name The name of the theme to reload.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t lle_theme_reload_by_name(lle_theme_registry_t *registry,
                                       const char *name) {
@@ -496,7 +556,14 @@ lle_result_t lle_theme_reload_by_name(lle_theme_registry_t *registry,
  */
 
 /**
- * @brief Escape a string for TOML output
+ * @brief Escape a string for TOML output with proper quoting.
+ *
+ * Adds surrounding quotes and escapes special characters.
+ *
+ * @param input The input string to escape.
+ * @param output Buffer to receive the escaped string.
+ * @param output_size Size of the output buffer.
+ * @return The number of characters written.
  */
 static size_t toml_escape_string(const char *input, char *output,
                                  size_t output_size) {
@@ -552,7 +619,14 @@ static size_t toml_escape_string(const char *input, char *output,
 }
 
 /**
- * @brief Format a color as TOML inline table
+ * @brief Format a color as a TOML inline table.
+ *
+ * Converts the color to TOML format like { fg = "red", bold = true }.
+ *
+ * @param color The color to format.
+ * @param output Buffer to receive the formatted string.
+ * @param output_size Size of the output buffer.
+ * @return The number of characters written, or 0 on error.
  */
 static size_t format_color_toml(const lle_color_t *color, char *output,
                                 size_t output_size) {
@@ -615,7 +689,10 @@ static size_t format_color_toml(const lle_color_t *color, char *output,
 }
 
 /**
- * @brief Get category name string
+ * @brief Convert a theme category enum to its string representation.
+ *
+ * @param category The theme category.
+ * @return A static string with the category name.
  */
 static const char *category_to_string(lle_theme_category_t category) {
     switch (category) {
@@ -638,7 +715,15 @@ static const char *category_to_string(lle_theme_category_t category) {
 }
 
 /**
- * @brief Export a theme to TOML format
+ * @brief Export a theme to TOML format string.
+ *
+ * Serializes the theme structure to a TOML-formatted string
+ * suitable for saving to a file.
+ *
+ * @param theme The theme to export.
+ * @param output Buffer to receive the TOML content.
+ * @param output_size Size of the output buffer.
+ * @return The number of characters written.
  */
 size_t lle_theme_export_to_toml(const lle_theme_t *theme, char *output,
                                 size_t output_size) {
@@ -927,7 +1012,13 @@ size_t lle_theme_export_to_toml(const lle_theme_t *theme, char *output,
 }
 
 /**
- * @brief Export a theme to a file
+ * @brief Export a theme to a TOML file.
+ *
+ * Serializes the theme and writes it to the specified file path.
+ *
+ * @param theme The theme to export.
+ * @param filepath The destination file path.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t lle_theme_export_to_file(const lle_theme_t *theme,
                                       const char *filepath) {
@@ -972,7 +1063,14 @@ lle_result_t lle_theme_export_to_file(const lle_theme_t *theme,
  */
 
 /**
- * @brief Get the user theme directory path
+ * @brief Get the user theme directory path.
+ *
+ * Returns the path to the user's theme directory, typically
+ * ~/.config/lusush/themes or $XDG_CONFIG_HOME/lusush/themes.
+ *
+ * @param buffer Buffer to receive the path.
+ * @param size Size of the buffer.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t lle_theme_get_user_dir(char *buffer, size_t size) {
     if (!buffer || size == 0) {
@@ -997,7 +1095,13 @@ lle_result_t lle_theme_get_user_dir(char *buffer, size_t size) {
 }
 
 /**
- * @brief Get the system theme directory path
+ * @brief Get the system theme directory path.
+ *
+ * Returns the path to the system-wide theme directory.
+ *
+ * @param buffer Buffer to receive the path.
+ * @param size Size of the buffer.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t lle_theme_get_system_dir(char *buffer, size_t size) {
     if (!buffer || size == 0) {
@@ -1009,7 +1113,10 @@ lle_result_t lle_theme_get_system_dir(char *buffer, size_t size) {
 }
 
 /**
- * @brief Check if a theme file exists
+ * @brief Check if a theme file exists and is a regular file.
+ *
+ * @param filepath The path to check.
+ * @return true if the file exists and is a regular file.
  */
 bool lle_theme_file_exists(const char *filepath) {
     if (!filepath) {
@@ -1021,7 +1128,11 @@ bool lle_theme_file_exists(const char *filepath) {
 }
 
 /**
- * @brief Create user theme directory if it doesn't exist
+ * @brief Create the user theme directory if it doesn't exist.
+ *
+ * Creates the directory and all parent directories as needed.
+ *
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t lle_theme_ensure_user_dir(void) {
     char user_dir[LLE_THEME_PATH_MAX];
@@ -1040,7 +1151,11 @@ lle_result_t lle_theme_ensure_user_dir(void) {
  */
 
 /**
- * @brief Initialize a batch result structure
+ * @brief Initialize a batch result structure for directory loading.
+ *
+ * @param result The batch result structure to initialize.
+ * @param capacity Maximum number of individual results to store.
+ * @return LLE_SUCCESS on success, or an error code on failure.
  */
 lle_result_t lle_theme_batch_result_init(lle_theme_batch_result_t *result,
                                          size_t capacity) {
@@ -1062,7 +1177,9 @@ lle_result_t lle_theme_batch_result_init(lle_theme_batch_result_t *result,
 }
 
 /**
- * @brief Free resources in a batch result structure
+ * @brief Free resources in a batch result structure.
+ *
+ * @param result The batch result structure to clean up.
  */
 void lle_theme_batch_result_cleanup(lle_theme_batch_result_t *result) {
     if (!result) {

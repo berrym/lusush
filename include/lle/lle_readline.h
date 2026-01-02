@@ -1,6 +1,8 @@
 /**
  * @file lle_readline.h
  * @brief LLE Readline Function - Public API
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * This header declares lle_readline(), the main entry point for interactive
  * line editing in LLE. This function replaces GNU readline's readline() when

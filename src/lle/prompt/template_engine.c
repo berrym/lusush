@@ -18,6 +18,13 @@
 /* Token Creation                                                             */
 /* ========================================================================== */
 
+/**
+ * @brief Create a literal text token.
+ *
+ * @param text The literal text content.
+ * @param len Length of the text.
+ * @return Allocated token, or NULL on failure.
+ */
 lle_template_token_t *lle_template_token_literal(const char *text, size_t len) {
     if (!text || len == 0) {
         return NULL;
@@ -39,6 +46,12 @@ lle_template_token_t *lle_template_token_literal(const char *text, size_t len) {
     return token;
 }
 
+/**
+ * @brief Create a segment reference token.
+ *
+ * @param name The segment name to reference.
+ * @return Allocated token, or NULL on failure.
+ */
 lle_template_token_t *lle_template_token_segment(const char *name) {
     if (!name || strlen(name) == 0) {
         return NULL;
@@ -57,6 +70,13 @@ lle_template_token_t *lle_template_token_segment(const char *name) {
     return token;
 }
 
+/**
+ * @brief Create a segment property access token.
+ *
+ * @param segment The segment name.
+ * @param property The property name to access.
+ * @return Allocated token, or NULL on failure.
+ */
 lle_template_token_t *lle_template_token_property(const char *segment,
                                                   const char *property) {
     if (!segment || !property) {
@@ -78,6 +98,15 @@ lle_template_token_t *lle_template_token_property(const char *segment,
     return token;
 }
 
+/**
+ * @brief Create a conditional token.
+ *
+ * @param segment The segment to check for visibility.
+ * @param property Optional property to check (NULL for segment visibility).
+ * @param true_val Value to use when condition is true.
+ * @param false_val Value to use when condition is false.
+ * @return Allocated token, or NULL on failure.
+ */
 lle_template_token_t *lle_template_token_conditional(const char *segment,
                                                      const char *property,
                                                      const char *true_val,
@@ -118,6 +147,13 @@ lle_template_token_t *lle_template_token_conditional(const char *segment,
     return token;
 }
 
+/**
+ * @brief Create a color application token.
+ *
+ * @param color The semantic color name.
+ * @param text The text to apply color to.
+ * @return Allocated token, or NULL on failure.
+ */
 lle_template_token_t *lle_template_token_color(const char *color,
                                                const char *text) {
     if (!color || !text) {
@@ -138,6 +174,11 @@ lle_template_token_t *lle_template_token_color(const char *color,
     return token;
 }
 
+/**
+ * @brief Create a newline token.
+ *
+ * @return Allocated token, or NULL on failure.
+ */
 lle_template_token_t *lle_template_token_newline(void) {
     lle_template_token_t *token = calloc(1, sizeof(*token));
     if (!token) {
@@ -148,6 +189,11 @@ lle_template_token_t *lle_template_token_newline(void) {
     return token;
 }
 
+/**
+ * @brief Create an end-of-template token.
+ *
+ * @return Allocated token, or NULL on failure.
+ */
 lle_template_token_t *lle_template_token_end(void) {
     lle_template_token_t *token = calloc(1, sizeof(*token));
     if (!token) {
@@ -158,6 +204,11 @@ lle_template_token_t *lle_template_token_end(void) {
     return token;
 }
 
+/**
+ * @brief Free a template token.
+ *
+ * @param token The token to free, or NULL for no-op.
+ */
 void lle_template_token_free(lle_template_token_t *token) { free(token); }
 
 /* ========================================================================== */
@@ -165,7 +216,10 @@ void lle_template_token_free(lle_template_token_t *token) { free(token); }
 /* ========================================================================== */
 
 /**
- * Add a token to a parsed template
+ * @brief Add a token to a parsed template's token list.
+ *
+ * @param tmpl The parsed template to add to.
+ * @param token The token to add.
  */
 static void template_add_token(lle_parsed_template_t *tmpl,
                                lle_template_token_t *token) {
@@ -183,7 +237,10 @@ static void template_add_token(lle_parsed_template_t *tmpl,
 }
 
 /**
- * Find closing brace, handling nested braces
+ * @brief Find the closing brace, handling nested braces.
+ *
+ * @param p Pointer to the character after the opening brace.
+ * @return Pointer to the closing brace, or NULL if not found.
  */
 static const char *template_find_closing_brace(const char *p) {
     int depth = 1;
@@ -201,7 +258,12 @@ static const char *template_find_closing_brace(const char *p) {
 }
 
 /**
- * Parse conditional content: segment.prop:true:false or segment:true:false
+ * @brief Parse conditional content into a conditional token.
+ *
+ * Parses format: segment:true:false or segment.prop:true:false
+ *
+ * @param content The content string after the ? prefix.
+ * @return Allocated conditional token, or NULL on failure.
  */
 static lle_template_token_t *parse_conditional(const char *content) {
     /* Format: ?segment:true:false or ?segment.prop:true:false */
@@ -254,7 +316,12 @@ static lle_template_token_t *parse_conditional(const char *content) {
 }
 
 /**
- * Parse color application: color:text
+ * @brief Parse color application syntax into a color token.
+ *
+ * Parses format: color:text
+ *
+ * @param content The content string.
+ * @return Allocated color token, or NULL on failure.
  */
 static lle_template_token_t *parse_color(const char *content) {
     char color[LLE_TEMPLATE_SEGMENT_MAX] = {0};
@@ -278,7 +345,12 @@ static lle_template_token_t *parse_color(const char *content) {
 }
 
 /**
- * Parse segment or property reference: segment or segment.property
+ * @brief Parse segment or property reference into a token.
+ *
+ * Parses format: segment or segment.property
+ *
+ * @param content The content string.
+ * @return Allocated segment or property token, or NULL on failure.
  */
 static lle_template_token_t *parse_segment_or_property(const char *content) {
     const char *dot = strchr(content, '.');
@@ -307,6 +379,16 @@ static lle_template_token_t *parse_segment_or_property(const char *content) {
 /* Template Parsing                                                           */
 /* ========================================================================== */
 
+/**
+ * @brief Parse a template string into a token list.
+ *
+ * Tokenizes the template string, recognizing escape sequences,
+ * variable references, conditionals, and color applications.
+ *
+ * @param template_str The template string to parse.
+ * @param parsed Output pointer to receive the parsed template.
+ * @return LLE_SUCCESS on success, or an error code on failure.
+ */
 lle_result_t lle_template_parse(const char *template_str,
                                 lle_parsed_template_t **parsed) {
     if (!template_str || !parsed) {
@@ -427,6 +509,11 @@ lle_result_t lle_template_parse(const char *template_str,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Free a parsed template and all its tokens.
+ *
+ * @param parsed The parsed template to free, or NULL for no-op.
+ */
 void lle_template_free(lle_parsed_template_t *parsed) {
     if (!parsed) {
         return;
@@ -442,6 +529,14 @@ void lle_template_free(lle_parsed_template_t *parsed) {
     free(parsed);
 }
 
+/**
+ * @brief Validate a template string for syntax errors.
+ *
+ * Checks for balanced braces and proper escape sequences.
+ *
+ * @param template_str The template string to validate.
+ * @return true if valid, false otherwise.
+ */
 bool lle_template_validate(const char *template_str) {
     if (!template_str) {
         return false;
@@ -479,6 +574,17 @@ bool lle_template_validate(const char *template_str) {
 /* Template Rendering                                                         */
 /* ========================================================================== */
 
+/**
+ * @brief Render a parsed template to a string.
+ *
+ * Evaluates all tokens using the provided render context callbacks.
+ *
+ * @param tmpl The parsed template to render.
+ * @param render_ctx Context with callbacks for segment/color lookup.
+ * @param output Buffer to receive the rendered output.
+ * @param output_size Size of the output buffer.
+ * @return LLE_SUCCESS on success, or an error code on failure.
+ */
 lle_result_t lle_template_render(const lle_parsed_template_t *tmpl,
                                  const lle_template_render_ctx_t *render_ctx,
                                  char *output, size_t output_size) {
@@ -650,6 +756,17 @@ lle_result_t lle_template_render(const lle_parsed_template_t *tmpl,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Parse and render a template string in one step.
+ *
+ * Convenience function that combines parsing and rendering.
+ *
+ * @param template_str The template string to evaluate.
+ * @param render_ctx Context with callbacks for segment/color lookup.
+ * @param output Buffer to receive the rendered output.
+ * @param output_size Size of the output buffer.
+ * @return LLE_SUCCESS on success, or an error code on failure.
+ */
 lle_result_t lle_template_evaluate(const char *template_str,
                                    const lle_template_render_ctx_t *render_ctx,
                                    char *output, size_t output_size) {

@@ -1,5 +1,8 @@
-/*
- * terminal_abstraction.c - Main Terminal Abstraction (Spec 02)
+/**
+ * @file terminal_abstraction.c
+ * @brief Main Terminal Abstraction (Spec 02)
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Main initialization and destruction for LLE Terminal Abstraction system.
  * Coordinates all 8 subsystems:
@@ -25,11 +28,15 @@
  * ============================================================================
  */
 
-/*
- * Initialize terminal abstraction system
+/**
+ * @brief Initialize terminal abstraction system
  *
  * This is the main entry point for LLE terminal abstraction. It initializes
  * all 8 subsystems in the correct order with proper error handling.
+ *
+ * @param abstraction Output pointer for created abstraction
+ * @param lusush_display Lusush display context
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t
 lle_terminal_abstraction_init(lle_terminal_abstraction_t **abstraction,
@@ -135,10 +142,12 @@ lle_terminal_abstraction_init(lle_terminal_abstraction_t **abstraction,
     return LLE_SUCCESS;
 }
 
-/*
- * Destroy terminal abstraction system
+/**
+ * @brief Destroy terminal abstraction system
  *
  * Cleans up all subsystems in reverse order of initialization.
+ *
+ * @param abstraction Abstraction to destroy
  */
 void lle_terminal_abstraction_destroy(lle_terminal_abstraction_t *abstraction) {
     if (!abstraction) {

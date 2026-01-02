@@ -1,15 +1,13 @@
-/*
- * Lusush Shell - LLE Completion State Implementation
- * Copyright (C) 2021-2026  Michael Berry
+/**
+ * @file completion_state.c
+ * @brief LLE Completion State Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- *
- * ============================================================================
- *
- * COMPLETION STATE IMPLEMENTATION - Spec 12 Core
  *
  * Tracks state of active completion session.
  * Used for inline TAB cycling and menu navigation.
@@ -22,6 +20,16 @@
 // PUBLIC API
 // ============================================================================
 
+/**
+ * @brief Create a new completion state
+ * @param pool Memory pool for allocations
+ * @param buffer Current input buffer
+ * @param cursor_pos Cursor position in buffer
+ * @param context Analyzed context
+ * @param results Completion results
+ * @param out_state Output for created state
+ * @return LLE_SUCCESS or error code
+ */
 lle_result_t lle_completion_state_create(lle_memory_pool_t *pool,
                                          const char *buffer, size_t cursor_pos,
                                          lle_context_analyzer_t *context,
@@ -73,6 +81,10 @@ lle_result_t lle_completion_state_create(lle_memory_pool_t *pool,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Free completion state resources
+ * @param state State to free
+ */
 void lle_completion_state_free(lle_completion_state_t *state) {
     if (!state) {
         return;
@@ -83,6 +95,11 @@ void lle_completion_state_free(lle_completion_state_t *state) {
     state->active = false;
 }
 
+/**
+ * @brief Cycle to next completion in TAB cycling mode
+ * @param state Completion state
+ * @return Text of next completion or NULL
+ */
 const char *lle_completion_state_cycle_next(lle_completion_state_t *state) {
     if (!state || !state->active || !state->results) {
         return NULL;
@@ -99,6 +116,11 @@ const char *lle_completion_state_cycle_next(lle_completion_state_t *state) {
     return state->results->items[state->current_index].text;
 }
 
+/**
+ * @brief Cycle to previous completion in TAB cycling mode
+ * @param state Completion state
+ * @return Text of previous completion or NULL
+ */
 const char *lle_completion_state_cycle_prev(lle_completion_state_t *state) {
     if (!state || !state->active || !state->results) {
         return NULL;
@@ -118,6 +140,11 @@ const char *lle_completion_state_cycle_prev(lle_completion_state_t *state) {
     return state->results->items[state->current_index].text;
 }
 
+/**
+ * @brief Get currently selected completion text
+ * @param state Completion state
+ * @return Current completion text or NULL
+ */
 const char *
 lle_completion_state_get_current(const lle_completion_state_t *state) {
     if (!state || !state->active || !state->results) {

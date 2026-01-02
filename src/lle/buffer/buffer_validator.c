@@ -1,6 +1,8 @@
 /**
  * @file buffer_validator.c
  * @brief Buffer Validation Subsystem Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Spec Reference: Spec 03 Section 8 - Buffer Validation and Integrity
  *

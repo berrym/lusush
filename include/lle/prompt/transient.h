@@ -1,6 +1,8 @@
 /**
  * @file transient.h
  * @brief LLE Transient Prompt System - Type Definitions
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Specification: Spec 25 Section 12 - Transient Prompt System
  * Version: 1.1.0

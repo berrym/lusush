@@ -1,6 +1,8 @@
 /**
  * @file secure_memory.h
- * @brief Portable Secure Memory Operations
+ * @brief Portable secure memory operations
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Provides portable implementations of:
  * - Secure memory wiping (prevents compiler optimization)
@@ -8,7 +10,6 @@
  *
  * Implementation: Spec 15 Minimal Secure Mode
  * Based on: MLOCK_PORTABILITY_ANALYSIS.md
- * Date: 2025-11-06
  */
 
 #ifndef LLE_SECURE_MEMORY_H

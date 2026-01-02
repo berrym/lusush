@@ -91,7 +91,8 @@
 // ============================================================================
 
 /**
- * Get active theme name from LLE theme registry
+ * @brief Get active theme name from LLE theme registry
+ * @return Name of the active theme, or "default" if none available
  */
 static const char *get_active_theme_name(void) {
     if (g_lle_integration && g_lle_integration->prompt_composer &&
@@ -106,7 +107,8 @@ static const char *get_active_theme_name(void) {
 }
 
 /**
- * Check if a theme is available from LLE
+ * @brief Check if a theme is available from LLE
+ * @return true if a theme is available, false otherwise
  */
 static bool is_theme_available(void) {
     return (g_lle_integration && g_lle_integration->prompt_composer &&
@@ -116,7 +118,9 @@ static bool is_theme_available(void) {
 }
 
 /**
- * Calculate FNV-1a hash for content validation
+ * @brief Calculate FNV-1a hash for content validation
+ * @param content Content string to hash
+ * @return 64-bit hash value, or 0 if content is NULL
  */
 static uint64_t calculate_content_hash(const char *content) {
     if (!content)
@@ -134,7 +138,8 @@ static uint64_t calculate_content_hash(const char *content) {
 }
 
 /**
- * Get current timestamp with nanosecond precision
+ * @brief Get current timestamp with nanosecond precision
+ * @return Current timestamp in nanoseconds from monotonic clock
  */
 static uint64_t get_current_time_ns(void) {
     struct timespec ts = {0};
@@ -143,14 +148,19 @@ static uint64_t get_current_time_ns(void) {
 }
 
 /**
- * Calculate time difference in nanoseconds
+ * @brief Calculate time difference in nanoseconds
+ * @param start_ns Start timestamp in nanoseconds
+ * @param end_ns End timestamp in nanoseconds
+ * @return Difference between end and start in nanoseconds
  */
 static uint64_t time_diff_ns(uint64_t start_ns, uint64_t end_ns) {
     return end_ns - start_ns;
 }
 
 /**
- * Validate layer memory integrity
+ * @brief Validate layer memory integrity using magic numbers
+ * @param layer Prompt layer to validate
+ * @return true if memory is valid, false if corrupted or NULL
  */
 static bool validate_layer_memory(const prompt_layer_t *layer) {
     if (!layer)
@@ -160,7 +170,9 @@ static bool validate_layer_memory(const prompt_layer_t *layer) {
 }
 
 /**
- * Calculate prompt metrics from content
+ * @brief Calculate prompt metrics from content string
+ * @param content Prompt content to analyze
+ * @param metrics Output structure to store calculated metrics
  */
 static void calculate_prompt_metrics(const char *content,
                                      prompt_metrics_t *metrics) {
@@ -250,7 +262,11 @@ static void calculate_prompt_metrics(const char *content,
 }
 
 /**
- * Find cached entry for content and theme
+ * @brief Find cached entry for content and theme combination
+ * @param layer Prompt layer containing cache
+ * @param content Raw prompt content to search for
+ * @param theme_name Theme name to match (may be NULL)
+ * @return Pointer to matching cache entry, or NULL if not found
  */
 static prompt_cache_entry_t *find_cache_entry(prompt_layer_t *layer,
                                               const char *content,
@@ -284,7 +300,13 @@ static prompt_cache_entry_t *find_cache_entry(prompt_layer_t *layer,
 }
 
 /**
- * Create new cache entry
+ * @brief Create new cache entry with rendered content
+ * @param layer Prompt layer containing cache
+ * @param content Raw prompt content to cache
+ * @param rendered_content Rendered prompt content to cache
+ * @param theme_name Theme name for this entry (may be NULL)
+ * @param metrics Calculated metrics for this content
+ * @return Pointer to created cache entry, or NULL on failure
  */
 static prompt_cache_entry_t *
 create_cache_entry(prompt_layer_t *layer, const char *content,
@@ -332,7 +354,8 @@ create_cache_entry(prompt_layer_t *layer, const char *content,
 }
 
 /**
- * Clear all cache entries
+ * @brief Clear all cache entries and free associated memory
+ * @param layer Prompt layer containing cache to clear
  */
 static void clear_cache(prompt_layer_t *layer) {
     if (!layer)
@@ -358,7 +381,10 @@ static void clear_cache(prompt_layer_t *layer) {
 }
 
 /**
- * Update performance statistics
+ * @brief Update performance statistics after a render operation
+ * @param layer Prompt layer to update statistics for
+ * @param render_time_ns Time taken for render in nanoseconds
+ * @param cache_hit Whether this was a cache hit
  */
 static void update_performance_stats(prompt_layer_t *layer,
                                      uint64_t render_time_ns, bool cache_hit) {
@@ -397,7 +423,10 @@ static void update_performance_stats(prompt_layer_t *layer,
 }
 
 /**
- * Event callback handler for theme changes
+ * @brief Event callback handler for theme changes
+ * @param event Layer event that triggered this callback
+ * @param user_data User data (prompt_layer_t pointer)
+ * @return LAYER_EVENTS_SUCCESS on success, error code otherwise
  */
 static layer_events_error_t
 handle_theme_change_event(const layer_event_t *event, void *user_data) {
@@ -420,7 +449,10 @@ handle_theme_change_event(const layer_event_t *event, void *user_data) {
 }
 
 /**
- * Event callback handler for content refresh requests
+ * @brief Event callback handler for content refresh requests
+ * @param event Layer event that triggered this callback
+ * @param user_data User data (prompt_layer_t pointer)
+ * @return LAYER_EVENTS_SUCCESS on success, error code otherwise
  */
 static layer_events_error_t
 handle_content_refresh_event(const layer_event_t *event, void *user_data) {
@@ -440,7 +472,9 @@ handle_content_refresh_event(const layer_event_t *event, void *user_data) {
 }
 
 /**
- * Render prompt content with current theme
+ * @brief Render prompt content with current theme
+ * @param layer Prompt layer to render content for
+ * @return PROMPT_LAYER_SUCCESS on success, error code otherwise
  */
 static prompt_layer_error_t render_prompt_content(prompt_layer_t *layer) {
     if (!layer || !validate_layer_memory(layer)) {

@@ -1,6 +1,8 @@
 /**
  * @file lle_safety.c
  * @brief LLE Safety System - Panic detection and recovery helpers
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Provides additional safety utilities for LLE shell integration:
  * - Triple Ctrl+G panic detection (integrated with lle_shell_integration.c)

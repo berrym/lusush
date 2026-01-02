@@ -1,6 +1,8 @@
 /**
  * @file history_core.c
  * @brief LLE History System - Core Engine Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Specification: Spec 09 - History System
  * Phase: Phase 1 Day 1 - Core Structures and Lifecycle
@@ -27,7 +29,10 @@
  */
 
 /**
- * Create default configuration
+ * @brief Create default history configuration
+ * @param config Output pointer for the created configuration
+ * @param memory_pool Memory pool for allocation (currently uses global pool)
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t lle_history_config_create_default(lle_history_config_t **config,
                                                lle_memory_pool_t *memory_pool) {
@@ -76,7 +81,10 @@ lle_result_t lle_history_config_create_default(lle_history_config_t **config,
 }
 
 /**
- * Destroy configuration
+ * @brief Destroy history configuration and free resources
+ * @param config Configuration to destroy
+ * @param memory_pool Memory pool (currently uses global pool)
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t lle_history_config_destroy(lle_history_config_t *config,
                                         lle_memory_pool_t *memory_pool) {
@@ -103,7 +111,11 @@ lle_result_t lle_history_config_destroy(lle_history_config_t *config,
  */
 
 /**
- * Create history entry
+ * @brief Create a new history entry from a command string
+ * @param entry Output pointer for the created entry
+ * @param command Command string to store in the entry
+ * @param memory_pool Memory pool for allocation (currently uses global pool)
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t lle_history_entry_create(lle_history_entry_t **entry,
                                       const char *command,
@@ -186,7 +198,10 @@ lle_result_t lle_history_entry_create(lle_history_entry_t **entry,
 }
 
 /**
- * Destroy history entry
+ * @brief Destroy a history entry and free all associated resources
+ * @param entry Entry to destroy
+ * @param memory_pool Memory pool (currently uses global pool)
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t lle_history_entry_destroy(lle_history_entry_t *entry,
                                        lle_memory_pool_t *memory_pool) {
@@ -227,7 +242,9 @@ lle_result_t lle_history_entry_destroy(lle_history_entry_t *entry,
 }
 
 /**
- * Validate entry
+ * @brief Validate a history entry for consistency
+ * @param entry Entry to validate
+ * @return LLE_SUCCESS if valid, or error code describing the problem
  */
 lle_result_t lle_history_validate_entry(const lle_history_entry_t *entry) {
     if (!entry) {
@@ -258,7 +275,11 @@ lle_result_t lle_history_validate_entry(const lle_history_entry_t *entry) {
  */
 
 /**
- * Create and initialize history core
+ * @brief Create and initialize the history core engine
+ * @param core Output pointer for the created history core
+ * @param memory_pool Memory pool for allocation
+ * @param config Configuration settings (NULL for defaults)
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t lle_history_core_create(lle_history_core_t **core,
                                      lle_memory_pool_t *memory_pool,
@@ -377,7 +398,9 @@ lle_result_t lle_history_core_create(lle_history_core_t **core,
 }
 
 /**
- * Destroy history core
+ * @brief Destroy history core and free all resources
+ * @param core History core to destroy
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t lle_history_core_destroy(lle_history_core_t *core) {
     if (!core) {
@@ -436,7 +459,9 @@ lle_result_t lle_history_core_destroy(lle_history_core_t *core) {
  */
 
 /**
- * Expand entry array capacity
+ * @brief Expand the entry array capacity when full
+ * @param core History core whose capacity to expand
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t lle_history_expand_capacity(lle_history_core_t *core) {
     if (!core) {
@@ -490,7 +515,12 @@ lle_result_t lle_history_expand_capacity(lle_history_core_t *core) {
 }
 
 /**
- * Add entry to history
+ * @brief Add a new command entry to history
+ * @param core History core engine
+ * @param command Command string to add
+ * @param exit_code Exit code of the command (-1 if unknown)
+ * @param entry_id Output pointer for the assigned entry ID (may be NULL)
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t lle_history_add_entry(lle_history_core_t *core,
                                    const char *command, int exit_code,
@@ -629,9 +659,15 @@ lle_result_t lle_history_add_entry(lle_history_core_t *core,
 }
 
 /**
- * Internal lock-free version of get_entry_by_index
- * CRITICAL: Caller MUST hold at least a read lock on core->lock
- * Used by dedup engine to avoid deadlock when called from add_entry
+ * @brief Internal lock-free version of get_entry_by_index
+ *
+ * CRITICAL: Caller MUST hold at least a read lock on core->lock.
+ * Used by dedup engine to avoid deadlock when called from add_entry.
+ *
+ * @param core History core engine
+ * @param index Index of entry to retrieve
+ * @param entry Output pointer for the entry
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 LLE_MAYBE_UNUSED
 static inline lle_result_t
@@ -660,7 +696,11 @@ get_entry_by_index_unlocked(lle_history_core_t *core, size_t index,
 }
 
 /**
- * Get entry by index
+ * @brief Get a history entry by its array index
+ * @param core History core engine
+ * @param index Array index of the entry (0 = oldest)
+ * @param entry Output pointer for the entry
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_FOUND if out of bounds
  */
 lle_result_t lle_history_get_entry_by_index(lle_history_core_t *core,
                                             size_t index,
@@ -705,7 +745,14 @@ lle_result_t lle_history_get_entry_by_index(lle_history_core_t *core,
 }
 
 /**
- * Get entry by ID (Phase 1: Linear search, Phase 2: Hashtable)
+ * @brief Get a history entry by its unique ID
+ *
+ * Uses hashtable lookup if indexing is enabled, otherwise linear search.
+ *
+ * @param core History core engine
+ * @param entry_id Unique entry ID to look up
+ * @param entry Output pointer for the entry
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_FOUND if not found
  */
 lle_result_t lle_history_get_entry_by_id(lle_history_core_t *core,
                                          uint64_t entry_id,
@@ -767,8 +814,13 @@ lle_result_t lle_history_get_entry_by_id(lle_history_core_t *core,
 }
 
 /**
- * Internal lock-free version of get_entry_count
- * CRITICAL: Caller MUST hold at least a read lock on core->lock
+ * @brief Internal lock-free version of get_entry_count
+ *
+ * CRITICAL: Caller MUST hold at least a read lock on core->lock.
+ *
+ * @param core History core engine
+ * @param count Output pointer for the entry count
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 LLE_MAYBE_UNUSED
 static inline lle_result_t get_entry_count_unlocked(lle_history_core_t *core,
@@ -786,7 +838,10 @@ static inline lle_result_t get_entry_count_unlocked(lle_history_core_t *core,
 }
 
 /**
- * Get entry count
+ * @brief Get the number of entries in history
+ * @param core History core engine
+ * @param count Output pointer for the entry count
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t lle_history_get_entry_count(lle_history_core_t *core,
                                          size_t *count) {
@@ -807,7 +862,9 @@ lle_result_t lle_history_get_entry_count(lle_history_core_t *core,
 }
 
 /**
- * Clear all entries
+ * @brief Clear all entries from history
+ * @param core History core engine
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t lle_history_clear(lle_history_core_t *core) {
     if (!core) {
@@ -848,7 +905,10 @@ lle_result_t lle_history_clear(lle_history_core_t *core) {
 }
 
 /**
- * Get statistics
+ * @brief Get history statistics
+ * @param core History core engine
+ * @param stats Output pointer for the statistics structure
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t lle_history_get_stats(lle_history_core_t *core,
                                    const lle_history_stats_t **stats) {
@@ -874,7 +934,10 @@ lle_result_t lle_history_get_stats(lle_history_core_t *core,
  */
 
 /**
- * Get current working directory
+ * @brief Get the current working directory
+ * @param buffer Output buffer for the path
+ * @param size Size of the buffer
+ * @return LLE_SUCCESS on success, or error code on failure
  */
 lle_result_t lle_history_get_cwd(char *buffer, size_t size) {
     if (!buffer || size == 0) {

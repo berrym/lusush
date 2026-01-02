@@ -1,0 +1,25 @@
+var structlle__history__entry =
+[
+    [ "command", "structlle__history__entry.html#a64bef31716e0e9dbd5e0276712791282", null ],
+    [ "command_length", "structlle__history__entry.html#a804b885d2e7d94863e316540ab5ad719", null ],
+    [ "duration_ms", "structlle__history__entry.html#a5633da4a2f25c73df3bb57b465404986", null ],
+    [ "edit_count", "structlle__history__entry.html#afee5c51799064ece21647bc941b35cb5", null ],
+    [ "end_time_ns", "structlle__history__entry.html#a6d804c2b8c3a2587efae752e92cb846d", null ],
+    [ "entry_id", "structlle__history__entry.html#a1c9b7f969509fec75f2fbe1c11004864", null ],
+    [ "exit_code", "structlle__history__entry.html#abccedde84a93a0be5282a83e9053b34c", null ],
+    [ "group_id", "structlle__history__entry.html#ad716ff95ee846400429d22ad588e56f7", null ],
+    [ "is_multiline", "structlle__history__entry.html#a210de0ecc407a5b32aae49a51f5041b3", null ],
+    [ "last_access_time", "structlle__history__entry.html#a0ed53210b39264a61fb0e33efed90d1a", null ],
+    [ "next", "structlle__history__entry.html#a12040f2e7508290aa5223cdb6a0f7cd7", null ],
+    [ "original_multiline", "structlle__history__entry.html#a16fc336e842cb21f1136c7035e213ca4", null ],
+    [ "prev", "structlle__history__entry.html#a2c6b20c27c16d48560016fca8d6a7357", null ],
+    [ "process_id", "structlle__history__entry.html#ad314574180417e16413caaf12482c76b", null ],
+    [ "session_id", "structlle__history__entry.html#ad7a49294db84e13a90e25d918437d3a6", null ],
+    [ "start_time_ns", "structlle__history__entry.html#a65c40b6e81818268ec93e983e52886b0", null ],
+    [ "state", "structlle__history__entry.html#a39dad6287934de2a0f863332b2e875d3", null ],
+    [ "terminal_name", "structlle__history__entry.html#ac44ca7e3711b9fd9ee299480de07835a", null ],
+    [ "timestamp", "structlle__history__entry.html#a16d1da91357281a8e42b4cbc33702cba", null ],
+    [ "usage_count", "structlle__history__entry.html#a61196607ead9cf863597c23b6d03ffa1", null ],
+    [ "user_id", "structlle__history__entry.html#a7d075761c9f8bfba6a4a4f6d3fbf8446", null ],
+    [ "working_directory", "structlle__history__entry.html#a236695e6c804bc1a809ee6e9d4c5cd9f", null ]
+];

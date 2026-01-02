@@ -1,6 +1,8 @@
 /**
  * @file display_integration.h
  * @brief LLE Display Integration - Type Definitions (Layer 0)
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * This header defines the complete type system for Spec 08: Display
  * Integration. It provides the integration layer between LLE's internal

@@ -17,8 +17,9 @@
 #include <string.h>
 
 /**
- * __floatdup:
- *      Create a pointer duplicating val.
+ * @brief Create a pointer duplicating a float value
+ * @param val Pointer to the float value to duplicate
+ * @return Pointer to the duplicated float, or NULL on failure
  */
 static float *__floatdup(const float *val) {
     float *f = calloc(1, sizeof(float));
@@ -31,8 +32,12 @@ static float *__floatdup(const float *val) {
 }
 
 /**
- * ht_strfloat_create:
- *      Wrapper aroung ht_create that creates a string->float hash table.
+ * @brief Create a string to float hash table
+ *
+ * Wrapper around ht_create that creates a string->float hash table.
+ *
+ * @param flags Configuration flags (e.g., HT_STR_CASECMP, HT_SEED_RANDOM)
+ * @return Pointer to the new hash table, or NULL on failure
  */
 ht_strfloat_t *ht_strfloat_create(unsigned int flags) {
     ht_hash hash = fnv1a_hash_str;
@@ -50,58 +55,62 @@ ht_strfloat_t *ht_strfloat_create(unsigned int flags) {
 }
 
 /**
- * ht_strfloat_destroy:
- *      Wrapper around ht_destroy that destroys a string->float hash table.
+ * @brief Destroy a string to float hash table
+ * @param ht Pointer to the hash table to destroy
  */
 void ht_strfloat_destroy(ht_strfloat_t *ht) { ht_destroy((ht_t *)ht); }
 
 /**
- * ht_strfloat_insert:
- *      Wrapper around ht_insert that inserts a string->float key value pair
- * into a hash table.
+ * @brief Insert a string to float key value pair into a hash table
+ * @param ht Pointer to the hash table
+ * @param key Pointer to the string key
+ * @param val Pointer to the float value
  */
 void ht_strfloat_insert(ht_strfloat_t *ht, const char *key, const float *val) {
     ht_insert((ht_t *)ht, (void *)key, (void *)val);
 }
 
 /**
- * ht_strfloat_remove:
- *      Wrapper around ht_remove that removes a bucket from a string->float hash
- * table.
+ * @brief Remove a bucket from a string to float hash table
+ * @param ht Pointer to the hash table
+ * @param key Pointer to the string key to remove
  */
 void ht_strfloat_remove(ht_strfloat_t *ht, const char *key) {
     ht_remove((ht_t *)ht, (void *)key);
 }
 
 /**
- * ht_strfloat_get:
- *      Wrapper around ht_get for string->float hash table.
+ * @brief Get a value from a string to float hash table
+ * @param ht Pointer to the hash table
+ * @param key Pointer to the string key
+ * @return Pointer to the float value, or NULL if not found
  */
 void *ht_strfloat_get(ht_strfloat_t *ht, const char *key) {
     return ht_get((ht_t *)ht, (void *)key);
 }
 
 /**
- * ht_strfloat_enum_create:
- *      Wrapper around ht_enum_create the makes an enumeration object for
- * string->float hash table.
+ * @brief Create an enumeration object for a string to float hash table
+ * @param ht Pointer to the hash table
+ * @return Pointer to the enumeration object, or NULL on failure
  */
 ht_enum_t *ht_strfloat_enum_create(ht_strfloat_t *ht) {
     return ht_enum_create((ht_t *)ht);
 }
 
 /**
- * ht_strfloat_enum_next:
- *      Wrapper around ht_enum_next that returns the next bucket contents of a
- * string->float hash table.
+ * @brief Get the next bucket contents from a string to float hash table
+ * @param he Pointer to the enumeration object
+ * @param key Pointer to store the string key
+ * @param val Pointer to store the float value
+ * @return true if a next bucket was found, false if enumeration is complete
  */
 bool ht_strfloat_enum_next(ht_enum_t *he, const char **key, const float **val) {
     return ht_enum_next(he, (const void **)key, (const void **)val);
 }
 
 /**
- * ht_strfloat_enum_destroy:
- *      Wrapper around ht_enum_destroy that destroys a string->float hash table
- * enumeration object.
+ * @brief Destroy a string to float hash table enumeration object
+ * @param he Pointer to the enumeration object to destroy
  */
 void ht_strfloat_enum_destroy(ht_enum_t *he) { ht_enum_destroy(he); }

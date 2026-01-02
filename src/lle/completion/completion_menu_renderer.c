@@ -1,6 +1,8 @@
 /**
  * @file completion_menu_renderer.c
  * @brief Completion Menu Renderer Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Unicode-aware menu rendering with proper display width calculation
  * for CJK characters, emoji, combining marks, and other Unicode.
@@ -17,7 +19,9 @@
 /* ========================================================================== */
 
 /**
- * Get type name for category header
+ * @brief Get human-readable type name for category header
+ * @param type Completion type to get name for
+ * @return Static string with category name
  */
 static const char *get_type_category_name(lle_completion_type_t type) {
     switch (type) {
@@ -41,7 +45,7 @@ static const char *get_type_category_name(lle_completion_type_t type) {
 }
 
 /**
- * Calculate visual width of string, skipping ANSI escape sequences
+ * @brief Calculate visual width of string, skipping ANSI escape sequences
  *
  * Uses lle_utf8_string_width() for proper Unicode display width calculation:
  * - CJK characters: 2 columns
@@ -51,6 +55,9 @@ static const char *get_type_category_name(lle_completion_type_t type) {
  *
  * ANSI escape sequences have zero visual width but take up bytes.
  * Format: ESC [ ... final_byte (where final_byte is 0x40-0x7E)
+ *
+ * @param str String to measure
+ * @return Visual width in terminal columns
  */
 static size_t visual_width(const char *str) {
     if (!str)
@@ -113,7 +120,12 @@ static size_t visual_width(const char *str) {
 }
 
 /**
- * Pad string to width
+ * @brief Pad string to target visual width
+ * @param dest Destination buffer
+ * @param dest_size Size of destination buffer
+ * @param src Source string to pad
+ * @param target_width Target visual width
+ * @return Number of bytes written to dest
  */
 static size_t pad_string(char *dest, size_t dest_size, const char *src,
                          size_t target_width) {
@@ -149,6 +161,11 @@ static size_t pad_string(char *dest, size_t dest_size, const char *src,
 /*                         PUBLIC API FUNCTIONS                               */
 /* ========================================================================== */
 
+/**
+ * @brief Get default menu rendering options
+ * @param terminal_width Terminal width in columns
+ * @return Default options structure
+ */
 lle_menu_render_options_t
 lle_menu_renderer_default_options(size_t terminal_width) {
     lle_menu_render_options_t options = {
@@ -163,6 +180,14 @@ lle_menu_renderer_default_options(size_t terminal_width) {
     return options;
 }
 
+/**
+ * @brief Calculate optimal column width for completion items
+ * @param items Array of completion items
+ * @param count Number of items
+ * @param terminal_width Terminal width in columns
+ * @param max_columns Maximum number of columns (reserved for future use)
+ * @return Column width in characters
+ */
 size_t
 lle_menu_renderer_calculate_column_width(const lle_completion_item_t *items,
                                          size_t count, size_t terminal_width,
@@ -206,6 +231,13 @@ lle_menu_renderer_calculate_column_width(const lle_completion_item_t *items,
     return max_len;
 }
 
+/**
+ * @brief Calculate number of columns that fit in terminal
+ * @param terminal_width Terminal width in columns
+ * @param column_width Width of each column
+ * @param padding Padding between columns
+ * @return Number of columns
+ */
 size_t lle_menu_renderer_calculate_columns(size_t terminal_width,
                                            size_t column_width,
                                            size_t padding) {
@@ -223,6 +255,14 @@ size_t lle_menu_renderer_calculate_columns(size_t terminal_width,
     return cols;
 }
 
+/**
+ * @brief Format a category header string
+ * @param type Completion type for the category
+ * @param output Output buffer
+ * @param output_size Size of output buffer
+ * @param use_bold Whether to use bold ANSI formatting
+ * @return LLE_SUCCESS or error code
+ */
 lle_result_t
 lle_menu_renderer_format_category_header(lle_completion_type_t type,
                                          char *output, size_t output_size,
@@ -249,6 +289,16 @@ lle_menu_renderer_format_category_header(lle_completion_type_t type,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Format a single completion item for display
+ * @param item Completion item to format
+ * @param is_selected Whether item is currently selected
+ * @param show_indicator Whether to show type indicator
+ * @param selection_prefix Prefix string for selected items
+ * @param output Output buffer
+ * @param output_size Size of output buffer
+ * @return LLE_SUCCESS or error code
+ */
 lle_result_t lle_menu_renderer_format_item(const lle_completion_item_t *item,
                                            bool is_selected,
                                            bool show_indicator,
@@ -316,6 +366,12 @@ lle_result_t lle_menu_renderer_format_item(const lle_completion_item_t *item,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Estimate output buffer size needed for rendering
+ * @param state Menu state to render
+ * @param options Rendering options (reserved for future use)
+ * @return Estimated buffer size in bytes
+ */
 size_t
 lle_menu_renderer_estimate_size(const lle_completion_menu_state_t *state,
                                 const lle_menu_render_options_t *options) {
@@ -345,6 +401,15 @@ lle_menu_renderer_estimate_size(const lle_completion_menu_state_t *state,
     return estimate;
 }
 
+/**
+ * @brief Render the completion menu to a string buffer
+ * @param state Menu state to render
+ * @param options Rendering options (NULL for defaults)
+ * @param output Output buffer
+ * @param output_size Size of output buffer
+ * @param stats Optional output for render statistics
+ * @return LLE_SUCCESS or error code
+ */
 lle_result_t
 lle_completion_menu_render(const lle_completion_menu_state_t *state,
                            const lle_menu_render_options_t *options,

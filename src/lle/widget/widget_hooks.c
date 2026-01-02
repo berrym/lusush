@@ -1,6 +1,8 @@
 /**
  * @file widget_hooks.c
  * @brief LLE Widget Hooks Manager Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Implementation of widget lifecycle hooks system providing automatic
  * widget triggering at key editor lifecycle points.

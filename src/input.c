@@ -13,6 +13,7 @@
  * avoid misinterpreting continuation bytes as syntax characters.
  *
  * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (c) 2025 Michael Berry. All rights reserved.
  */
 
 #include "input.h"
@@ -35,9 +36,15 @@
 // ============================================================================
 
 /**
- * Get the byte length of a UTF-8 character at the given position.
- * Returns 1 for ASCII characters, 2-4 for multi-byte sequences.
- * Returns 1 for invalid sequences (safe fallback).
+ * @brief Get the byte length of a UTF-8 character at the given position
+ *
+ * Determines the number of bytes in a UTF-8 character sequence starting
+ * at the given position. Uses LLE's UTF-8 support for sequence detection
+ * and validation.
+ *
+ * @param p Pointer to the start of a UTF-8 character sequence
+ * @return Number of bytes in the character (1-4), or 0 if p is NULL/empty,
+ *         or 1 for invalid sequences (safe fallback)
  */
 static int utf8_char_len(const char *p) {
     if (!p || !*p)
@@ -108,11 +115,27 @@ static char *convert_multiline_for_history(const char *input);
 // INPUT STATE MANAGEMENT
 // ============================================================================
 
+/**
+ * @brief Initialize an input state structure to default values
+ *
+ * Zeros out all fields and sets the here document delimiter to NULL.
+ * Must be called before first use of an input_state_t structure.
+ *
+ * @param state Pointer to the input state structure to initialize
+ */
 static void init_input_state(input_state_t *state) {
     memset(state, 0, sizeof(input_state_t));
     state->here_doc_delimiter = NULL;
 }
 
+/**
+ * @brief Clean up an input state structure and free allocated memory
+ *
+ * Frees the here document delimiter if allocated and zeros the structure.
+ * Safe to call on an already-cleaned state.
+ *
+ * @param state Pointer to the input state structure to clean up
+ */
 static void cleanup_input_state(input_state_t *state) {
     if (state->here_doc_delimiter) {
         free(state->here_doc_delimiter);
@@ -125,6 +148,15 @@ static void cleanup_input_state(input_state_t *state) {
 // MULTILINE INPUT ANALYSIS
 // ============================================================================
 
+/**
+ * @brief Check if a word is a shell control flow keyword
+ *
+ * Identifies shell reserved words that affect control flow and require
+ * special handling for multiline input parsing (if, then, else, fi, etc.).
+ *
+ * @param word The word to check
+ * @return true if word is a control keyword, false otherwise
+ */
 static bool is_control_keyword(const char *word) {
     const char *keywords[] = {"if",   "then", "else",  "elif",     "fi",
                               "case", "esac", "while", "until",    "do",
@@ -139,6 +171,15 @@ static bool is_control_keyword(const char *word) {
     return false;
 }
 
+/**
+ * @brief Check if a line contains a compound command terminator
+ *
+ * Checks if the line (after skipping whitespace) starts with a terminator
+ * keyword like fi, done, esac, or closing brace.
+ *
+ * @param line The line to check
+ * @return true if line starts with a terminator, false otherwise
+ */
 MAYBE_UNUSED
 static bool is_terminator(const char *line) {
     // Skip whitespace
@@ -150,6 +191,17 @@ static bool is_terminator(const char *line) {
             strncmp(line, "esac", 4) == 0 || strcmp(line, "}") == 0);
 }
 
+/**
+ * @brief Analyze a line of input to update parsing state
+ *
+ * Processes a line character by character to track quotes, parentheses,
+ * braces, brackets, here documents, escape sequences, and control keywords.
+ * Updates the input state structure to reflect what constructs are currently
+ * open and whether continuation input is needed.
+ *
+ * @param line The line of input to analyze
+ * @param state The input state structure to update
+ */
 static void analyze_line(const char *line, input_state_t *state) {
     if (!line || !state)
         return;
@@ -507,6 +559,15 @@ static void analyze_line(const char *line, input_state_t *state) {
     }
 }
 
+/**
+ * @brief Check if the current input is syntactically complete
+ *
+ * Examines the input state to determine if all opened constructs
+ * (quotes, parentheses, compound commands, etc.) have been closed.
+ *
+ * @param state The input state to check
+ * @return true if input is complete, false if more input is needed
+ */
 static bool is_input_complete(input_state_t *state) {
     if (!state)
         return true;
@@ -548,6 +609,16 @@ static bool is_input_complete(input_state_t *state) {
     return true;
 }
 
+/**
+ * @brief Get the appropriate continuation prompt for the current state
+ *
+ * Returns a context-specific prompt based on what construct is currently
+ * being entered (quote, function, if, loop, case, etc.). Falls back to
+ * the PS2 environment variable or "> " if not set.
+ *
+ * @param state The current input state
+ * @return Prompt string to display
+ */
 static const char *get_continuation_prompt(input_state_t *state) {
     if (!state)
         return "> ";
@@ -572,7 +643,15 @@ static const char *get_continuation_prompt(input_state_t *state) {
     return ps2;
 }
 
-// Public function to get current continuation prompt
+/**
+ * @brief Get the current continuation prompt for multiline input
+ *
+ * Returns the appropriate prompt string based on the current input state.
+ * If not in multiline mode, returns the primary prompt. Otherwise returns
+ * a context-specific continuation prompt (quote, function, if, loop, case).
+ *
+ * @return Prompt string to display (static string, do not free)
+ */
 const char *lusush_get_current_continuation_prompt(void) {
     if (!state_initialized) {
         return "$ "; // Return primary prompt if not in multiline mode
@@ -597,6 +676,15 @@ const char *lusush_get_current_continuation_prompt(void) {
     return get_continuation_prompt(&global_state);
 }
 
+/**
+ * @brief Convert multiline input to single line for history storage
+ *
+ * Replaces newline characters with spaces to create a single-line
+ * representation suitable for storing in command history.
+ *
+ * @param input The multiline input string
+ * @return Allocated single-line string, or NULL on failure
+ */
 MAYBE_UNUSED
 static char *convert_multiline_for_history(const char *input) {
     if (!input)
@@ -627,11 +715,27 @@ static char *convert_multiline_for_history(const char *input) {
 // PUBLIC INPUT FUNCTIONS
 // ============================================================================
 
+/**
+ * @brief Free all input buffers and reset input state
+ *
+ * Cleans up the global input state and releases any allocated memory.
+ * Should be called when input processing is complete or on error cleanup.
+ */
 void free_input_buffers(void) {
     cleanup_input_state(&global_state);
     state_initialized = false;
 }
 
+/**
+ * @brief Read a single line of input from a file stream
+ *
+ * Reads one line from the specified file stream (or stdin if NULL).
+ * Used for non-interactive input where multiline handling is not needed.
+ * The trailing newline is removed from the returned string.
+ *
+ * @param in File stream to read from, or NULL for stdin
+ * @return Allocated line string, or NULL on EOF or error
+ */
 char *get_input(FILE *in) {
     // For non-interactive input, read a line directly (single line only)
     if (!in)
@@ -654,7 +758,16 @@ char *get_input(FILE *in) {
     return line;
 }
 
-// Helper function to check if state needs continuation
+/**
+ * @brief Check if current state requires additional input lines
+ *
+ * Determines if the input state indicates an incomplete construct
+ * that requires continuation input (open quotes, compound commands,
+ * here documents, unmatched brackets, etc.).
+ *
+ * @param state Pointer to the input state to check
+ * @return true if more input is needed, false if complete
+ */
 static bool needs_continuation(input_state_t *state) {
     if (!state)
         return false;
@@ -691,6 +804,16 @@ static bool needs_continuation(input_state_t *state) {
     return false;
 }
 
+/**
+ * @brief Read a complete command from interactive input
+ *
+ * Reads input lines using GNU readline until a syntactically complete
+ * command is obtained. Handles multiline constructs like compound commands,
+ * here documents, and quoted strings with appropriate continuation prompts.
+ * For non-interactive shells, delegates to get_input().
+ *
+ * @return Allocated command string, or NULL on EOF or error
+ */
 char *ln_gets(void) {
     if (!is_interactive_shell()) {
         return get_input(stdin);
@@ -807,6 +930,16 @@ char *ln_gets(void) {
     }
 }
 
+/**
+ * @brief Read a complete command from a file stream with multiline support
+ *
+ * Reads lines from the specified file stream, accumulating them until
+ * a syntactically complete command is obtained. Handles compound commands,
+ * here documents, and other multiline constructs in non-interactive mode.
+ *
+ * @param in File stream to read from, or NULL for stdin
+ * @return Allocated complete command string, or NULL on EOF or error
+ */
 char *get_input_complete(FILE *in) {
     // For non-interactive mode, accumulate lines for complete constructs
     if (!in)
@@ -893,6 +1026,16 @@ char *get_input_complete(FILE *in) {
     return accumulated;
 }
 
+/**
+ * @brief Unified input function for both interactive and non-interactive modes
+ *
+ * Main entry point for reading shell input. Automatically selects the
+ * appropriate input method based on whether the shell is interactive.
+ * Both modes support multiline constructs.
+ *
+ * @param in File stream for non-interactive mode, or NULL for stdin
+ * @return Allocated complete command string, or NULL on EOF or error
+ */
 char *get_unified_input(FILE *in) {
     if (is_interactive_shell()) {
         // Interactive mode - use readline-based input with multiline support
@@ -904,5 +1047,12 @@ char *get_unified_input(FILE *in) {
     }
 }
 
-// Legacy compatibility
+/**
+ * @brief Legacy compatibility wrapper for ln_gets
+ *
+ * Provides backward compatibility with code that used the old
+ * ln_gets_complete() function name.
+ *
+ * @return Allocated complete command string, or NULL on EOF or error
+ */
 char *ln_gets_complete(void) { return ln_gets(); }

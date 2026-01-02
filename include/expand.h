@@ -14,25 +14,57 @@
 
 #include <stdbool.h>
 
-// Expansion mode flags
-#define EXPAND_NORMAL 0x00  // Normal word expansion
-#define EXPAND_ALIAS 0x01   // Expanding an alias
-#define EXPAND_NOQUOTE 0x02 // Don't remove quotes
-#define EXPAND_NOVAR 0x04   // Don't expand variables
-#define EXPAND_NOCMD 0x08   // Don't expand command substitutions
-#define EXPAND_NOGLOB 0x10  // Don't expand globs/wildcards
+/** @brief Normal word expansion with all features enabled */
+#define EXPAND_NORMAL 0x00
 
-// Expansion context to replace global state
+/** @brief Expanding an alias value */
+#define EXPAND_ALIAS 0x01
+
+/** @brief Do not remove quotes from result */
+#define EXPAND_NOQUOTE 0x02
+
+/** @brief Do not expand variables ($VAR, ${VAR}) */
+#define EXPAND_NOVAR 0x04
+
+/** @brief Do not expand command substitutions ($(cmd), `cmd`) */
+#define EXPAND_NOCMD 0x08
+
+/** @brief Do not expand globs/wildcards (*, ?, [...]) */
+#define EXPAND_NOGLOB 0x10
+
+/**
+ * @brief Expansion context structure
+ *
+ * Tracks the current state during word expansion to properly handle
+ * nested quotes, backticks, and expansion mode flags.
+ */
 typedef struct {
-    int mode;          // Expansion mode flags
-    bool in_quotes;    // Whether we're inside quotes
-    bool in_backticks; // Whether we're inside backticks
+    int mode;          /**< Expansion mode flags (EXPAND_*) */
+    bool in_quotes;    /**< Currently inside quotes */
+    bool in_backticks; /**< Currently inside backticks */
 } expand_ctx_t;
 
-// Initialize expansion context with default values
+/**
+ * @brief Initialize an expansion context with default values
+ *
+ * Sets up an expansion context with the specified mode flags
+ * and resets quote/backtick tracking.
+ *
+ * @param ctx Pointer to context structure to initialize
+ * @param mode Expansion mode flags (EXPAND_* constants)
+ */
 void expand_ctx_init(expand_ctx_t *ctx, int mode);
 
-// Check if a specific expansion mode is enabled
+/**
+ * @brief Check if a specific expansion mode is enabled
+ *
+ * Tests whether a particular expansion feature is active
+ * in the given context.
+ *
+ * @param ctx Pointer to expansion context
+ * @param mode_flag Mode flag to check (EXPAND_* constant)
+ * @return true if the mode flag is set, false otherwise
+ */
 bool expand_ctx_check(expand_ctx_t *ctx, int mode_flag);
 
 #endif /* EXPAND_H */

@@ -1,5 +1,8 @@
 /**
- * LLE Input Stream Management
+ * @file input_stream.c
+ * @brief LLE Input Stream Management
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Provides raw terminal input stream buffering and flow control for the
  * input parsing system.
@@ -22,7 +25,10 @@
  */
 
 /**
- * Set terminal file descriptor to non-blocking mode
+ * @brief Set terminal file descriptor to non-blocking mode
+ *
+ * @param fd File descriptor to modify
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t set_nonblocking(int fd) {
     int flags = fcntl(fd, F_GETFL, 0);
@@ -38,7 +44,10 @@ static lle_result_t set_nonblocking(int fd) {
 }
 
 /**
- * Set terminal file descriptor to blocking mode
+ * @brief Set terminal file descriptor to blocking mode
+ *
+ * @param fd File descriptor to modify
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t set_blocking(int fd) {
     int flags = fcntl(fd, F_GETFL, 0);
@@ -54,7 +63,9 @@ static lle_result_t set_blocking(int fd) {
 }
 
 /**
- * Compact buffer by moving unconsumed data to beginning
+ * @brief Compact buffer by moving unconsumed data to beginning
+ *
+ * @param stream Input stream to compact
  */
 static void compact_buffer(lle_input_stream_t *stream) {
     if (!stream || stream->buffer_pos == 0) {
@@ -76,7 +87,12 @@ static void compact_buffer(lle_input_stream_t *stream) {
  */
 
 /**
- * Initialize input stream
+ * @brief Initialize input stream
+ *
+ * @param stream Output pointer for created stream
+ * @param terminal Terminal system reference
+ * @param memory_pool Memory pool for allocations
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_input_stream_init(lle_input_stream_t **stream,
                                    lle_terminal_system_t *terminal,
@@ -137,7 +153,10 @@ lle_result_t lle_input_stream_init(lle_input_stream_t **stream,
 }
 
 /**
- * Destroy input stream
+ * @brief Destroy input stream
+ *
+ * @param stream Stream to destroy
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_input_stream_destroy(lle_input_stream_t *stream) {
     if (!stream) {
@@ -161,7 +180,13 @@ lle_result_t lle_input_stream_destroy(lle_input_stream_t *stream) {
 }
 
 /**
- * Read data from terminal into internal buffer
+ * @brief Read data from terminal into internal buffer
+ *
+ * @param stream Input stream instance
+ * @param buffer Output buffer for read data
+ * @param buffer_size Size of output buffer
+ * @param bytes_read Output for number of bytes read
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_input_stream_read(lle_input_stream_t *stream, char *buffer,
                                    size_t buffer_size, size_t *bytes_read) {
@@ -214,7 +239,12 @@ lle_result_t lle_input_stream_read(lle_input_stream_t *stream, char *buffer,
 }
 
 /**
- * Buffer incoming data (for testing or piped input)
+ * @brief Buffer incoming data (for testing or piped input)
+ *
+ * @param stream Input stream instance
+ * @param data Data to buffer
+ * @param data_len Length of data
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_input_stream_buffer_data(lle_input_stream_t *stream,
                                           const char *data, size_t data_len) {
@@ -246,7 +276,12 @@ lle_result_t lle_input_stream_buffer_data(lle_input_stream_t *stream,
 }
 
 /**
- * Get buffered data without consuming
+ * @brief Get buffered data without consuming
+ *
+ * @param stream Input stream instance
+ * @param data Output pointer to buffered data
+ * @param data_len Output for length of buffered data
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_input_stream_get_buffered(lle_input_stream_t *stream,
                                            const char **data,
@@ -270,7 +305,11 @@ lle_result_t lle_input_stream_get_buffered(lle_input_stream_t *stream,
 }
 
 /**
- * Consume processed data from buffer
+ * @brief Consume processed data from buffer
+ *
+ * @param stream Input stream instance
+ * @param bytes Number of bytes to consume
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_input_stream_consume(lle_input_stream_t *stream,
                                       size_t bytes) {
@@ -295,7 +334,12 @@ lle_result_t lle_input_stream_consume(lle_input_stream_t *stream,
 }
 
 /**
- * Peek at single byte at offset without consuming
+ * @brief Peek at single byte at offset without consuming
+ *
+ * @param stream Input stream instance
+ * @param offset Offset from current position
+ * @param byte Output for peeked byte
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_input_stream_peek(lle_input_stream_t *stream, size_t offset,
                                    char *byte) {
@@ -315,7 +359,11 @@ lle_result_t lle_input_stream_peek(lle_input_stream_t *stream, size_t offset,
 }
 
 /**
- * Set blocking mode
+ * @brief Set blocking mode
+ *
+ * @param stream Input stream instance
+ * @param blocking Whether to enable blocking mode
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_input_stream_set_blocking(lle_input_stream_t *stream,
                                            bool blocking) {
@@ -342,7 +390,11 @@ lle_result_t lle_input_stream_set_blocking(lle_input_stream_t *stream,
 }
 
 /**
- * Enable/disable flow control
+ * @brief Enable/disable flow control
+ *
+ * @param stream Input stream instance
+ * @param enabled Whether to enable flow control
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_input_stream_set_flow_control(lle_input_stream_t *stream,
                                                bool enabled) {
@@ -355,7 +407,13 @@ lle_result_t lle_input_stream_set_flow_control(lle_input_stream_t *stream,
 }
 
 /**
- * Get stream statistics
+ * @brief Get stream statistics
+ *
+ * @param stream Input stream instance
+ * @param bytes_read Output for total bytes read
+ * @param read_operations Output for total read operations
+ * @param buffer_overflows Output for buffer overflow count
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_input_stream_get_statistics(lle_input_stream_t *stream,
                                              uint64_t *bytes_read,
@@ -381,7 +439,10 @@ lle_result_t lle_input_stream_get_statistics(lle_input_stream_t *stream,
 }
 
 /**
- * Reset stream state
+ * @brief Reset stream state
+ *
+ * @param stream Input stream to reset
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_input_stream_reset(lle_input_stream_t *stream) {
     if (!stream) {
@@ -401,7 +462,11 @@ lle_result_t lle_input_stream_reset(lle_input_stream_t *stream) {
 }
 
 /**
- * Get available bytes in buffer
+ * @brief Get available bytes in buffer
+ *
+ * @param stream Input stream instance
+ * @param available Output for number of available bytes
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_input_stream_get_available(lle_input_stream_t *stream,
                                             size_t *available) {

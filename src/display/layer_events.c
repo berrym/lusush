@@ -162,7 +162,9 @@ static void debug_log(layer_event_system_t *events, const char *format, ...);
 // ============================================================================
 
 /**
- * Create a new layer events system
+ * @brief Create a new layer events system
+ * @param config Configuration options, or NULL for defaults
+ * @return Pointer to new event system, or NULL on failure
  */
 layer_event_system_t *layer_events_create(const layer_events_config_t *config) {
     layer_event_system_t *events = calloc(1, sizeof(layer_event_system_t));
@@ -206,7 +208,9 @@ layer_event_system_t *layer_events_create(const layer_events_config_t *config) {
 }
 
 /**
- * Initialize the layer events system
+ * @brief Initialize the layer events system
+ * @param events Pointer to event system to initialize
+ * @return LAYER_EVENTS_SUCCESS on success, error code on failure
  */
 layer_events_error_t layer_events_init(layer_event_system_t *events) {
     if (!validate_event_system(events)) {
@@ -235,7 +239,9 @@ layer_events_error_t layer_events_init(layer_event_system_t *events) {
 }
 
 /**
- * Clean up event system resources
+ * @brief Clean up event system resources
+ * @param events Pointer to event system to clean up
+ * @return LAYER_EVENTS_SUCCESS on success, error code on failure
  */
 layer_events_error_t layer_events_cleanup(layer_event_system_t *events) {
     if (!validate_event_system(events)) {
@@ -279,7 +285,8 @@ layer_events_error_t layer_events_cleanup(layer_event_system_t *events) {
 }
 
 /**
- * Destroy event system instance
+ * @brief Destroy event system instance
+ * @param events Pointer to event system to destroy
  */
 void layer_events_destroy(layer_event_system_t *events) {
     if (!events) {
@@ -299,7 +306,10 @@ void layer_events_destroy(layer_event_system_t *events) {
 // ============================================================================
 
 /**
- * Publish an event to the system
+ * @brief Publish an event to the system
+ * @param events Pointer to the event system
+ * @param event Pointer to the event to publish
+ * @return LAYER_EVENTS_SUCCESS on success, error code on failure
  */
 layer_events_error_t layer_events_publish(layer_event_system_t *events,
                                           const layer_event_t *event) {
@@ -358,7 +368,13 @@ layer_events_error_t layer_events_publish(layer_event_system_t *events,
 }
 
 /**
- * Publish a simple event with minimal data
+ * @brief Publish a simple event with minimal data
+ * @param events Pointer to the event system
+ * @param type Type of event to publish
+ * @param source_layer ID of the layer publishing the event
+ * @param target_layer ID of the target layer (0 for broadcast)
+ * @param priority Priority level of the event
+ * @return LAYER_EVENTS_SUCCESS on success, error code on failure
  */
 layer_events_error_t
 layer_events_publish_simple(layer_event_system_t *events,
@@ -376,7 +392,13 @@ layer_events_publish_simple(layer_event_system_t *events,
 }
 
 /**
- * Publish a content changed event
+ * @brief Publish a content changed event
+ * @param events Pointer to the event system
+ * @param source_layer ID of the layer that changed content
+ * @param content Pointer to the new content string
+ * @param content_length Length of the content in bytes
+ * @param needs_reflow Whether the content change requires reflow
+ * @return LAYER_EVENTS_SUCCESS on success, error code on failure
  */
 layer_events_error_t layer_events_publish_content_changed(
     layer_event_system_t *events, layer_id_t source_layer, const char *content,
@@ -406,7 +428,14 @@ layer_events_error_t layer_events_publish_content_changed(
 }
 
 /**
- * Publish a size changed event
+ * @brief Publish a size changed event
+ * @param events Pointer to the event system
+ * @param source_layer ID of the layer that changed size
+ * @param old_width Previous width in characters
+ * @param old_height Previous height in characters
+ * @param new_width New width in characters
+ * @param new_height New height in characters
+ * @return LAYER_EVENTS_SUCCESS on success, error code on failure
  */
 layer_events_error_t layer_events_publish_size_changed(
     layer_event_system_t *events, layer_id_t source_layer, int old_width,
@@ -431,7 +460,14 @@ layer_events_error_t layer_events_publish_size_changed(
 // ============================================================================
 
 /**
- * Subscribe to events of a specific type
+ * @brief Subscribe to events of a specific type
+ * @param events Pointer to the event system
+ * @param event_type Type of event to subscribe to
+ * @param subscriber_id ID of the subscribing layer
+ * @param callback Callback function to invoke when event occurs
+ * @param user_data User data to pass to callback
+ * @param min_priority Minimum priority level to receive
+ * @return LAYER_EVENTS_SUCCESS on success, error code on failure
  */
 layer_events_error_t
 layer_events_subscribe(layer_event_system_t *events,
@@ -489,7 +525,11 @@ layer_events_subscribe(layer_event_system_t *events,
 }
 
 /**
- * Unsubscribe from events
+ * @brief Unsubscribe from events of a specific type
+ * @param events Pointer to the event system
+ * @param event_type Type of event to unsubscribe from
+ * @param subscriber_id ID of the subscribing layer
+ * @return LAYER_EVENTS_SUCCESS on success, error code on failure
  */
 layer_events_error_t layer_events_unsubscribe(layer_event_system_t *events,
                                               layer_event_type_t event_type,
@@ -526,7 +566,10 @@ layer_events_error_t layer_events_unsubscribe(layer_event_system_t *events,
 }
 
 /**
- * Unsubscribe from all events
+ * @brief Unsubscribe from all events for a subscriber
+ * @param events Pointer to the event system
+ * @param subscriber_id ID of the subscriber to remove
+ * @return LAYER_EVENTS_SUCCESS on success, error code on failure
  */
 layer_events_error_t layer_events_unsubscribe_all(layer_event_system_t *events,
                                                   layer_id_t subscriber_id) {
@@ -566,7 +609,11 @@ layer_events_error_t layer_events_unsubscribe_all(layer_event_system_t *events,
 // ============================================================================
 
 /**
- * Process pending events
+ * @brief Process pending events in the queue
+ * @param events Pointer to the event system
+ * @param max_events Maximum number of events to process (0 for unlimited)
+ * @param timeout_ms Maximum time to spend processing in milliseconds
+ * @return Number of events processed, or -1 on error
  */
 int layer_events_process_pending(layer_event_system_t *events,
                                  uint32_t max_events, uint32_t timeout_ms) {
@@ -643,7 +690,11 @@ int layer_events_process_pending(layer_event_system_t *events,
 }
 
 /**
- * Process events of specific priority
+ * @brief Process events of a specific priority level
+ * @param events Pointer to the event system
+ * @param priority Priority level to process
+ * @param max_events Maximum number of events to process (0 for unlimited)
+ * @return Number of events processed, or -1 on error
  */
 int layer_events_process_priority(layer_event_system_t *events,
                                   layer_event_priority_t priority,
@@ -682,7 +733,9 @@ int layer_events_process_priority(layer_event_system_t *events,
 }
 
 /**
- * Check if there are pending events
+ * @brief Check if there are pending events in the queue
+ * @param events Pointer to the event system
+ * @return true if there are pending events, false otherwise
  */
 bool layer_events_has_pending(layer_event_system_t *events) {
     if (!validate_event_system(events) || !events->initialized) {
@@ -699,7 +752,9 @@ bool layer_events_has_pending(layer_event_system_t *events) {
 }
 
 /**
- * Get number of pending events
+ * @brief Get the number of pending events in the queue
+ * @param events Pointer to the event system
+ * @return Number of pending events, or 0 if none or on error
  */
 uint32_t layer_events_get_pending_count(layer_event_system_t *events) {
     if (!validate_event_system(events) || !events->initialized) {
@@ -719,7 +774,9 @@ uint32_t layer_events_get_pending_count(layer_event_system_t *events) {
 // ============================================================================
 
 /**
- * Get event type name
+ * @brief Get the string name of an event type
+ * @param event_type The event type to get the name for
+ * @return String name of the event type
  */
 const char *layer_events_get_type_name(layer_event_type_t event_type) {
     switch (event_type) {
@@ -773,7 +830,9 @@ const char *layer_events_get_type_name(layer_event_type_t event_type) {
 }
 
 /**
- * Get layer name
+ * @brief Get the string name of a layer ID
+ * @param layer_id The layer ID to get the name for
+ * @return String name of the layer
  */
 const char *layer_events_get_layer_name(layer_id_t layer_id) {
     switch (layer_id) {
@@ -799,7 +858,8 @@ const char *layer_events_get_layer_name(layer_id_t layer_id) {
 }
 
 /**
- * Create default configuration
+ * @brief Create a default event system configuration
+ * @return Default configuration structure
  */
 layer_events_config_t layer_events_create_default_config(void) {
     layer_events_config_t config = {0};
@@ -813,7 +873,9 @@ layer_events_config_t layer_events_create_default_config(void) {
 }
 
 /**
- * Validate event structure
+ * @brief Validate an event structure
+ * @param event Pointer to the event to validate
+ * @return true if the event is valid, false otherwise
  */
 bool layer_events_validate_event(const layer_event_t *event) {
     if (!event) {
@@ -835,7 +897,9 @@ bool layer_events_validate_event(const layer_event_t *event) {
 }
 
 /**
- * Get event system statistics
+ * @brief Get event system statistics
+ * @param events Pointer to the event system
+ * @return Statistics structure with performance data
  */
 layer_event_stats_t layer_events_get_statistics(layer_event_system_t *events) {
     layer_event_stats_t empty_stats = {0};
@@ -851,7 +915,9 @@ layer_event_stats_t layer_events_get_statistics(layer_event_system_t *events) {
 }
 
 /**
- * Clear event system statistics
+ * @brief Clear event system statistics
+ * @param events Pointer to the event system
+ * @return LAYER_EVENTS_SUCCESS on success, error code on failure
  */
 layer_events_error_t
 layer_events_clear_statistics(layer_event_system_t *events) {
@@ -871,7 +937,10 @@ layer_events_clear_statistics(layer_event_system_t *events) {
 }
 
 /**
- * Enable or disable debug logging
+ * @brief Enable or disable debug logging
+ * @param events Pointer to the event system
+ * @param enabled true to enable debug logging, false to disable
+ * @return LAYER_EVENTS_SUCCESS on success, error code on failure
  */
 layer_events_error_t
 layer_events_set_debug_enabled(layer_event_system_t *events, bool enabled) {
@@ -886,7 +955,9 @@ layer_events_set_debug_enabled(layer_event_system_t *events, bool enabled) {
 }
 
 /**
- * Get error description string
+ * @brief Get a human-readable error description string
+ * @param error The error code to describe
+ * @return String description of the error
  */
 const char *layer_events_error_string(layer_events_error_t error) {
     switch (error) {
@@ -920,7 +991,9 @@ const char *layer_events_error_string(layer_events_error_t error) {
 // ============================================================================
 
 /**
- * Create queue entry
+ * @brief Create a new queue entry for an event
+ * @param event Pointer to the event to wrap in a queue entry
+ * @return Pointer to new queue entry, or NULL on failure
  */
 static event_queue_entry_t *create_queue_entry(const layer_event_t *event) {
     event_queue_entry_t *entry = malloc(sizeof(event_queue_entry_t));
@@ -936,7 +1009,8 @@ static event_queue_entry_t *create_queue_entry(const layer_event_t *event) {
 }
 
 /**
- * Destroy queue entry
+ * @brief Destroy a queue entry and free its resources
+ * @param entry Pointer to the queue entry to destroy
  */
 static void destroy_queue_entry(event_queue_entry_t *entry) {
     if (entry) {
@@ -946,7 +1020,10 @@ static void destroy_queue_entry(event_queue_entry_t *entry) {
 }
 
 /**
- * Enqueue event
+ * @brief Add an event to the appropriate priority queue
+ * @param events Pointer to the event system
+ * @param event Pointer to the event to enqueue
+ * @return LAYER_EVENTS_SUCCESS on success, error code on failure
  */
 static layer_events_error_t enqueue_event(layer_event_system_t *events,
                                           const layer_event_t *event) {
@@ -981,7 +1058,10 @@ static layer_events_error_t enqueue_event(layer_event_system_t *events,
 }
 
 /**
- * Dequeue event
+ * @brief Remove and return the next event from a priority queue
+ * @param events Pointer to the event system
+ * @param priority Priority level of queue to dequeue from
+ * @return Pointer to dequeued event, or NULL if queue is empty
  */
 static layer_event_t *dequeue_event(layer_event_system_t *events,
                                     layer_event_priority_t priority) {
@@ -1015,7 +1095,10 @@ static layer_event_t *dequeue_event(layer_event_system_t *events,
 }
 
 /**
- * Notify subscribers
+ * @brief Notify all matching subscribers of an event
+ * @param events Pointer to the event system
+ * @param event Pointer to the event to dispatch
+ * @return LAYER_EVENTS_SUCCESS on success, error code on failure
  */
 static layer_events_error_t notify_subscribers(layer_event_system_t *events,
                                                const layer_event_t *event) {
@@ -1061,7 +1144,11 @@ static layer_events_error_t notify_subscribers(layer_event_system_t *events,
 }
 
 /**
- * Find subscriber
+ * @brief Find a subscriber by event type and ID
+ * @param events Pointer to the event system
+ * @param event_type Type of event to search for
+ * @param subscriber_id ID of the subscriber to find
+ * @return Pointer to subscriber entry, or NULL if not found
  */
 static subscriber_entry_t *find_subscriber(layer_event_system_t *events,
                                            layer_event_type_t event_type,
@@ -1080,7 +1167,8 @@ static subscriber_entry_t *find_subscriber(layer_event_system_t *events,
 }
 
 /**
- * Cleanup event data
+ * @brief Clean up dynamically allocated event data
+ * @param event Pointer to the event to clean up
  */
 static void cleanup_event_data(layer_event_t *event) {
     if (!event) {
@@ -1103,14 +1191,17 @@ static void cleanup_event_data(layer_event_t *event) {
 }
 
 /**
- * Validate event system
+ * @brief Validate that an event system pointer is valid
+ * @param events Pointer to the event system to validate
+ * @return true if valid, false otherwise
  */
 static bool validate_event_system(const layer_event_system_t *events) {
     return events && events->magic == EVENT_SYSTEM_MAGIC;
 }
 
 /**
- * Get timestamp in nanoseconds
+ * @brief Get the current monotonic timestamp in nanoseconds
+ * @return Current timestamp in nanoseconds, or 0 on failure
  */
 static uint64_t get_timestamp_ns(void) {
     struct timespec ts;
@@ -1121,7 +1212,10 @@ static uint64_t get_timestamp_ns(void) {
 }
 
 /**
- * Debug logging function
+ * @brief Write a debug log message if debugging is enabled
+ * @param events Pointer to the event system
+ * @param format Printf-style format string
+ * @param ... Variable arguments for format string
  */
 static void debug_log(layer_event_system_t *events, const char *format, ...) {
     if (!events || !events->debug_enabled) {

@@ -1,7 +1,8 @@
-#include "lle/char_width.h"
-
 /**
- * Character width calculation
+ * @file char_width.c
+ * @brief Character Width Calculation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Implements Unicode East Asian Width property for terminal display.
  *
@@ -9,6 +10,16 @@
  * https://www.unicode.org/reports/tr11/
  */
 
+#include "lle/char_width.h"
+
+/**
+ * @brief Get the display width of a Unicode codepoint
+ * @param cp The Unicode codepoint to measure
+ * @return Display width: 0 (zero-width), 1 (normal), or 2 (wide/fullwidth)
+ *
+ * Implements East Asian Width property for terminal display.
+ * Handles control characters, combining marks, CJK, emoji, and more.
+ */
 int lle_codepoint_width(uint32_t cp) {
     /* C0 control characters (0x00-0x1F) */
     if (cp < 0x20) {
@@ -134,6 +145,11 @@ int lle_codepoint_width(uint32_t cp) {
     return 1;
 }
 
+/**
+ * @brief Check if a codepoint is a wide (double-width) character
+ * @param codepoint The Unicode codepoint to check
+ * @return true if the character occupies 2 terminal columns, false otherwise
+ */
 bool lle_is_wide_character(uint32_t codepoint) {
     return lle_codepoint_width(codepoint) == 2;
 }

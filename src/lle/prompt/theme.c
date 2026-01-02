@@ -22,6 +22,12 @@
 
 /**
  * @brief Initialize the theme registry
+ *
+ * Sets up a theme registry for storing and managing themes. The registry
+ * starts with no themes and "minimal" as the default theme name.
+ *
+ * @param registry Pointer to registry structure to initialize
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if registry is NULL
  */
 lle_result_t lle_theme_registry_init(lle_theme_registry_t *registry) {
     if (!registry) {
@@ -38,6 +44,10 @@ lle_result_t lle_theme_registry_init(lle_theme_registry_t *registry) {
 
 /**
  * @brief Cleanup the theme registry
+ *
+ * Frees all registered themes and resets the registry to uninitialized state.
+ *
+ * @param registry Pointer to registry to cleanup (ignored if NULL or not initialized)
  */
 void lle_theme_registry_cleanup(lle_theme_registry_t *registry) {
     if (!registry || !registry->initialized) {
@@ -58,6 +68,14 @@ void lle_theme_registry_cleanup(lle_theme_registry_t *registry) {
 
 /**
  * @brief Register a theme with the registry
+ *
+ * Adds a theme to the registry. If the theme specifies inheritance,
+ * resolves the parent theme and applies inherited properties.
+ *
+ * @param registry Pointer to initialized registry
+ * @param theme    Pointer to theme to register (ownership transferred to registry)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if invalid,
+ *         LLE_ERROR_BUFFER_OVERFLOW if registry full, LLE_ERROR_INVALID_STATE if duplicate name
  */
 lle_result_t lle_theme_registry_register(lle_theme_registry_t *registry,
                                          lle_theme_t *theme) {
@@ -104,6 +122,12 @@ lle_result_t lle_theme_registry_register(lle_theme_registry_t *registry,
 
 /**
  * @brief Find a theme by name
+ *
+ * Searches the registry for a theme with the given name.
+ *
+ * @param registry Pointer to initialized registry
+ * @param name     Theme name to search for
+ * @return Pointer to theme if found, NULL if not found or invalid parameters
  */
 lle_theme_t *lle_theme_registry_find(const lle_theme_registry_t *registry,
                                      const char *name) {
@@ -122,6 +146,14 @@ lle_theme_t *lle_theme_registry_find(const lle_theme_registry_t *registry,
 
 /**
  * @brief Set the active theme
+ *
+ * Activates a theme by name, deactivating the previously active theme.
+ * Increments the theme switch counter for statistics.
+ *
+ * @param registry Pointer to initialized registry
+ * @param name     Name of theme to activate
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if invalid,
+ *         LLE_ERROR_NOT_FOUND if theme not found
  */
 lle_result_t lle_theme_registry_set_active(lle_theme_registry_t *registry,
                                            const char *name) {
@@ -151,6 +183,11 @@ lle_result_t lle_theme_registry_set_active(lle_theme_registry_t *registry,
 
 /**
  * @brief Get the currently active theme
+ *
+ * Returns the currently active theme in the registry.
+ *
+ * @param registry Pointer to initialized registry
+ * @return Pointer to active theme, or NULL if no theme active or invalid registry
  */
 lle_theme_t *
 lle_theme_registry_get_active(const lle_theme_registry_t *registry) {
@@ -162,6 +199,14 @@ lle_theme_registry_get_active(const lle_theme_registry_t *registry) {
 
 /**
  * @brief Get all registered theme names
+ *
+ * Retrieves the names of all registered themes. If names array is provided,
+ * fills it with pointers to theme name strings (up to max_names).
+ *
+ * @param registry  Pointer to initialized registry
+ * @param names     Optional output array for theme name pointers (may be NULL)
+ * @param max_names Maximum number of names to store in array
+ * @return Total count of registered themes
  */
 size_t lle_theme_registry_list(const lle_theme_registry_t *registry,
                                const char **names, size_t max_names) {
@@ -187,6 +232,14 @@ size_t lle_theme_registry_list(const lle_theme_registry_t *registry,
 
 /**
  * @brief Create a new theme
+ *
+ * Allocates and initializes a new theme with the given name, description,
+ * and category. The theme is initialized with Unicode symbols by default.
+ *
+ * @param name        Theme name (required, must not be empty)
+ * @param description Optional description (may be NULL)
+ * @param category    Theme category classification
+ * @return Pointer to newly allocated theme, or NULL on failure
  */
 lle_theme_t *lle_theme_create(const char *name, const char *description,
                               lle_theme_category_t category) {
@@ -215,11 +268,24 @@ lle_theme_t *lle_theme_create(const char *name, const char *description,
 
 /**
  * @brief Free a theme
+ *
+ * Releases memory allocated for a theme structure.
+ *
+ * @param theme Pointer to theme to free (ignored if NULL)
  */
 void lle_theme_free(lle_theme_t *theme) { free(theme); }
 
 /**
  * @brief Resolve theme inheritance
+ *
+ * Looks up the parent theme and copies unset properties from parent to child.
+ * Handles colors, symbols, layout, and capabilities. Detects inheritance
+ * cycles up to depth 10.
+ *
+ * @param registry Pointer to registry containing parent theme
+ * @param theme    Pointer to theme with inherits_from set
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if invalid,
+ *         LLE_ERROR_NOT_FOUND if parent not found, LLE_ERROR_INVALID_STATE on cycle
  */
 lle_result_t lle_theme_resolve_inheritance(lle_theme_registry_t *registry,
                                            lle_theme_t *theme) {
@@ -348,6 +414,11 @@ lle_result_t lle_theme_resolve_inheritance(lle_theme_registry_t *registry,
 
 /**
  * @brief Create a basic ANSI color
+ *
+ * Creates a color using the basic 8-color ANSI palette.
+ *
+ * @param color Basic color value (0-7)
+ * @return Initialized lle_color_t structure
  */
 lle_color_t lle_color_basic(lle_basic_color_t color) {
     lle_color_t c = {0};
@@ -358,6 +429,11 @@ lle_color_t lle_color_basic(lle_basic_color_t color) {
 
 /**
  * @brief Create a 256-palette color
+ *
+ * Creates a color using the 256-color extended palette.
+ *
+ * @param index Palette index (0-255)
+ * @return Initialized lle_color_t structure
  */
 lle_color_t lle_color_256(uint8_t index) {
     lle_color_t c = {0};
@@ -368,6 +444,13 @@ lle_color_t lle_color_256(uint8_t index) {
 
 /**
  * @brief Create a true color (RGB)
+ *
+ * Creates a 24-bit true color from RGB components.
+ *
+ * @param r Red component (0-255)
+ * @param g Green component (0-255)
+ * @param b Blue component (0-255)
+ * @return Initialized lle_color_t structure
  */
 lle_color_t lle_color_rgb(uint8_t r, uint8_t g, uint8_t b) {
     lle_color_t c = {0};
@@ -380,6 +463,16 @@ lle_color_t lle_color_rgb(uint8_t r, uint8_t g, uint8_t b) {
 
 /**
  * @brief Generate ANSI escape sequence for a color
+ *
+ * Converts a color structure to ANSI escape sequence string. Handles
+ * basic, 256-color, and true color modes. For foreground colors, also
+ * appends attribute escape codes (bold, dim, italic, underline).
+ *
+ * @param color       Pointer to color to convert
+ * @param foreground  true for foreground color, false for background
+ * @param output      Output buffer for escape sequence
+ * @param output_size Size of output buffer
+ * @return Number of bytes written (excluding null terminator), or 0 on error
  */
 size_t lle_color_to_ansi(const lle_color_t *color, bool foreground,
                          char *output, size_t output_size) {
@@ -443,7 +536,14 @@ size_t lle_color_to_ansi(const lle_color_t *color, bool foreground,
 /**
  * @brief Downgrade color to match terminal capabilities
  *
- * Converts truecolor to 256-color or basic ANSI as needed.
+ * Converts truecolor to 256-color or basic ANSI as needed based on
+ * terminal capabilities. Uses color cube approximation for 256-color
+ * and threshold-based mapping for basic colors.
+ *
+ * @param color         Pointer to color to downgrade (may be NULL)
+ * @param has_truecolor true if terminal supports 24-bit color
+ * @param has_256color  true if terminal supports 256-color palette
+ * @return Downgraded color suitable for terminal capabilities
  */
 lle_color_t lle_color_downgrade(const lle_color_t *color, bool has_truecolor,
                                 bool has_256color) {
@@ -563,6 +663,11 @@ lle_color_t lle_color_downgrade(const lle_color_t *color, bool has_truecolor,
 
 /**
  * @brief Initialize symbol set with Unicode defaults
+ *
+ * Populates a symbol set with Unicode characters for modern terminal
+ * display. Includes arrows, check marks, and other Unicode glyphs.
+ *
+ * @param symbols Pointer to symbol set to initialize (ignored if NULL)
  */
 void lle_symbol_set_init_unicode(lle_symbol_set_t *symbols) {
     if (!symbols) {
@@ -590,6 +695,11 @@ void lle_symbol_set_init_unicode(lle_symbol_set_t *symbols) {
 
 /**
  * @brief Initialize symbol set with ASCII fallbacks
+ *
+ * Populates a symbol set with ASCII-only characters for compatibility
+ * with terminals that do not support Unicode.
+ *
+ * @param symbols Pointer to symbol set to initialize (ignored if NULL)
  */
 void lle_symbol_set_init_ascii(lle_symbol_set_t *symbols) {
     if (!symbols) {
@@ -622,6 +732,11 @@ void lle_symbol_set_init_ascii(lle_symbol_set_t *symbols) {
 
 /**
  * @brief Create the minimal theme
+ *
+ * Creates the "minimal" built-in theme with a simple directory-only prompt.
+ * Supports ASCII fallback and transient prompts.
+ *
+ * @return Pointer to newly allocated theme, or NULL on allocation failure
  */
 lle_theme_t *lle_theme_create_minimal(void) {
     lle_theme_t *theme =
@@ -652,6 +767,11 @@ lle_theme_t *lle_theme_create_minimal(void) {
 
 /**
  * @brief Create the default theme
+ *
+ * Creates the "default" built-in theme with user, host, directory, and
+ * git status. Uses Unicode symbols and basic ANSI colors.
+ *
+ * @return Pointer to newly allocated theme, or NULL on allocation failure
  */
 lle_theme_t *lle_theme_create_default(void) {
     lle_theme_t *theme = lle_theme_create("default", "Default lusush theme",
@@ -684,6 +804,11 @@ lle_theme_t *lle_theme_create_default(void) {
 
 /**
  * @brief Create the classic theme (bash-like)
+ *
+ * Creates the "classic" built-in theme with traditional bash-style
+ * [user@host dir]$ format. Uses ASCII-only symbols.
+ *
+ * @return Pointer to newly allocated theme, or NULL on allocation failure
  */
 lle_theme_t *lle_theme_create_classic(void) {
     lle_theme_t *theme = lle_theme_create(
@@ -723,6 +848,8 @@ lle_theme_t *lle_theme_create_classic(void) {
  * Powerline characters used:
  *   U+E0B0  - Left-pointing solid arrow
  *   U+E0B1  - Left-pointing thin arrow
+ *
+ * @return Pointer to newly allocated theme, or NULL on allocation failure
  */
 lle_theme_t *lle_theme_create_powerline(void) {
     lle_theme_t *theme = lle_theme_create(
@@ -775,6 +902,12 @@ lle_theme_t *lle_theme_create_powerline(void) {
 
 /**
  * @brief Create the informative theme
+ *
+ * Creates the "informative" built-in theme with detailed information
+ * including git status on a separate line. Supports multiline, right
+ * prompt, and async segments.
+ *
+ * @return Pointer to newly allocated theme, or NULL on allocation failure
  */
 lle_theme_t *lle_theme_create_informative(void) {
     lle_theme_t *theme =
@@ -814,6 +947,11 @@ lle_theme_t *lle_theme_create_informative(void) {
 
 /**
  * @brief Create the two-line theme
+ *
+ * Creates the "two-line" built-in theme with box drawing characters
+ * for a visual frame around prompt components.
+ *
+ * @return Pointer to newly allocated theme, or NULL on allocation failure
  */
 lle_theme_t *lle_theme_create_two_line(void) {
     lle_theme_t *theme =
@@ -849,6 +987,9 @@ lle_theme_t *lle_theme_create_two_line(void) {
  * @brief Create the corporate theme (ported from legacy)
  *
  * Professional theme for business environments with 256-color support.
+ * Uses subdued blues and grays for a professional appearance.
+ *
+ * @return Pointer to newly allocated theme, or NULL on allocation failure
  */
 lle_theme_t *lle_theme_create_corporate(void) {
     lle_theme_t *theme = lle_theme_create(
@@ -898,6 +1039,9 @@ lle_theme_t *lle_theme_create_corporate(void) {
  * @brief Create the dark theme (ported from legacy)
  *
  * Modern dark theme with bright accent colors and two-line layout.
+ * Designed for dark terminal backgrounds with vibrant highlights.
+ *
+ * @return Pointer to newly allocated theme, or NULL on allocation failure
  */
 lle_theme_t *lle_theme_create_dark(void) {
     lle_theme_t *theme =
@@ -950,6 +1094,9 @@ lle_theme_t *lle_theme_create_dark(void) {
  * @brief Create the light theme (ported from legacy)
  *
  * Clean light theme with dark colors for excellent readability.
+ * Designed for light terminal backgrounds with dark text.
+ *
+ * @return Pointer to newly allocated theme, or NULL on allocation failure
  */
 lle_theme_t *lle_theme_create_light(void) {
     lle_theme_t *theme = lle_theme_create(
@@ -995,7 +1142,10 @@ lle_theme_t *lle_theme_create_light(void) {
 /**
  * @brief Create the colorful theme (ported from legacy)
  *
- * Vibrant colorful theme for creative workflows.
+ * Vibrant colorful theme for creative workflows. Uses rainbow colors
+ * and decorative symbols for an expressive appearance.
+ *
+ * @return Pointer to newly allocated theme, or NULL on allocation failure
  */
 lle_theme_t *lle_theme_create_colorful(void) {
     lle_theme_t *theme =
@@ -1047,6 +1197,13 @@ lle_theme_t *lle_theme_create_colorful(void) {
 
 /**
  * @brief Register all built-in themes
+ *
+ * Creates and registers all built-in themes (minimal, default, classic,
+ * powerline, informative, two-line, corporate, dark, light, colorful).
+ * Sets "minimal" as the active theme after registration.
+ *
+ * @param registry Pointer to initialized registry
+ * @return Number of themes successfully registered
  */
 size_t lle_theme_register_builtins(lle_theme_registry_t *registry) {
     if (!registry || !registry->initialized) {

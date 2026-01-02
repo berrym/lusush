@@ -1,6 +1,8 @@
 /**
  * @file terminal_abstraction.h
  * @brief LLE Terminal State Abstraction Layer - Type Definitions
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Specification: Spec 02 - Terminal Abstraction Complete Specification
  * Version: 1.0.0

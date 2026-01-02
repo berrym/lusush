@@ -1,6 +1,8 @@
 /**
  * @file error_handling.c
  * @brief LLE Error Handling System - Phase 1 Core Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Specification: Spec 16 - Error Handling Complete Specification
  * Phase: 1 - Core Error Handling

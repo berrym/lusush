@@ -26,6 +26,14 @@
 /* Segment Registry Implementation                                            */
 /* ========================================================================== */
 
+/**
+ * @brief Initialize the segment registry
+ *
+ * Sets up an empty segment registry for storing and managing prompt segments.
+ *
+ * @param registry Pointer to registry structure to initialize
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if registry is NULL
+ */
 lle_result_t lle_segment_registry_init(lle_segment_registry_t *registry) {
     if (!registry) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -37,6 +45,13 @@ lle_result_t lle_segment_registry_init(lle_segment_registry_t *registry) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Cleanup the segment registry
+ *
+ * Frees all registered segments and resets the registry to uninitialized state.
+ *
+ * @param registry Pointer to registry to cleanup (ignored if NULL or not initialized)
+ */
 void lle_segment_registry_cleanup(lle_segment_registry_t *registry) {
     if (!registry || !registry->initialized) {
         return;
@@ -53,6 +68,17 @@ void lle_segment_registry_cleanup(lle_segment_registry_t *registry) {
     registry->initialized = false;
 }
 
+/**
+ * @brief Register a segment with the registry
+ *
+ * Adds a segment to the registry. If the segment has an init function,
+ * it is called during registration.
+ *
+ * @param registry Pointer to initialized registry
+ * @param segment  Pointer to segment to register (ownership transferred to registry)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if invalid,
+ *         LLE_ERROR_BUFFER_OVERFLOW if registry full, LLE_ERROR_INVALID_STATE if duplicate name
+ */
 lle_result_t lle_segment_registry_register(lle_segment_registry_t *registry,
                                            lle_prompt_segment_t *segment) {
     if (!registry || !segment || !registry->initialized) {
@@ -84,6 +110,15 @@ lle_result_t lle_segment_registry_register(lle_segment_registry_t *registry,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Find a segment by name
+ *
+ * Searches the registry for a segment with the given name.
+ *
+ * @param registry Pointer to initialized registry
+ * @param name     Segment name to search for
+ * @return Pointer to segment if found, NULL if not found or invalid parameters
+ */
 lle_prompt_segment_t *
 lle_segment_registry_find(const lle_segment_registry_t *registry,
                           const char *name) {
@@ -100,6 +135,17 @@ lle_segment_registry_find(const lle_segment_registry_t *registry,
     return NULL;
 }
 
+/**
+ * @brief Get all registered segment names
+ *
+ * Retrieves the names of all registered segments. If names array is provided,
+ * fills it with pointers to segment name strings (up to max_names).
+ *
+ * @param registry  Pointer to initialized registry
+ * @param names     Optional output array for segment name pointers (may be NULL)
+ * @param max_names Maximum number of names to store in array
+ * @return Total count of registered segments
+ */
 size_t lle_segment_registry_list(const lle_segment_registry_t *registry,
                                  const char **names, size_t max_names) {
     if (!registry || !registry->initialized) {
@@ -117,6 +163,14 @@ size_t lle_segment_registry_list(const lle_segment_registry_t *registry,
     return registry->count;
 }
 
+/**
+ * @brief Invalidate cache for all segments
+ *
+ * Calls the invalidate_cache function on each registered segment that has one.
+ * Used when the prompt context changes (e.g., directory change).
+ *
+ * @param registry Pointer to initialized registry (ignored if NULL or not initialized)
+ */
 void lle_segment_registry_invalidate_all(lle_segment_registry_t *registry) {
     if (!registry || !registry->initialized) {
         return;
@@ -133,6 +187,15 @@ void lle_segment_registry_invalidate_all(lle_segment_registry_t *registry) {
 /* Prompt Context Implementation                                              */
 /* ========================================================================== */
 
+/**
+ * @brief Initialize prompt context
+ *
+ * Populates the context with current environment information including
+ * username, hostname, current directory, time, and terminal capabilities.
+ *
+ * @param ctx Pointer to context structure to initialize
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if ctx is NULL
+ */
 lle_result_t lle_prompt_context_init(lle_prompt_context_t *ctx) {
     if (!ctx) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -206,6 +269,16 @@ lle_result_t lle_prompt_context_init(lle_prompt_context_t *ctx) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Update prompt context after command execution
+ *
+ * Updates the context with the last command's exit code, duration,
+ * and refreshes the current time.
+ *
+ * @param ctx         Pointer to context (ignored if NULL)
+ * @param exit_code   Exit code of last command
+ * @param duration_ms Duration of last command in milliseconds
+ */
 void lle_prompt_context_update(lle_prompt_context_t *ctx, int exit_code,
                                uint64_t duration_ms) {
     if (!ctx) {
@@ -220,6 +293,14 @@ void lle_prompt_context_update(lle_prompt_context_t *ctx, int exit_code,
     localtime_r(&ctx->current_time, &ctx->current_tm);
 }
 
+/**
+ * @brief Set background job count in context
+ *
+ * Updates the context with the current number of background jobs.
+ *
+ * @param ctx       Pointer to context (ignored if NULL)
+ * @param job_count Number of background jobs
+ */
 void lle_prompt_context_set_job_count(lle_prompt_context_t *ctx,
                                       int job_count) {
     if (!ctx) {
@@ -228,6 +309,16 @@ void lle_prompt_context_set_job_count(lle_prompt_context_t *ctx,
     ctx->background_job_count = job_count;
 }
 
+/**
+ * @brief Refresh current directory information in context
+ *
+ * Re-reads the current working directory and updates related fields
+ * including display path with home abbreviation, writability, and git status.
+ *
+ * @param ctx Pointer to context
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if ctx is NULL,
+ *         LLE_ERROR_SYSTEM_CALL if getcwd fails
+ */
 lle_result_t lle_prompt_context_refresh_directory(lle_prompt_context_t *ctx) {
     if (!ctx) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -279,6 +370,17 @@ lle_result_t lle_prompt_context_refresh_directory(lle_prompt_context_t *ctx) {
 /* Segment Creation Helpers                                                   */
 /* ========================================================================== */
 
+/**
+ * @brief Create a new prompt segment
+ *
+ * Allocates and initializes a new segment with the given name, description,
+ * and capability flags. The segment functions must be set after creation.
+ *
+ * @param name         Segment name (required)
+ * @param description  Optional description (may be NULL)
+ * @param capabilities Capability flags (LLE_SEG_CAP_*)
+ * @return Pointer to newly allocated segment, or NULL on failure
+ */
 lle_prompt_segment_t *lle_segment_create(const char *name,
                                          const char *description,
                                          uint32_t capabilities) {
@@ -301,6 +403,14 @@ lle_prompt_segment_t *lle_segment_create(const char *name,
     return segment;
 }
 
+/**
+ * @brief Free a prompt segment
+ *
+ * Calls the segment's cleanup function if available, then frees
+ * the segment state and structure.
+ *
+ * @param segment Pointer to segment to free (ignored if NULL)
+ */
 void lle_segment_free(lle_prompt_segment_t *segment) {
     if (!segment) {
         return;
@@ -320,12 +430,21 @@ void lle_segment_free(lle_prompt_segment_t *segment) {
 /* Built-in Segment: Directory                                                */
 /* ========================================================================== */
 
+/**
+ * @brief Directory segment internal state
+ */
 typedef struct {
     char cached_cwd[PATH_MAX];
     char cached_output[LLE_SEGMENT_OUTPUT_MAX];
     bool cache_valid;
 } segment_directory_state_t;
 
+/**
+ * @brief Initialize directory segment
+ *
+ * @param self Pointer to segment
+ * @return LLE_SUCCESS on success, LLE_ERROR_OUT_OF_MEMORY on allocation failure
+ */
 static lle_result_t segment_directory_init(lle_prompt_segment_t *self) {
     segment_directory_state_t *state = calloc(1, sizeof(*state));
     if (!state) {
@@ -335,17 +454,40 @@ static lle_result_t segment_directory_init(lle_prompt_segment_t *self) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Cleanup directory segment
+ *
+ * @param self Pointer to segment
+ */
 static void segment_directory_cleanup(lle_prompt_segment_t *self) {
     /* State freed by lle_segment_free */
     (void)self;
 }
 
+/**
+ * @brief Check if directory segment should be visible
+ *
+ * @param self Pointer to segment
+ * @param ctx  Prompt context
+ * @return true if directory is available
+ */
 static bool segment_directory_is_visible(const lle_prompt_segment_t *self,
                                          const lle_prompt_context_t *ctx) {
     (void)self;
     return strlen(ctx->cwd) > 0;
 }
 
+/**
+ * @brief Render directory segment
+ *
+ * Outputs the current directory path with optional color based on theme.
+ *
+ * @param self   Pointer to segment
+ * @param ctx    Prompt context
+ * @param theme  Current theme (may be NULL)
+ * @param output Output structure to populate
+ * @return LLE_SUCCESS on success
+ */
 static lle_result_t segment_directory_render(const lle_prompt_segment_t *self,
                                              const lle_prompt_context_t *ctx,
                                              const lle_theme_t *theme,
@@ -386,6 +528,13 @@ static lle_result_t segment_directory_render(const lle_prompt_segment_t *self,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Get property from directory segment
+ *
+ * @param self     Pointer to segment
+ * @param property Property name to retrieve
+ * @return Property value or NULL if not found
+ */
 static const char *
 segment_directory_get_property(const lle_prompt_segment_t *self,
                                const char *property) {
@@ -397,6 +546,11 @@ segment_directory_get_property(const lle_prompt_segment_t *self,
     return NULL;
 }
 
+/**
+ * @brief Invalidate directory segment cache
+ *
+ * @param self Pointer to segment
+ */
 static void segment_directory_invalidate(lle_prompt_segment_t *self) {
     segment_directory_state_t *state = self->state;
     if (state) {
@@ -404,6 +558,13 @@ static void segment_directory_invalidate(lle_prompt_segment_t *self) {
     }
 }
 
+/**
+ * @brief Create the directory segment
+ *
+ * Creates a segment that displays the current working directory.
+ *
+ * @return Pointer to newly allocated segment, or NULL on failure
+ */
 lle_prompt_segment_t *lle_segment_create_directory(void) {
     lle_prompt_segment_t *seg =
         lle_segment_create("directory", "Current working directory",
@@ -427,12 +588,28 @@ lle_prompt_segment_t *lle_segment_create_directory(void) {
 /* Built-in Segment: User                                                     */
 /* ========================================================================== */
 
+/**
+ * @brief Check if user segment should be visible
+ *
+ * @param self Pointer to segment
+ * @param ctx  Prompt context
+ * @return true if username is available
+ */
 static bool segment_user_is_visible(const lle_prompt_segment_t *self,
                                     const lle_prompt_context_t *ctx) {
     (void)self;
     return strlen(ctx->username) > 0;
 }
 
+/**
+ * @brief Render user segment
+ *
+ * @param self   Pointer to segment
+ * @param ctx    Prompt context
+ * @param theme  Current theme (may be NULL)
+ * @param output Output structure to populate
+ * @return LLE_SUCCESS on success
+ */
 static lle_result_t segment_user_render(const lle_prompt_segment_t *self,
                                         const lle_prompt_context_t *ctx,
                                         const lle_theme_t *theme,
@@ -458,6 +635,13 @@ static lle_result_t segment_user_render(const lle_prompt_segment_t *self,
  */
 static void segment_user_invalidate(lle_prompt_segment_t *self) { (void)self; }
 
+/**
+ * @brief Create the user segment
+ *
+ * Creates a segment that displays the current username.
+ *
+ * @return Pointer to newly allocated segment, or NULL on failure
+ */
 lle_prompt_segment_t *lle_segment_create_user(void) {
     lle_prompt_segment_t *seg =
         lle_segment_create("user", "Current username", LLE_SEG_CAP_CACHEABLE);
@@ -476,12 +660,28 @@ lle_prompt_segment_t *lle_segment_create_user(void) {
 /* Built-in Segment: Host                                                     */
 /* ========================================================================== */
 
+/**
+ * @brief Check if host segment should be visible
+ *
+ * @param self Pointer to segment
+ * @param ctx  Prompt context
+ * @return true if hostname is available
+ */
 static bool segment_host_is_visible(const lle_prompt_segment_t *self,
                                     const lle_prompt_context_t *ctx) {
     (void)self;
     return strlen(ctx->hostname) > 0;
 }
 
+/**
+ * @brief Render host segment
+ *
+ * @param self   Pointer to segment
+ * @param ctx    Prompt context
+ * @param theme  Current theme (may be NULL)
+ * @param output Output structure to populate
+ * @return LLE_SUCCESS on success
+ */
 static lle_result_t segment_host_render(const lle_prompt_segment_t *self,
                                         const lle_prompt_context_t *ctx,
                                         const lle_theme_t *theme,
@@ -507,6 +707,13 @@ static lle_result_t segment_host_render(const lle_prompt_segment_t *self,
  */
 static void segment_host_invalidate(lle_prompt_segment_t *self) { (void)self; }
 
+/**
+ * @brief Create the host segment
+ *
+ * Creates a segment that displays the hostname.
+ *
+ * @return Pointer to newly allocated segment, or NULL on failure
+ */
 lle_prompt_segment_t *lle_segment_create_host(void) {
     lle_prompt_segment_t *seg =
         lle_segment_create("host", "Hostname", LLE_SEG_CAP_CACHEABLE);
@@ -525,6 +732,15 @@ lle_prompt_segment_t *lle_segment_create_host(void) {
 /* Built-in Segment: Time                                                     */
 /* ========================================================================== */
 
+/**
+ * @brief Render time segment
+ *
+ * @param self   Pointer to segment
+ * @param ctx    Prompt context
+ * @param theme  Current theme (may be NULL)
+ * @param output Output structure to populate
+ * @return LLE_SUCCESS on success
+ */
 static lle_result_t segment_time_render(const lle_prompt_segment_t *self,
                                         const lle_prompt_context_t *ctx,
                                         const lle_theme_t *theme,
@@ -542,6 +758,13 @@ static lle_result_t segment_time_render(const lle_prompt_segment_t *self,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Create the time segment
+ *
+ * Creates a segment that displays the current time in HH:MM:SS format.
+ *
+ * @return Pointer to newly allocated segment, or NULL on failure
+ */
 lle_prompt_segment_t *lle_segment_create_time(void) {
     lle_prompt_segment_t *seg =
         lle_segment_create("time", "Current time", LLE_SEG_CAP_DYNAMIC);
@@ -558,12 +781,30 @@ lle_prompt_segment_t *lle_segment_create_time(void) {
 /* Built-in Segment: Status                                                   */
 /* ========================================================================== */
 
+/**
+ * @brief Check if status segment should be visible
+ *
+ * @param self Pointer to segment
+ * @param ctx  Prompt context
+ * @return true if last exit code was non-zero
+ */
 static bool segment_status_is_visible(const lle_prompt_segment_t *self,
                                       const lle_prompt_context_t *ctx) {
     (void)self;
     return ctx->last_exit_code != 0;
 }
 
+/**
+ * @brief Render status segment
+ *
+ * Displays the last command's exit code with error symbol if non-zero.
+ *
+ * @param self   Pointer to segment
+ * @param ctx    Prompt context
+ * @param theme  Current theme (may be NULL)
+ * @param output Output structure to populate
+ * @return LLE_SUCCESS on success
+ */
 static lle_result_t segment_status_render(const lle_prompt_segment_t *self,
                                           const lle_prompt_context_t *ctx,
                                           const lle_theme_t *theme,
@@ -593,6 +834,13 @@ static lle_result_t segment_status_render(const lle_prompt_segment_t *self,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Create the status segment
+ *
+ * Creates a segment that displays the last command's exit code when non-zero.
+ *
+ * @return Pointer to newly allocated segment, or NULL on failure
+ */
 lle_prompt_segment_t *lle_segment_create_status(void) {
     lle_prompt_segment_t *seg =
         lle_segment_create("status", "Exit code of last command",
@@ -611,12 +859,28 @@ lle_prompt_segment_t *lle_segment_create_status(void) {
 /* Built-in Segment: Jobs                                                     */
 /* ========================================================================== */
 
+/**
+ * @brief Check if jobs segment should be visible
+ *
+ * @param self Pointer to segment
+ * @param ctx  Prompt context
+ * @return true if there are background jobs
+ */
 static bool segment_jobs_is_visible(const lle_prompt_segment_t *self,
                                     const lle_prompt_context_t *ctx) {
     (void)self;
     return ctx->background_job_count > 0;
 }
 
+/**
+ * @brief Render jobs segment
+ *
+ * @param self   Pointer to segment
+ * @param ctx    Prompt context
+ * @param theme  Current theme (may be NULL)
+ * @param output Output structure to populate
+ * @return LLE_SUCCESS on success
+ */
 static lle_result_t segment_jobs_render(const lle_prompt_segment_t *self,
                                         const lle_prompt_context_t *ctx,
                                         const lle_theme_t *theme,
@@ -646,6 +910,13 @@ static lle_result_t segment_jobs_render(const lle_prompt_segment_t *self,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Create the jobs segment
+ *
+ * Creates a segment that displays the count of background jobs.
+ *
+ * @return Pointer to newly allocated segment, or NULL on failure
+ */
 lle_prompt_segment_t *lle_segment_create_jobs(void) {
     lle_prompt_segment_t *seg = lle_segment_create(
         "jobs", "Number of background jobs", LLE_SEG_CAP_OPTIONAL);
@@ -663,6 +934,17 @@ lle_prompt_segment_t *lle_segment_create_jobs(void) {
 /* Built-in Segment: Symbol                                                   */
 /* ========================================================================== */
 
+/**
+ * @brief Render symbol segment
+ *
+ * Displays the prompt symbol ($ for normal users, # for root).
+ *
+ * @param self   Pointer to segment
+ * @param ctx    Prompt context
+ * @param theme  Current theme (may be NULL)
+ * @param output Output structure to populate
+ * @return LLE_SUCCESS on success
+ */
 static lle_result_t segment_symbol_render(const lle_prompt_segment_t *self,
                                           const lle_prompt_context_t *ctx,
                                           const lle_theme_t *theme,
@@ -688,6 +970,13 @@ static lle_result_t segment_symbol_render(const lle_prompt_segment_t *self,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Create the symbol segment
+ *
+ * Creates a segment that displays the prompt symbol ($ or #).
+ *
+ * @return Pointer to newly allocated segment, or NULL on failure
+ */
 lle_prompt_segment_t *lle_segment_create_symbol(void) {
     lle_prompt_segment_t *seg = lle_segment_create(
         "symbol", "Prompt symbol ($ or #)", LLE_SEG_CAP_THEME_AWARE);
@@ -741,6 +1030,15 @@ typedef struct {
 static void segment_git_async_callback(const lle_async_response_t *response,
                                        void *user_data);
 
+/**
+ * @brief Initialize git segment
+ *
+ * Sets up the git segment state and optional async worker for
+ * background git status fetching.
+ *
+ * @param self Pointer to segment
+ * @return LLE_SUCCESS on success, LLE_ERROR_OUT_OF_MEMORY on allocation failure
+ */
 static lle_result_t segment_git_init(lle_prompt_segment_t *self) {
     segment_git_state_t *state = calloc(1, sizeof(*state));
     if (!state) {
@@ -771,6 +1069,13 @@ static lle_result_t segment_git_init(lle_prompt_segment_t *self) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Cleanup git segment
+ *
+ * Shuts down the async worker and releases resources.
+ *
+ * @param self Pointer to segment
+ */
 static void segment_git_cleanup(lle_prompt_segment_t *self) {
     segment_git_state_t *state = self->state;
     if (!state) {
@@ -791,6 +1096,13 @@ static void segment_git_cleanup(lle_prompt_segment_t *self) {
     /* Note: state itself is freed by lle_segment_free() */
 }
 
+/**
+ * @brief Check if git segment should be visible
+ *
+ * @param self Pointer to segment
+ * @param ctx  Prompt context
+ * @return true if in a git repository
+ */
 static bool segment_git_is_visible(const lle_prompt_segment_t *self,
                                    const lle_prompt_context_t *ctx) {
     segment_git_state_t *state = self->state;
@@ -799,6 +1111,13 @@ static bool segment_git_is_visible(const lle_prompt_segment_t *self,
 
 /**
  * @brief Run a git command and capture output
+ *
+ * Executes a git command and captures stdout into the output buffer.
+ *
+ * @param args        Git command arguments (appended to "git ")
+ * @param output      Output buffer for command output (may be NULL)
+ * @param output_size Size of output buffer
+ * @return Exit status from pclose, or -1 on error
  */
 static int run_git_command(const char *args, char *output, size_t output_size) {
     char cmd[512];
@@ -831,6 +1150,11 @@ static int run_git_command(const char *args, char *output, size_t output_size) {
 
 /**
  * @brief Check if we're in a git repository (checks parent dirs too)
+ *
+ * Uses git rev-parse to determine if the current directory is inside
+ * a git working tree.
+ *
+ * @return true if in a git repository, false otherwise
  */
 static bool is_in_git_repo(void) {
     char output[16];
@@ -841,6 +1165,11 @@ static bool is_in_git_repo(void) {
 
 /**
  * @brief Fetch git status and populate state
+ *
+ * Runs git commands to retrieve branch name, staged/unstaged/untracked
+ * counts, ahead/behind counts, stash count, and conflict status.
+ *
+ * @param state Pointer to git segment state to populate
  */
 static void fetch_git_status(segment_git_state_t *state) {
     if (!state)
@@ -1082,6 +1411,18 @@ static size_t append_colored(char *buf, size_t buf_size, size_t *pos,
     return visible;
 }
 
+/**
+ * @brief Render git segment
+ *
+ * Displays git repository status including branch, staged/unstaged/untracked
+ * counts, ahead/behind indicators, stash count, and conflict status.
+ *
+ * @param self   Pointer to segment
+ * @param ctx    Prompt context
+ * @param theme  Current theme (may be NULL)
+ * @param output Output structure to populate
+ * @return LLE_SUCCESS on success
+ */
 static lle_result_t segment_git_render(const lle_prompt_segment_t *self,
                                        const lle_prompt_context_t *ctx,
                                        const lle_theme_t *theme,
@@ -1260,6 +1601,13 @@ static lle_result_t segment_git_render(const lle_prompt_segment_t *self,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Get property from git segment
+ *
+ * @param self     Pointer to segment
+ * @param property Property name to retrieve ("branch" supported)
+ * @return Property value or NULL if not found
+ */
 static const char *segment_git_get_property(const lle_prompt_segment_t *self,
                                             const char *property) {
     segment_git_state_t *state = self->state;
@@ -1272,6 +1620,11 @@ static const char *segment_git_get_property(const lle_prompt_segment_t *self,
     return NULL;
 }
 
+/**
+ * @brief Invalidate git segment cache
+ *
+ * @param self Pointer to segment
+ */
 static void segment_git_invalidate(lle_prompt_segment_t *self) {
     segment_git_state_t *state = self->state;
     if (state) {
@@ -1279,6 +1632,14 @@ static void segment_git_invalidate(lle_prompt_segment_t *self) {
     }
 }
 
+/**
+ * @brief Create the git segment
+ *
+ * Creates a segment that displays git repository status with async
+ * support for non-blocking updates.
+ *
+ * @return Pointer to newly allocated segment, or NULL on failure
+ */
 lle_prompt_segment_t *lle_segment_create_git(void) {
     lle_prompt_segment_t *seg =
         lle_segment_create("git", "Git repository status",
@@ -1303,6 +1664,15 @@ lle_prompt_segment_t *lle_segment_create_git(void) {
 /* Register Built-in Segments                                                 */
 /* ========================================================================== */
 
+/**
+ * @brief Register all built-in segments
+ *
+ * Creates and registers all built-in segments (directory, user, host,
+ * time, status, jobs, symbol, git) with the registry.
+ *
+ * @param registry Pointer to initialized registry
+ * @return Number of segments successfully registered
+ */
 size_t lle_segment_register_builtins(lle_segment_registry_t *registry) {
     if (!registry || !registry->initialized) {
         return 0;

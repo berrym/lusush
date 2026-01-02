@@ -1,5 +1,8 @@
-/*
- * unicode_grapheme.c - Unicode TR#29 Grapheme Cluster Boundary Detection
+/**
+ * @file unicode_grapheme.c
+ * @brief Unicode TR#29 Grapheme Cluster Boundary Detection
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Complete implementation of Unicode Technical Report #29 (UAX #29)
  * grapheme cluster boundary algorithm. This implementation follows the
@@ -7,7 +10,6 @@
  *
  * Reference: https://www.unicode.org/reports/tr29/
  *
- * This is a complete, production-ready implementation.
  * All GB1-GB999 rules are fully implemented per specification.
  */
 
@@ -16,8 +18,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-/*
- * Grapheme_Cluster_Break property values as defined in UAX #29
+/**
+ * @brief Grapheme_Cluster_Break property values as defined in UAX #29
  */
 typedef enum {
     GCB_OTHER = 0,            // Any (default)
@@ -37,9 +39,10 @@ typedef enum {
     GCB_EXTENDED_PICTOGRAPHIC // Extended_Pictographic property
 } grapheme_cluster_break_t;
 
-/*
- * Hangul syllable composition constants
+/**
+ * @name Hangul syllable composition constants
  * Hangul Jamo ranges from Unicode 11.0
+ * @{
  */
 #define HANGUL_SBASE 0xAC00                           // Hangul syllable base
 #define HANGUL_LBASE 0x1100                           // Leading jamo base
@@ -50,12 +53,15 @@ typedef enum {
 #define HANGUL_TCOUNT 28                              // Number of trailing jamo
 #define HANGUL_NCOUNT (HANGUL_VCOUNT * HANGUL_TCOUNT) // 588
 #define HANGUL_SCOUNT (HANGUL_LCOUNT * HANGUL_NCOUNT) // 11172
+/** @} */
 
-/*
- * Get the Grapheme_Cluster_Break property for a Unicode codepoint
+/**
+ * @brief Get the Grapheme_Cluster_Break property for a Unicode codepoint
+ * @param codepoint The Unicode codepoint to classify
+ * @return The grapheme cluster break property value
  *
- * This function implements the complete Unicode character database
- * property lookup according to UAX #29 specification.
+ * Implements the complete Unicode character database property lookup
+ * according to UAX #29 specification.
  */
 static grapheme_cluster_break_t lle_get_gcb_property(uint32_t codepoint) {
     // GB3: CR
@@ -565,20 +571,14 @@ static grapheme_cluster_break_t lle_get_gcb_property(uint32_t codepoint) {
     return GCB_OTHER;
 }
 
-/*
- * Check if there's a grapheme cluster boundary between two codepoints
+/**
+ * @brief Check if there's a grapheme cluster boundary between two codepoints
+ * @param prev_cp Previous codepoint
+ * @param curr_cp Current codepoint
+ * @param prev_ri_count Count of preceding Regional Indicator codepoints (for GB12/13)
+ * @return true if boundary exists, false if no break
  *
- * This implements the complete UAX #29 grapheme cluster boundary rules.
- * Returns true if there's a boundary, false otherwise.
- *
- * Parameters:
- *   prev_cp - Previous codepoint
- *   curr_cp - Current codepoint
- *   prev_ri_count - Count of preceding Regional Indicator codepoints (for
- * GB12/13)
- *
- * Returns:
- *   true if boundary exists, false if no break
+ * Implements the complete UAX #29 grapheme cluster boundary rules.
  */
 static bool lle_check_grapheme_break(uint32_t prev_cp, uint32_t curr_cp,
                                      int prev_ri_count) {
@@ -657,20 +657,16 @@ static bool lle_check_grapheme_break(uint32_t prev_cp, uint32_t curr_cp,
     return true;
 }
 
-/*
- * Determine if a given UTF-8 position is a grapheme cluster boundary
+/**
+ * @brief Determine if a given UTF-8 position is a grapheme cluster boundary
+ * @param ptr Pointer to current position in UTF-8 text
+ * @param start Pointer to start of text (for context)
+ * @param end Pointer to end of text (for bounds checking)
+ * @return true if this position starts a new grapheme cluster, false otherwise
  *
  * This is the main public function for grapheme boundary detection.
- * It examines the current position and the previous codepoint to determine
+ * Examines the current position and the previous codepoint to determine
  * if there's a boundary at this position.
- *
- * Parameters:
- *   ptr   - Pointer to current position in UTF-8 text
- *   start - Pointer to start of text (for context)
- *   end   - Pointer to end of text (for bounds checking)
- *
- * Returns:
- *   true if this position starts a new grapheme cluster, false otherwise
  */
 bool lle_is_grapheme_boundary(const char *ptr, const char *start,
                               const char *end) {
@@ -743,18 +739,14 @@ bool lle_is_grapheme_boundary(const char *ptr, const char *start,
     return lle_check_grapheme_break(prev_cp, curr_cp, prev_ri_count);
 }
 
-/*
- * Count grapheme clusters in a UTF-8 string
+/**
+ * @brief Count grapheme clusters in a UTF-8 string
+ * @param text UTF-8 text to analyze
+ * @param length Length of text in bytes
+ * @return Number of grapheme clusters in the text
  *
- * This function iterates through the text and counts the number of
- * grapheme clusters using the boundary detection algorithm.
- *
- * Parameters:
- *   text   - UTF-8 text to analyze
- *   length - Length of text in bytes
- *
- * Returns:
- *   Number of grapheme clusters in the text
+ * Iterates through the text and counts the number of grapheme clusters
+ * using the UAX #29 boundary detection algorithm.
  */
 size_t lle_utf8_count_graphemes(const char *text, size_t length) {
     if (!text || length == 0) {

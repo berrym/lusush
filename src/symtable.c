@@ -1,9 +1,10 @@
 /**
- * Optimized Symbol Table Implementation for Lusush Shell using libhashtable
+ * @file symtable.c
+ * @brief Optimized Symbol Table Implementation for Lusush Shell
  *
- * This provides a high-performance symbol table system that leverages
- * libhashtable's ht_strstr_t interface (like the alias system) while
- * maintaining full POSIX shell scoping semantics and variable metadata.
+ * This module provides a high-performance symbol table system that leverages
+ * libhashtable's ht_strstr_t interface while maintaining full POSIX shell
+ * scoping semantics and variable metadata.
  *
  * Key Features:
  * - Uses libhashtable ht_strstr_t interface for maximum performance
@@ -12,6 +13,13 @@
  * - Maintains existing scope chain logic for POSIX compliance
  * - Full API compatibility with legacy implementation
  * - Automated memory management via libhashtable
+ *
+ * The symbol table supports multiple scope levels (global, function, loop,
+ * subshell, conditional) with proper variable shadowing and lookup semantics.
+ * Variables can have flags for export, readonly, local, and special handling.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  */
 
 #include "symtable.h"

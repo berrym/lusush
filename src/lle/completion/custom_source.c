@@ -1,15 +1,13 @@
-/*
- * Lusush Shell - Custom Completion Source API Implementation
- * Copyright (C) 2021-2026  Michael Berry
+/**
+ * @file custom_source.c
+ * @brief Custom Completion Source API Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- *
- * ============================================================================
- *
- * CUSTOM SOURCE API - Spec 12 Extension
  *
  * Public API for registering custom completion sources programmatically.
  * This is Layer 2 of the completion extensibility architecture.
@@ -68,7 +66,12 @@ static struct {
  */
 
 /**
- * Find entry by name
+ * @brief Find entry by name
+ *
+ * Searches the custom source registry for an entry with the given name.
+ *
+ * @param name Source name to search for
+ * @return Pointer to entry if found, NULL otherwise
  */
 static custom_source_entry_t *find_entry_by_name(const char *name) {
     for (size_t i = 0; i < g_custom_registry.count; i++) {
@@ -81,10 +84,16 @@ static custom_source_entry_t *find_entry_by_name(const char *name) {
 }
 
 /**
- * Wrapper generate function - adapts custom source callback to internal format
+ * @brief Wrapper generate function - adapts custom source callback to internal format
  *
  * The internal source manager passes (pool, context, prefix, result) but
  * custom sources expect (user_data, context, prefix, result).
+ *
+ * @param pool Memory pool for allocations (available in result->pool)
+ * @param context Context analyzer for command position analysis
+ * @param prefix Current word prefix to complete
+ * @param result Output result to populate with completions
+ * @return LLE_SUCCESS always (individual source errors are logged but not propagated)
  */
 static lle_result_t
 custom_generate_wrapper(lle_memory_pool_t *pool,
@@ -134,9 +143,12 @@ custom_generate_wrapper(lle_memory_pool_t *pool,
 }
 
 /**
- * Wrapper applicability function - custom sources are always checked
+ * @brief Wrapper applicability function - custom sources are always checked
  *
  * Individual applicability is checked in custom_generate_wrapper.
+ *
+ * @param context Context analyzer (unused, individual sources filter themselves)
+ * @return true always - custom sources filter internally
  */
 static bool custom_applicable_wrapper(const lle_context_analyzer_t *context) {
     (void)context;

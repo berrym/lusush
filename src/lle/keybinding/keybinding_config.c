@@ -1,6 +1,8 @@
 /**
  * @file keybinding_config.c
  * @brief LLE User Keybinding Configuration System Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Implements user-customizable keybindings via TOML configuration files.
  * Reuses the TOML-subset parser from the theme system.
@@ -284,6 +286,11 @@ static const size_t ACTION_REGISTRY_COUNT =
  * ============================================================================
  */
 
+/**
+ * @brief Look up an action by name in the registry
+ * @param name Action name to look up (e.g., "forward-char")
+ * @return Pointer to registry entry if found, NULL if not found or name is NULL
+ */
 const lle_action_registry_entry_t *
 lle_action_registry_lookup(const char *name) {
     if (!name) {
@@ -299,6 +306,11 @@ lle_action_registry_lookup(const char *name) {
     return NULL;
 }
 
+/**
+ * @brief Get all entries in the action registry
+ * @param count_out Pointer to store the number of entries (may be NULL)
+ * @return Pointer to the first entry in the registry array
+ */
 const lle_action_registry_entry_t *
 lle_action_registry_get_all(size_t *count_out) {
     if (count_out) {
@@ -307,8 +319,17 @@ lle_action_registry_get_all(size_t *count_out) {
     return ACTION_REGISTRY;
 }
 
+/**
+ * @brief Get the number of actions in the registry
+ * @return Total count of registered actions
+ */
 size_t lle_action_registry_count(void) { return ACTION_REGISTRY_COUNT; }
 
+/**
+ * @brief Get an action registry entry by index
+ * @param index Zero-based index into the registry
+ * @return Pointer to registry entry if index is valid, NULL if out of bounds
+ */
 const lle_action_registry_entry_t *
 lle_action_registry_get_by_index(size_t index) {
     if (index >= ACTION_REGISTRY_COUNT) {
@@ -323,7 +344,8 @@ lle_action_registry_get_by_index(size_t index) {
  */
 
 /**
- * Get home directory path
+ * @brief Get the user's home directory path
+ * @return Home directory path string, or NULL if not available
  */
 static const char *get_home_dir(void) {
     const char *home = getenv("HOME");
@@ -339,6 +361,12 @@ static const char *get_home_dir(void) {
     return NULL;
 }
 
+/**
+ * @brief Get the path to the user's keybinding configuration file
+ * @param buffer Buffer to store the path
+ * @param buffer_size Size of the buffer in bytes
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_keybinding_get_user_config_path(char *buffer,
                                                  size_t buffer_size) {
     if (!buffer || buffer_size == 0) {
@@ -376,7 +404,10 @@ lle_result_t lle_keybinding_get_user_config_path(char *buffer,
  */
 
 /**
- * Read file contents into a buffer
+ * @brief Read entire file contents into a heap-allocated buffer
+ * @param filepath Path to the file to read
+ * @param size_out Pointer to store the number of bytes read (may be NULL)
+ * @return Heap-allocated buffer with file contents, or NULL on failure
  */
 static char *read_file_contents(const char *filepath, size_t *size_out) {
     FILE *fp = fopen(filepath, "r");
@@ -434,7 +465,12 @@ typedef struct {
 } keybinding_parser_ctx_t;
 
 /**
- * Parser callback for keybinding config file
+ * @brief Parser callback for keybinding configuration file entries
+ * @param section Current TOML section name
+ * @param key Configuration key within the section
+ * @param value Parsed value for the key
+ * @param user_data User context (keybinding_parser_ctx_t pointer)
+ * @return LLE_SUCCESS to continue parsing, error code to abort
  */
 static lle_result_t keybinding_config_callback(const char *section,
                                                const char *key,
@@ -516,6 +552,13 @@ static lle_result_t keybinding_config_callback(const char *section,
  * ============================================================================
  */
 
+/**
+ * @brief Load keybinding configuration from a string
+ * @param manager Keybinding manager to configure
+ * @param content TOML configuration content string
+ * @param result Structure to store load results and any errors
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t
 lle_keybinding_load_from_string(lle_keybinding_manager_t *manager,
                                 const char *content,
@@ -557,6 +600,13 @@ lle_keybinding_load_from_string(lle_keybinding_manager_t *manager,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Load keybinding configuration from a file
+ * @param manager Keybinding manager to configure
+ * @param filepath Path to the TOML configuration file
+ * @param result Structure to store load results and any errors
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t
 lle_keybinding_load_from_file(lle_keybinding_manager_t *manager,
                               const char *filepath,
@@ -596,6 +646,12 @@ lle_keybinding_load_from_file(lle_keybinding_manager_t *manager,
     return load_result;
 }
 
+/**
+ * @brief Load keybinding configuration from the user's config file
+ * @param manager Keybinding manager to configure
+ * @param result Structure to store load results and any errors
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_FOUND if file missing (optional)
+ */
 lle_result_t
 lle_keybinding_load_user_config(lle_keybinding_manager_t *manager,
                                 lle_keybinding_load_result_t *result) {
@@ -618,6 +674,12 @@ lle_keybinding_load_user_config(lle_keybinding_manager_t *manager,
     return lle_keybinding_load_from_file(manager, config_path, result);
 }
 
+/**
+ * @brief Reload keybinding configuration from the user's config file
+ * @param manager Keybinding manager to reconfigure
+ * @param result Structure to store load results and any errors
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t
 lle_keybinding_reload_user_config(lle_keybinding_manager_t *manager,
                                   lle_keybinding_load_result_t *result) {

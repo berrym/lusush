@@ -1,6 +1,8 @@
-/*
- * Lusush Shell - LLE Completion Type Classification System Implementation
- * Copyright (C) 2021-2026  Michael Berry
+/**
+ * @file completion_types.c
+ * @brief LLE Completion Type Classification System Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,10 +16,6 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- *
- * ============================================================================
- *
- * LLE COMPLETION TYPE CLASSIFICATION IMPLEMENTATION
  *
  * This module contains ONLY pure logic and data structures - NO terminal I/O.
  * All allocations use LLE memory pool for efficient memory management.
@@ -93,6 +91,16 @@ static const lle_completion_type_info_t TYPE_INFO_DATABASE[] = {
 // TYPE INFORMATION QUERIES
 // ============================================================================
 
+/**
+ * @brief Get type information for a completion type
+ *
+ * Returns a pointer to the static type information structure for the
+ * given completion type. If the type is invalid, returns the UNKNOWN
+ * type information.
+ *
+ * @param type Completion type to get info for
+ * @return Pointer to static type information structure
+ */
 const lle_completion_type_info_t *
 lle_completion_type_get_info(lle_completion_type_t type) {
     if (type < 0 || type >= LLE_COMPLETION_TYPE_COUNT) {
@@ -101,11 +109,29 @@ lle_completion_type_get_info(lle_completion_type_t type) {
     return &TYPE_INFO_DATABASE[type];
 }
 
+/**
+ * @brief Get category name for a completion type
+ *
+ * Returns the human-readable category name string for grouping
+ * completions in menu display (e.g., "COMMANDS", "FILES").
+ *
+ * @param type Completion type to get category for
+ * @return Category name string
+ */
 const char *lle_completion_type_get_category(lle_completion_type_t type) {
     const lle_completion_type_info_t *info = lle_completion_type_get_info(type);
     return info->category_name;
 }
 
+/**
+ * @brief Get visual indicator for a completion type
+ *
+ * Returns the visual indicator string (icon/symbol) for the
+ * given completion type, used in menu rendering.
+ *
+ * @param type Completion type to get indicator for
+ * @return Indicator string (may be empty if theme uses no indicators)
+ */
 const char *lle_completion_type_get_indicator(lle_completion_type_t type) {
     const lle_completion_type_info_t *info = lle_completion_type_get_info(type);
     return info->indicator;
@@ -115,6 +141,16 @@ const char *lle_completion_type_get_indicator(lle_completion_type_t type) {
 // HELPER: STRING DUPLICATION WITH MEMORY POOL
 // ============================================================================
 
+/**
+ * @brief Duplicate a string using the memory pool
+ *
+ * Allocates memory from the pool and copies the string contents.
+ * The caller does not need to free the returned memory as it will
+ * be freed when the pool is destroyed.
+ *
+ * @param str String to duplicate (may be NULL)
+ * @return Duplicated string or NULL on failure or if str is NULL
+ */
 static char *lle_strdup_pool(const char *str) {
     if (!str) {
         return NULL;
@@ -134,6 +170,20 @@ static char *lle_strdup_pool(const char *str) {
 // COMPLETION ITEM MANAGEMENT
 // ============================================================================
 
+/**
+ * @brief Create a new completion item
+ *
+ * Creates a completion item with the given text and properties.
+ * All strings are duplicated into the memory pool.
+ *
+ * @param memory_pool Memory pool for allocations
+ * @param text Completion text (required)
+ * @param suffix Suffix to append when completing (e.g., "/" for directories)
+ * @param type Completion type for categorization
+ * @param relevance_score Score for sorting (0-1000, higher is more relevant)
+ * @param item Output pointer for created item
+ * @return LLE_SUCCESS or error code
+ */
 lle_result_t lle_completion_item_create(lle_memory_pool_t *memory_pool,
                                         const char *text, const char *suffix,
                                         lle_completion_type_t type,
@@ -143,6 +193,21 @@ lle_result_t lle_completion_item_create(lle_memory_pool_t *memory_pool,
         memory_pool, text, suffix, type, relevance_score, NULL, item);
 }
 
+/**
+ * @brief Create a completion item with description
+ *
+ * Creates a completion item with the given text, properties, and
+ * an optional description for display in the completion menu.
+ *
+ * @param memory_pool Memory pool for allocations
+ * @param text Completion text (required)
+ * @param suffix Suffix to append when completing
+ * @param type Completion type for categorization
+ * @param relevance_score Score for sorting (0-1000)
+ * @param description Optional description text (may be NULL)
+ * @param item Output pointer for created item
+ * @return LLE_SUCCESS or error code
+ */
 lle_result_t lle_completion_item_create_with_description(
     lle_memory_pool_t *memory_pool, const char *text, const char *suffix,
     lle_completion_type_t type, int32_t relevance_score,
@@ -204,6 +269,16 @@ lle_result_t lle_completion_item_create_with_description(
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Free a completion item
+ *
+ * Frees the completion item and all owned strings.
+ * Memory is returned to the pool.
+ *
+ * @param memory_pool Memory pool the item was allocated from
+ * @param item Item to free
+ * @return LLE_SUCCESS or error code
+ */
 lle_result_t lle_completion_item_free(lle_memory_pool_t *memory_pool,
                                       lle_completion_item_t *item) {
     if (!memory_pool || !item) {
@@ -230,6 +305,17 @@ lle_result_t lle_completion_item_free(lle_memory_pool_t *memory_pool,
 // COMPLETION RESULT MANAGEMENT
 // ============================================================================
 
+/**
+ * @brief Create a new completion result set
+ *
+ * Creates a result container for storing completion items.
+ * The container will grow automatically as items are added.
+ *
+ * @param memory_pool Memory pool for allocations
+ * @param initial_capacity Initial array capacity (0 for default)
+ * @param result Output pointer for created result set
+ * @return LLE_SUCCESS or error code
+ */
 lle_result_t lle_completion_result_create(lle_memory_pool_t *memory_pool,
                                           size_t initial_capacity,
                                           lle_completion_result_t **result) {
@@ -274,6 +360,16 @@ lle_result_t lle_completion_result_create(lle_memory_pool_t *memory_pool,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Add a completion item to a result set
+ *
+ * Adds the item to the result set and transfers ownership.
+ * The item structure itself is freed after copying its contents.
+ *
+ * @param result Result set to add to
+ * @param item Item to add (ownership transferred)
+ * @return LLE_SUCCESS or error code
+ */
 lle_result_t lle_completion_result_add_item(lle_completion_result_t *result,
                                             lle_completion_item_t *item) {
     if (!result || !item) {
@@ -341,6 +437,18 @@ lle_result_t lle_completion_result_add_item(lle_completion_result_t *result,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Add a completion to a result set by text
+ *
+ * Convenience function that creates an item and adds it to the result set.
+ *
+ * @param result Result set to add to
+ * @param text Completion text
+ * @param suffix Suffix to append when completing
+ * @param type Completion type
+ * @param relevance_score Relevance score (0-1000)
+ * @return LLE_SUCCESS or error code
+ */
 lle_result_t lle_completion_result_add(lle_completion_result_t *result,
                                        const char *text, const char *suffix,
                                        lle_completion_type_t type,
@@ -360,7 +468,16 @@ lle_result_t lle_completion_result_add(lle_completion_result_t *result,
     return lle_completion_result_add_item(result, item);
 }
 
-// Comparison function for sorting
+/**
+ * @brief Compare two completion items for sorting
+ *
+ * Compares by type first, then by relevance score (descending),
+ * then alphabetically by text.
+ *
+ * @param a First item pointer
+ * @param b Second item pointer
+ * @return Comparison result for qsort (-1, 0, or 1)
+ */
 static int compare_completion_items(const void *a, const void *b) {
     const lle_completion_item_t *item_a = (const lle_completion_item_t *)a;
     const lle_completion_item_t *item_b = (const lle_completion_item_t *)b;
@@ -379,6 +496,14 @@ static int compare_completion_items(const void *a, const void *b) {
     return strcmp(item_a->text, item_b->text);
 }
 
+/**
+ * @brief Sort completion results
+ *
+ * Sorts the result set by type, relevance score, and alphabetically.
+ *
+ * @param result Result set to sort
+ * @return LLE_SUCCESS or error code
+ */
 lle_result_t lle_completion_result_sort(lle_completion_result_t *result) {
     if (!result) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -394,6 +519,14 @@ lle_result_t lle_completion_result_sort(lle_completion_result_t *result) {
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Free a completion result set
+ *
+ * Frees all items in the result set and the result structure itself.
+ *
+ * @param result Result set to free
+ * @return LLE_SUCCESS or error code
+ */
 lle_result_t lle_completion_result_free(lle_completion_result_t *result) {
     if (!result) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -423,6 +556,15 @@ lle_result_t lle_completion_result_free(lle_completion_result_t *result) {
 // CLASSIFICATION HELPERS
 // ============================================================================
 
+/**
+ * @brief Check if text is a shell builtin command
+ *
+ * Delegates to the shell integration function to determine
+ * if the given text matches a builtin command name.
+ *
+ * @param text Text to check
+ * @return true if text is a builtin command, false otherwise
+ */
 bool lle_completion_is_builtin(const char *text) {
     if (!text) {
         return false;
@@ -433,6 +575,15 @@ bool lle_completion_is_builtin(const char *text) {
     return lle_shell_is_builtin(text);
 }
 
+/**
+ * @brief Check if text is a shell alias
+ *
+ * Delegates to the shell integration function to determine
+ * if the given text matches a defined alias name.
+ *
+ * @param text Text to check
+ * @return true if text is an alias, false otherwise
+ */
 bool lle_completion_is_alias(const char *text) {
     if (!text) {
         return false;
@@ -443,6 +594,15 @@ bool lle_completion_is_alias(const char *text) {
     return lle_shell_is_alias(text);
 }
 
+/**
+ * @brief Check if text is a directory path
+ *
+ * Uses stat() to determine if the given path refers to
+ * a directory.
+ *
+ * @param text Path to check
+ * @return true if path is a directory, false otherwise
+ */
 bool lle_completion_is_directory(const char *text) {
     if (!text) {
         return false;
@@ -456,6 +616,16 @@ bool lle_completion_is_directory(const char *text) {
     return false;
 }
 
+/**
+ * @brief Classify text into a completion type
+ *
+ * Determines the appropriate completion type for the given text
+ * based on its content and position in the command line.
+ *
+ * @param text Text to classify
+ * @param is_command_position true if at command position (first word)
+ * @return Appropriate completion type
+ */
 lle_completion_type_t lle_completion_classify_text(const char *text,
                                                    bool is_command_position) {
     if (!text) {
@@ -500,6 +670,15 @@ lle_completion_type_t lle_completion_classify_text(const char *text,
 // STATISTICS AND QUERIES
 // ============================================================================
 
+/**
+ * @brief Count items of a specific type in result set
+ *
+ * Returns the cached count of items matching the given type.
+ *
+ * @param result Result set to query
+ * @param type Type to count
+ * @return Number of items of the given type
+ */
 size_t
 lle_completion_result_count_by_type(const lle_completion_result_t *result,
                                     lle_completion_type_t type) {
@@ -529,6 +708,16 @@ lle_completion_result_count_by_type(const lle_completion_result_t *result,
     }
 }
 
+/**
+ * @brief Get an item from a result set by index
+ *
+ * Returns a pointer to the item at the given index, or NULL
+ * if the index is out of bounds.
+ *
+ * @param result Result set to query
+ * @param index Index of item to retrieve
+ * @return Pointer to item or NULL if index is invalid
+ */
 const lle_completion_item_t *
 lle_completion_result_get_item(const lle_completion_result_t *result,
                                size_t index) {

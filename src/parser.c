@@ -6,6 +6,7 @@
  * with correct token boundary management and error handling.
  *
  * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (c) 2025 Michael Berry. All rights reserved.
  */
 
 #include "parser.h"

@@ -1,14 +1,28 @@
-/*
- * input_continuation.c - Shared Multiline Input Continuation System
+/**
+ * @file input_continuation.c
+ * @brief Shared Multiline Input Continuation System for Lusush Shell
  *
  * This module provides shared multiline parsing functionality for both the
- * Line Editing Engine (LLE) and the main input system.
+ * Line Editing Engine (LLE) and the main input system. It tracks the parsing
+ * state across multiple lines to determine when a complete syntactic unit
+ * has been entered.
+ *
+ * Features:
+ * - Quote tracking (single, double, backtick)
+ * - Bracket/brace/parenthesis balancing
+ * - Here document detection and termination
+ * - Control flow keyword tracking (if/then/fi, while/do/done, etc.)
+ * - Context stack for proper nested construct handling
+ * - Line continuation (backslash at end of line)
  *
  * UTF-8 Support:
  * This module uses LLE's UTF-8 support to properly handle multi-byte
  * characters. While shell syntax characters (quotes, brackets, etc.) are
  * all ASCII, we must properly skip over UTF-8 multi-byte sequences to
  * avoid misinterpreting continuation bytes as syntax characters.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  */
 
 #include "input_continuation.h"
@@ -24,9 +38,15 @@
 // ============================================================================
 
 /**
- * Get the byte length of a UTF-8 character at the given position.
- * Returns 1 for ASCII characters, 2-4 for multi-byte sequences.
- * Returns 1 for invalid sequences (safe fallback).
+ * @brief Get the byte length of a UTF-8 character at the given position
+ *
+ * Determines the number of bytes in a UTF-8 character sequence starting
+ * at the given position. Uses LLE's UTF-8 support for sequence detection
+ * and validation.
+ *
+ * @param p Pointer to the start of a UTF-8 character sequence
+ * @return Number of bytes in the character (1-4), or 0 if p is NULL/empty,
+ *         or 1 for invalid sequences (safe fallback)
  */
 static int utf8_char_len(const char *p) {
     if (!p || !*p)
@@ -54,6 +74,14 @@ static int utf8_char_len(const char *p) {
 // STATE MANAGEMENT
 // ============================================================================
 
+/**
+ * @brief Initialize a continuation state structure to default values
+ *
+ * Zeros out all fields in the continuation state and sets the here document
+ * delimiter to NULL. Must be called before first use of a continuation_state_t.
+ *
+ * @param state Pointer to the continuation state structure to initialize
+ */
 void continuation_state_init(continuation_state_t *state) {
     if (!state)
         return;
@@ -61,6 +89,14 @@ void continuation_state_init(continuation_state_t *state) {
     state->here_doc_delimiter = NULL;
 }
 
+/**
+ * @brief Clean up a continuation state structure and free allocated memory
+ *
+ * Frees the here document delimiter if allocated and zeros the structure.
+ * Safe to call on an already-cleaned or uninitialized state.
+ *
+ * @param state Pointer to the continuation state structure to clean up
+ */
 void continuation_state_cleanup(continuation_state_t *state) {
     if (!state)
         return;
@@ -77,7 +113,13 @@ void continuation_state_cleanup(continuation_state_t *state) {
 // ============================================================================
 
 /**
- * Push a context onto the stack
+ * @brief Push a context onto the context stack
+ *
+ * Adds a new context type to track nested constructs. Used when entering
+ * compound commands like if, while, for, case, or brace groups.
+ *
+ * @param state The continuation state containing the context stack
+ * @param ctx The context type to push
  */
 static void context_stack_push(continuation_state_t *state,
                                continuation_context_type_t ctx) {
@@ -90,8 +132,15 @@ static void context_stack_push(continuation_state_t *state,
 }
 
 /**
- * Pop a context from the stack if it matches the expected type
- * Returns true if popped successfully
+ * @brief Pop a context from the stack if it matches the expected type
+ *
+ * Removes the top context from the stack if it matches the expected type.
+ * For loop contexts (for/while/until), any loop type matches since they
+ * all terminate with 'done'.
+ *
+ * @param state The continuation state containing the context stack
+ * @param expected The expected context type to pop
+ * @return true if context was popped, false if stack empty or mismatch
  */
 static bool context_stack_pop(continuation_state_t *state,
                               continuation_context_type_t expected) {
@@ -120,7 +169,13 @@ static bool context_stack_pop(continuation_state_t *state,
 }
 
 /**
- * Pop any loop context from the stack (for 'done' keyword)
+ * @brief Pop any loop context from the stack
+ *
+ * Used when processing the 'done' keyword which terminates for, while,
+ * and until loops. Pops if the top context is any loop type.
+ *
+ * @param state The continuation state containing the context stack
+ * @return true if a loop context was popped, false otherwise
  */
 static bool context_stack_pop_loop(continuation_state_t *state) {
     if (!state || state->context_stack_depth <= 0)
@@ -136,7 +191,13 @@ static bool context_stack_pop_loop(continuation_state_t *state) {
 }
 
 /**
- * Get the current (topmost) context
+ * @brief Get the current (topmost) context from the stack
+ *
+ * Returns the context type at the top of the stack without removing it.
+ * Used to determine the current nesting context for prompt generation.
+ *
+ * @param state The continuation state containing the context stack
+ * @return The topmost context type, or CONTEXT_NONE if stack is empty
  */
 static continuation_context_type_t
 context_stack_top(const continuation_state_t *state) {
@@ -149,6 +210,16 @@ context_stack_top(const continuation_state_t *state) {
 // KEYWORD DETECTION
 // ============================================================================
 
+/**
+ * @brief Check if a word is a shell control flow keyword
+ *
+ * Identifies shell reserved words that affect control flow and require
+ * special handling for multiline input parsing (if, then, else, fi,
+ * while, for, case, function, etc.).
+ *
+ * @param word The word to check
+ * @return true if word is a control keyword, false otherwise
+ */
 bool continuation_is_control_keyword(const char *word) {
     if (!word)
         return false;
@@ -166,6 +237,15 @@ bool continuation_is_control_keyword(const char *word) {
     return false;
 }
 
+/**
+ * @brief Check if a line contains a compound command terminator
+ *
+ * Checks if the line (after skipping whitespace) starts with a terminator
+ * keyword like fi, done, esac, or closing brace.
+ *
+ * @param line The line to check
+ * @return true if line starts with a terminator, false otherwise
+ */
 bool continuation_is_terminator(const char *line) {
     if (!line)
         return false;
@@ -183,6 +263,17 @@ bool continuation_is_terminator(const char *line) {
 // LINE ANALYSIS
 // ============================================================================
 
+/**
+ * @brief Analyze a line of input to update continuation parsing state
+ *
+ * Processes a line character by character to track quotes, parentheses,
+ * braces, brackets, here documents, escape sequences, and control keywords.
+ * Updates the continuation state structure to reflect what constructs are
+ * currently open and whether continuation input is needed.
+ *
+ * @param line The line of input to analyze
+ * @param state The continuation state structure to update
+ */
 void continuation_analyze_line(const char *line, continuation_state_t *state) {
     if (!line || !state)
         return;
@@ -576,6 +667,16 @@ void continuation_analyze_line(const char *line, continuation_state_t *state) {
 // COMPLETION CHECKING
 // ============================================================================
 
+/**
+ * @brief Check if the current input is syntactically complete
+ *
+ * Examines the continuation state to determine if all opened constructs
+ * (quotes, parentheses, compound commands, here documents, etc.) have
+ * been closed and no continuation is needed.
+ *
+ * @param state The continuation state to check
+ * @return true if input is complete, false if more input is needed
+ */
 bool continuation_is_complete(const continuation_state_t *state) {
     if (!state)
         return true;
@@ -617,6 +718,15 @@ bool continuation_is_complete(const continuation_state_t *state) {
     return true;
 }
 
+/**
+ * @brief Check if continuation input is needed
+ *
+ * Convenience function that returns the inverse of continuation_is_complete().
+ * Returns true if the input is incomplete and more lines are needed.
+ *
+ * @param state The continuation state to check
+ * @return true if more input is needed, false if input is complete
+ */
 bool continuation_needs_continuation(const continuation_state_t *state) {
     return !continuation_is_complete(state);
 }
@@ -625,6 +735,17 @@ bool continuation_needs_continuation(const continuation_state_t *state) {
 // PROMPT GENERATION
 // ============================================================================
 
+/**
+ * @brief Get the appropriate continuation prompt for the current state
+ *
+ * Returns a context-specific prompt based on what construct is currently
+ * being entered (quote, function, if, while, for, until, case, brace group).
+ * Uses the context stack for proper nested construct tracking. Falls back
+ * to the PS2 environment variable or "> " if not set.
+ *
+ * @param state The current continuation state
+ * @return Prompt string to display (static string, do not free)
+ */
 const char *continuation_get_prompt(const continuation_state_t *state) {
     if (!state)
         return "> ";

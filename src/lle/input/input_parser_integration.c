@@ -1,6 +1,8 @@
 /**
  * @file input_parser_integration.c
  * @brief Input Parser Event Generation Integration (Spec 06 Phase 7)
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Converts parsed input into LLE events and dispatches them to the event
  * system. Integrates with Spec 04 (Event System) to generate appropriate events
@@ -39,27 +41,37 @@ static _Atomic uint64_t g_event_sequence = 0;
 /*                           HELPER FUNCTIONS                                 */
 /* ========================================================================== */
 
-/* Get current time in microseconds */
+/**
+ * @brief Get current time in microseconds
+ *
+ * @return Current monotonic time in microseconds
+ */
 static uint64_t get_current_time_us(void) {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (uint64_t)ts.tv_sec * 1000000 + (uint64_t)ts.tv_nsec / 1000;
 }
 
-/*
- * Get next event sequence number
+/**
+ * @brief Get next event sequence number
+ *
+ * @return Next unique sequence number for event ordering
  */
 static uint64_t get_next_event_sequence(void) {
     return atomic_fetch_add(&g_event_sequence, 1);
 }
 
-/*
- * Determine event priority based on input type
+/**
+ * @brief Determine event priority based on input type
  *
  * Priority levels:
  * - High (3): Control sequences, special keys (Ctrl+C, etc.)
  * - Normal (2): Regular keys, mouse events
  * - Low (1): Text input
+ *
+ * @param input_type Type of parsed input
+ * @param parsed_input Parsed input structure
+ * @return Priority level (1-3)
  */
 static int determine_event_priority(lle_parsed_input_type_t input_type,
                                     const lle_parsed_input_t *parsed_input) {
@@ -89,10 +101,14 @@ static int determine_event_priority(lle_parsed_input_type_t input_type,
     }
 }
 
-/*
- * Generate text input event
+/**
+ * @brief Generate text input event
  *
  * Converts UTF-8 text input into event structure.
+ *
+ * @param parser_sys Parser system instance
+ * @param parsed_input Parsed text input to convert
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t
 lle_input_parser_generate_text_events(lle_input_parser_system_t *parser_sys,
@@ -180,10 +196,14 @@ lle_input_parser_generate_key_events(lle_input_parser_system_t *parser_sys,
     return LLE_SUCCESS;
 }
 
-/*
- * Generate mouse input event
+/**
+ * @brief Generate mouse input event
  *
  * Converts mouse event into event structure.
+ *
+ * @param parser_sys Parser system instance
+ * @param parsed_input Parsed mouse input to convert
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t
 lle_input_parser_generate_mouse_events(lle_input_parser_system_t *parser_sys,
@@ -212,10 +232,14 @@ lle_input_parser_generate_mouse_events(lle_input_parser_system_t *parser_sys,
     return LLE_SUCCESS;
 }
 
-/*
- * Generate sequence event (for CSI, OSC, DCS sequences)
+/**
+ * @brief Generate sequence event (for CSI, OSC, DCS sequences)
  *
  * Converts terminal control sequence into event structure.
+ *
+ * @param parser_sys Parser system instance
+ * @param parsed_input Parsed sequence input to convert
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t
 lle_input_parser_generate_sequence_events(lle_input_parser_system_t *parser_sys,
@@ -244,10 +268,14 @@ lle_input_parser_generate_sequence_events(lle_input_parser_system_t *parser_sys,
     return LLE_SUCCESS;
 }
 
-/*
- * Main event generation dispatcher
+/**
+ * @brief Main event generation dispatcher
  *
  * Routes parsed input to appropriate event generator based on type.
+ *
+ * @param parser_sys Parser system instance
+ * @param parsed_input Parsed input to route and generate events for
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t
 lle_input_parser_generate_events(lle_input_parser_system_t *parser_sys,
@@ -281,15 +309,17 @@ lle_input_parser_generate_events(lle_input_parser_system_t *parser_sys,
     }
 }
 
-/*
- * Get current event sequence number (for testing/debugging)
+/**
+ * @brief Get current event sequence number (for testing/debugging)
+ *
+ * @return Current value of global event sequence counter
  */
 uint64_t lle_input_parser_get_event_sequence(void) {
     return atomic_load(&g_event_sequence);
 }
 
-/*
- * Reset event sequence number (for testing)
+/**
+ * @brief Reset event sequence number (for testing)
  */
 void lle_input_parser_reset_event_sequence(void) {
     atomic_store(&g_event_sequence, 0);

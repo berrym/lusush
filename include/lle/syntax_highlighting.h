@@ -1,6 +1,8 @@
 /**
  * @file syntax_highlighting.h
  * @brief LLE Syntax Highlighting System
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Provides real-time syntax highlighting for shell command input with
  * theme integration. Core features:

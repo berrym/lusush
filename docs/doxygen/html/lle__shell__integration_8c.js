@@ -1,0 +1,28 @@
+var lle__shell__integration_8c =
+[
+    [ "create_and_configure_editor", "lle__shell__integration_8c.html#a67f24d97c9f3c1b365750b3fd4fecdb1", null ],
+    [ "create_and_configure_prompt_composer", "lle__shell__integration_8c.html#a1fcb6c61ec658b987427185ea25ae429", null ],
+    [ "destroy_editor", "lle__shell__integration_8c.html#aaa6f35fda1c9264d977fc6a409585dd2", null ],
+    [ "destroy_prompt_composer", "lle__shell__integration_8c.html#a6f7d4e62f5dd7c44d63275cc7faa5215", null ],
+    [ "get_timestamp_us", "lle__shell__integration_8c.html#aaf19cd2925c259c981ae57c59c41342b", null ],
+    [ "lle_get_shell_integration", "lle__shell__integration_8c.html#a6dc9ed6c9ad35072ca542bce6643cf71", null ],
+    [ "lle_hard_reset", "lle__shell__integration_8c.html#a50576d991edd5afc892ea0606641e3d3", null ],
+    [ "lle_is_active", "lle__shell__integration_8c.html#aefdfd5e65f636eb258b1d7e79a95227a", null ],
+    [ "lle_nuclear_reset", "lle__shell__integration_8c.html#a278565ae8a77fc5f792ddcb93a69ca45", null ],
+    [ "lle_record_ctrl_g", "lle__shell__integration_8c.html#a56410de1b4b4347b7412e268fdc07681", null ],
+    [ "lle_record_error", "lle__shell__integration_8c.html#a960e7c7b0ef2d5b9fc5e670bcff89f4b", null ],
+    [ "lle_reset_error_counter", "lle__shell__integration_8c.html#ac50fffa7ec7f39688e755e519eee0196", null ],
+    [ "lle_shell_integration_atexit_handler", "lle__shell__integration_8c.html#abd5c29ede277af657522eb5e3f561917", null ],
+    [ "lle_shell_integration_init", "lle__shell__integration_8c.html#ac7ff1151fdd0e9ef949dc11672e31494", null ],
+    [ "lle_shell_integration_shutdown", "lle__shell__integration_8c.html#a8366f974da045750b5466a6bb1688bfd", null ],
+    [ "lle_shell_update_prompt", "lle__shell__integration_8c.html#ac2e6abae1ea93248639b8aea5d139c8d", null ],
+    [ "lle_soft_reset", "lle__shell__integration_8c.html#a3c4e244656ed7dd8822b90fb40a9357f", null ],
+    [ "lusush_readline_with_prompt", "lle__shell__integration_8c.html#ad168fa052e55fcef02d77035626ea829", null ],
+    [ "lusush_update_editing_mode", "lle__shell__integration_8c.html#aa7c8def8f742285d3356fbbf65256b57", null ],
+    [ "populate_history_config", "lle__shell__integration_8c.html#a5195b8482c1e18f483967a930488bb09", null ],
+    [ "atexit_registered", "lle__shell__integration_8c.html#ae06b7687b36522bca7c8beaab791373f", null ],
+    [ "g_lle_integration", "lle__shell__integration_8c.html#a6b677daf5458fb88aa2eb2061e1695fd", null ],
+    [ "g_registries_initialized", "lle__shell__integration_8c.html#a3f29b7a408a1c6689c8df1528940019e", null ],
+    [ "g_segment_registry", "lle__shell__integration_8c.html#a90ae90b35ce0a54879e97dbfc96d502d", null ],
+    [ "g_theme_registry", "lle__shell__integration_8c.html#aafddae3f603f259de30b340369326798", null ]
+];

@@ -1,10 +1,13 @@
 /**
- * command_structure.c - Command Structure Management
+ * @file command_structure.c
+ * @brief Command structure management for multiline parsing
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Part of Spec 22 Phase 2: Multiline Reconstruction Engine
- * Implements structure creation, destruction, and keyword management.
  *
- * Date: 2025-11-02
+ * This module implements command structure management including creation,
+ * destruction, and keyword tracking for shell command constructs.
  */
 
 #include "lle/command_structure.h"
@@ -18,10 +21,16 @@
 static void lle_free_nested_construct_tree(lle_nested_construct_t *construct);
 
 /* ============================================================================
- * STRUCTURE LIFECYCLE
+ * PUBLIC API - LIFECYCLE
  * ============================================================================
  */
 
+/**
+ * @brief Create a new command structure instance
+ * @param structure Pointer to store the created structure
+ * @param memory_pool Memory pool for allocations (can be NULL for global pool)
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t lle_command_structure_create(lle_command_structure_t **structure,
                                           lle_memory_pool_t *memory_pool) {
     if (!structure) {
@@ -46,6 +55,11 @@ lle_result_t lle_command_structure_create(lle_command_structure_t **structure,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Destroy a command structure and free all resources
+ * @param structure The structure to destroy
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if structure is NULL
+ */
 lle_result_t lle_command_structure_destroy(lle_command_structure_t *structure) {
     if (!structure) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -90,10 +104,19 @@ lle_result_t lle_command_structure_destroy(lle_command_structure_t *structure) {
 }
 
 /* ============================================================================
- * KEYWORD MANAGEMENT
+ * PUBLIC API - KEYWORD MANAGEMENT
  * ============================================================================
  */
 
+/**
+ * @brief Add a keyword position to the command structure
+ * @param structure The command structure
+ * @param type Type of the keyword
+ * @param offset Byte offset of the keyword in the command
+ * @param line_number Line number where keyword appears
+ * @param indent_level Indentation level of the keyword
+ * @return LLE_SUCCESS on success, error code on failure
+ */
 lle_result_t
 lle_command_structure_add_keyword(lle_command_structure_t *structure,
                                   lle_keyword_type_t type, size_t offset,
@@ -131,6 +154,13 @@ lle_command_structure_add_keyword(lle_command_structure_t *structure,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Count keywords of a specific type in the structure
+ * @param structure The command structure
+ * @param type Type of keyword to count (LLE_KEYWORD_NONE counts all)
+ * @param count Pointer to store the count
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER on error
+ */
 lle_result_t
 lle_command_structure_count_keywords(lle_command_structure_t *structure,
                                      lle_keyword_type_t type, size_t *count) {
@@ -152,6 +182,13 @@ lle_command_structure_count_keywords(lle_command_structure_t *structure,
     return LLE_SUCCESS;
 }
 
+/**
+ * @brief Find the matching closing keyword for an opening keyword
+ * @param structure The command structure
+ * @param keyword The opening keyword to find a match for
+ * @param match Pointer to store the matching keyword (NULL if not found)
+ * @return LLE_SUCCESS on success, LLE_ERROR_NOT_FOUND if no match
+ */
 lle_result_t
 lle_command_structure_find_matching_keyword(lle_command_structure_t *structure,
                                             lle_keyword_position_t *keyword,
@@ -209,12 +246,15 @@ lle_command_structure_find_matching_keyword(lle_command_structure_t *structure,
 }
 
 /* ============================================================================
- * HELPER FUNCTIONS
+ * INTERNAL HELPER FUNCTIONS
  * ============================================================================
  */
 
 /**
- * Recursively free nested construct tree
+ * @brief Recursively free a nested construct tree
+ * @param construct The root construct to free
+ *
+ * Frees all children before freeing the construct itself.
  */
 static void lle_free_nested_construct_tree(lle_nested_construct_t *construct) {
     if (!construct) {

@@ -1,0 +1,28 @@
+var terminal__unix__interface_8c =
+[
+    [ "cleanup_on_exit", "terminal__unix__interface_8c.html#ac3af6b854964b374ce52cd989144de0d", null ],
+    [ "convert_key_code", "terminal__unix__interface_8c.html#aa8db94580c9cc1d3bfaefa1914dfdb27", null ],
+    [ "convert_modifiers", "terminal__unix__interface_8c.html#a6e6ab0febf755a90bba6ba53d849bc2e", null ],
+    [ "convert_parsed_input_to_event", "terminal__unix__interface_8c.html#a956a750ffc5e07f75324cd9a8372042a", null ],
+    [ "decode_utf8", "terminal__unix__interface_8c.html#a9979ff15de0e79289ce48e44c6dab6dd", null ],
+    [ "get_utf8_length", "terminal__unix__interface_8c.html#a946548a7080e4429ca8c09d2011988fe", null ],
+    [ "handle_sigcont", "terminal__unix__interface_8c.html#a0a19f24d3e8fa51ca032e27c0e237979", null ],
+    [ "handle_sigtstp", "terminal__unix__interface_8c.html#aad2d3e24f0cf21b3f4169b3fe228798c", null ],
+    [ "handle_sigwinch", "terminal__unix__interface_8c.html#a7f2e3b215d47d39062e58c0aa0107bc0", null ],
+    [ "install_signal_handlers", "terminal__unix__interface_8c.html#af901c9e6e87791b17aa42b1d30ffc063", null ],
+    [ "lle_get_current_time_microseconds", "terminal__unix__interface_8c.html#a06f4f686993a9bdf2aa2106e4af3e797", null ],
+    [ "lle_unix_interface_destroy", "terminal__unix__interface_8c.html#a4389faee2f5861eece0ba9b24fa3daff", null ],
+    [ "lle_unix_interface_enter_raw_mode", "terminal__unix__interface_8c.html#adb88aca0b67438e5296e035504567ff8", null ],
+    [ "lle_unix_interface_exit_raw_mode", "terminal__unix__interface_8c.html#ab96ac4426d48e84a66ed98f3d64e46ff", null ],
+    [ "lle_unix_interface_get_window_size", "terminal__unix__interface_8c.html#aa9ab84f7c4f2bc2a602a5094ec6f5b54", null ],
+    [ "lle_unix_interface_init", "terminal__unix__interface_8c.html#addc88742c12c2499932a2e5ff28f78cf", null ],
+    [ "lle_unix_interface_init_sequence_parser", "terminal__unix__interface_8c.html#aeb8bb53986263b980dc0f7fa389199f2", null ],
+    [ "lle_unix_interface_read_event", "terminal__unix__interface_8c.html#a6dd0dca0a33d5f1ff2e6336f1715588c", null ],
+    [ "register_cleanup", "terminal__unix__interface_8c.html#a701adb62d4aa84a2138d96045b6f9331", null ],
+    [ "restore_signal_handlers", "terminal__unix__interface_8c.html#af3f538deb4f48823f0102527f3804610", null ],
+    [ "g_signal_interface", "terminal__unix__interface_8c.html#a969d6d6c97aa1ae981eb5b2c55dc31d3", null ],
+    [ "original_sigcont", "terminal__unix__interface_8c.html#aefe9fed79a18181ccde8fcd1f68c853d", null ],
+    [ "original_sigtstp", "terminal__unix__interface_8c.html#a63a8d9cc64069200b1548aad5f43c8d6", null ],
+    [ "original_sigwinch", "terminal__unix__interface_8c.html#adc30258d1a180ff2d7e628d28eeff0aa", null ],
+    [ "signals_installed", "terminal__unix__interface_8c.html#a79c5a44ada11c8478d7097d218789521", null ]
+];

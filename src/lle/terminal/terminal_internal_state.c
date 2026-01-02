@@ -1,6 +1,8 @@
-/*
- * terminal_internal_state.c - Internal State Authority Model (Spec 02 Subsystem
- * 2)
+/**
+ * @file terminal_internal_state.c
+ * @brief Internal State Authority Model (Spec 02 Subsystem 2)
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * CRITICAL DESIGN PRINCIPLE:
  * The internal state is the SINGLE SOURCE OF TRUTH for all editing operations.
@@ -25,8 +27,12 @@
  * ============================================================================
  */
 
-/*
- * Initialize command buffer with initial capacity
+/**
+ * @brief Initialize command buffer with initial capacity
+ *
+ * @param buffer Output pointer for created buffer
+ * @param initial_capacity Initial buffer capacity in bytes
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_command_buffer_init(lle_command_buffer_t **buffer,
                                      size_t initial_capacity) {
@@ -61,8 +67,10 @@ lle_result_t lle_command_buffer_init(lle_command_buffer_t **buffer,
     return LLE_SUCCESS;
 }
 
-/*
- * Destroy command buffer
+/**
+ * @brief Destroy command buffer
+ *
+ * @param buffer Buffer to destroy
  */
 void lle_command_buffer_destroy(lle_command_buffer_t *buffer) {
     if (!buffer) {
@@ -76,8 +84,15 @@ void lle_command_buffer_destroy(lle_command_buffer_t *buffer) {
     free(buffer);
 }
 
-/*
- * Ensure buffer has sufficient capacity for new content
+/**
+ * @brief Ensure buffer has sufficient capacity for new content
+ *
+ * Grows the buffer capacity if needed using a 1.5x growth strategy.
+ * This amortizes allocation costs over multiple insertions.
+ *
+ * @param buffer Buffer to check and potentially resize
+ * @param required Required capacity in bytes
+ * @return LLE_SUCCESS on success, LLE_ERROR_OUT_OF_MEMORY on allocation failure
  */
 static lle_result_t ensure_capacity(lle_command_buffer_t *buffer,
                                     size_t required) {
@@ -104,8 +119,14 @@ static lle_result_t ensure_capacity(lle_command_buffer_t *buffer,
     return LLE_SUCCESS;
 }
 
-/*
- * Insert text into command buffer at specified position
+/**
+ * @brief Insert text into command buffer at specified position
+ *
+ * @param buffer Buffer to modify
+ * @param position Insert position
+ * @param text Text to insert
+ * @param length Length of text
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_command_buffer_insert(lle_command_buffer_t *buffer,
                                        size_t position, const char *text,
@@ -149,8 +170,13 @@ lle_result_t lle_command_buffer_insert(lle_command_buffer_t *buffer,
     return LLE_SUCCESS;
 }
 
-/*
- * Delete text from command buffer at specified position
+/**
+ * @brief Delete text from command buffer at specified position
+ *
+ * @param buffer Buffer to modify
+ * @param position Delete position
+ * @param length Number of bytes to delete
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_command_buffer_delete(lle_command_buffer_t *buffer,
                                        size_t position, size_t length) {
@@ -189,8 +215,10 @@ lle_result_t lle_command_buffer_delete(lle_command_buffer_t *buffer,
     return LLE_SUCCESS;
 }
 
-/*
- * Clear command buffer
+/**
+ * @brief Clear command buffer
+ *
+ * @param buffer Buffer to clear
  */
 void lle_command_buffer_clear(lle_command_buffer_t *buffer) {
     if (!buffer) {
@@ -212,8 +240,12 @@ void lle_command_buffer_clear(lle_command_buffer_t *buffer) {
  * ============================================================================
  */
 
-/*
- * Initialize internal state with terminal capabilities
+/**
+ * @brief Initialize internal state with terminal capabilities
+ *
+ * @param state Output pointer for created state
+ * @param caps Terminal capabilities reference
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_internal_state_init(lle_internal_state_t **state,
                                      lle_terminal_capabilities_t *caps) {
@@ -286,8 +318,10 @@ lle_result_t lle_internal_state_init(lle_internal_state_t **state,
     return LLE_SUCCESS;
 }
 
-/*
- * Destroy internal state
+/**
+ * @brief Destroy internal state
+ *
+ * @param state State to destroy
  */
 void lle_internal_state_destroy(lle_internal_state_t *state) {
     if (!state) {
@@ -312,8 +346,14 @@ void lle_internal_state_destroy(lle_internal_state_t *state) {
     free(state);
 }
 
-/*
- * Insert text into internal state at current cursor position
+/**
+ * @brief Insert text into internal state at current cursor position
+ *
+ * @param state Internal state instance
+ * @param position Insert position
+ * @param text Text to insert
+ * @param text_length Length of text
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_internal_state_insert_text(lle_internal_state_t *state,
                                             size_t position, const char *text,
@@ -340,8 +380,13 @@ lle_result_t lle_internal_state_insert_text(lle_internal_state_t *state,
     return LLE_SUCCESS;
 }
 
-/*
- * Delete text from internal state
+/**
+ * @brief Delete text from internal state
+ *
+ * @param state Internal state instance
+ * @param position Delete position
+ * @param length Number of bytes to delete
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_internal_state_delete_text(lle_internal_state_t *state,
                                             size_t position, size_t length) {
@@ -373,11 +418,16 @@ lle_result_t lle_internal_state_delete_text(lle_internal_state_t *state,
     return LLE_SUCCESS;
 }
 
-/*
- * Calculate cursor display position from internal state
+/**
+ * @brief Calculate cursor display position from internal state
  *
  * CRITICAL: This function calculates where cursor SHOULD be based on
  * internal buffer state. We NEVER query terminal for cursor position.
+ *
+ * @param state Internal state instance
+ * @param display_line Output for display line number
+ * @param display_column Output for display column number
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_internal_state_calculate_cursor_display_position(
     lle_internal_state_t *state, size_t *display_line, size_t *display_column) {
@@ -409,8 +459,13 @@ lle_result_t lle_internal_state_calculate_cursor_display_position(
     return LLE_SUCCESS;
 }
 
-/*
- * Update internal state geometry after window resize
+/**
+ * @brief Update internal state geometry after window resize
+ *
+ * @param state Internal state instance
+ * @param width New terminal width
+ * @param height New terminal height
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_internal_state_update_geometry(lle_internal_state_t *state,
                                                 size_t width, size_t height) {

@@ -566,7 +566,9 @@ void command_layer_destroy(command_layer_t *layer) {
 // ============================================================================
 
 /**
- * Map spec token type to command layer token type
+ * @brief Map spec token type to command layer token type
+ * @param spec_type LLE syntax token type to convert
+ * @return Corresponding command layer token type
  */
 static command_token_type_t
 map_spec_token_type(lle_syntax_token_type_t spec_type) {
@@ -622,8 +624,12 @@ map_spec_token_type(lle_syntax_token_type_t spec_type) {
 }
 
 /**
- * Primary syntax highlighting using spec-compliant system (Spec 11)
- * Falls back to inline implementation if spec highlighter unavailable
+ * @brief Primary syntax highlighting using spec-compliant system (Spec 11)
+ *
+ * Falls back to inline implementation if spec highlighter unavailable.
+ *
+ * @param layer Command layer to perform highlighting on
+ * @return COMMAND_LAYER_SUCCESS on success, error code otherwise
  */
 static command_layer_error_t
 perform_syntax_highlighting(command_layer_t *layer) {
@@ -797,6 +803,12 @@ perform_syntax_highlighting(command_layer_t *layer) {
     return COMMAND_LAYER_SUCCESS;
 }
 
+/**
+ * @brief Get ANSI color code for a token type
+ * @param layer Command layer with color scheme configuration
+ * @param token_type Token type to get color for
+ * @return ANSI color code string, or empty string if colors disabled
+ */
 static const char *get_token_color(command_layer_t *layer,
                                    command_token_type_t token_type) {
     if (!layer->syntax_config.use_colors) {
@@ -839,6 +851,11 @@ static const char *get_token_color(command_layer_t *layer,
 // CACHE MANAGEMENT
 // ============================================================================
 
+/**
+ * @brief Calculate hash of command string for cache lookup
+ * @param command Command string to hash
+ * @return 32-bit hash value
+ */
 static uint32_t calculate_command_hash(const char *command) {
     uint32_t hash = 0;
     for (const char *p = command; *p; p++) {
@@ -847,6 +864,12 @@ static uint32_t calculate_command_hash(const char *command) {
     return hash;
 }
 
+/**
+ * @brief Find cache entry for a command string
+ * @param layer Command layer containing cache
+ * @param command Command string to look up
+ * @return Pointer to cache entry if found, NULL otherwise
+ */
 static command_cache_entry_t *find_cache_entry(command_layer_t *layer,
                                                const char *command) {
     if (!layer->syntax_config.cache_enabled || !command) {
@@ -880,6 +903,14 @@ static command_cache_entry_t *find_cache_entry(command_layer_t *layer,
     return NULL;
 }
 
+/**
+ * @brief Add command and highlighted text to cache
+ * @param layer Command layer containing cache
+ * @param command Original command string
+ * @param highlighted Syntax-highlighted command string
+ * @param metrics Command metrics to cache
+ * @return COMMAND_LAYER_SUCCESS on success, error code otherwise
+ */
 static command_layer_error_t add_to_cache(command_layer_t *layer,
                                           const char *command,
                                           const char *highlighted,
@@ -925,6 +956,10 @@ static command_layer_error_t add_to_cache(command_layer_t *layer,
     return COMMAND_LAYER_SUCCESS;
 }
 
+/**
+ * @brief Expire old cache entries based on age
+ * @param layer Command layer containing cache to clean
+ */
 MAYBE_UNUSED
 static void expire_old_cache_entries(command_layer_t *layer) {
     uint64_t current_time = get_current_time_ns();
@@ -947,6 +982,11 @@ static void expire_old_cache_entries(command_layer_t *layer) {
 // METRICS AND PERFORMANCE
 // ============================================================================
 
+/**
+ * @brief Update command metrics from current layer state
+ * @param layer Command layer to update metrics for
+ * @return COMMAND_LAYER_SUCCESS on success, error code otherwise
+ */
 static command_layer_error_t update_command_metrics(command_layer_t *layer) {
     command_metrics_t *metrics = &layer->metrics;
 
@@ -988,6 +1028,10 @@ static command_layer_error_t update_command_metrics(command_layer_t *layer) {
     return COMMAND_LAYER_SUCCESS;
 }
 
+/**
+ * @brief Get current timestamp in nanoseconds
+ * @return Current time in nanoseconds from monotonic clock
+ */
 static uint64_t get_current_time_ns(void) {
     struct timespec ts;
     if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
@@ -996,6 +1040,11 @@ static uint64_t get_current_time_ns(void) {
     return (uint64_t)ts.tv_sec * NANOSECONDS_PER_SECOND + (uint64_t)ts.tv_nsec;
 }
 
+/**
+ * @brief Update performance statistics after an operation
+ * @param layer Command layer to update stats for
+ * @param operation_time_ns Time taken for operation in nanoseconds
+ */
 static void update_performance_stats(command_layer_t *layer,
                                      uint64_t operation_time_ns) {
     command_performance_t *perf = &layer->performance;
@@ -1023,6 +1072,12 @@ static void update_performance_stats(command_layer_t *layer,
 // EVENT HANDLING
 // ============================================================================
 
+/**
+ * @brief Handle layer events from event system
+ * @param event Layer event to handle
+ * @param user_data User data (command_layer_t pointer)
+ * @return LAYER_EVENTS_SUCCESS on success, error code otherwise
+ */
 static layer_events_error_t handle_layer_event(const layer_event_t *event,
                                                void *user_data) {
     command_layer_t *layer = (command_layer_t *)user_data;
@@ -1061,6 +1116,12 @@ static layer_events_error_t handle_layer_event(const layer_event_t *event,
     return LAYER_EVENTS_SUCCESS;
 }
 
+/**
+ * @brief Publish a command layer event to the event system
+ * @param layer Command layer publishing the event
+ * @param event_type Type of event to publish
+ * @return COMMAND_LAYER_SUCCESS on success, error code otherwise
+ */
 static command_layer_error_t
 publish_command_event(command_layer_t *layer, layer_event_type_t event_type) {
     if (!layer->event_system) {
@@ -1084,11 +1145,20 @@ publish_command_event(command_layer_t *layer, layer_event_type_t event_type) {
 // UTILITY FUNCTIONS
 // ============================================================================
 
+/**
+ * @brief Validate command layer state and magic number
+ * @param layer Command layer to validate
+ * @return true if layer is valid and initialized, false otherwise
+ */
 static bool validate_layer_state(command_layer_t *layer) {
     return (layer != NULL && layer->magic == COMMAND_LAYER_MAGIC &&
             layer->initialized);
 }
 
+/**
+ * @brief Reset command layer to initial state
+ * @param layer Command layer to reset
+ */
 static void reset_layer_state(command_layer_t *layer) {
     if (!layer) {
         return;
@@ -1110,6 +1180,13 @@ static void reset_layer_state(command_layer_t *layer) {
     layer->update_sequence_number = 0;
 }
 
+/**
+ * @brief Safely copy string with buffer size limit
+ * @param dest Destination buffer
+ * @param src Source string
+ * @param dest_size Size of destination buffer
+ * @return Number of bytes copied (excluding null terminator)
+ */
 static size_t safe_string_copy(char *dest, const char *src, size_t dest_size) {
     if (!dest || !src || dest_size == 0) {
         return 0;
@@ -1488,6 +1565,11 @@ command_layer_create_default_colors(command_color_scheme_t *color_scheme) {
     return COMMAND_LAYER_SUCCESS;
 }
 
+/**
+ * @brief Get human-readable error message for error code
+ * @param error Error code to get message for
+ * @return Human-readable error description string
+ */
 const char *command_layer_get_error_message(command_layer_error_t error) {
     switch (error) {
     case COMMAND_LAYER_SUCCESS:
@@ -1523,6 +1605,14 @@ const char *command_layer_get_error_message(command_layer_error_t error) {
 // COMPLETION MENU INTEGRATION
 // ============================================================================
 
+/**
+ * @brief Set completion menu content to display
+ * @param layer Command layer instance
+ * @param menu_content Pre-rendered menu content string
+ * @param num_lines Number of lines in the menu
+ * @param selected_index Currently selected menu item index
+ * @return COMMAND_LAYER_SUCCESS on success, error code otherwise
+ */
 command_layer_error_t
 command_layer_set_completion_menu(command_layer_t *layer,
                                   const char *menu_content, int num_lines,
@@ -1569,6 +1659,11 @@ command_layer_set_completion_menu(command_layer_t *layer,
     return COMMAND_LAYER_SUCCESS;
 }
 
+/**
+ * @brief Clear and hide the completion menu
+ * @param layer Command layer instance
+ * @return COMMAND_LAYER_SUCCESS on success, error code otherwise
+ */
 command_layer_error_t
 command_layer_clear_completion_menu(command_layer_t *layer) {
     if (!layer || layer->magic != COMMAND_LAYER_MAGIC) {
@@ -1599,6 +1694,11 @@ command_layer_clear_completion_menu(command_layer_t *layer) {
     return COMMAND_LAYER_SUCCESS;
 }
 
+/**
+ * @brief Check if completion menu is currently visible
+ * @param layer Command layer instance
+ * @return true if menu is visible, false otherwise
+ */
 bool command_layer_is_menu_visible(const command_layer_t *layer) {
     if (!layer || layer->magic != COMMAND_LAYER_MAGIC) {
         return false;
@@ -1606,6 +1706,11 @@ bool command_layer_is_menu_visible(const command_layer_t *layer) {
     return layer->completion_menu_visible;
 }
 
+/**
+ * @brief Get the current completion menu content
+ * @param layer Command layer instance
+ * @return Menu content string, or NULL if not visible
+ */
 const char *command_layer_get_menu_content(const command_layer_t *layer) {
     if (!layer || layer->magic != COMMAND_LAYER_MAGIC) {
         return NULL;
@@ -1616,6 +1721,11 @@ const char *command_layer_get_menu_content(const command_layer_t *layer) {
     return layer->completion_menu_content;
 }
 
+/**
+ * @brief Get the number of lines in the completion menu
+ * @param layer Command layer instance
+ * @return Number of menu lines, or 0 if not visible
+ */
 int command_layer_get_menu_lines(const command_layer_t *layer) {
     if (!layer || layer->magic != COMMAND_LAYER_MAGIC) {
         return 0;
@@ -1626,6 +1736,12 @@ int command_layer_get_menu_lines(const command_layer_t *layer) {
     return layer->completion_menu_lines;
 }
 
+/**
+ * @brief Set the selected item index in the completion menu
+ * @param layer Command layer instance
+ * @param selected_index New selected item index
+ * @return COMMAND_LAYER_SUCCESS on success, error code otherwise
+ */
 command_layer_error_t command_layer_set_menu_selection(command_layer_t *layer,
                                                        int selected_index) {
     if (!layer || layer->magic != COMMAND_LAYER_MAGIC) {
@@ -1643,8 +1759,7 @@ command_layer_error_t command_layer_set_menu_selection(command_layer_t *layer,
 }
 
 /**
- * Apply LLE theme syntax colors to command layer's spec highlighter
- *
+ * @brief Apply LLE theme syntax colors to command layer's spec highlighter
  * @param lle_theme LLE theme with syntax colors
  * @param cmd_layer Command layer to apply colors to
  * @return LLE_SUCCESS on success, error code on failure

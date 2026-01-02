@@ -1,6 +1,8 @@
 /**
  * @file async_worker.h
  * @brief LLE Async Worker Thread Pool
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Provides a pthread-based worker thread for async operations like git status.
  * This enables non-blocking prompt generation where expensive operations run

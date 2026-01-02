@@ -1,7 +1,8 @@
 /**
  * @file history_expansion.c
- * @brief LLE History System - History Expansion Implementation (Spec 09 Phase 3
- * Day 10)
+ * @brief LLE History System - History Expansion Implementation (Spec 09 Phase 3 Day 10)
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Implements bash-compatible history expansion for the LLE history system:
  * - !! - Repeat last command
@@ -17,9 +18,6 @@
  * - Space prefix disables expansion (configurable)
  * - :p modifier prints without executing
  * - :s/old/new/ performs substitution
- *
- * @date 2025-11-01
- * @author LLE Implementation Team
  */
 
 #include "lle/error_handling.h"
@@ -96,7 +94,12 @@ static lle_expansion_context_t g_expansion_ctx = {
  */
 
 /**
- * Duplicate string using memory pool
+ * @brief Duplicate string using memory pool
+ *
+ * Allocates memory from the LLE memory pool and copies the input string.
+ *
+ * @param str String to duplicate (may be NULL)
+ * @return Pointer to duplicated string, or NULL if str is NULL or allocation fails
  */
 static char *pool_strdup(const char *str) {
     if (!str)
@@ -111,11 +114,13 @@ static char *pool_strdup(const char *str) {
 }
 
 /**
- * Find the next history expansion marker in a string
+ * @brief Find the next history expansion marker in a string
  *
- * @param str String to search
- * @param start_pos Starting position
- * @return Position of expansion marker, or -1 if not found
+ * Searches for unescaped '!' characters or '^' at position 0.
+ *
+ * @param str String to search (may be NULL)
+ * @param start_pos Starting position in string
+ * @return Position of expansion marker, or -1 if not found or str is NULL
  */
 static ssize_t find_expansion_marker(const char *str, size_t start_pos) {
     if (!str)
@@ -140,13 +145,16 @@ static ssize_t find_expansion_marker(const char *str, size_t start_pos) {
 }
 
 /**
- * Parse history number from string (handles !n and !-n)
+ * @brief Parse history number from string (handles !n and !-n)
  *
- * @param str String starting with number or -number
- * @param number Output for parsed number
- * @param is_relative Output - true if relative (!-n), false if absolute (!n)
- * @param consumed Output - number of characters consumed
- * @return true on success, false on parse error
+ * Parses a numeric history reference, distinguishing between absolute
+ * (!n) and relative (!-n) references.
+ *
+ * @param str String starting with number or -number (must not be NULL)
+ * @param number Output for parsed number (must not be NULL)
+ * @param is_relative Output - true if relative (!-n), false if absolute (!n) (must not be NULL)
+ * @param consumed Output - number of characters consumed (must not be NULL)
+ * @return true on success, false on parse error or NULL parameters
  */
 static bool parse_history_number(const char *str, int64_t *number,
                                  bool *is_relative, size_t *consumed) {
@@ -180,12 +188,15 @@ static bool parse_history_number(const char *str, int64_t *number,
 }
 
 /**
- * Extract string argument from expansion (for !string and !?string)
+ * @brief Extract string argument from expansion (for !string and !?string)
  *
- * @param str String after ! or !?
- * @param output Output buffer for extracted string
- * @param max_len Maximum length of output buffer
- * @return Number of characters consumed, or 0 on error
+ * Extracts the search string from a history expansion, stopping at
+ * whitespace, special characters, or command terminators.
+ *
+ * @param str String after ! or !? (must not be NULL)
+ * @param output Output buffer for extracted string (must not be NULL)
+ * @param max_len Maximum length of output buffer in bytes
+ * @return Number of characters consumed, or 0 on error or empty result
  */
 static size_t extract_expansion_string(const char *str, char *output,
                                        size_t max_len) {
@@ -210,14 +221,17 @@ static size_t extract_expansion_string(const char *str, char *output,
 }
 
 /**
- * Perform quick substitution (^old^new)
+ * @brief Perform quick substitution (^old^new)
  *
- * @param last_command Last command from history
- * @param old_pattern Pattern to replace
- * @param new_pattern Replacement pattern
- * @param result Output buffer for result
- * @param max_len Maximum length of result buffer
- * @return true on success, false on error
+ * Replaces the first occurrence of old_pattern with new_pattern in
+ * last_command and stores the result.
+ *
+ * @param last_command Last command from history (must not be NULL)
+ * @param old_pattern Pattern to replace (must not be NULL)
+ * @param new_pattern Replacement pattern (must not be NULL)
+ * @param result Output buffer for result (must not be NULL)
+ * @param max_len Maximum length of result buffer in bytes
+ * @return true on success, false if pattern not found or result too long
  */
 static bool perform_quick_substitution(const char *last_command,
                                        const char *old_pattern,
@@ -263,11 +277,15 @@ static bool perform_quick_substitution(const char *last_command,
 }
 
 /**
- * Expand a single history reference
+ * @brief Expand a single history reference
  *
- * @param expansion_str The expansion string (without leading !)
- * @param result Output for expansion result
- * @return LLE_SUCCESS or error code
+ * Handles !!, !n, !-n, !?string, and !string expansion types.
+ * Populates result with the expanded command and metadata.
+ *
+ * @param expansion_str The expansion string (without leading !) (must not be NULL)
+ * @param result Output for expansion result (must not be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if parameters invalid,
+ *         LLE_ERROR_NOT_FOUND if referenced entry not found, LLE_ERROR_OUT_OF_MEMORY on allocation failure
  */
 static lle_result_t expand_single_reference(const char *expansion_str,
                                             lle_expansion_result_t *result) {
@@ -438,10 +456,13 @@ static lle_result_t expand_single_reference(const char *expansion_str,
  */
 
 /**
- * Initialize history expansion system
+ * @brief Initialize history expansion system
  *
- * @param history_core History core instance
- * @return LLE_SUCCESS or error code
+ * Sets up the global expansion context with the provided history core.
+ * Must be called before using any expansion functions.
+ *
+ * @param history_core History core instance (must not be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if history_core is NULL
  */
 lle_result_t lle_history_expansion_init(lle_history_core_t *history_core) {
     if (!history_core) {
@@ -457,9 +478,11 @@ lle_result_t lle_history_expansion_init(lle_history_core_t *history_core) {
 }
 
 /**
- * Shutdown history expansion system
+ * @brief Shutdown history expansion system
  *
- * @return LLE_SUCCESS or error code
+ * Clears the global expansion context and resets state.
+ *
+ * @return LLE_SUCCESS always
  */
 lle_result_t lle_history_expansion_shutdown(void) {
     g_expansion_ctx.history_core = NULL;
@@ -469,9 +492,12 @@ lle_result_t lle_history_expansion_shutdown(void) {
 }
 
 /**
- * Check if a command line contains history expansion
+ * @brief Check if a command line contains history expansion
  *
- * @param command Command line to check
+ * Checks for !, !!, !n, !-n, !string, !?string, or ^old^new patterns.
+ * Respects the space-disables-expansion setting.
+ *
+ * @param command Command line to check (may be NULL or empty)
  * @return true if expansion is present, false otherwise
  */
 bool lle_history_expansion_needed(const char *command) {
@@ -494,15 +520,19 @@ bool lle_history_expansion_needed(const char *command) {
 }
 
 /**
- * Expand history references in a command line
+ * @brief Expand history references in a command line
  *
- * Expands all history references (!!, !n, !-n, !string, etc.) in the command.
+ * Expands all history references (!!, !n, !-n, !string, ^old^new, etc.) in the command.
  * The result must be freed by the caller using lle_pool_free().
  *
- * @param command Original command with history references
- * @param expanded Output pointer for expanded command (allocated, caller must
- * free)
- * @return LLE_SUCCESS or error code
+ * @param command Original command with history references (must not be NULL)
+ * @param expanded Output pointer for expanded command (allocated, caller must free) (must not be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if parameters invalid,
+ *         LLE_ERROR_NOT_INITIALIZED if expansion system not initialized,
+ *         LLE_ERROR_INVALID_STATE if recursion depth exceeded,
+ *         LLE_ERROR_NOT_FOUND if referenced entry not found,
+ *         LLE_ERROR_BUFFER_OVERFLOW if expanded command too long,
+ *         LLE_ERROR_OUT_OF_MEMORY on allocation failure
  */
 lle_result_t lle_history_expand_line(const char *command, char **expanded) {
     if (!command || !expanded) {
@@ -640,10 +670,13 @@ lle_result_t lle_history_expand_line(const char *command, char **expanded) {
 }
 
 /**
- * Set whether leading space disables expansion
+ * @brief Set whether leading space disables expansion
+ *
+ * When enabled, commands starting with a space will not undergo
+ * history expansion (matching bash behavior).
  *
  * @param enabled true to enable space-disables-expansion (bash behavior)
- * @return LLE_SUCCESS or error code
+ * @return LLE_SUCCESS always
  */
 lle_result_t lle_history_expansion_set_space_disables(bool enabled) {
     g_expansion_ctx.space_disables_expansion = enabled;
@@ -651,7 +684,9 @@ lle_result_t lle_history_expansion_set_space_disables(bool enabled) {
 }
 
 /**
- * Get whether leading space disables expansion
+ * @brief Get whether leading space disables expansion
+ *
+ * Returns the current setting for space-disables-expansion behavior.
  *
  * @return true if enabled, false otherwise
  */
@@ -660,13 +695,13 @@ bool lle_history_expansion_get_space_disables(void) {
 }
 
 /**
- * Set whether to verify expansion before execution
+ * @brief Set whether to verify expansion before execution
  *
  * When enabled, expanded commands are displayed for user confirmation
  * before execution (like bash's 'verify' option).
  *
  * @param enabled true to enable verification
- * @return LLE_SUCCESS or error code
+ * @return LLE_SUCCESS always
  */
 lle_result_t lle_history_expansion_set_verify(bool enabled) {
     g_expansion_ctx.verify_before_execute = enabled;
@@ -674,9 +709,11 @@ lle_result_t lle_history_expansion_set_verify(bool enabled) {
 }
 
 /**
- * Get whether verification is enabled
+ * @brief Get whether verification is enabled
  *
- * @return true if enabled, false otherwise
+ * Returns the current setting for expansion verification.
+ *
+ * @return true if verification is enabled, false otherwise
  */
 bool lle_history_expansion_get_verify(void) {
     return g_expansion_ctx.verify_before_execute;

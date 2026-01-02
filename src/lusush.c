@@ -92,6 +92,17 @@ void executor_update_job_status(executor_t *executor);
 // Global executor for persistent function definitions across commands
 static executor_t *global_executor = NULL;
 
+/**
+ * @brief Main entry point for the Lusush shell
+ *
+ * Initializes the shell environment, handles command-line options,
+ * and runs the main read-eval-print loop (REPL) for interactive sessions
+ * or executes scripts for non-interactive sessions.
+ *
+ * @param argc Number of command-line arguments
+ * @param argv Array of command-line argument strings
+ * @return Exit status of the last command executed (POSIX requirement)
+ */
 int main(int argc, char **argv) {
     FILE *in = NULL;   // input file stream pointer
     char *line = NULL; // pointer to a line of input read
@@ -264,6 +275,16 @@ int main(int argc, char **argv) {
     exit(last_exit_status);
 }
 
+/**
+ * @brief Parse and execute a shell command string
+ *
+ * Uses the global persistent executor to parse and execute the given
+ * command string. The global executor maintains function definitions
+ * across multiple command invocations.
+ *
+ * @param command The command string to parse and execute
+ * @return Exit status of the executed command (0 for success, non-zero for failure)
+ */
 int parse_and_execute(const char *command) {
     // Use global persistent executor for all commands to maintain function
     // definitions
@@ -284,5 +305,13 @@ int parse_and_execute(const char *command) {
     return exit_status;
 }
 
-// Get global executor for use by builtins (e.g., source command for debugging)
+/**
+ * @brief Get the global executor instance
+ *
+ * Returns a pointer to the global executor used for command execution.
+ * This allows builtins (e.g., source command) to access the executor
+ * for debugging or execution purposes.
+ *
+ * @return Pointer to the global executor instance, or NULL if not initialized
+ */
 executor_t *get_global_executor(void) { return global_executor; }

@@ -89,15 +89,21 @@ typedef struct node {
 /**
  * @brief Create a new AST node
  *
- * @param type Node type
- * @return New node or NULL on failure
+ * Allocates and initializes a new AST node of the specified type.
+ * The node is initialized with default values and no children.
+ *
+ * @param type Node type to create
+ * @return New node on success, NULL on allocation failure
  */
 node_t *new_node(node_type_t type);
 
 /**
  * @brief Add a child node to a parent
  *
- * @param parent Parent node
+ * Appends a child node to the parent's list of children.
+ * The child's sibling pointers are updated appropriately.
+ *
+ * @param parent Parent node to add child to
  * @param child Child node to add
  */
 void add_child_node(node_t *parent, node_t *child);
@@ -105,15 +111,21 @@ void add_child_node(node_t *parent, node_t *child);
 /**
  * @brief Free an entire AST tree
  *
- * @param node Root node of tree to free
+ * Recursively frees all nodes in the AST starting from the given root.
+ * Frees all children, siblings, and any allocated string values.
+ *
+ * @param node Root node of tree to free (NULL is safely ignored)
  */
 void free_node_tree(node_t *node);
 
 /**
  * @brief Set node value to a string
  *
+ * Sets the node's value to the given string and updates the value type.
+ * The node takes ownership of the string pointer.
+ *
  * @param node Node to modify
- * @param str String value (node takes ownership)
+ * @param str String value (node takes ownership, caller should not free)
  */
 void set_node_val_str(node_t *node, char *str);
 

@@ -1,5 +1,8 @@
-/*
- * terminal_capabilities.c - Terminal Capability Detection (Spec 02 Phase 1)
+/**
+ * @file terminal_capabilities.c
+ * @brief Terminal Capability Detection (Spec 02 Phase 1)
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Detects terminal type, features, and capabilities at initialization time
  * through environment variables, terminfo queries, and terminal type matching.
@@ -23,8 +26,11 @@
  * ============================================================================
  */
 
-/*
- * Detect terminal type from TERM environment variable
+/**
+ * @brief Detect terminal type from TERM environment variable
+ *
+ * @param term_env TERM environment variable value
+ * @return Detected terminal type enum
  */
 static lle_terminal_type_t detect_terminal_type(const char *term_env) {
     if (!term_env) {
@@ -68,15 +74,19 @@ static lle_terminal_type_t detect_terminal_type(const char *term_env) {
     return LLE_TERMINAL_GENERIC;
 }
 
-/*
- * Detect if running in a TTY
+/**
+ * @brief Detect if running in a TTY
+ *
+ * @return true if stdin and stdout are TTYs, false otherwise
  */
 static bool detect_is_tty(void) {
     return isatty(STDIN_FILENO) && isatty(STDOUT_FILENO);
 }
 
-/*
- * Get terminal program name from environment
+/**
+ * @brief Get terminal program name from environment
+ *
+ * @return Terminal program name or "unknown"
  */
 static const char *detect_terminal_program(void) {
     /* Check common environment variables */
@@ -91,24 +101,32 @@ static const char *detect_terminal_program(void) {
     return "unknown";
 }
 
-/*
- * Query terminfo for boolean capability
+/**
+ * @brief Query terminfo for boolean capability
+ *
+ * @param capability_name Terminfo capability name
+ * @return true if capability is supported, false otherwise
  */
 static bool query_terminfo_flag(const char *capability_name) {
     int result = tigetflag((char *)capability_name);
     return (result == 1);
 }
 
-/*
- * Query terminfo for numeric capability
+/**
+ * @brief Query terminfo for numeric capability
+ *
+ * @param capability_name Terminfo capability name
+ * @return Capability value or 0 if not available
  */
 static int query_terminfo_num(const char *capability_name) {
     int result = tigetnum((char *)capability_name);
     return (result >= 0) ? result : 0;
 }
 
-/*
- * Detect color capabilities from terminfo and environment
+/**
+ * @brief Detect color capabilities from terminfo and environment
+ *
+ * @param caps Capabilities structure to populate
  */
 static void detect_color_capabilities(lle_terminal_capabilities_t *caps) {
     /* Initialize terminfo */
@@ -160,8 +178,10 @@ static void detect_color_capabilities(lle_terminal_capabilities_t *caps) {
     }
 }
 
-/*
- * Detect text attributes from terminfo
+/**
+ * @brief Detect text attributes from terminfo
+ *
+ * @param caps Capabilities structure to populate
  */
 static void detect_text_attributes(lle_terminal_capabilities_t *caps) {
     /* Query terminfo for text attributes */
@@ -183,8 +203,10 @@ static void detect_text_attributes(lle_terminal_capabilities_t *caps) {
     }
 }
 
-/*
- * Detect advanced terminal features
+/**
+ * @brief Detect advanced terminal features
+ *
+ * @param caps Capabilities structure to populate
  */
 static void detect_advanced_features(lle_terminal_capabilities_t *caps) {
     /* Mouse reporting - most modern terminals support it */
@@ -235,8 +257,10 @@ static void detect_advanced_features(lle_terminal_capabilities_t *caps) {
     }
 }
 
-/*
- * Detect terminal window size using ioctl
+/**
+ * @brief Detect terminal window size using ioctl
+ *
+ * @param caps Capabilities structure to populate
  */
 static void detect_terminal_geometry(lle_terminal_capabilities_t *caps) {
     struct winsize ws;
@@ -266,8 +290,10 @@ static void detect_terminal_geometry(lle_terminal_capabilities_t *caps) {
         caps->terminal_height = 24;
 }
 
-/*
- * Estimate terminal latency and performance characteristics
+/**
+ * @brief Estimate terminal latency and performance characteristics
+ *
+ * @param caps Capabilities structure to populate
  */
 static void
 detect_performance_characteristics(lle_terminal_capabilities_t *caps) {
@@ -316,8 +342,10 @@ detect_performance_characteristics(lle_terminal_capabilities_t *caps) {
     }
 }
 
-/*
- * Set optimization flags based on terminal capabilities
+/**
+ * @brief Set optimization flags based on terminal capabilities
+ *
+ * @param caps Capabilities structure to populate
  */
 static void set_optimization_flags(lle_terminal_capabilities_t *caps) {
     caps->optimizations = LLE_OPT_NONE;
@@ -352,11 +380,15 @@ static void set_optimization_flags(lle_terminal_capabilities_t *caps) {
  * ============================================================================
  */
 
-/*
- * Main capability detection entry point
+/**
+ * @brief Main capability detection entry point
  *
  * Detects all terminal capabilities at initialization time. This is called
  * ONCE at startup and the results are cached for the lifetime of the program.
+ *
+ * @param caps Output pointer for created capabilities structure
+ * @param unix_iface Unix interface (may be NULL)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t
 lle_capabilities_detect_environment(lle_terminal_capabilities_t **caps,
@@ -411,8 +443,10 @@ lle_capabilities_detect_environment(lle_terminal_capabilities_t **caps,
     return LLE_SUCCESS;
 }
 
-/*
- * Cleanup capabilities structure
+/**
+ * @brief Cleanup capabilities structure
+ *
+ * @param caps Capabilities structure to destroy
  */
 void lle_capabilities_destroy(lle_terminal_capabilities_t *caps) {
     if (!caps) {
@@ -431,14 +465,16 @@ void lle_capabilities_destroy(lle_terminal_capabilities_t *caps) {
     free(caps);
 }
 
-/*
- * Update terminal geometry (called after SIGWINCH)
+/**
+ * @brief Update terminal geometry (called after SIGWINCH)
  *
  * This is the ONLY function that queries terminal state at runtime.
  * It's called in response to window resize signals.
  *
- * Note: Header signature takes width/height by value (not pointers).
- * This function updates internal caps structure, not output parameters.
+ * @param caps Capabilities structure to update
+ * @param width New width (0 to auto-detect)
+ * @param height New height (0 to auto-detect)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_capabilities_update_geometry(lle_terminal_capabilities_t *caps,
                                               size_t width, size_t height) {

@@ -1,6 +1,8 @@
-/*
- * Lusush Shell - LLE Completion Menu State
- * Copyright (C) 2021-2026  Michael Berry
+/**
+ * @file completion_menu_state.h
+ * @brief LLE Completion Menu State Management
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,10 +16,6 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- *
- * ============================================================================
- *
- * LLE COMPLETION MENU STATE
  *
  * Menu state management for completion system.
  * This module contains ONLY state structures and lifecycle - NO rendering.
@@ -49,15 +47,15 @@ extern "C" {
 // ============================================================================
 
 /**
- * Menu configuration
+ * @brief Menu configuration
  */
 typedef struct {
-    size_t max_visible_items;   // Maximum items visible at once
-    bool show_category_headers; // Show category headers
-    bool show_type_indicators;  // Show type indicators
-    bool show_descriptions;     // Show item descriptions
-    bool enable_scrolling;      // Enable scrolling for long lists
-    size_t min_items_for_menu;  // Minimum items before showing menu
+    size_t max_visible_items;   /**< Maximum items visible at once */
+    bool show_category_headers; /**< Show category headers */
+    bool show_type_indicators;  /**< Show type indicators */
+    bool show_descriptions;     /**< Show item descriptions */
+    bool enable_scrolling;      /**< Enable scrolling for long lists */
+    size_t min_items_for_menu;  /**< Minimum items before showing menu */
 } lle_completion_menu_config_t;
 
 // ============================================================================
@@ -65,34 +63,34 @@ typedef struct {
 // ============================================================================
 
 /**
- * Completion menu state
+ * @brief Completion menu state
  */
 typedef struct {
-    lle_completion_result_t *result; // Completion result (not owned)
+    lle_completion_result_t *result; /**< Completion result (not owned) */
 
-    // Navigation state
-    size_t selected_index; // Currently selected item (global index)
-    size_t first_visible;  // First visible item index (for scrolling)
-    size_t visible_count;  // Number of visible items
-    size_t target_column;  // Sticky column for UP/DOWN navigation
+    /* Navigation state */
+    size_t selected_index; /**< Currently selected item (global index) */
+    size_t first_visible;  /**< First visible item index (for scrolling) */
+    size_t visible_count;  /**< Number of visible items */
+    size_t target_column;  /**< Sticky column for UP/DOWN navigation */
 
-    // Layout state (for multi-column navigation)
-    size_t terminal_width; // Current terminal width
-    size_t column_width;   // Width of each column
-    size_t num_columns;    // Number of columns in layout
+    /* Layout state (for multi-column navigation) */
+    size_t terminal_width; /**< Current terminal width */
+    size_t column_width;   /**< Width of each column */
+    size_t num_columns;    /**< Number of columns in layout */
 
-    // Category tracking
-    size_t *category_positions; // Start position of each category
-    size_t category_count;      // Number of categories present
+    /* Category tracking */
+    size_t *category_positions; /**< Start position of each category */
+    size_t category_count;      /**< Number of categories present */
 
-    // State flags
-    bool menu_active; // Whether menu is currently active
+    /* State flags */
+    bool menu_active; /**< Whether menu is currently active */
 
-    // Configuration
-    lle_completion_menu_config_t config; // Menu configuration
+    /* Configuration */
+    lle_completion_menu_config_t config; /**< Menu configuration */
 
-    // Memory pool
-    lle_memory_pool_t *memory_pool; // Memory pool for allocations
+    /* Memory pool */
+    lle_memory_pool_t *memory_pool; /**< Memory pool for allocations */
 } lle_completion_menu_state_t;
 
 // ============================================================================
@@ -100,14 +98,14 @@ typedef struct {
 // ============================================================================
 
 /**
- * Create default menu configuration
+ * @brief Create default menu configuration
  *
  * @return default configuration
  */
 lle_completion_menu_config_t lle_completion_menu_default_config(void);
 
 /**
- * Create menu state from completion result
+ * @brief Create menu state from completion result
  *
  * @param memory_pool memory pool for allocations
  * @param result completion result (caller retains ownership)
@@ -122,8 +120,9 @@ lle_completion_menu_state_create(lle_memory_pool_t *memory_pool,
                                  lle_completion_menu_state_t **state);
 
 /**
- * Free menu state
- * Does NOT free the result (caller retains ownership)
+ * @brief Free menu state
+ *
+ * Does NOT free the result (caller retains ownership).
  *
  * @param state menu state to free
  * @return LLE_SUCCESS on success, error code on failure
@@ -135,7 +134,7 @@ lle_result_t lle_completion_menu_state_free(lle_completion_menu_state_t *state);
 // ============================================================================
 
 /**
- * Check if menu should be displayed
+ * @brief Check if menu should be displayed
  *
  * @param state menu state
  * @return true if menu should be shown
@@ -143,7 +142,7 @@ lle_result_t lle_completion_menu_state_free(lle_completion_menu_state_t *state);
 bool lle_completion_menu_should_show(const lle_completion_menu_state_t *state);
 
 /**
- * Get selected item
+ * @brief Get selected item
  *
  * @param state menu state
  * @return selected item, or NULL if none
@@ -152,7 +151,7 @@ const lle_completion_item_t *
 lle_completion_menu_get_selected(const lle_completion_menu_state_t *state);
 
 /**
- * Get selected item text
+ * @brief Get selected item text
  *
  * @param state menu state
  * @return selected item text, or NULL if none
@@ -161,7 +160,7 @@ const char *
 lle_completion_menu_get_selected_text(const lle_completion_menu_state_t *state);
 
 /**
- * Get total item count
+ * @brief Get total item count
  *
  * @param state menu state
  * @return total number of items
@@ -170,7 +169,7 @@ size_t
 lle_completion_menu_get_item_count(const lle_completion_menu_state_t *state);
 
 /**
- * Get selected index
+ * @brief Get selected index
  *
  * @param state menu state
  * @return selected item index
@@ -179,7 +178,7 @@ size_t lle_completion_menu_get_selected_index(
     const lle_completion_menu_state_t *state);
 
 /**
- * Get visible items range
+ * @brief Get visible items range
  *
  * @param state menu state
  * @param first_visible output parameter for first visible index
@@ -192,7 +191,7 @@ lle_completion_menu_get_visible_range(const lle_completion_menu_state_t *state,
                                       size_t *visible_count);
 
 /**
- * Check if menu is active
+ * @brief Check if menu is active
  *
  * @param state menu state
  * @return true if menu is active
@@ -200,7 +199,7 @@ lle_completion_menu_get_visible_range(const lle_completion_menu_state_t *state,
 bool lle_completion_menu_is_active(const lle_completion_menu_state_t *state);
 
 /**
- * Get category count
+ * @brief Get category count
  *
  * @param state menu state
  * @return number of categories
@@ -209,7 +208,7 @@ size_t lle_completion_menu_get_category_count(
     const lle_completion_menu_state_t *state);
 
 /**
- * Update menu layout based on terminal width
+ * @brief Update menu layout based on terminal width
  *
  * Calculates optimal column width and number of columns based on
  * the current terminal width and item widths. Should be called
@@ -224,7 +223,7 @@ lle_completion_menu_update_layout(lle_completion_menu_state_t *state,
                                   size_t terminal_width);
 
 /**
- * Get number of columns in current layout
+ * @brief Get number of columns in current layout
  *
  * @param state menu state
  * @return number of columns (1 if not set)

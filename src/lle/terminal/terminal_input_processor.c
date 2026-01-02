@@ -1,5 +1,8 @@
-/*
- * terminal_input_processor.c - Input Event Processing (Spec 02 Subsystem 5)
+/**
+ * @file terminal_input_processor.c
+ * @brief Input Event Processing (Spec 02 Subsystem 5)
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Processes input events from Unix terminal interface and validates them
  * before they are used to modify internal state.
@@ -23,8 +26,13 @@
  * ============================================================================
  */
 
-/*
- * Initialize input processor
+/**
+ * @brief Initialize input processor
+ *
+ * @param processor Output pointer for created processor
+ * @param caps Terminal capabilities reference
+ * @param unix_iface Unix interface for input reading
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_input_processor_init(lle_input_processor_t **processor,
                                       lle_terminal_capabilities_t *caps,
@@ -50,8 +58,10 @@ lle_result_t lle_input_processor_init(lle_input_processor_t **processor,
     return LLE_SUCCESS;
 }
 
-/*
- * Destroy input processor
+/**
+ * @brief Destroy input processor
+ *
+ * @param processor Processor to destroy
  */
 void lle_input_processor_destroy(lle_input_processor_t *processor) {
     if (!processor) {
@@ -61,8 +71,15 @@ void lle_input_processor_destroy(lle_input_processor_t *processor) {
     free(processor);
 }
 
-/*
- * Validate input event data
+/**
+ * @brief Validate input event data
+ *
+ * Checks that the event structure is valid and contains reasonable data
+ * based on the event type. Validates character byte counts, codepoint ranges,
+ * key codes, and window geometry.
+ *
+ * @param event Event to validate
+ * @return true if event is valid, false otherwise
  */
 static bool validate_event(lle_input_event_t *event) {
     if (!event) {
@@ -117,8 +134,12 @@ static bool validate_event(lle_input_event_t *event) {
     return true;
 }
 
-/*
- * Process input event (validate and track)
+/**
+ * @brief Process input event (validate and track)
+ *
+ * @param processor Input processor instance
+ * @param event Event to process
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_input_processor_process_event(lle_input_processor_t *processor,
                                                lle_input_event_t *event) {
@@ -145,8 +166,13 @@ lle_result_t lle_input_processor_process_event(lle_input_processor_t *processor,
     return LLE_SUCCESS;
 }
 
-/*
- * Read next input event from Unix interface
+/**
+ * @brief Read next input event from Unix interface
+ *
+ * @param processor Input processor instance
+ * @param event Output pointer for read event
+ * @param timeout_ms Timeout in milliseconds
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t
 lle_input_processor_read_next_event(lle_input_processor_t *processor,

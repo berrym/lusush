@@ -1,6 +1,8 @@
 /**
  * @file lle_safety.h
  * @brief LLE Safety System Public API
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Provides safety utilities for LLE shell integration:
  * - Diagnostic functions for debugging initialization and error states

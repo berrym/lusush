@@ -1,0 +1,25 @@
+var structlle__garbage__collector__t =
+[
+    [ "average_gc_time", "structlle__garbage__collector__t.html#a85670056bcfc99f14d38fea082903bfe", null ],
+    [ "collections_performed", "structlle__garbage__collector__t.html#a5622255d0f74ceafd76fff8f82f318b1", null ],
+    [ "current_state", "structlle__garbage__collector__t.html#a3b4ee0583f70f79e90a74806ffffcc2d", null ],
+    [ "enable_concurrent_gc", "structlle__garbage__collector__t.html#a26a94f414d798fa295e9f56252ae141e", null ],
+    [ "fastest_gc", "structlle__garbage__collector__t.html#af9958b2de2c6b50862a481325fa8b0c9", null ],
+    [ "gc_condition", "structlle__garbage__collector__t.html#a28ad75ada4217f8700f5d6f098c041c7", null ],
+    [ "gc_config", "structlle__garbage__collector__t.html#af257aae456d744c8dbe3b80d3539aa2a", null ],
+    [ "gc_efficiency", "structlle__garbage__collector__t.html#ac373a6e25f4be8280f3c29aa5daa2278", null ],
+    [ "gc_interval", "structlle__garbage__collector__t.html#a266df5bb357a0fca230268342a4191c0", null ],
+    [ "gc_mutex", "structlle__garbage__collector__t.html#ab57aa64e68d040058b9b74dbe1730f5a", null ],
+    [ "gc_performance", "structlle__garbage__collector__t.html#a8294c2c06348165853de8812ebaee7c9", null ],
+    [ "gc_start_time", "structlle__garbage__collector__t.html#ac15486605b5d3a1eb968529d400c1513", null ],
+    [ "gc_state", "structlle__garbage__collector__t.html#ab73b18a28e733b69ce5525741c7af2fa", null ],
+    [ "gc_thread", "structlle__garbage__collector__t.html#a7907b06575cb981d5832e90c5f0a141a", null ],
+    [ "gc_thread_active", "structlle__garbage__collector__t.html#a4aefcf9a9b3cc825453c69014911aa79", null ],
+    [ "gc_trigger_threshold", "structlle__garbage__collector__t.html#a7f48081c1c98e91a934320e5d464abac", null ],
+    [ "gc_utilization_threshold", "structlle__garbage__collector__t.html#a4ebc90a717e748379a4c6156e976981c", null ],
+    [ "last_gc_time", "structlle__garbage__collector__t.html#a48c5a876aebafd031efd8514638e904d", null ],
+    [ "memory_freed_total", "structlle__garbage__collector__t.html#a8b2f10f012344d1550164bf7dbed8132", null ],
+    [ "memory_manager", "structlle__garbage__collector__t.html#a00d61469f1be382abb0c8b6cf43284fb", null ],
+    [ "slowest_gc", "structlle__garbage__collector__t.html#a51cc68ee3722ba40ec467edda8a25a76", null ],
+    [ "strategy", "structlle__garbage__collector__t.html#afa5e5fd70b76984bd71c7c8845bf5e29", null ]
+];

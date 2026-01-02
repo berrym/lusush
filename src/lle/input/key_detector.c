@@ -1,5 +1,8 @@
-/*
- * key_detector.c - Terminal Key Sequence Detection and Mapping
+/**
+ * @file key_detector.c
+ * @brief Terminal Key Sequence Detection and Mapping
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Comprehensive key detection system that maps terminal escape sequences
  * to specific keys and key combinations. Supports function keys, cursor keys,
@@ -13,26 +16,32 @@
 #include <string.h>
 #include <time.h>
 
-/* Get current time in microseconds */
+/**
+ * @brief Get current time in microseconds
+ *
+ * @return Current monotonic time in microseconds
+ */
 static uint64_t get_current_time_us(void) {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (uint64_t)ts.tv_sec * 1000000 + (uint64_t)ts.tv_nsec / 1000;
 }
 
-/* Key sequence mapping table entries */
+/**
+ * @brief Key sequence mapping table entry
+ */
 typedef struct {
-    const char *sequence;
-    size_t sequence_len;
-    lle_key_type_t type;
-    uint32_t keycode;
-    lle_key_modifiers_t modifiers;
-    const char *key_name;
+    const char *sequence;        /**< Escape sequence bytes */
+    size_t sequence_len;         /**< Length of sequence */
+    lle_key_type_t type;         /**< Key type classification */
+    uint32_t keycode;            /**< Key code value */
+    lle_key_modifiers_t modifiers; /**< Modifier flags */
+    const char *key_name;        /**< Human-readable key name */
 } key_mapping_entry_t;
 
-/*
- * Comprehensive key mapping table for common terminal types
- * Based on xterm, VT100, and modern terminal emulators
+/**
+ * Comprehensive key mapping table for common terminal types.
+ * Based on xterm, VT100, and modern terminal emulators.
  */
 static const key_mapping_entry_t key_mappings[] = {
     /* Function keys (xterm) */
@@ -155,8 +164,12 @@ static const key_mapping_entry_t key_mappings[] = {
 
 #define KEY_MAPPING_COUNT (sizeof(key_mappings) / sizeof(key_mappings[0]))
 
-/*
- * Initialize key sequence map
+/**
+ * @brief Initialize key sequence map
+ *
+ * @param map Output pointer for created map
+ * @param memory_pool Memory pool for allocations
+ * @return LLE_SUCCESS on success, error code on failure
  */
 static lle_result_t init_key_sequence_map(lle_key_sequence_map_t **map,
                                           lle_memory_pool_t *memory_pool) {
@@ -212,8 +225,14 @@ static lle_result_t init_key_sequence_map(lle_key_sequence_map_t **map,
     return LLE_SUCCESS;
 }
 
-/*
- * Match sequence to key
+/**
+ * @brief Match sequence to key in mapping table
+ *
+ * @param map Key sequence map
+ * @param sequence Sequence bytes to match
+ * @param sequence_len Length of sequence
+ * @param key_info Output for matched key info
+ * @return Match type (exact, prefix, ambiguous, or none)
  */
 static lle_key_sequence_match_type_t
 match_sequence(const lle_key_sequence_map_t *map, const char *sequence,
@@ -270,8 +289,13 @@ match_sequence(const lle_key_sequence_map_t *map, const char *sequence,
     return LLE_MATCH_NONE;
 }
 
-/*
- * Initialize key detector
+/**
+ * @brief Initialize key detector
+ *
+ * @param detector Output pointer for created detector
+ * @param terminal_caps Terminal capabilities for feature detection
+ * @param memory_pool Memory pool for allocations
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_key_detector_init(lle_key_detector_t **detector,
                                    lle_terminal_capabilities_t *terminal_caps,
@@ -306,8 +330,11 @@ lle_result_t lle_key_detector_init(lle_key_detector_t **detector,
     return LLE_SUCCESS;
 }
 
-/*
- * Destroy key detector
+/**
+ * @brief Destroy key detector
+ *
+ * @param detector Detector to destroy
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_key_detector_destroy(lle_key_detector_t *detector) {
     if (!detector) {
@@ -325,8 +352,11 @@ lle_result_t lle_key_detector_destroy(lle_key_detector_t *detector) {
     return LLE_SUCCESS;
 }
 
-/*
- * Check if sequence has timed out
+/**
+ * @brief Check if sequence has timed out
+ *
+ * @param detector Key detector instance
+ * @return true if sequence has timed out, false otherwise
  */
 static bool has_timed_out(lle_key_detector_t *detector) {
     if (detector->sequence_start_time == 0) {
@@ -339,8 +369,14 @@ static bool has_timed_out(lle_key_detector_t *detector) {
     return elapsed > LLE_KEY_SEQUENCE_TIMEOUT_US;
 }
 
-/*
- * Process key sequence
+/**
+ * @brief Process key sequence
+ *
+ * @param detector Key detector instance
+ * @param sequence Sequence bytes to process
+ * @param sequence_len Length of sequence
+ * @param key_info Output pointer for detected key info
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_key_detector_process_sequence(lle_key_detector_t *detector,
                                                const char *sequence,
@@ -443,8 +479,14 @@ lle_result_t lle_key_detector_process_sequence(lle_key_detector_t *detector,
     return LLE_SUCCESS;
 }
 
-/*
- * Get detector statistics
+/**
+ * @brief Get detector statistics
+ *
+ * @param detector Detector to query
+ * @param sequences_detected Output for total sequences detected
+ * @param sequences_resolved Output for total sequences resolved
+ * @param ambiguous_timeouts Output for ambiguous timeout count
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_key_detector_get_stats(const lle_key_detector_t *detector,
                                         uint64_t *sequences_detected,
@@ -462,8 +504,11 @@ lle_result_t lle_key_detector_get_stats(const lle_key_detector_t *detector,
     return LLE_SUCCESS;
 }
 
-/*
- * Reset detector state
+/**
+ * @brief Reset detector state
+ *
+ * @param detector Detector to reset
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_key_detector_reset(lle_key_detector_t *detector) {
     if (!detector) {
@@ -478,8 +523,11 @@ lle_result_t lle_key_detector_reset(lle_key_detector_t *detector) {
     return LLE_SUCCESS;
 }
 
-/*
- * Check if detector is waiting for more data
+/**
+ * @brief Check if detector is waiting for more data
+ *
+ * @param detector Detector to query
+ * @return true if waiting for more data, false otherwise
  */
 bool lle_key_detector_is_waiting(const lle_key_detector_t *detector) {
     if (!detector) {

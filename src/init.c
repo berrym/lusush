@@ -1,3 +1,19 @@
+/**
+ * @file init.c
+ * @brief Shell initialization and startup routines
+ *
+ * Handles shell initialization including:
+ * - Command line argument parsing
+ * - Environment variable import
+ * - Signal handler setup
+ * - Interactive/non-interactive mode detection
+ * - Configuration and script execution
+ * - Memory pool and display integration initialization
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ */
+
 #include "init.h"
 
 #include "alias.h"
@@ -48,8 +64,11 @@ static int parse_opts(int argc, char **argv);
 static void usage(int err);
 
 /**
- * Ensure safe bottom margin for interactive shell display.
- * Creates scroll space at the bottom of the terminal.
+ * @brief Ensure safe bottom margin for interactive shell display
+ *
+ * Creates scroll space at the bottom of the terminal by moving the
+ * cursor to the bottom and scrolling, then restoring cursor position.
+ * Only executes once per shell session.
  */
 static void ensure_bottom_margin(void) {
     static bool margin_created = false;
@@ -73,7 +92,15 @@ static void ensure_bottom_margin(void) {
     margin_created = true;
 }
 
-// Function to handle shebang processing
+/**
+ * @brief Process shebang line in script files
+ *
+ * Checks if the first line of a script file starts with #! and
+ * consumes it if present. If no shebang is found, rewinds to
+ * the beginning of the file.
+ *
+ * @param file File pointer to the script being executed
+ */
 static void process_shebang(FILE *file) {
     if (!file) {
         return;
@@ -95,12 +122,44 @@ static void process_shebang(FILE *file) {
     fseek(file, pos, SEEK_SET);
 }
 
+/**
+ * @brief Get the current shell type
+ *
+ * @return Shell type constant (SHELL_INTERACTIVE, SHELL_NON_INTERACTIVE, etc.)
+ */
 int shell_type(void) { return SHELL_TYPE; }
 
-// POSIX-compliant shell type functions
+/**
+ * @brief Check if shell is running in interactive mode
+ *
+ * @return true if interactive, false otherwise
+ */
 bool is_interactive_shell(void) { return IS_INTERACTIVE_SHELL; }
+
+/**
+ * @brief Check if shell is a login shell
+ *
+ * @return true if login shell, false otherwise
+ */
 bool is_login_shell(void) { return IS_LOGIN_SHELL; }
 
+/**
+ * @brief Initialize the shell
+ *
+ * Performs complete shell initialization including:
+ * - Locale setup
+ * - Signal handler installation
+ * - Symbol table initialization
+ * - Environment variable import
+ * - Configuration loading
+ * - Terminal capability detection
+ * - Interactive feature setup (if applicable)
+ *
+ * @param argc Argument count from main()
+ * @param argv Argument vector from main()
+ * @param in Output parameter for input stream (stdin or script file)
+ * @return 0 on success, non-zero on failure
+ */
 int init(int argc, char **argv, FILE **in) {
     struct stat st; // stat buffer
 
@@ -552,6 +611,19 @@ int init(int argc, char **argv, FILE **in) {
     return 0;
 }
 
+/**
+ * @brief Parse command line options
+ *
+ * POSIX-compliant argument parsing that handles:
+ * - Short options (-c, -s, -i, -l, etc.)
+ * - Long options (--help, --version)
+ * - Option terminator (--)
+ * - Script file and script arguments
+ *
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return Index of first non-option argument (script name)
+ */
 static int parse_opts(int argc, char **argv) {
     // POSIX-compliant argument parsing: shell [options] script [script-args]
     // Only parse options that come before the script name
@@ -685,6 +757,14 @@ static int parse_opts(int argc, char **argv) {
     return arg_index;
 }
 
+/**
+ * @brief Display usage information and exit
+ *
+ * Prints command line usage, available options, and shell
+ * configuration information to stdout, then exits.
+ *
+ * @param err Exit code (EXIT_SUCCESS or EXIT_FAILURE)
+ */
 static void usage(int err) {
     printf("Usage: %s [OPTIONS] [SCRIPT]\n", LUSUSH_NAME);
     printf("A POSIX-compliant shell with modern features\n\n");

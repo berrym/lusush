@@ -1,0 +1,25 @@
+var alias_8c =
+[
+    [ "alias_usage", "alias_8c.html#a8049273b8229b6a529c71d7967ba4dfc", null ],
+    [ "bin_alias", "alias_8c.html#aa187f8e166f99b811dad2b938fbd98ce", null ],
+    [ "bin_unalias", "alias_8c.html#acc2682abf4b386028fc474baa5ee51a4", null ],
+    [ "contains_shell_operators", "alias_8c.html#a0e2afde152019837f31aecbb06e9f6f5", null ],
+    [ "expand_alias_with_shell_operators", "alias_8c.html#a92ad2b07166e0fc94282dbab42140c8d", null ],
+    [ "expand_aliases_recursive", "alias_8c.html#a4f2a3f6f88d95c6dd405a6bb19df867b", null ],
+    [ "expand_first_word_alias", "alias_8c.html#aa0d9f7833c706c88fa3d3ca82dbd176f", null ],
+    [ "find_equals", "alias_8c.html#a67f7accadc61ba66a5874a93d93cb7d2", null ],
+    [ "free_aliases", "alias_8c.html#acb2e03648390977a4e3e079220972313", null ],
+    [ "init_aliases", "alias_8c.html#af9ed08dd389066bf38901013e2d29415", null ],
+    [ "is_special_alias_char", "alias_8c.html#a4c30908a8611a2b6bc7b7769b89639ef", null ],
+    [ "lookup_alias", "alias_8c.html#a4f05c90cec1b5f53a883ef4119452f45", null ],
+    [ "parse_alias_assignment", "alias_8c.html#a961c978d45285869448e25457998951d", null ],
+    [ "print_aliases", "alias_8c.html#a5faedd8e383c2a3076ee183ca16c4272", null ],
+    [ "set_alias", "alias_8c.html#a4ff3c8f02ccbe3e95563c57887f285be", null ],
+    [ "skip_whitespace", "alias_8c.html#a6aa2e6e4b1c5c2d357210c848807f309", null ],
+    [ "unalias_usage", "alias_8c.html#a55a9325aa9d348f9f15ce5776c11b0a8", null ],
+    [ "unset_alias", "alias_8c.html#a3867e33bbcf0bd15db4482f653d87f30", null ],
+    [ "valid_alias_name", "alias_8c.html#af74b39524d91a2d3d161abee8afa4ff7", null ],
+    [ "valid_alias_name_char", "alias_8c.html#ac4b1cae7d1d42830e57f80285a37055b", null ],
+    [ "aliases", "alias_8c.html#a30d5b5283944780a7fed11e396588601", null ],
+    [ "aliases_e", "alias_8c.html#a1b13328b8a06101303a1dcc23f5df713", null ]
+];

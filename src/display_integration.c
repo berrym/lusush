@@ -78,8 +78,11 @@ static inline int rl_clear_visible_line(void) { return 0; }
 static inline int rl_on_new_line(void) { return 0; }
 
 /**
- * Clear screen helper using ANSI escape sequences.
- * LLE is the sole line editor - no readline fallback needed.
+ * @brief Clear screen using ANSI escape sequences
+ *
+ * Writes ANSI escape sequences to clear the entire screen and move
+ * the cursor to the home position. LLE is the sole line editor so
+ * no readline fallback is needed.
  */
 static void do_clear_screen(void) {
     /* ESC[2J clears entire screen, ESC[H moves cursor to home position */
@@ -99,8 +102,12 @@ void lusush_prompt_update(void);
 void lusush_clear_screen(void);
 
 /**
- * Generate current prompt string using LLE prompt composer.
- * Returns a pool-allocated string that caller must free.
+ * @brief Generate current prompt string using LLE prompt composer
+ *
+ * Creates the shell prompt using the LLE prompt composer if available.
+ * Falls back to a simple "$ " or "# " prompt based on user ID.
+ *
+ * @return Pool-allocated prompt string that caller must free with lusush_pool_free()
  */
 static char *display_generate_prompt(void) {
     if (g_lle_integration && g_lle_integration->prompt_composer) {
@@ -117,10 +124,24 @@ static char *display_generate_prompt(void) {
     return lusush_pool_strdup((getuid() > 0) ? "$ " : "# ");
 }
 
-/* Generate prompt using LLE prompt composer */
+/**
+ * @brief Generate shell prompt string
+ *
+ * Public wrapper for display_generate_prompt() that creates the shell
+ * prompt using the LLE prompt composer.
+ *
+ * @return Pool-allocated prompt string that caller must free with lusush_pool_free()
+ */
 char *lusush_generate_prompt(void) { return display_generate_prompt(); }
 
-/* Helper to get active theme name from LLE */
+/**
+ * @brief Get the active theme name from LLE
+ *
+ * Retrieves the name of the currently active theme from the LLE
+ * theme registry. Returns "default" if no theme is active.
+ *
+ * @return Theme name string (static, do not free)
+ */
 static const char *get_active_theme_name(void) {
     if (g_lle_integration && g_lle_integration->prompt_composer &&
         g_lle_integration->prompt_composer->themes) {
@@ -133,7 +154,14 @@ static const char *get_active_theme_name(void) {
     return "default";
 }
 
-/* Helper to get symbol mode from LLE theme */
+/**
+ * @brief Get the symbol compatibility mode from LLE theme
+ *
+ * Determines the symbol compatibility mode based on the active theme's
+ * capabilities. Returns NERD_FONT, UNICODE, or ASCII mode.
+ *
+ * @return Symbol compatibility mode enum value
+ */
 static symbol_compatibility_t get_symbol_mode(void) {
     if (g_lle_integration && g_lle_integration->prompt_composer &&
         g_lle_integration->prompt_composer->themes) {

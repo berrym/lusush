@@ -1,6 +1,8 @@
 /**
  * @file buffer_management.c
  * @brief LLE Buffer Management System - Complete Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Specification: Spec 03 - Buffer Management Complete Specification
  * Version: 1.0.0

@@ -1,5 +1,8 @@
 /**
- * history_multiline.c - Multiline command support for LLE history system
+ * @file history_multiline.c
+ * @brief Multiline command support for LLE history system
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Part of Spec 09: History System (Phase 4 Day 13)
  *
@@ -29,10 +32,12 @@
  */
 
 /**
- * Count newlines in a string
+ * @brief Count newlines in a string
  *
- * @param str String to analyze
- * @return Number of newlines found
+ * Counts the number of newline characters in the given string.
+ *
+ * @param str String to analyze (may be NULL)
+ * @return Number of newlines found, or 0 if str is NULL
  */
 static size_t count_newlines(const char *str) {
     if (!str) {
@@ -49,14 +54,16 @@ static size_t count_newlines(const char *str) {
 }
 
 /**
- * Create a flattened version of multiline command
+ * @brief Create a flattened version of multiline command
  *
  * Replaces newlines with spaces while preserving essential structure.
+ * Collapses multiple consecutive whitespace characters into single spaces.
  *
- * @param original Original multiline command
- * @param flattened Output buffer for flattened command
- * @param flattened_size Size of output buffer
- * @return LLE_SUCCESS on success, error code on failure
+ * @param original Original multiline command (must not be NULL)
+ * @param flattened Output buffer for flattened command (must not be NULL)
+ * @param flattened_size Size of output buffer in bytes
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if any parameter is NULL,
+ *         LLE_ERROR_BUFFER_OVERFLOW if command is too long for buffer
  */
 static lle_result_t flatten_command(const char *original, char *flattened,
                                     size_t flattened_size) {
@@ -113,10 +120,12 @@ static lle_result_t flatten_command(const char *original, char *flattened,
 }
 
 /**
- * Duplicate a string using memory pool
+ * @brief Duplicate a string using memory pool
  *
- * @param str String to duplicate
- * @return Duplicated string or NULL on error
+ * Allocates memory from the LLE memory pool and copies the input string.
+ *
+ * @param str String to duplicate (may be NULL)
+ * @return Pointer to duplicated string, or NULL if str is NULL or allocation fails
  */
 static char *pool_strdup(const char *str) {
     if (!str) {
@@ -137,7 +146,13 @@ static char *pool_strdup(const char *str) {
  */
 
 /**
- * Detect if command is multiline
+ * @brief Detect if command is multiline
+ *
+ * Checks whether a command contains newline characters.
+ *
+ * @param command Command string to check (must not be NULL)
+ * @param is_multiline Output for multiline detection result (must not be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if any parameter is NULL
  */
 lle_result_t lle_history_detect_multiline(const char *command,
                                           bool *is_multiline) {
@@ -152,7 +167,15 @@ lle_result_t lle_history_detect_multiline(const char *command,
 }
 
 /**
- * Detect multiline structure using continuation analysis
+ * @brief Detect multiline structure using continuation analysis
+ *
+ * Analyzes a command using Lusush's continuation system to detect
+ * unclosed quotes, brackets, function definitions, control structures,
+ * and here-documents.
+ *
+ * @param command Command string to analyze (must not be NULL)
+ * @param info Output structure for multiline information (must not be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if any parameter is NULL
  */
 lle_result_t
 lle_history_detect_multiline_structure(const char *command,
@@ -201,7 +224,15 @@ lle_history_detect_multiline_structure(const char *command,
 }
 
 /**
- * Preserve multiline formatting in history entry
+ * @brief Preserve multiline formatting in history entry
+ *
+ * Stores the original multiline format and creates a flattened version
+ * for the main command field (used for searching).
+ *
+ * @param entry History entry to update (must not be NULL)
+ * @param original_multiline Original multiline command (must not be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if any parameter is NULL,
+ *         LLE_ERROR_OUT_OF_MEMORY on allocation failure, LLE_ERROR_BUFFER_OVERFLOW if too long
  */
 lle_result_t lle_history_preserve_multiline(lle_history_entry_t *entry,
                                             const char *original_multiline) {
@@ -264,7 +295,16 @@ lle_result_t lle_history_preserve_multiline(lle_history_entry_t *entry,
 }
 
 /**
- * Reconstruct multiline command for editing
+ * @brief Reconstruct multiline command for editing
+ *
+ * Retrieves the command in the specified format (original, flattened, or compact).
+ *
+ * @param entry History entry to reconstruct from (must not be NULL)
+ * @param buffer Output buffer for reconstructed command (must not be NULL)
+ * @param buffer_size Size of output buffer in bytes
+ * @param format Desired output format (ORIGINAL, FLATTENED, or COMPACT)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if parameters invalid,
+ *         LLE_ERROR_INVALID_STATE if no source available, LLE_ERROR_BUFFER_OVERFLOW if too long
  */
 lle_result_t
 lle_history_reconstruct_multiline(const lle_history_entry_t *entry,
@@ -316,7 +356,16 @@ lle_history_reconstruct_multiline(const lle_history_entry_t *entry,
 }
 
 /**
- * Get multiline command for buffer loading
+ * @brief Get multiline command for buffer loading
+ *
+ * Returns the appropriate command string (original multiline or flattened)
+ * for loading into a buffer.
+ *
+ * @param entry History entry to get command from (must not be NULL)
+ * @param command Output pointer for command string (must not be NULL)
+ * @param command_length Output for command length (must not be NULL)
+ * @param is_multiline Output for multiline flag (may be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if required parameters are NULL
  */
 lle_result_t
 lle_history_get_multiline_for_buffer(const lle_history_entry_t *entry,
@@ -343,7 +392,16 @@ lle_history_get_multiline_for_buffer(const lle_history_entry_t *entry,
 }
 
 /**
- * Load multiline command into buffer system
+ * @brief Load multiline command into buffer system
+ *
+ * Retrieves the command from history and loads it into a buffer using
+ * the provided load function.
+ *
+ * @param entry History entry to load (must not be NULL)
+ * @param buffer_context Context to pass to load function (must not be NULL)
+ * @param load_fn Function to call for loading (must not be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if any parameter is NULL,
+ *         or error from load_fn
  */
 lle_result_t
 lle_history_load_multiline_into_buffer(const lle_history_entry_t *entry,
@@ -369,7 +427,16 @@ lle_history_load_multiline_into_buffer(const lle_history_entry_t *entry,
 }
 
 /**
- * Analyze multiline command lines
+ * @brief Analyze multiline command lines
+ *
+ * Parses a multiline command and returns an array of line descriptors
+ * with text pointers, lengths, line numbers, and indentation.
+ *
+ * @param command Command string to analyze (must not be NULL)
+ * @param lines Output pointer for line array (must not be NULL, caller must free)
+ * @param line_count Output for number of lines (must not be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if any parameter is NULL,
+ *         LLE_ERROR_OUT_OF_MEMORY on allocation failure
  */
 lle_result_t
 lle_history_analyze_multiline_lines(const char *command,
@@ -430,7 +497,12 @@ lle_history_analyze_multiline_lines(const char *command,
 }
 
 /**
- * Free multiline line analysis
+ * @brief Free multiline line analysis
+ *
+ * Frees the line array allocated by lle_history_analyze_multiline_lines.
+ *
+ * @param lines Line array to free (must not be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if lines is NULL
  */
 lle_result_t
 lle_history_free_multiline_lines(lle_history_multiline_line_t *lines) {
@@ -443,7 +515,16 @@ lle_history_free_multiline_lines(lle_history_multiline_line_t *lines) {
 }
 
 /**
- * Format multiline command with indentation
+ * @brief Format multiline command with indentation
+ *
+ * Adds base indentation to each line of a multiline command.
+ *
+ * @param command Command string to format (must not be NULL)
+ * @param formatted Output buffer for formatted command (must not be NULL)
+ * @param formatted_size Size of output buffer in bytes
+ * @param base_indent Number of spaces to add at the start of each line
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if parameters invalid,
+ *         LLE_ERROR_BUFFER_OVERFLOW if formatted command is too long
  */
 lle_result_t lle_history_format_multiline(const char *command, char *formatted,
                                           size_t formatted_size,
@@ -492,7 +573,12 @@ lle_result_t lle_history_format_multiline(const char *command, char *formatted,
 }
 
 /**
- * Check if entry contains multiline command
+ * @brief Check if entry contains multiline command
+ *
+ * Returns whether the history entry contains a multiline command.
+ *
+ * @param entry History entry to check (may be NULL)
+ * @return true if entry is multiline, false if NULL or single-line
  */
 bool lle_history_is_multiline(const lle_history_entry_t *entry) {
     if (!entry) {
@@ -503,7 +589,12 @@ bool lle_history_is_multiline(const lle_history_entry_t *entry) {
 }
 
 /**
- * Get original multiline format
+ * @brief Get original multiline format
+ *
+ * Returns the original multiline format of a command with preserved formatting.
+ *
+ * @param entry History entry to get multiline from (may be NULL)
+ * @return Pointer to original multiline string, or NULL if not multiline or entry is NULL
  */
 const char *
 lle_history_get_original_multiline(const lle_history_entry_t *entry) {
@@ -515,7 +606,12 @@ lle_history_get_original_multiline(const lle_history_entry_t *entry) {
 }
 
 /**
- * Get line count for multiline command
+ * @brief Get line count for multiline command
+ *
+ * Returns the number of lines in the original multiline command.
+ *
+ * @param entry History entry to get line count from (may be NULL)
+ * @return Number of lines (1 if not multiline or entry is NULL)
  */
 size_t lle_history_get_multiline_line_count(const lle_history_entry_t *entry) {
     if (!entry || !entry->is_multiline || !entry->original_multiline) {

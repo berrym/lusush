@@ -1,6 +1,8 @@
 /**
  * @file widget_hooks.h
  * @brief LLE Widget Hooks Manager
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Manages hook points in the editor lifecycle where widgets can be
  * automatically triggered. Inspired by ZSH's hook system.

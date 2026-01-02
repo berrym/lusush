@@ -1,5 +1,8 @@
-/*
- * terminal_unix_interface.c - Unix Terminal Interface (Spec 02 Subsystem 6)
+/**
+ * @file terminal_unix_interface.c
+ * @brief Unix Terminal Interface (Spec 02 Subsystem 6)
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Minimal Unix terminal interface abstraction providing:
  * - Raw mode setup and teardown
@@ -51,11 +54,14 @@ static lle_unix_interface_t *g_signal_interface = NULL;
  * are allowed: tcsetattr, signal, raise, write, etc. NO malloc, printf, etc.
  */
 
-/*
- * SIGWINCH handler - window size changed
+/**
+ * @brief SIGWINCH handler - window size changed
  *
  * This is called when the terminal window is resized. We don't do much here
  * because we can't safely call complex functions in signal context.
+ * Sets a flag that will be checked in the event loop.
+ *
+ * @param sig Signal number (unused, always SIGWINCH)
  */
 static void handle_sigwinch(int sig) {
     (void)sig;
@@ -66,11 +72,14 @@ static void handle_sigwinch(int sig) {
     }
 }
 
-/*
- * SIGTSTP handler - suspend (Ctrl-Z)
+/**
+ * @brief SIGTSTP handler - suspend (Ctrl-Z)
  *
  * Before suspending, we must restore the terminal to its original state
- * so the user gets a normal shell prompt when backgrounded.
+ * so the user gets a normal shell prompt when backgrounded. After restoration,
+ * the signal is re-raised with the default handler to actually suspend.
+ *
+ * @param sig Signal number (always SIGTSTP)
  */
 static void handle_sigtstp(int sig) {
     if (!g_signal_interface)
@@ -87,10 +96,13 @@ static void handle_sigtstp(int sig) {
     raise(sig);
 }
 
-/*
- * SIGCONT handler - resume after suspend
+/**
+ * @brief SIGCONT handler - resume after suspend
  *
- * When resumed from background, re-enter raw mode if we were in it.
+ * When resumed from background, re-enter raw mode if we were in it
+ * and re-install the SIGTSTP handler which was reset to default.
+ *
+ * @param sig Signal number (unused, always SIGCONT)
  */
 static void handle_sigcont(int sig) {
     (void)sig;
@@ -119,8 +131,11 @@ static void handle_sigcont(int sig) {
  * ============================================================================
  */
 
-/*
- * atexit handler - ensure terminal is restored even on abnormal exit
+/**
+ * @brief atexit handler - ensure terminal is restored even on abnormal exit
+ *
+ * This function is registered with atexit() to ensure the terminal is
+ * restored to its original state even if the program exits unexpectedly.
  */
 static void cleanup_on_exit(void) {
     if (g_signal_interface && g_signal_interface->raw_mode_active) {
@@ -130,8 +145,11 @@ static void cleanup_on_exit(void) {
     }
 }
 
-/*
- * Register atexit cleanup handler (called once)
+/**
+ * @brief Register atexit cleanup handler (called once)
+ *
+ * Registers the cleanup_on_exit() function with atexit() if not already
+ * registered. Uses a static flag to ensure single registration.
  */
 static void register_cleanup(void) {
     static bool registered = false;
@@ -147,7 +165,7 @@ static void register_cleanup(void) {
  * ============================================================================
  */
 
-/* Storage for original signal handlers (static lifetime) */
+/** Storage for original signal handlers (static lifetime) */
 static struct sigaction original_sigwinch;
 static struct sigaction original_sigtstp;
 static struct sigaction original_sigcont;
@@ -155,8 +173,15 @@ static struct sigaction original_sigcont;
  */
 static bool signals_installed = false;
 
-/*
- * Install all signal handlers
+/**
+ * @brief Install all signal handlers
+ *
+ * Installs handlers for SIGWINCH, SIGTSTP, and SIGCONT signals.
+ * Uses sigaction for reliable signal handling with SA_RESTART flag.
+ * SIGINT and SIGTERM are left to lusush's main signal handlers.
+ *
+ * @param interface Unix interface to associate with handlers
+ * @return LLE_SUCCESS on success, LLE_ERROR_SYSTEM_CALL on sigaction failure
  */
 static lle_result_t install_signal_handlers(lle_unix_interface_t *interface) {
     if (signals_installed) {
@@ -208,8 +233,14 @@ static lle_result_t install_signal_handlers(lle_unix_interface_t *interface) {
     return LLE_SUCCESS;
 }
 
-/*
- * Restore original signal handlers
+/**
+ * @brief Restore original signal handlers
+ *
+ * Restores the original signal handlers that were saved when
+ * install_signal_handlers() was called. Only restores if the
+ * provided interface is the one that originally installed them.
+ *
+ * @param interface Unix interface that installed the handlers
  */
 static void restore_signal_handlers(lle_unix_interface_t *interface) {
     if (!signals_installed) {
@@ -237,8 +268,11 @@ static void restore_signal_handlers(lle_unix_interface_t *interface) {
  * ============================================================================
  */
 
-/*
- * Initialize Unix terminal interface
+/**
+ * @brief Initialize Unix terminal interface
+ *
+ * @param interface Output pointer for created interface
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_unix_interface_init(lle_unix_interface_t **interface) {
     if (!interface) {
@@ -298,11 +332,16 @@ lle_result_t lle_unix_interface_init(lle_unix_interface_t **interface) {
     return LLE_SUCCESS;
 }
 
-/*
- * Initialize sequence parser for escape sequence processing
+/**
+ * @brief Initialize sequence parser for escape sequence processing
  *
  * This must be called after lle_unix_interface_init() and after
  * terminal capabilities have been detected.
+ *
+ * @param interface Unix interface instance
+ * @param capabilities Terminal capabilities reference
+ * @param memory_pool Memory pool for allocations
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_unix_interface_init_sequence_parser(
     lle_unix_interface_t *interface, lle_terminal_capabilities_t *capabilities,
@@ -340,8 +379,10 @@ lle_result_t lle_unix_interface_init_sequence_parser(
     return LLE_SUCCESS;
 }
 
-/*
- * Destroy Unix terminal interface
+/**
+ * @brief Destroy Unix terminal interface
+ *
+ * @param interface Interface to destroy
  */
 void lle_unix_interface_destroy(lle_unix_interface_t *interface) {
     if (!interface) {
@@ -376,8 +417,11 @@ void lle_unix_interface_destroy(lle_unix_interface_t *interface) {
     free(interface);
 }
 
-/*
- * Enter raw (non-canonical) mode
+/**
+ * @brief Enter raw (non-canonical) mode
+ *
+ * @param interface Unix interface instance
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t
 lle_unix_interface_enter_raw_mode(lle_unix_interface_t *interface) {
@@ -435,8 +479,11 @@ lle_unix_interface_enter_raw_mode(lle_unix_interface_t *interface) {
     return LLE_SUCCESS;
 }
 
-/*
- * Exit raw mode and restore original terminal state
+/**
+ * @brief Exit raw mode and restore original terminal state
+ *
+ * @param interface Unix interface instance
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_unix_interface_exit_raw_mode(lle_unix_interface_t *interface) {
     if (!interface) {
@@ -459,8 +506,13 @@ lle_result_t lle_unix_interface_exit_raw_mode(lle_unix_interface_t *interface) {
     return LLE_SUCCESS;
 }
 
-/*
- * Get current window size
+/**
+ * @brief Get current window size
+ *
+ * @param interface Unix interface instance
+ * @param width Output for terminal width
+ * @param height Output for terminal height
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_unix_interface_get_window_size(lle_unix_interface_t *interface,
                                                 size_t *width, size_t *height) {
@@ -502,8 +554,16 @@ lle_result_t lle_unix_interface_get_window_size(lle_unix_interface_t *interface,
  * ============================================================================
  */
 
-/*
- * Convert lle_key_info_t keycode to lle_special_key_t
+/**
+ * @brief Convert lle_key_info_t keycode to lle_special_key_t
+ *
+ * Maps key codes from the parser's format to the terminal abstraction's
+ * special key enum. Handles cursor keys, function keys, editing keys,
+ * control characters, and special keys like Tab, Enter, and Escape.
+ *
+ * @param keycode Key code value from parser
+ * @param key_type Key type classification from parser
+ * @return Corresponding special key enum value, or LLE_KEY_UNKNOWN if not mapped
  */
 static lle_special_key_t convert_key_code(uint32_t keycode,
                                           lle_key_type_t key_type) {
@@ -595,8 +655,14 @@ static lle_special_key_t convert_key_code(uint32_t keycode,
     return LLE_KEY_UNKNOWN;
 }
 
-/*
- * Convert lle_key_modifiers_t to lle_key_modifier_t
+/**
+ * @brief Convert lle_key_modifiers_t to lle_key_modifier_t
+ *
+ * Translates modifier flags from the input parser's format to the
+ * terminal abstraction's modifier flag format.
+ *
+ * @param parser_mods Parser modifier flags (LLE_KEY_MOD_*)
+ * @return Terminal abstraction modifier flags (LLE_MOD_*)
  */
 static lle_key_modifier_t convert_modifiers(lle_key_modifiers_t parser_mods) {
     lle_key_modifier_t result = LLE_MOD_NONE;
@@ -613,11 +679,16 @@ static lle_key_modifier_t convert_modifiers(lle_key_modifiers_t parser_mods) {
     return result;
 }
 
-/*
- * Convert lle_parsed_input_t to lle_input_event_t
+/**
+ * @brief Convert lle_parsed_input_t to lle_input_event_t
  *
  * This function bridges the comprehensive sequence parser output with the
- * terminal abstraction input event format.
+ * terminal abstraction input event format. Handles text, key, mouse,
+ * sequence, paste, and focus event types.
+ *
+ * @param parsed Parsed input from sequence parser
+ * @param event Output input event structure to populate
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if inputs are NULL
  */
 static lle_result_t
 convert_parsed_input_to_event(const lle_parsed_input_t *parsed,
@@ -736,8 +807,14 @@ convert_parsed_input_to_event(const lle_parsed_input_t *parsed,
  * ============================================================================
  */
 
-/*
- * Determine UTF-8 sequence length from first byte
+/**
+ * @brief Determine UTF-8 sequence length from first byte
+ *
+ * Analyzes the high bits of the first byte to determine how many
+ * bytes are in the complete UTF-8 sequence.
+ *
+ * @param first_byte First byte of UTF-8 sequence
+ * @return Expected sequence length (1-4), or -1 for invalid first byte
  */
 static int get_utf8_length(unsigned char first_byte) {
     if ((first_byte & 0x80) == 0x00)
@@ -751,13 +828,20 @@ static int get_utf8_length(unsigned char first_byte) {
     return -1;    /* Invalid first byte */
 }
 
-/*
- * Decode UTF-8 sequence to Unicode codepoint
+/**
+ * @brief Decode UTF-8 sequence to Unicode codepoint
  *
  * This decoder:
  * - Validates basic structure (continuation bytes)
  * - Returns replacement character (U+FFFD) for invalid sequences
  * - Does not detect overlong sequences (acceptable tradeoff)
+ *
+ * @param interface Unix interface for reading additional bytes from terminal
+ * @param first_byte First byte already read from input
+ * @param codepoint_out Output for decoded Unicode codepoint
+ * @param utf8_bytes Output buffer for complete UTF-8 bytes (must be at least 8 bytes)
+ * @param byte_count_out Output for number of bytes in sequence (1-4)
+ * @return LLE_SUCCESS on success (always succeeds, uses replacement char on error)
  */
 static lle_result_t decode_utf8(lle_unix_interface_t *interface,
                                 unsigned char first_byte,
@@ -833,8 +917,8 @@ static lle_result_t decode_utf8(lle_unix_interface_t *interface,
  * ============================================================================
  */
 
-/*
- * Read input event from terminal with timeout support
+/**
+ * @brief Read input event from terminal with timeout support
  *
  * This implementation provides:
  * - Non-blocking input with configurable timeout
@@ -845,6 +929,11 @@ static lle_result_t decode_utf8(lle_unix_interface_t *interface,
  *
  * Higher-level parsing (escape sequences, special keys) is handled by
  * Spec 06 Input Parsing, which wraps this primitive interface.
+ *
+ * @param interface Unix interface instance
+ * @param event Output for read event
+ * @param timeout_ms Timeout in milliseconds (UINT32_MAX for infinite)
+ * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_unix_interface_read_event(lle_unix_interface_t *interface,
                                            lle_input_event_t *event,
@@ -1283,11 +1372,13 @@ lle_result_t lle_unix_interface_read_event(lle_unix_interface_t *interface,
  * ============================================================================
  */
 
-/*
- * Get current time in microseconds
+/**
+ * @brief Get current time in microseconds
  *
  * Uses CLOCK_MONOTONIC for reliable timing (not affected by system time
- * changes)
+ * changes).
+ *
+ * @return Current time in microseconds
  */
 uint64_t lle_get_current_time_microseconds(void) {
     struct timespec ts;

@@ -1,6 +1,8 @@
-/*
- * Lusush Shell - LLE Completion Generator Implementation
- * Copyright (C) 2021-2026  Michael Berry
+/**
+ * @file completion_generator.c
+ * @brief LLE Completion Generator Implementation
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,10 +17,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * ============================================================================
- *
- * LLE COMPLETION GENERATOR IMPLEMENTATION
- *
  * This module contains ONLY logic - NO terminal I/O.
  * Main orchestration layer for the completion system.
  */
@@ -28,27 +26,33 @@
 #include <stdlib.h>
 #include <string.h>
 
-// ============================================================================
-// CONTEXT ANALYSIS HELPERS
-// ============================================================================
+/* ============================================================================
+ * CONTEXT ANALYSIS HELPERS
+ * ============================================================================
+ */
 
 /**
- * Check if character is a command separator
+ * @brief Check if character is a command separator
+ * @param c Character to check
+ * @return true if character is a command separator (|, ;, &, (, ))
  */
 static bool is_command_separator(char c) {
     return c == '|' || c == ';' || c == '&' || c == '(' || c == ')';
 }
 
 /**
- * Check if character is a word boundary
+ * @brief Check if character is a word boundary
+ * @param c Character to check
+ * @return true if character is whitespace or a command separator
  */
 static bool is_word_boundary(char c) {
     return isspace(c) || is_command_separator(c);
 }
 
-// ============================================================================
-// WORD EXTRACTION
-// ============================================================================
+/* ============================================================================
+ * WORD EXTRACTION
+ * ============================================================================
+ */
 
 lle_result_t lle_completion_extract_word(const char *buffer, size_t cursor_pos,
                                          size_t *word_start, char **word) {
@@ -85,9 +89,10 @@ lle_result_t lle_completion_extract_word(const char *buffer, size_t cursor_pos,
     return LLE_SUCCESS;
 }
 
-// ============================================================================
-// COMMAND POSITION DETECTION
-// ============================================================================
+/* ============================================================================
+ * COMMAND POSITION DETECTION
+ * ============================================================================
+ */
 
 bool lle_completion_is_command_position(const char *buffer, size_t position) {
     if (!buffer) {
@@ -114,9 +119,10 @@ bool lle_completion_is_command_position(const char *buffer, size_t position) {
     return true; // Only found whitespace, this is command position
 }
 
-// ============================================================================
-// CONTEXT ANALYSIS
-// ============================================================================
+/* ============================================================================
+ * CONTEXT ANALYSIS
+ * ============================================================================
+ */
 
 lle_result_t
 lle_completion_analyze_context(const char *buffer, size_t cursor_pos,
@@ -158,9 +164,10 @@ lle_completion_analyze_context(const char *buffer, size_t cursor_pos,
     return LLE_SUCCESS;
 }
 
-// ============================================================================
-// CONTEXT-SPECIFIC COMPLETION GENERATION
-// ============================================================================
+/* ============================================================================
+ * CONTEXT-SPECIFIC COMPLETION GENERATION
+ * ============================================================================
+ */
 
 lle_result_t lle_completion_generate_commands(lle_memory_pool_t *memory_pool,
                                               const char *prefix,
@@ -221,9 +228,10 @@ lle_completion_generate_variables(lle_memory_pool_t *memory_pool,
     return lle_completion_source_variables(memory_pool, var_prefix, result);
 }
 
-// ============================================================================
-// MAIN COMPLETION GENERATION
-// ============================================================================
+/* ============================================================================
+ * MAIN COMPLETION GENERATION
+ * ============================================================================
+ */
 
 lle_result_t lle_completion_generate(lle_memory_pool_t *memory_pool,
                                      const char *buffer, size_t cursor_pos,

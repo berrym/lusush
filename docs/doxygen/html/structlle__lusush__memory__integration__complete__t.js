@@ -1,0 +1,28 @@
+var structlle__lusush__memory__integration__complete__t =
+[
+    [ "automatic_recovery_enabled", "structlle__lusush__memory__integration__complete__t.html#a5566b1fadb23640ff198d67552539d86", null ],
+    [ "average_cross_allocation_time", "structlle__lusush__memory__integration__complete__t.html#a89d67bca442ae52672a5700f14b12eed", null ],
+    [ "coordination_active", "structlle__lusush__memory__integration__complete__t.html#ad90e61d01f5b8a94383535343f25971e", null ],
+    [ "cross_system_allocations", "structlle__lusush__memory__integration__complete__t.html#a4ca9f7a35d1af2ad537f8a49546fbc1a", null ],
+    [ "error_handling", "structlle__lusush__memory__integration__complete__t.html#a525d83d7008b8670944b72c071bc5df3", null ],
+    [ "integration_active", "structlle__lusush__memory__integration__complete__t.html#a473f373329828b7d0790e048a16c6bc7", null ],
+    [ "integration_errors", "structlle__lusush__memory__integration__complete__t.html#afcbd8f22d29cb939223426ac3687bde3", null ],
+    [ "integration_mutex", "structlle__lusush__memory__integration__complete__t.html#ae14a639e4fe82208950606c20ebe0467", null ],
+    [ "integration_overhead", "structlle__lusush__memory__integration__complete__t.html#ae478da39bd99eca9fb3e9d03e98cde2b", null ],
+    [ "integration_performance", "structlle__lusush__memory__integration__complete__t.html#ad75d6d5952905b3ec42fa29e8109a737", null ],
+    [ "integration_start_time", "structlle__lusush__memory__integration__complete__t.html#a7ee89da969dada521b876d9220636cd2", null ],
+    [ "integration_state", "structlle__lusush__memory__integration__complete__t.html#a6f30b77a9d362647e9754240b196aae3", null ],
+    [ "last_error", "structlle__lusush__memory__integration__complete__t.html#aaf9622e85633bfc288392be198359788", null ],
+    [ "last_error_time", "structlle__lusush__memory__integration__complete__t.html#a8390992d1b9ae8d9bbbaa576e4208e2a", null ],
+    [ "lle_memory_manager", "structlle__lusush__memory__integration__complete__t.html#a6ef5c5d3dbca85a89613fa6225ab9630", null ],
+    [ "lusush_memory_system", "structlle__lusush__memory__integration__complete__t.html#ac0fe7ff88f8c7bc71868bf89c376a331", null ],
+    [ "memory_sharing_ratio", "structlle__lusush__memory__integration__complete__t.html#a3419c8ace52e52fe1424cfb09e1856a5", null ],
+    [ "mode", "structlle__lusush__memory__integration__complete__t.html#ab6aa98dd8d80b66bcb6a48c1bd6c822a", null ],
+    [ "resource_semaphore", "structlle__lusush__memory__integration__complete__t.html#ae52b48862b7210fd3e9653d91acb774e", null ],
+    [ "shared_memory_hits", "structlle__lusush__memory__integration__complete__t.html#a5354a051e5abad8d0032344955276858", null ],
+    [ "shared_memory_lock", "structlle__lusush__memory__integration__complete__t.html#a09d14b34fede8a96a3765bd48f36301c", null ],
+    [ "shared_memory_misses", "structlle__lusush__memory__integration__complete__t.html#abc09de2c8004f3c45949e326ca5fbca4", null ],
+    [ "shared_memory_regions", "structlle__lusush__memory__integration__complete__t.html#a7cfb04c923643d99d05cc85df66823b8", null ],
+    [ "sync_failures", "structlle__lusush__memory__integration__complete__t.html#afc6dfa0bfb42221f4cd261fe07fdb587", null ],
+    [ "synchronization", "structlle__lusush__memory__integration__complete__t.html#a2d6b9aa2da55689b0f589b45ff005f67", null ]
+];

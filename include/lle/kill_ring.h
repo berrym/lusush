@@ -1,5 +1,8 @@
 /**
- * kill_ring.h - Kill Ring System for GNU Readline Compatibility
+ * @file kill_ring.h
+ * @brief Kill ring system for GNU Readline compatible cut/paste operations
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Implements the kill ring (yank/kill buffer) system for cut/paste operations
  * compatible with GNU Readline behavior in bash and other shells.
@@ -23,9 +26,6 @@
  *
  * Specification:
  * docs/lle_specification/critical_gaps/25_default_keybindings_complete.md
- * Implementation Plan:
- * docs/lle_specification/critical_gaps/25_IMPLEMENTATION_PLAN.md Date:
- * 2025-11-02
  */
 
 #ifndef LLE_KILL_RING_H
@@ -44,7 +44,7 @@
  */
 
 /**
- * Default maximum number of entries in the kill ring
+ * @brief Default maximum number of entries in the kill ring
  *
  * GNU Readline default is typically 32 entries. This provides good balance
  * between memory usage and utility.
@@ -52,7 +52,7 @@
 #define LLE_KILL_RING_DEFAULT_SIZE 32
 
 /**
- * Maximum allowed kill ring size
+ * @brief Maximum allowed kill ring size
  *
  * Arbitrary limit to prevent excessive memory usage. Can be configured
  * smaller but not larger than this.
@@ -64,6 +64,9 @@
  * ============================================================================
  */
 
+/**
+ * @brief Opaque kill ring structure
+ */
 typedef struct lle_kill_ring lle_kill_ring_t;
 
 /* ============================================================================
@@ -72,8 +75,7 @@ typedef struct lle_kill_ring lle_kill_ring_t;
  */
 
 /**
- * Create a new kill ring
- *
+ * @brief Create a new kill ring
  * @param ring Output pointer for created kill ring
  * @param max_entries Maximum number of entries (0 = use default size)
  * @param pool Memory pool for allocations (NULL = use global pool)
@@ -87,8 +89,7 @@ lle_result_t lle_kill_ring_create(lle_kill_ring_t **ring, size_t max_entries,
                                   lle_memory_pool_t *pool);
 
 /**
- * Destroy a kill ring and free all resources
- *
+ * @brief Destroy a kill ring and free all resources
  * @param ring Kill ring to destroy
  * @return LLE_SUCCESS or error code
  *
@@ -103,8 +104,7 @@ lle_result_t lle_kill_ring_destroy(lle_kill_ring_t *ring);
  */
 
 /**
- * Add killed text to the ring
- *
+ * @brief Add killed text to the ring
  * @param ring Kill ring
  * @param text Text to add (must be non-NULL, non-empty)
  * @param append If true, append to last entry; if false, create new entry
@@ -124,8 +124,7 @@ lle_result_t lle_kill_ring_add(lle_kill_ring_t *ring, const char *text,
                                bool append);
 
 /**
- * Add killed text to front of last entry (prepend mode)
- *
+ * @brief Add killed text to front of last entry (prepend mode)
  * @param ring Kill ring
  * @param text Text to prepend to last entry
  * @return LLE_SUCCESS or error code
@@ -144,8 +143,7 @@ lle_result_t lle_kill_ring_prepend(lle_kill_ring_t *ring, const char *text);
  */
 
 /**
- * Get the current yank text (most recent kill)
- *
+ * @brief Get the current yank text (most recent kill)
  * @param ring Kill ring
  * @param text_out Output pointer for text (do not free)
  * @return LLE_SUCCESS, LLE_ERROR_EMPTY, or other error code
@@ -163,8 +161,7 @@ lle_result_t lle_kill_ring_get_current(lle_kill_ring_t *ring,
                                        const char **text_out);
 
 /**
- * Cycle to previous kill in ring (yank-pop operation)
- *
+ * @brief Cycle to previous kill in ring (yank-pop operation)
  * @param ring Kill ring
  * @param text_out Output pointer for text (do not free)
  * @return LLE_SUCCESS, LLE_ERROR_NOT_AFTER_YANK, or other error code
@@ -188,8 +185,7 @@ lle_result_t lle_kill_ring_yank_pop(lle_kill_ring_t *ring,
  */
 
 /**
- * Clear all entries from the kill ring
- *
+ * @brief Clear all entries from the kill ring
  * @param ring Kill ring
  * @return LLE_SUCCESS or error code
  *
@@ -200,8 +196,7 @@ lle_result_t lle_kill_ring_yank_pop(lle_kill_ring_t *ring,
 lle_result_t lle_kill_ring_clear(lle_kill_ring_t *ring);
 
 /**
- * Reset yank state (call after any non-yank operation)
- *
+ * @brief Reset yank state (call after any non-yank operation)
  * @param ring Kill ring
  * @return LLE_SUCCESS or error code
  *
@@ -209,15 +204,13 @@ lle_result_t lle_kill_ring_clear(lle_kill_ring_t *ring);
  * - Any non-yank command breaks the yank chain
  * - Next M-y will error until another C-y is performed
  *
- * @note This should be called after any editor operation that isn't
- * yank/yank-pop
+ * @note This should be called after any editor operation that isn't yank/yank-pop
  * @note Does not clear kill ring contents, only yank state
  */
 lle_result_t lle_kill_ring_reset_yank_state(lle_kill_ring_t *ring);
 
 /**
- * Mark that last operation was a kill (for append mode)
- *
+ * @brief Mark that last operation was a kill (for append mode)
  * @param ring Kill ring
  * @param was_kill True if last operation was a kill command
  * @return LLE_SUCCESS or error code
@@ -240,8 +233,7 @@ lle_result_t lle_kill_ring_set_last_was_kill(lle_kill_ring_t *ring,
  */
 
 /**
- * Get number of entries currently in the ring
- *
+ * @brief Get number of entries currently in the ring
  * @param ring Kill ring
  * @param count_out Output pointer for count
  * @return LLE_SUCCESS or error code
@@ -252,8 +244,7 @@ lle_result_t lle_kill_ring_set_last_was_kill(lle_kill_ring_t *ring,
 lle_result_t lle_kill_ring_get_count(lle_kill_ring_t *ring, size_t *count_out);
 
 /**
- * Check if ring is empty
- *
+ * @brief Check if ring is empty
  * @param ring Kill ring
  * @param empty_out Output pointer for empty status
  * @return LLE_SUCCESS or error code
@@ -261,8 +252,7 @@ lle_result_t lle_kill_ring_get_count(lle_kill_ring_t *ring, size_t *count_out);
 lle_result_t lle_kill_ring_is_empty(lle_kill_ring_t *ring, bool *empty_out);
 
 /**
- * Check if last operation was a yank (for yank-pop validation)
- *
+ * @brief Check if last operation was a yank (for yank-pop validation)
  * @param ring Kill ring
  * @param was_yank_out Output pointer for yank status
  * @return LLE_SUCCESS or error code
@@ -271,8 +261,7 @@ lle_result_t lle_kill_ring_was_last_yank(lle_kill_ring_t *ring,
                                          bool *was_yank_out);
 
 /**
- * Get maximum capacity of the ring
- *
+ * @brief Get maximum capacity of the ring
  * @param ring Kill ring
  * @param capacity_out Output pointer for capacity
  * @return LLE_SUCCESS or error code
@@ -288,8 +277,7 @@ lle_result_t lle_kill_ring_get_capacity(lle_kill_ring_t *ring,
 #ifdef LLE_DEBUG
 
 /**
- * Get entry at specific index (for testing/debugging)
- *
+ * @brief Get entry at specific index (for testing/debugging)
  * @param ring Kill ring
  * @param index Index (0 = newest, count-1 = oldest)
  * @param text_out Output pointer for text
@@ -303,8 +291,7 @@ lle_result_t lle_kill_ring_get_entry_at_index(lle_kill_ring_t *ring,
                                               const char **text_out);
 
 /**
- * Dump kill ring contents to stdout (debugging)
- *
+ * @brief Dump kill ring contents to stdout (debugging)
  * @param ring Kill ring
  * @return LLE_SUCCESS or error code
  */

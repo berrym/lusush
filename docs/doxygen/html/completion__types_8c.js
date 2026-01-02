@@ -1,0 +1,27 @@
+var completion__types_8c =
+[
+    [ "TYPE_INFO_COUNT", "completion__types_8c.html#acf010e41829e5408422fef8f17647b2f", null ],
+    [ "__attribute__", "completion__types_8c.html#af9aace1b44b73111e15aa39f06f43456", null ],
+    [ "compare_completion_items", "completion__types_8c.html#a17718638486cfba093b0547753266d06", null ],
+    [ "lle_completion_classify_text", "completion__types_8c.html#a2d2493ec903cf71a6ac3b38bf477fddc", null ],
+    [ "lle_completion_is_alias", "completion__types_8c.html#ad42814daf7f8db1913b8e67a659d7b5c", null ],
+    [ "lle_completion_is_builtin", "completion__types_8c.html#a487975e37e96544d569b7952f4bdb3d3", null ],
+    [ "lle_completion_is_directory", "completion__types_8c.html#a8cab1d4136df3d7bdf64e47d446f2c43", null ],
+    [ "lle_completion_item_create", "completion__types_8c.html#a6d03f90851bd9cefb4b57cf7a4777cc8", null ],
+    [ "lle_completion_item_create_with_description", "completion__types_8c.html#a59b7f611abceea6394476db2be7f2c1a", null ],
+    [ "lle_completion_item_free", "completion__types_8c.html#a13cd7c8da96ad3d0a6d866f94f2f1140", null ],
+    [ "lle_completion_result_add", "completion__types_8c.html#ab8c8ac0914dd706b8aef11e4f192482b", null ],
+    [ "lle_completion_result_add_item", "completion__types_8c.html#afe619771b4381062a816b3a896eee8c6", null ],
+    [ "lle_completion_result_count_by_type", "completion__types_8c.html#a19d14f46286aee7565491066bac8e2d4", null ],
+    [ "lle_completion_result_create", "completion__types_8c.html#a7e66f7fa6412912af6f79b41fed550d2", null ],
+    [ "lle_completion_result_free", "completion__types_8c.html#a0c32786e1ebe754653dc8273d4218f9b", null ],
+    [ "lle_completion_result_get_item", "completion__types_8c.html#a3241ad241dd8f2eec74e157200597721", null ],
+    [ "lle_completion_result_sort", "completion__types_8c.html#acbf7b4ff56b255b870c3ffdc72790e6b", null ],
+    [ "lle_completion_type_get_category", "completion__types_8c.html#abacd10ba5bb14fa70ac24be0a25be625", null ],
+    [ "lle_completion_type_get_indicator", "completion__types_8c.html#af9f374de3f8b0c7d8d1c3a6f587eb519", null ],
+    [ "lle_completion_type_get_info", "completion__types_8c.html#a4530c6350444a39de0b3213f4ff4d160", null ],
+    [ "lle_shell_is_alias", "completion__types_8c.html#aa45c55b8d40131bdfd078a72262db7f5", null ],
+    [ "lle_shell_is_builtin", "completion__types_8c.html#a8f436ff063c2aeb5afdc7eb53b6d53b5", null ],
+    [ "lle_strdup_pool", "completion__types_8c.html#aaa63491104eb98eaf49180e75fcef4a6", null ],
+    [ "TYPE_INFO_DATABASE", "completion__types_8c.html#a8c389d222a5b2cf2424c44333de3db6c", null ]
+];
