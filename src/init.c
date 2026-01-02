@@ -743,6 +743,12 @@ static int parse_opts(int argc, char **argv) {
             case 't':
                 shell_opts.onecmd = true;
                 break;
+            case 'a':
+                shell_opts.allexport = true;
+                break;
+            case 'C':
+                shell_opts.noclobber = true;
+                break;
             default:
                 fprintf(stderr, "%s: invalid option -- '%c'\n", argv[0], opt);
                 usage(EXIT_FAILURE);
@@ -784,10 +790,13 @@ static void usage(int err) {
     printf("  -f               Disable pathname expansion (set -f)\n");
     printf("  -h               Enable command path hashing (set -o hashall)\n");
     printf("  -m               Enable job control (set -m)\n");
+    printf("  -a               Auto-export all variables (set -o allexport)\n");
     printf("  -b               Notify asynchronously of background job "
            "completion (set -o notify)\n");
     printf("  -t               Exit after executing one command (set -o "
            "onecmd)\n");
+    printf("  -C               Prevent overwriting files with redirection (set "
+           "-o noclobber)\n");
     printf("\nArguments:\n");
     printf("  SCRIPT           Execute commands from script file\n");
     printf("\nShell Options:\n");

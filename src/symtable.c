@@ -1115,6 +1115,45 @@ void symtable_debug_enumerate_global_vars(void (*callback)(const char *key,
 }
 
 /**
+ * @brief Enumerate global variables with clean values
+ *
+ * Enumerates all global shell variables and calls the callback for each one.
+ * Unlike symtable_debug_enumerate_global_vars, this function deserializes
+ * the stored values and returns only the actual variable value without
+ * internal metadata (flags, scope level, type).
+ *
+ * @param callback Function to call for each variable (key, value, userdata)
+ * @param userdata User data to pass to the callback
+ */
+void symtable_enumerate_global_vars(void (*callback)(const char *key,
+                                                     const char *value,
+                                                     void *userdata),
+                                    void *userdata) {
+    if (!global_manager || !global_manager->global_scope ||
+        !global_manager->global_scope->vars_ht || !callback) {
+        return;
+    }
+
+    ht_enum_t *enum_iter =
+        ht_strstr_enum_create(global_manager->global_scope->vars_ht);
+    if (!enum_iter) {
+        return;
+    }
+
+    const char *key, *serialized;
+    while (ht_strstr_enum_next(enum_iter, &key, &serialized)) {
+        /* Deserialize to get clean value */
+        symvar_t *var = deserialize_variable(key, serialized);
+        if (var && !(var->flags & SYMVAR_UNSET)) {
+            callback(key, var->value, userdata);
+        }
+        free_symvar(var);
+    }
+
+    ht_strstr_enum_destroy(enum_iter);
+}
+
+/**
  * @brief Count the number of global variables
  *
  * @return Number of variables in global scope (currently unimplemented)

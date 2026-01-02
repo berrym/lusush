@@ -248,10 +248,87 @@ static option_mapping_t *find_option_by_short(char opt) {
 }
 
 /**
+ * @brief Print a shell variable value with proper POSIX quoting
+ *
+ * @param key Variable name
+ * @param value Variable value (already extracted, not raw encoded)
+ */
+static void print_variable_quoted(const char *key, const char *value) {
+    if (!value) {
+        printf("%s=''\n", key);
+        return;
+    }
+
+    /* Check if value needs quoting (contains special chars) */
+    bool needs_quote = false;
+    for (const char *p = value; *p; p++) {
+        if (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\'' || *p == '"' ||
+            *p == '\\' || *p == '$' || *p == '`' || *p == '!' || *p == '*' ||
+            *p == '?' || *p == '[' || *p == ']' || *p == '(' || *p == ')' ||
+            *p == '{' || *p == '}' || *p == '|' || *p == '&' || *p == ';' ||
+            *p == '<' || *p == '>') {
+            needs_quote = true;
+            break;
+        }
+    }
+
+    if (needs_quote) {
+        /* Use single quotes, escaping any single quotes in value */
+        printf("%s='", key);
+        for (const char *p = value; *p; p++) {
+            if (*p == '\'') {
+                printf("'\\''"); /* End quote, escaped quote, start quote */
+            } else {
+                putchar(*p);
+            }
+        }
+        printf("'\n");
+    } else {
+        printf("%s=%s\n", key, value);
+    }
+}
+
+/**
+ * @brief Callback for printing a single shell variable
+ *
+ * Used by symtable_enumerate_global_vars to print each variable
+ * in POSIX format: NAME=VALUE (with proper quoting for special chars).
+ *
+ * @param key Variable name
+ * @param value Variable value (already clean, no metadata)
+ * @param userdata Unused
+ */
+static void print_variable_callback(const char *key, const char *value,
+                                    void *userdata) {
+    (void)userdata;
+
+    if (!key) {
+        return;
+    }
+
+    /* Skip internal/special variables that start with double underscore */
+    if (key[0] == '_' && key[1] == '_') {
+        return;
+    }
+
+    print_variable_quoted(key, value);
+}
+
+/**
+ * @brief Print all shell variables (POSIX 'set' with no arguments)
+ *
+ * Enumerates and prints all shell variables in NAME=VALUE format.
+ * This is the POSIX-required behavior for 'set' with no arguments.
+ */
+static void print_all_shell_variables(void) {
+    symtable_enumerate_global_vars(print_variable_callback, NULL);
+}
+
+/**
  * @brief Implementation of the 'set' builtin command
  *
  * Handles shell option management including:
- * - No args: display current option values
+ * - No args: display all shell variables (POSIX requirement)
  * - -o name: enable named option
  * - +o name: disable named option
  * - -x, -e, etc.: enable short options
@@ -270,55 +347,9 @@ int builtin_set(char **args) {
     }
 
     if (!args[1]) {
-        // No arguments - display all variables (traditional behavior)
-        // For now, just show that set is implemented
-        printf("set: shell options management\n");
-        printf("Current shell options:\n");
-        printf("  errexit (exit on error): %s\n",
-               shell_opts.exit_on_error ? "on" : "off");
-        printf("  xtrace (trace execution): %s\n",
-               shell_opts.trace_execution ? "on" : "off");
-        printf("  noexec (syntax check): %s\n",
-               shell_opts.syntax_check ? "on" : "off");
-        printf("  nounset (error on unset): %s\n",
-               shell_opts.unset_error ? "on" : "off");
-        printf("  verbose: %s\n", shell_opts.verbose ? "on" : "off");
-        printf("  noglob (disable globbing): %s\n",
-               shell_opts.no_globbing ? "on" : "off");
-        printf("  hashall (command hashing): %s\n",
-               shell_opts.hash_commands ? "on" : "off");
-        printf("  monitor (job control): %s\n",
-               shell_opts.job_control ? "on" : "off");
-        printf("  allexport (auto export variables): %s\n",
-               shell_opts.allexport ? "on" : "off");
-        printf("  noclobber (prevent file overwrite): %s\n",
-               shell_opts.noclobber ? "on" : "off");
-        printf("  onecmd (exit after one command): %s\n",
-               shell_opts.onecmd ? "on" : "off");
-        printf("  notify (async background job notification): %s\n",
-               shell_opts.notify ? "on" : "off");
-        printf("  ignoreeof (prevent exit on EOF): %s\n",
-               shell_opts.ignoreeof ? "on" : "off");
-        printf("  nolog (prevent function definitions from entering history): "
-               "%s\n",
-               shell_opts.nolog ? "on" : "off");
-        printf("  emacs (emacs-style command line editing): %s\n",
-               shell_opts.emacs_mode ? "on" : "off");
-        printf("  vi (vi-style command line editing): %s\n",
-               shell_opts.vi_mode ? "on" : "off");
-        printf("  posix (strict POSIX compliance mode): %s\n",
-               shell_opts.posix_mode ? "on" : "off");
-        printf("  pipefail (make pipelines fail if any command fails): %s\n",
-               shell_opts.pipefail_mode ? "on" : "off");
-        printf("  histexpand (enable history expansion !! !n !string): %s\n",
-               shell_opts.histexpand_mode ? "on" : "off");
-        printf("  history (enable command history recording): %s\n",
-               shell_opts.history_mode ? "on" : "off");
-        printf("  interactive-comments (enable # comments in interactive "
-               "mode): %s\n",
-               shell_opts.interactive_comments_mode ? "on" : "off");
-        printf("  physical (use physical directory paths): %s\n",
-               shell_opts.physical_mode ? "on" : "off");
+        // No arguments - display all shell variables (POSIX requirement)
+        // Variables are printed in format: NAME=VALUE (quoted if needed)
+        print_all_shell_variables();
         return 0;
     }
 

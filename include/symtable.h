@@ -421,7 +421,10 @@ void symtable_debug_dump_global_scope(void);
 void symtable_debug_dump_all_scopes(void);
 
 /**
- * @brief Enumerate global variables with callback
+ * @brief Enumerate global variables with callback (debug - raw values)
+ *
+ * Note: This function returns raw encoded values with internal metadata.
+ * For clean values, use symtable_enumerate_global_vars() instead.
  *
  * @param callback Function called for each variable
  * @param userdata User data passed to callback
@@ -430,6 +433,21 @@ void symtable_debug_enumerate_global_vars(void (*callback)(const char *key,
                                                            const char *value,
                                                            void *userdata),
                                           void *userdata);
+
+/**
+ * @brief Enumerate global variables with callback (clean values)
+ *
+ * Enumerates all global shell variables and calls the callback for each one.
+ * Unlike symtable_debug_enumerate_global_vars, this function returns the
+ * actual variable values without internal metadata encoding.
+ *
+ * @param callback Function called for each variable (key, value, userdata)
+ * @param userdata User data passed to callback
+ */
+void symtable_enumerate_global_vars(void (*callback)(const char *key,
+                                                     const char *value,
+                                                     void *userdata),
+                                    void *userdata);
 
 /**
  * @brief Count global variables
