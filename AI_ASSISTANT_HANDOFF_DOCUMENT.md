@@ -1,13 +1,17 @@
 # AI Assistant Handoff Document - Session 105
 
 **Date**: 2026-01-02
-**Session Type**: Linux Memory Leak Regression Fix
+**Session Type**: Memory Leak Fixes - Zero Leaks Achieved
 **Status**: COMPLETE
 **Branch**: `feature/lle`
 
 ---
 
-## Session 105: Linux Memory Leak Regression After macOS Fixes
+## Session 105: Complete Memory Cleanup - Allocs Match Frees
+
+Fixed all memory leaks and achieved perfect alloc/free balance. Valgrind now shows **0 bytes leaked** and **allocs == frees**.
+
+### Part 1: Linux Memory Leak Regression Fix
 
 Fixed memory leak regression on Linux caused by Session 104's macOS memory leak fixes. The Session 104 changes exposed a pre-existing bug in `lle_completion_system_clear()`.
 
@@ -46,22 +50,61 @@ void lle_completion_system_clear(lle_completion_system_t *system) {
 **Files Modified**:
 - `src/lle/completion/completion_system.c`
 
+### Part 2: Perfect Alloc/Free Balance
+
+Added comprehensive cleanup to ensure all allocations are freed at exit.
+
+#### Changes Made
+
+1. **POSIX History Cleanup** (`src/init.c`)
+   - Added `posix_history_cleanup()` wrapper function
+   - Registered with `atexit()` to save and destroy global POSIX history
+
+2. **Terminal Detection Cache Cleanup** (`src/lle/adaptive/adaptive_terminal_detection.c`)
+   - Added `lle_terminal_detection_cache_cleanup()` function
+   - Frees the cached terminal detection result at exit
+   - Added declaration to `include/lle/adaptive_terminal_integration.h`
+
+3. **Config Cleanup Re-enabled** (`src/init.c`)
+   - Re-enabled `atexit(config_cleanup)` which was previously disabled
+   - Frees config paths and theme strings
+
+4. **Input Buffer Cleanup** (`src/init.c`)
+   - Now always registers `atexit(free_input_buffers)` for all modes
+
+5. **Exit Builtin Refactored** (`src/builtins/builtins.c`)
+   - Changed `bin_exit` to set `exit_flag = true` instead of calling `exit()` directly
+   - This allows proper cleanup flow: parser freed → executor freed → EXIT traps → exit()
+   - EXIT traps still execute, just after normal cleanup
+
+**Files Modified**:
+- `src/init.c` - Added cleanup wrappers and atexit registrations
+- `src/builtins/builtins.c` - Refactored bin_exit for graceful shutdown
+- `src/lle/adaptive/adaptive_terminal_detection.c` - Added cache cleanup
+- `include/lle/adaptive_terminal_integration.h` - Added cleanup declaration
+- `src/lle/completion/completion_system.c` - Fixed menu leak (Part 1)
+
 ### Verification
 
 ```
-Before fix:
+Before (Part 1):
 ==1497184== definitely lost: 81,451 bytes in 11,241 blocks
 
-After fix:
+After Part 1:
 ==1499144== definitely lost: 0 bytes in 0 blocks
 ==1499144== still reachable: 680 bytes in 18 blocks
+==1499144== total heap usage: 218,413 allocs, 218,288 frees (125 difference)
+
+After Part 2 (final):
+==1503245== definitely lost: 0 bytes in 0 blocks
+==1503245== total heap usage: 1,353 allocs, 1,353 frees (0 difference)
 ```
 
 ### Test Results
 
 - **Build**: ✅ All targets compile
 - **Meson Tests**: ✅ 54/54 tests pass
-- **Valgrind**: ✅ 0 bytes definitely lost
+- **Valgrind**: ✅ 0 bytes definitely lost, allocs == frees
 
 ---
 

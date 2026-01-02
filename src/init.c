@@ -144,6 +144,18 @@ bool is_interactive_shell(void) { return IS_INTERACTIVE_SHELL; }
 bool is_login_shell(void) { return IS_LOGIN_SHELL; }
 
 /**
+ * @brief Cleanup wrapper for POSIX history (atexit compatible)
+ *
+ * Saves and destroys the global POSIX history manager.
+ */
+static void posix_history_cleanup(void) {
+    if (global_posix_history) {
+        posix_history_destroy(global_posix_history);
+        global_posix_history = NULL;
+    }
+}
+
+/**
  * @brief Initialize the shell
  *
  * Performs complete shell initialization including:
@@ -578,19 +590,17 @@ int init(int argc, char **argv, FILE **in) {
     // TODO: Implement hints for readline if needed
 
     // Set memory cleanup procedures on termination
+    // Note: atexit handlers run in REVERSE order of registration (LIFO)
+    // Register in order: last-to-run first, first-to-run last
     atexit(free_global_symtable);
     atexit(free_aliases);
     atexit(free_command_hash);
     atexit(autocorrect_cleanup);
     atexit(ssh_hosts_cleanup);
-
-    // LLE handles all history management now
-    // POSIX history manager cleanup for non-interactive shells
-    (void)global_posix_history; // May still be used by scripts
-    // atexit(config_cleanup);  // Temporarily disabled
-    if (!IS_INTERACTIVE_SHELL) {
-        atexit(free_input_buffers);
-    }
+    atexit(config_cleanup);
+    atexit(posix_history_cleanup);
+    atexit(lle_terminal_detection_cache_cleanup);
+    atexit(free_input_buffers);
 
     // Process shebang if the shell is invoked with a script
     if (!IS_INTERACTIVE_SHELL && *in && has_script_file) {
@@ -598,9 +608,6 @@ int init(int argc, char **argv, FILE **in) {
     }
 
     // Register cleanup for display integration
-    // Note: atexit handlers run in REVERSE order of registration
-    // LLE cleanup is handled by lle_shell_integration_shutdown (registered in
-    // init)
     if (IS_INTERACTIVE_SHELL) {
         atexit(display_integration_cleanup);
     }

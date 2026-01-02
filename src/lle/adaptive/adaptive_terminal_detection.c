@@ -777,3 +777,17 @@ void lle_terminal_reset(void) {
     static const char reset_seq[] = "\x1b[0m\x1b[?25h\n";
     (void)write(STDOUT_FILENO, reset_seq, sizeof(reset_seq) - 1);
 }
+
+/**
+ * @brief Clean up terminal detection cache
+ *
+ * Frees the cached terminal detection result. Should be called
+ * during shell shutdown to ensure proper cleanup.
+ */
+void lle_terminal_detection_cache_cleanup(void) {
+    if (cached_result) {
+        free(cached_result);
+        cached_result = NULL;
+    }
+    cache_timestamp_us = 0;
+}

@@ -547,6 +547,14 @@ bool lle_is_tty(void);
  */
 void lle_terminal_reset(void);
 
+/**
+ * Clean up terminal detection cache.
+ *
+ * Frees the cached terminal detection result. Should be called
+ * during shell shutdown to ensure proper cleanup.
+ */
+void lle_terminal_detection_cache_cleanup(void);
+
 #ifdef __cplusplus
 }
 #endif
