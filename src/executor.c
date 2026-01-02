@@ -995,6 +995,18 @@ static int execute_command(executor_t *executor, node_t *command) {
                 int redir_result = setup_redirections(executor, command);
                 if (redir_result != 0) {
                     restore_file_descriptors(&redir_state);
+                    // Free argv
+                    for (int i = 0; i < argc; i++) {
+                        free(argv[i]);
+                    }
+                    free(argv);
+                    // Free filtered argv if separately allocated
+                    if (filtered_argv != NULL && filtered_argv != argv) {
+                        for (int i = 0; i < filtered_argc; i++) {
+                            free(filtered_argv[i]);
+                        }
+                        free(filtered_argv);
+                    }
                     return redir_result;
                 }
             }
@@ -1133,8 +1145,8 @@ static int execute_command(executor_t *executor, node_t *command) {
     }
     free(argv);
 
-    // Free filtered argv if it was separately allocated
-    if (redirect_stderr && filtered_argv) {
+    // Free filtered argv if it was separately allocated (from redirect or alias expansion)
+    if (filtered_argv != NULL && filtered_argv != argv) {
         for (int i = 0; i < filtered_argc; i++) {
             free(filtered_argv[i]);
         }

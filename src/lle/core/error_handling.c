@@ -655,6 +655,33 @@ lle_error_context_t *lle_create_error_context(lle_result_t error_code,
 }
 
 /**
+ * @brief Destroy error context and free associated resources
+ *
+ * Properly frees an error context created by lle_create_error_context.
+ * Handles the static fallback context safely (does not free it).
+ *
+ * @param ctx Error context to destroy (may be NULL)
+ */
+void lle_error_context_destroy(lle_error_context_t *ctx) {
+    if (!ctx) {
+        return;
+    }
+
+    /* Don't free the static fallback context */
+    if (ctx == &g_static_error_context) {
+        return;
+    }
+
+    /* Free dynamically allocated error message */
+    if (ctx->error_message) {
+        free((void *)ctx->error_message);
+    }
+
+    /* Free the context structure itself */
+    free(ctx);
+}
+
+/**
  * @brief Fast error context allocation for critical paths (zero-allocation)
  */
 lle_error_context_t *lle_allocate_fast_error_context(void) {

@@ -557,6 +557,7 @@ int init(int argc, char **argv, FILE **in) {
                     posix_history_set_filename(global_posix_history, histfile);
                     posix_history_load(global_posix_history, histfile, false);
                 }
+                free(home);  /* symtable_get_global_default returns strdup'd value */
 
                 // Enable duplicate detection by default
                 posix_history_set_no_duplicates(global_posix_history, true);

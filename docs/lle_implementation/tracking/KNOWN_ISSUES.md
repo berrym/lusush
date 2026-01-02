@@ -1,7 +1,7 @@
 # LLE Known Issues and Blockers
 
-**Date**: 2026-01-01 (Updated: Session 98)  
-**Status**: ✅ MAJOR MILESTONE - GNU Readline Removed, LLE-Only  
+**Date**: 2026-01-02 (Updated: Session 102)  
+**Status**: ✅ MAJOR MILESTONE - GNU Readline Removed, LLE-Only, Zero Memory Leaks  
 **Implementation Status**: Spec 25 (Prompt/Theme) VERIFIED, Spec 26 (Shell Integration) VERIFIED
 
 ---
@@ -896,6 +896,126 @@ The LLE prompt system (Spec 25/26) generates prompts separately from command con
 ---
 
 ## Resolved Issues
+
+### Issue #30: macOS Memory Leaks Not Detected by Valgrind ✅ FIXED
+**Severity**: HIGH  
+**Discovered**: 2026-01-02 (Session 102 - macOS `leaks` tool analysis)  
+**Fixed**: 2026-01-02 (Session 102)  
+**Platform**: macOS (Linux valgrind showed 0 bytes definitely lost)  
+**Component**: Multiple - editor cleanup, display integration, error handling, memory pool  
+
+**Description**:
+While Linux valgrind reported 0 bytes "definitely lost", macOS `leaks` tool reported **1,585 leaks totaling ~93KB**. The discrepancy exists because:
+- Valgrind ignores "still reachable" memory (global pointers exist at exit)
+- macOS `leaks` reports ALL unfreed memory, even if reachable via global pointers
+
+This caused memory to accumulate during shell sessions, particularly affecting:
+- History navigation state
+- Display system terminals
+- Error contexts
+- Memory pool malloc fallbacks
+
+**Leak Sources Identified and Fixed**:
+
+1. **Pool Malloc Fallback Tracking** (Major - caused bulk of leaks)
+   - When `lusush_pool_alloc()` exhausted pool memory, it fell back to `malloc()`
+   - These malloc allocations were never tracked or freed
+   - **Fix**: Added malloc fallback tracking system with `track_malloc_fallback()`, `untrack_malloc_fallback()`, and `free_all_malloc_fallbacks()` called during pool shutdown
+   - **File**: `src/lusush_memory_pool.c`
+
+2. **History System Not Destroyed** (`lle_history_core_destroy`)
+   - `lle_editor_destroy()` never called `lle_history_core_destroy()`
+   - Entire history hash table and entries leaked
+   - **Fix**: Added `#include "lle/history.h"` and destruction call in `lle_editor_destroy()`
+   - **File**: `src/lle/lle_editor.c`
+
+3. **Keybinding Manager Not Destroyed** (`lle_keybinding_manager_destroy`)
+   - Editor cleanup didn't destroy the keybinding manager
+   - **Fix**: Added `#include "lle/keybinding.h"` and destruction call
+   - **File**: `src/lle/lle_editor.c`
+
+4. **History Navigation Buffer Leak** (`history_nav_seen_hashes`)
+   - `editor->history_nav_seen_hashes` array allocated in `lle_history_previous()` never freed
+   - **Fix**: Added cleanup in `lle_editor_destroy()`:
+     ```c
+     if (editor->history_nav_seen_hashes) {
+         free(editor->history_nav_seen_hashes);
+         editor->history_nav_seen_hashes = NULL;
+     }
+     ```
+   - **File**: `src/lle/lle_editor.c`
+
+5. **Base Terminal Not Destroyed** (`base_terminal_destroy`)
+   - `terminal_control_destroy()` didn't destroy its owned `base_terminal`
+   - **Fix**: Added `base_terminal_destroy()` call in cleanup
+   - **File**: `src/display/terminal_control.c`
+
+6. **Error Context Leak** (`lle_create_error_context`)
+   - Error contexts allocated with `malloc()` via `lle_error_pool_alloc()`
+   - Display bridge cleanup used wrong free function (`lle_pool_free()`)
+   - **Fix**: 
+     - Implemented `lle_error_context_destroy()` function
+     - Added declaration to `include/lle/error_handling.h`
+     - Updated `lle_display_bridge_cleanup()` to use proper destructor
+   - **Files**: `src/lle/core/error_handling.c`, `include/lle/error_handling.h`, `src/lle/display/display_bridge.c`
+
+7. **Display Integration Not Cleaned Up**
+   - Global `lle_display_integration_t` singleton created in `lle_readline()` never destroyed
+   - **Fix**: Added cleanup call in `lle_shell_integration_shutdown()`:
+     ```c
+     lle_display_integration_t *display_integ = lle_display_integration_get_global();
+     if (display_integ) {
+         lle_display_integration_cleanup(display_integ);
+     }
+     ```
+   - **File**: `src/lle/lle_shell_integration.c`
+
+8. **symtable_get_var strdup Leaks**
+   - `symtable_get_global()` returns `strdup()`'d values that callers must free
+   - PS1 retrieval in `lle_shell_integration.c` and HOME in `init.c` weren't freed
+   - **Fix**: Track allocated strings and free after use
+   - **Files**: `src/lle/lle_shell_integration.c`, `src/init.c`
+
+9. **Execute Command Early Return Leak**
+   - Early return in `execute_command()` at redirection setup failure leaked `argv` and `filtered_argv`
+   - **Fix**: Added cleanup before early return
+   - **File**: `src/executor.c`
+
+**Progress Tracking**:
+| Stage | Leaks | Bytes | Reduction |
+|-------|-------|-------|-----------|
+| Initial | 1,585 | 93KB | - |
+| After pool/history/keybinding fixes | 401 | 20KB | 79% |
+| After symtable/error context fixes | 84 | 4KB | 96% |
+| After remaining fixes | 4 | 784 bytes | 99% |
+| Final (display integration cleanup) | 0 | 0 bytes | 100% |
+
+**Verification**:
+```
+leaks Report Version: 4.0, multi-line stacks
+Process 15826: 702 nodes malloced for 593 KB
+Process 15826: 0 leaks for 0 total leaked bytes.
+```
+
+**Files Modified**:
+- `src/lusush_memory_pool.c` - Malloc fallback tracking
+- `src/lle/lle_editor.c` - History, keybinding, navigation buffer cleanup
+- `src/display/terminal_control.c` - Base terminal destruction
+- `src/lle/core/error_handling.c` - Implemented `lle_error_context_destroy()`
+- `include/lle/error_handling.h` - Added destroy function declaration
+- `src/lle/display/display_bridge.c` - Use proper error context destructor
+- `src/lle/lle_shell_integration.c` - Display integration cleanup
+- `src/init.c` - Free strdup'd HOME value
+- `src/executor.c` - Fix early return leak
+
+**Impact**:
+- Shell can now run indefinitely on macOS without memory growth
+- Clean shutdown with 0 leaks reported by macOS `leaks` tool
+- Proper cleanup chain: shell integration → display integration → display bridge → error context
+
+**Status**: ✅ FIXED AND VERIFIED (0 leaks, 0 bytes)
+
+---
 
 ### Issue #29: Critical Memory Leaks (~79KB per session) ✅ FIXED
 **Severity**: HIGH  

@@ -720,6 +720,8 @@ lle_error_context_t *lle_create_error_context(lle_result_t error_code,
     lle_create_error_context(code, message, __func__, __FILE__, __LINE__,      \
                              component)
 
+void lle_error_context_destroy(lle_error_context_t *ctx);
+
 lle_error_context_t *lle_allocate_fast_error_context(void);
 void lle_release_fast_error_context(lle_error_context_t *ctx);
 void lle_init_memory_safe_error_context(lle_memory_safe_error_context_t *ctx);

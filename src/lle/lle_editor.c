@@ -17,6 +17,8 @@
 #include "lle/completion/completion_system.h"
 #include "lle/completion/custom_source.h"
 #include "lle/error_handling.h"
+#include "lle/history.h"
+#include "lle/keybinding.h"
 #include "lle/kill_ring.h"
 #include "lle/memory_management.h"
 #include "lle/widget_hooks.h"
@@ -229,9 +231,25 @@ lle_result_t lle_editor_destroy(lle_editor_t *editor) {
         editor->vi_state = NULL;
     }
 
-    /* Note: history_system, keybinding_manager, display_controller, etc.
-     * should have their own destroy functions called if they're not NULL.
-     * For now, we only handle the core subsystems we initialize. */
+    /* Free history navigation seen hashes array */
+    if (editor->history_nav_seen_hashes) {
+        free(editor->history_nav_seen_hashes);
+        editor->history_nav_seen_hashes = NULL;
+        editor->history_nav_seen_count = 0;
+        editor->history_nav_seen_capacity = 0;
+    }
+
+    /* Destroy keybinding manager */
+    if (editor->keybinding_manager) {
+        lle_keybinding_manager_destroy(editor->keybinding_manager);
+        editor->keybinding_manager = NULL;
+    }
+
+    /* Destroy history system */
+    if (editor->history_system) {
+        lle_history_core_destroy(editor->history_system);
+        editor->history_system = NULL;
+    }
 
     /* Shutdown custom completion sources before destroying completion system */
     lle_custom_source_shutdown();

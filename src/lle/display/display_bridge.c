@@ -183,7 +183,7 @@ lle_result_t lle_display_bridge_cleanup(lle_display_bridge_t *bridge) {
 
     /* Step 1: Clean up error context */
     if (bridge->error_context) {
-        lle_pool_free(bridge->error_context);
+        lle_error_context_destroy(bridge->error_context);
         bridge->error_context = NULL;
     }
 

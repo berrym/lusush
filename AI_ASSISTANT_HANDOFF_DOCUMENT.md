@@ -1,9 +1,148 @@
-# AI Assistant Handoff Document - Session 103
+# AI Assistant Handoff Document - Session 104
 
 **Date**: 2026-01-02
-**Session Type**: Memory Leak Fixes
+**Session Type**: macOS Memory Leak Fixes
 **Status**: COMPLETE
 **Branch**: `feature/lle`
+
+---
+
+## Session 104: macOS Memory Leaks Not Detected by Valgrind (Issue #30)
+
+Fixed all memory leaks detected by macOS `leaks` tool. While Linux valgrind showed 0 bytes "definitely lost", macOS `leaks` reported **1,585 leaks totaling ~93KB**. Now at **0 leaks, 0 bytes**.
+
+### Bugs Fixed
+
+#### 1. Pool Malloc Fallback Tracking (Major)
+
+**Symptom**: Bulk of leaks came from memory pool fallback allocations.
+
+**Root Cause**: When `lusush_pool_alloc()` exhausted pool memory, it fell back to `malloc()`. These malloc allocations were never tracked or freed during shutdown.
+
+**Fix**: Added malloc fallback tracking system:
+- `track_malloc_fallback()` - adds pointer to tracking array
+- `untrack_malloc_fallback()` - removes pointer when freed
+- `free_all_malloc_fallbacks()` - frees all tracked pointers during pool shutdown
+
+**Files Modified**:
+- `src/lusush_memory_pool.c`
+
+#### 2. Editor Cleanup Leaks (lle_editor.c)
+
+**Symptom**: History system, keybinding manager, and navigation buffers leaked.
+
+**Root Cause**: `lle_editor_destroy()` did not clean up several subsystems:
+- Never called `lle_history_core_destroy()`
+- Never called `lle_keybinding_manager_destroy()`
+- Never freed `history_nav_seen_hashes` array
+
+**Fix**: Added proper cleanup in `lle_editor_destroy()`:
+```c
+/* Free history navigation seen hashes array */
+if (editor->history_nav_seen_hashes) {
+    free(editor->history_nav_seen_hashes);
+    editor->history_nav_seen_hashes = NULL;
+}
+
+/* Destroy keybinding manager */
+if (editor->keybinding_manager) {
+    lle_keybinding_manager_destroy(editor->keybinding_manager);
+    editor->keybinding_manager = NULL;
+}
+
+/* Destroy history system */
+if (editor->history_system) {
+    lle_history_core_destroy(editor->history_system);
+    editor->history_system = NULL;
+}
+```
+
+**Files Modified**:
+- `src/lle/lle_editor.c`
+
+#### 3. Base Terminal Not Destroyed
+
+**Symptom**: Terminal control leaked its owned base_terminal.
+
+**Root Cause**: `terminal_control_destroy()` didn't destroy the `base_terminal` it owned.
+
+**Fix**: Added `base_terminal_destroy()` call in cleanup.
+
+**Files Modified**:
+- `src/display/terminal_control.c`
+
+#### 4. Error Context Leak
+
+**Symptom**: Error contexts allocated in display bridge were never freed properly.
+
+**Root Cause**: Error contexts allocated with `malloc()` via `lle_error_pool_alloc()`, but cleanup used `lle_pool_free()` which is for the LLE memory pool.
+
+**Fix**:
+- Implemented `lle_error_context_destroy()` function that properly frees error context and its `error_message` string
+- Added declaration to `include/lle/error_handling.h`
+- Updated `lle_display_bridge_cleanup()` to use `lle_error_context_destroy()`
+
+**Files Modified**:
+- `src/lle/core/error_handling.c`
+- `include/lle/error_handling.h`
+- `src/lle/display/display_bridge.c`
+
+#### 5. Display Integration Not Cleaned Up
+
+**Symptom**: Global display integration singleton never destroyed.
+
+**Root Cause**: `lle_display_integration_t` created in `lle_readline()` was never cleaned up during shutdown.
+
+**Fix**: Added cleanup in `lle_shell_integration_shutdown()`:
+```c
+lle_display_integration_t *display_integ = lle_display_integration_get_global();
+if (display_integ) {
+    lle_display_integration_cleanup(display_integ);
+}
+```
+
+**Files Modified**:
+- `src/lle/lle_shell_integration.c`
+
+#### 6. symtable_get_var strdup Leaks
+
+**Symptom**: Strings from `symtable_get_global()` leaked.
+
+**Root Cause**: `symtable_get_global()` returns `strdup()`'d values that callers must free. PS1 retrieval and HOME retrieval weren't freeing.
+
+**Fix**: Track allocated strings and free after use.
+
+**Files Modified**:
+- `src/lle/lle_shell_integration.c`
+- `src/init.c`
+
+### Progress Tracking
+
+| Stage | Leaks | Bytes | Reduction |
+|-------|-------|-------|-----------|
+| Initial | 1,585 | 93KB | - |
+| After pool/history/keybinding fixes | 401 | 20KB | 79% |
+| After symtable/error context fixes | 84 | 4KB | 96% |
+| After remaining fixes | 4 | 784 bytes | 99% |
+| Final (display integration cleanup) | 0 | 0 bytes | 100% |
+
+### Verification
+
+```
+leaks Report Version: 4.0, multi-line stacks
+Process 15826: 702 nodes malloced for 593 KB
+Process 15826: 0 leaks for 0 total leaked bytes.
+```
+
+### Documentation Updated
+
+- `docs/lle_implementation/tracking/KNOWN_ISSUES.md` - Added Issue #30 (macOS Memory Leaks) and marked as resolved
+
+### Test Results
+
+- **Build**: ✅ All targets compile
+- **Meson Tests**: ✅ 54/54 tests pass
+- **macOS leaks**: ✅ 0 leaks, 0 bytes
 
 ---
 
@@ -443,7 +582,7 @@ Completed removal of GNU readline (~5,200+ lines), making LLE the sole line edit
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| **Memory Leaks** | **Fixed** | Zero bytes definitely lost (valgrind verified) |
+| **Memory Leaks** | **Fixed** | Zero leaks on both Linux (valgrind) and macOS (leaks tool) |
 | **Piped Input** | **Fixed** | Critical regression resolved |
 | **LLE-Only Mode** | Complete | GNU readline fully removed |
 | Theme System | Working | 10 built-in themes |

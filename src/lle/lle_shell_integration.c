@@ -16,6 +16,7 @@
 #include "config.h"
 #include "executor.h"
 #include "lle/arena.h"
+#include "lle/display_integration.h"
 #include "lle/history.h"
 #include "lle/lle_editor.h"
 #include "lle/lle_readline.h"
@@ -269,6 +270,13 @@ void lle_shell_integration_shutdown(void) {
             lle_history_save_to_file(integ->editor->history_system,
                                      history_path);
         }
+    }
+
+    /* Cleanup global display integration (created in lle_readline) */
+    lle_display_integration_t *display_integ =
+        lle_display_integration_get_global();
+    if (display_integ) {
+        lle_display_integration_cleanup(display_integ);
     }
 
     /* Destroy prompt composer (unregisters from event hub) */
@@ -784,16 +792,23 @@ char *lusush_readline_with_prompt(const char *prompt) {
      * lle_shell_update_prompt()
      */
     const char *effective_prompt = prompt;
+    char *allocated_prompt = NULL;  /* Track if we need to free */
     if (!effective_prompt) {
         /* Ensure prompt is up-to-date before reading */
         lle_shell_update_prompt();
-        effective_prompt = symtable_get_global("PS1");
+        allocated_prompt = symtable_get_global("PS1");
+        effective_prompt = allocated_prompt;
         if (!effective_prompt) {
             effective_prompt = "$ "; /* Ultimate fallback */
         }
     }
 
     char *line = lle_readline(effective_prompt);
+
+    /* Free the allocated prompt if we retrieved it from PS1 */
+    if (allocated_prompt) {
+        free(allocated_prompt);
+    }
 
     if (line) {
         g_lle_integration->successful_reads++;

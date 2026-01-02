@@ -37,6 +37,78 @@ static lusush_pool_error_t last_error = LUSUSH_POOL_SUCCESS;
 static size_t fallback_sizes[100];
 static int fallback_count = 0;
 
+// Malloc fallback pointer tracking for proper cleanup
+// Uses a simple dynamic array that grows as needed
+#define INITIAL_FALLBACK_CAPACITY 256
+static void **malloc_fallback_ptrs = NULL;
+static size_t malloc_fallback_count = 0;
+static size_t malloc_fallback_capacity = 0;
+
+/**
+ * @brief Track a malloc fallback allocation for later cleanup
+ * @param ptr Pointer to track
+ * @return true on success, false on failure
+ */
+static bool track_malloc_fallback(void *ptr) {
+    if (!ptr) return false;
+    
+    // Initialize array on first use
+    if (!malloc_fallback_ptrs) {
+        malloc_fallback_ptrs = malloc(INITIAL_FALLBACK_CAPACITY * sizeof(void *));
+        if (!malloc_fallback_ptrs) return false;
+        malloc_fallback_capacity = INITIAL_FALLBACK_CAPACITY;
+        malloc_fallback_count = 0;
+    }
+    
+    // Grow array if needed
+    if (malloc_fallback_count >= malloc_fallback_capacity) {
+        size_t new_capacity = malloc_fallback_capacity * 2;
+        void **new_ptrs = realloc(malloc_fallback_ptrs, new_capacity * sizeof(void *));
+        if (!new_ptrs) return false;
+        malloc_fallback_ptrs = new_ptrs;
+        malloc_fallback_capacity = new_capacity;
+    }
+    
+    malloc_fallback_ptrs[malloc_fallback_count++] = ptr;
+    return true;
+}
+
+/**
+ * @brief Untrack a malloc fallback allocation (called when freed before shutdown)
+ * @param ptr Pointer to untrack
+ * @return true if found and removed, false if not found
+ */
+static bool untrack_malloc_fallback(void *ptr) {
+    if (!ptr || !malloc_fallback_ptrs) return false;
+    
+    for (size_t i = 0; i < malloc_fallback_count; i++) {
+        if (malloc_fallback_ptrs[i] == ptr) {
+            // Move last element to this position (order doesn't matter)
+            malloc_fallback_ptrs[i] = malloc_fallback_ptrs[--malloc_fallback_count];
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * @brief Free all tracked malloc fallback allocations during shutdown
+ */
+static void free_all_malloc_fallbacks(void) {
+    if (!malloc_fallback_ptrs) return;
+    
+    for (size_t i = 0; i < malloc_fallback_count; i++) {
+        if (malloc_fallback_ptrs[i]) {
+            free(malloc_fallback_ptrs[i]);
+        }
+    }
+    
+    free(malloc_fallback_ptrs);
+    malloc_fallback_ptrs = NULL;
+    malloc_fallback_count = 0;
+    malloc_fallback_capacity = 0;
+}
+
 // Track whether pool was ever initialized (vs never used)
 // This distinguishes "pool shutdown" from "pool never started"
 static bool pool_was_ever_initialized = false;
@@ -430,6 +502,9 @@ void lusush_pool_shutdown(void) {
         lusush_pool_print_status_report();
     }
 
+    // Free all tracked malloc fallback allocations first
+    free_all_malloc_fallbacks();
+
     // Cleanup all pools
     for (int i = 0; i < LUSUSH_POOL_COUNT; i++) {
         cleanup_single_pool(&global_memory_pool->pools[i]);
@@ -492,6 +567,11 @@ void *lusush_pool_alloc(size_t size) {
         // Track fallback sizes for optimization analysis
         if (fallback_count < 100) {
             fallback_sizes[fallback_count++] = size;
+        }
+        
+        // Track pointer for cleanup during shutdown
+        if (result) {
+            track_malloc_fallback(result);
         }
 
         POOL_DEBUG("Malloc fallback: size=%zu (total fallbacks: %d)", size,
@@ -562,6 +642,11 @@ void lusush_pool_free(void *ptr) {
 
     // If not returned to pool, use standard free
     if (!returned_to_pool) {
+        // Untrack from malloc fallback list before freeing
+        pthread_mutex_lock(&pool_mutex);
+        untrack_malloc_fallback(ptr);
+        pthread_mutex_unlock(&pool_mutex);
+        
         uintptr_t ptr_addr =
             (uintptr_t)ptr; // Save address as integer before free
         free(ptr);
