@@ -1,6 +1,6 @@
 # LLE Known Issues and Blockers
 
-**Date**: 2026-01-01 (Updated: Session 94)  
+**Date**: 2026-01-01 (Updated: Session 98)  
 **Status**: ✅ MAJOR MILESTONE - GNU Readline Removed, LLE-Only  
 **Implementation Status**: Spec 25 (Prompt/Theme) VERIFIED, Spec 26 (Shell Integration) VERIFIED
 
@@ -938,6 +938,63 @@ The LLE prompt system (Spec 25/26) generates prompts separately from command con
 
 ## Resolved Issues
 
+### Issue #28: POSIX Variable Scoping Regression ✅ FIXED
+**Severity**: HIGH  
+**Discovered**: 2026-01-01 (Session 98 - Compliance test analysis)  
+**Fixed**: 2026-01-01 (Session 98)  
+**Component**: src/executor.c  
+
+**Description**:
+Variable assignments inside functions and loops were incorrectly using local scope instead of global scope. This violated POSIX shell semantics where variables are global by default, and only the explicit `local` builtin creates local variables.
+
+**Failing Tests** (before fix):
+- Test 98: `func() { var=inside; }; func; echo $var` - Expected "inside", got empty
+- Test 134: `for i in 1 2 3 4 5; do eval "var$i=value$i"; done; echo $var1$var3$var5` - Expected "value1value3value5", got empty
+
+**Root Cause**:
+In a previous development session, the variable assignment logic was accidentally changed to use `symtable_set_local_var()` when inside a function or loop scope, rather than `symtable_set_global_var()`. This caused:
+1. Variables assigned inside functions to disappear after function returns
+2. Variables assigned inside loops (including via `eval`) to disappear after loop ends
+
+**POSIX Behavior** (correct):
+- Variable assignments are GLOBAL by default
+- Only the explicit `local` builtin creates function-local variables
+- Loop variables persist after loop completion
+- `eval` assignments go to global scope
+
+**Fix Applied**:
+Modified `src/executor.c` to always use global scope for regular variable assignments:
+
+1. **execute_assignment()** (~line 3258):
+   ```c
+   // POSIX compliance: variable assignments are GLOBAL by default
+   // Local variables are only created via explicit 'local' builtin
+   int result;
+   result = symtable_set_global_var(executor->symtable, var_name,
+                                    value ? value : "");
+   ```
+
+2. **execute_for()** (~line 1543):
+   ```c
+   // Set loop variable in global scope (POSIX compliance)
+   if (symtable_set_global_var(executor->symtable, var_name,
+                               expanded_words[i]) != 0) {
+   ```
+
+**Verification**:
+- ✅ Test 98 passes: Function variable assignments persist after function returns
+- ✅ Test 134 passes: Loop + eval variable assignments persist after loop ends
+- ✅ All 136 compliance tests pass (100% score)
+- ✅ All 54 meson unit tests pass
+- ✅ `local` builtin still creates function-local variables (separate code path)
+
+**Files Modified**:
+- `src/executor.c` - Changed `symtable_set_local_var()` to `symtable_set_global_var()` in `execute_assignment()` and `execute_for()`
+
+**Status**: ✅ FIXED
+
+---
+
 ### Issue #27: Display Stress Test Memory Leak (macOS-only) ✅ FIXED
 **Severity**: MEDIUM  
 **Discovered**: 2025-12-30 (Session 83 - macOS clean build verification)  
@@ -1546,6 +1603,6 @@ To prevent future issues:
 
 ---
 
-**Last Updated**: 2025-12-25  
+**Last Updated**: 2026-01-01 (Session 98)  
 **Next Review**: Before each commit, after each bug discovery  
 **Maintainer**: Update this file whenever bugs are discovered - NO EXCEPTIONS

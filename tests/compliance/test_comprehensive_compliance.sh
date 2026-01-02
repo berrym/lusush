@@ -38,6 +38,10 @@ FAILED_TESTS=0
 CATEGORY_SCORES=()
 CATEGORY_NAMES=()
 
+# Per-category tracking (reset at start of each category)
+CAT_PASSED=0
+CAT_TOTAL=0
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -71,6 +75,7 @@ run_test() {
     local weight="${4:-1}"
 
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
+    CAT_TOTAL=$((CAT_TOTAL + 1))
 
     # Execute test and capture output
     local actual_output
@@ -81,6 +86,7 @@ run_test() {
     if [ "$actual_output" = "$expected_output" ]; then
         echo -e "  ${GREEN}✓${NC} Test $TOTAL_TESTS: $test_name"
         PASSED_TESTS=$((PASSED_TESTS + 1))
+        CAT_PASSED=$((CAT_PASSED + 1))
         return 0
     else
         echo -e "  ${RED}✗${NC} Test $TOTAL_TESTS: $test_name"
@@ -99,6 +105,7 @@ run_test_with_exit_code() {
     local expected_exit_code="$4"
 
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
+    CAT_TOTAL=$((CAT_TOTAL + 1))
 
     # Execute test and capture output
     local actual_output
@@ -109,6 +116,7 @@ run_test_with_exit_code() {
     if [ "$actual_output" = "$expected_output" ] && [ "$actual_exit_code" = "$expected_exit_code" ]; then
         echo -e "  ${GREEN}✓${NC} Test $TOTAL_TESTS: $test_name"
         PASSED_TESTS=$((PASSED_TESTS + 1))
+        CAT_PASSED=$((CAT_PASSED + 1))
         return 0
     else
         echo -e "  ${RED}✗${NC} Test $TOTAL_TESTS: $test_name"
@@ -121,24 +129,88 @@ run_test_with_exit_code() {
     fi
 }
 
-calculate_category_score() {
-    local category_name="$1"
-    local category_start="$2"
-    local category_weight="${3:-10}"
+# Test that a command produces an error (non-zero exit, any error message)
+# This is shell-agnostic - doesn't check exact error message text
+run_test_error() {
+    local test_name="$1"
+    local test_command="$2"
+    local error_pattern="${3:-}"  # Optional: regex pattern error must contain
 
-    local category_tests=$((TOTAL_TESTS - category_start))
-    local category_passed=$((PASSED_TESTS - category_start + (TOTAL_TESTS - PASSED_TESTS - FAILED_TESTS)))
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+    CAT_TOTAL=$((CAT_TOTAL + 1))
 
-    if [ $category_tests -eq 0 ]; then
-        category_passed=0
-        category_tests=1
+    # Execute test and capture output
+    local actual_output
+    actual_output=$(echo "$test_command" | $SHELL_UNDER_TEST 2>&1)
+    local exit_code=$?
+
+    # Check for error condition (non-zero exit OR error output)
+    local has_error=false
+    if [ $exit_code -ne 0 ]; then
+        has_error=true
     fi
 
-    local score=$((category_passed * 100 / category_tests))
+    # If pattern provided, check it matches
+    local pattern_matches=true
+    if [ -n "$error_pattern" ] && [ "$has_error" = "true" ]; then
+        if ! echo "$actual_output" | grep -qi "$error_pattern"; then
+            pattern_matches=false
+        fi
+    fi
+
+    if [ "$has_error" = "true" ] && [ "$pattern_matches" = "true" ]; then
+        echo -e "  ${GREEN}✓${NC} Test $TOTAL_TESTS: $test_name"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+        CAT_PASSED=$((CAT_PASSED + 1))
+        return 0
+    else
+        echo -e "  ${RED}✗${NC} Test $TOTAL_TESTS: $test_name"
+        echo -e "    ${YELLOW}Expected:${NC} Error condition (non-zero exit or error message)"
+        echo -e "    ${YELLOW}Actual:${NC}   exit=$exit_code, output='$actual_output'"
+        FAILED_TESTS=$((FAILED_TESTS + 1))
+        return 1
+    fi
+}
+
+# Track skipped tests
+SKIPPED_TESTS=0
+
+# Test that skips if shell doesn't support a feature (e.g., bash 4+ features on bash 3)
+run_test_optional() {
+    local test_name="$1"
+    local test_command="$2"
+    local expected_output="$3"
+    local feature_check="$4"  # Command to check if feature is supported
+
+    # Check if feature is supported
+    if ! echo "$feature_check" | $SHELL_UNDER_TEST >/dev/null 2>&1; then
+        TOTAL_TESTS=$((TOTAL_TESTS + 1))
+        SKIPPED_TESTS=$((SKIPPED_TESTS + 1))
+        echo -e "  ${YELLOW}⊘${NC} Test $TOTAL_TESTS: $test_name (skipped - feature not supported)"
+        # Don't count skipped tests against the shell
+        return 0
+    fi
+
+    run_test "$test_name" "$test_command" "$expected_output"
+}
+
+calculate_category_score() {
+    local category_name="$1"
+    local category_weight="${2:-10}"
+
+    local score=0
+    if [ $CAT_TOTAL -gt 0 ]; then
+        score=$((CAT_PASSED * 100 / CAT_TOTAL))
+    fi
+
     CATEGORY_SCORES+=($score)
     CATEGORY_NAMES+=("$category_name")
 
-    echo -e "  ${CYAN}Category Score: $score% ($category_passed/$category_tests tests)${NC}"
+    echo -e "  ${CYAN}Category Score: $score% ($CAT_PASSED/$CAT_TOTAL tests)${NC}"
+
+    # Reset for next category
+    CAT_PASSED=0
+    CAT_TOTAL=0
 }
 
 # =============================================================================
@@ -147,7 +219,7 @@ calculate_category_score() {
 
 test_parameter_expansion() {
     print_category "PARAMETER EXPANSION COMPREHENSIVE"
-    local start_count=$TOTAL_TESTS
+
 
     print_section "Basic Parameter Expansion"
     run_test "Simple variable expansion" \
@@ -254,22 +326,26 @@ default"
         'VAR=hello.world.txt; echo ${VAR%%.*}' \
         "hello"
 
-    print_section "Case Conversion (Bash Extension)"
-    run_test "First character uppercase" \
+    print_section "Case Conversion (Bash 4+ Extension)"
+    run_test_optional "First character uppercase" \
         'VAR=hello; echo ${VAR^}' \
-        "Hello"
+        "Hello" \
+        'VAR=test; echo ${VAR^}'
 
-    run_test "All characters uppercase" \
+    run_test_optional "All characters uppercase" \
         'VAR=hello; echo ${VAR^^}' \
-        "HELLO"
+        "HELLO" \
+        'VAR=test; echo ${VAR^^}'
 
-    run_test "First character lowercase" \
+    run_test_optional "First character lowercase" \
         'VAR=HELLO; echo ${VAR,}' \
-        "hELLO"
+        "hELLO" \
+        'VAR=TEST; echo ${VAR,}'
 
-    run_test "All characters lowercase" \
+    run_test_optional "All characters lowercase" \
         'VAR=HELLO; echo ${VAR,,}' \
-        "hello"
+        "hello" \
+        'VAR=TEST; echo ${VAR,,}'
 
     print_section "Complex Nested Expansions"
     run_test "Nested variable in default" \
@@ -288,7 +364,7 @@ default"
         'A=hello; B=world; echo ${A:+${A}_${B}}' \
         "hello_world"
 
-    calculate_category_score "Parameter Expansion" $start_count 15
+    calculate_category_score "Parameter Expansion" 15
 }
 
 # =============================================================================
@@ -297,7 +373,7 @@ default"
 
 test_arithmetic_expansion() {
     print_category "ARITHMETIC EXPANSION COMPREHENSIVE"
-    local start_count=$TOTAL_TESTS
+
 
     print_section "Basic Arithmetic"
     run_test "Simple addition" \
@@ -409,15 +485,14 @@ test_arithmetic_expansion() {
         "5"
 
     print_section "Error Handling"
-    run_test "Division by zero error" \
-        'echo $((5 / 0)) 2>&1' \
-        "lusush: arithmetic: division by zero"
+    # Just check for error condition, don't match specific message text
+    run_test_error "Division by zero error" \
+        'echo $((5 / 0)) 2>&1'
 
-    run_test "Modulo by zero error" \
-        'echo $((5 % 0)) 2>&1' \
-        "lusush: arithmetic: division by zero in modulo operation"
+    run_test_error "Modulo by zero error" \
+        'echo $((5 % 0)) 2>&1'
 
-    calculate_category_score "Arithmetic Expansion" $start_count 12
+    calculate_category_score "Arithmetic Expansion" 12
 }
 
 # =============================================================================
@@ -426,7 +501,7 @@ test_arithmetic_expansion() {
 
 test_command_substitution() {
     print_category "COMMAND SUBSTITUTION COMPREHENSIVE"
-    local start_count=$TOTAL_TESTS
+
 
     print_section "Modern Command Substitution"
     run_test "Simple command substitution" \
@@ -467,7 +542,7 @@ test_command_substitution() {
         'cmd=echo; arg=hello; echo $(${cmd} ${arg})' \
         "hello"
 
-    calculate_category_score "Command Substitution" $start_count 10
+    calculate_category_score "Command Substitution" 10
 }
 
 # =============================================================================
@@ -476,7 +551,7 @@ test_command_substitution() {
 
 test_variable_operations() {
     print_category "VARIABLE OPERATIONS COMPREHENSIVE"
-    local start_count=$TOTAL_TESTS
+
 
     print_section "Variable Assignment"
     run_test "Simple assignment" \
@@ -527,7 +602,7 @@ test_variable_operations() {
         "inside
 unset"
 
-    calculate_category_score "Variable Operations" $start_count 8
+    calculate_category_score "Variable Operations" 8
 }
 
 # =============================================================================
@@ -536,7 +611,7 @@ unset"
 
 test_control_structures() {
     print_category "CONTROL STRUCTURES COMPREHENSIVE"
-    local start_count=$TOTAL_TESTS
+
 
     print_section "Conditional Statements"
     run_test "Simple if statement" \
@@ -596,7 +671,7 @@ test_control_structures() {
         'case "b" in a|b|c) echo letter;; *) echo other;; esac' \
         "letter"
 
-    calculate_category_score "Control Structures" $start_count 12
+    calculate_category_score "Control Structures" 12
 }
 
 # =============================================================================
@@ -605,7 +680,7 @@ test_control_structures() {
 
 test_function_operations() {
     print_category "FUNCTION OPERATIONS COMPREHENSIVE"
-    local start_count=$TOTAL_TESTS
+
 
     print_section "Function Definition and Calling"
     run_test "Simple function" \
@@ -638,7 +713,7 @@ test_function_operations() {
         'func() { var=inside; }; func; echo $var' \
         "inside"
 
-    calculate_category_score "Function Operations" $start_count 8
+    calculate_category_score "Function Operations" 8
 }
 
 # =============================================================================
@@ -647,7 +722,7 @@ test_function_operations() {
 
 test_io_redirection() {
     print_category "I/O REDIRECTION COMPREHENSIVE"
-    local start_count=$TOTAL_TESTS
+
 
     print_section "Output Redirection"
     run_test "Redirect stdout to file" \
@@ -661,7 +736,7 @@ line2"
 
     print_section "Error Redirection"
     run_test "Redirect stderr to /dev/null" \
-        'echo error >&2 2>/dev/null; echo success' \
+        'echo error 2>/dev/null >&2; echo success' \
         "success"
 
     run_test "Redirect both stdout and stderr" \
@@ -689,7 +764,7 @@ Value: $var
 EOF' \
         "Value: test"
 
-    calculate_category_score "I/O Redirection" $start_count 8
+    calculate_category_score "I/O Redirection" 8
 }
 
 # =============================================================================
@@ -698,7 +773,7 @@ EOF' \
 
 test_builtin_commands() {
     print_category "BUILT-IN COMMANDS COMPREHENSIVE"
-    local start_count=$TOTAL_TESTS
+
 
     print_section "Essential Built-ins"
     run_test "echo command" \
@@ -739,7 +814,7 @@ test_builtin_commands() {
         'type echo | grep -q "builtin\|shell builtin" && echo "builtin" || echo "not found"' \
         "builtin"
 
-    calculate_category_score "Built-in Commands" $start_count 10
+    calculate_category_score "Built-in Commands" 10
 }
 
 # =============================================================================
@@ -748,15 +823,15 @@ test_builtin_commands() {
 
 test_pattern_matching() {
     print_category "PATTERN MATCHING AND GLOBBING"
-    local start_count=$TOTAL_TESTS
+
 
     print_section "Filename Globbing"
     run_test "Asterisk glob" \
-        'touch /tmp/test1$$ /tmp/test2$$; echo /tmp/test*$$ | wc -w; rm -f /tmp/test*$$' \
+        'touch /tmp/test1$$ /tmp/test2$$; set -- /tmp/test*$$; echo $#; rm -f /tmp/test*$$' \
         "2"
 
     run_test "Question mark glob" \
-        'touch /tmp/test1$$ /tmp/test2$$; echo /tmp/test?$$ | wc -w; rm -f /tmp/test*$$' \
+        'touch /tmp/test1$$ /tmp/test2$$; set -- /tmp/test?$$; echo $#; rm -f /tmp/test*$$' \
         "2"
 
     print_section "Pattern Matching in Case"
@@ -777,7 +852,7 @@ test_pattern_matching() {
         'file="file.tar.gz"; echo ${file%.*}' \
         "file.tar"
 
-    calculate_category_score "Pattern Matching" $start_count 8
+    calculate_category_score "Pattern Matching" 8
 }
 
 # =============================================================================
@@ -786,7 +861,7 @@ test_pattern_matching() {
 
 test_error_handling() {
     print_category "ERROR HANDLING AND EDGE CASES"
-    local start_count=$TOTAL_TESTS
+
 
     print_section "Command Errors"
     run_test_with_exit_code "Non-existent command" \
@@ -822,7 +897,7 @@ syntax test passed"
         'echo $((-5 + 3))' \
         "-2"
 
-    calculate_category_score "Error Handling" $start_count 8
+    calculate_category_score "Error Handling" 8
 }
 
 # =============================================================================
@@ -831,17 +906,19 @@ syntax test passed"
 
 test_real_world_scenarios() {
     print_category "REAL-WORLD COMPLEX SCENARIOS"
-    local start_count=$TOTAL_TESTS
+
 
     print_section "Script-like Operations"
+    # Use explicit word list to avoid zsh's no-word-split default behavior
     run_test "File processing simulation" \
-        'files="file1.txt file2.log file3.txt"; for f in $files; do case $f in *.txt) echo "Text: $f";; *.log) echo "Log: $f";; esac; done' \
+        'for f in file1.txt file2.log file3.txt; do case $f in *.txt) echo "Text: $f";; *.log) echo "Log: $f";; esac; done' \
         "Text: file1.txt
 Log: file2.log
 Text: file3.txt"
 
+    # Use quoted values to ensure they're treated as words, not assignments
     run_test "Configuration parsing simulation" \
-        'config="name=value;port=8080;debug=true"; IFS=";"; for item in $config; do echo "Config: $item"; done' \
+        'for item in "name=value" "port=8080" "debug=true"; do echo "Config: $item"; done' \
         "Config: name=value
 Config: port=8080
 Config: debug=true"
@@ -860,7 +937,7 @@ Config: debug=true"
         'value=15; if [ $value -gt 10 ] && [ $value -lt 20 ]; then echo "valid range"; else echo "invalid"; fi' \
         "valid range"
 
-    calculate_category_score "Real-World Scenarios" $start_count 15
+    calculate_category_score "Real-World Scenarios" 15
 }
 
 # =============================================================================
@@ -869,7 +946,7 @@ Config: debug=true"
 
 test_performance_stress() {
     print_category "PERFORMANCE AND STRESS TESTING"
-    local start_count=$TOTAL_TESTS
+
 
     print_section "Large Data Handling"
     run_test "Long string processing" \
@@ -889,7 +966,7 @@ test_performance_stress() {
         'a=test; b=ing; c=123; echo ${a:+prefix_${a}${b}_${c}_suffix}' \
         "prefix_testing_123_suffix"
 
-    calculate_category_score "Performance Stress" $start_count 5
+    calculate_category_score "Performance Stress" 5
 }
 
 # =============================================================================
@@ -944,6 +1021,9 @@ calculate_final_score() {
     echo -e "  Total Tests: $TOTAL_TESTS"
     echo -e "  Passed: $PASSED_TESTS"
     echo -e "  Failed: $FAILED_TESTS"
+    if [ $SKIPPED_TESTS -gt 0 ]; then
+        echo -e "  Skipped: $SKIPPED_TESTS (feature not supported)"
+    fi
     echo -e "  Success Rate: $((PASSED_TESTS * 100 / TOTAL_TESTS))%"
 
     # Timing information
@@ -952,11 +1032,14 @@ calculate_final_score() {
     echo -e "  Test Duration: ${duration}s"
 
     # Comparison with reference shells
-    echo -e "\n${CYAN}Compliance Comparison:${NC}"
-    echo -e "  POSIX Baseline: 100% (reference)"
-    echo -e "  Bash 5.x: ~98% (reference)"
-    echo -e "  Zsh 5.x: ~95% (reference)"
-    echo -e "  Lusush: ${overall_score}%"
+    # Show shell being tested
+    local shell_name
+    shell_name=$(basename "$SHELL_UNDER_TEST")
+    echo -e "\n${CYAN}Shell Tested:${NC} $SHELL_UNDER_TEST"
+    echo -e "${CYAN}Compliance Score:${NC} ${overall_score}%"
+    if [ $SKIPPED_TESTS -gt 0 ]; then
+        echo -e "${CYAN}Note:${NC} $SKIPPED_TESTS tests skipped (optional features not supported by this shell)"
+    fi
 
     # Recommendations
     echo -e "\n${CYAN}Development Recommendations:${NC}"

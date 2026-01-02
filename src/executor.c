@@ -1639,9 +1639,9 @@ static int execute_for(executor_t *executor, node_t *for_node) {
     // Iterate over expanded words
     for (int i = 0; i < word_count; i++) {
         if (expanded_words[i]) {
-            // Set loop variable in current (loop) scope
-            if (symtable_set_local_var(executor->symtable, var_name,
-                                       expanded_words[i]) != 0) {
+            // Set loop variable in global scope (POSIX compliance)
+            if (symtable_set_global_var(executor->symtable, var_name,
+                                        expanded_words[i]) != 0) {
                 set_executor_error(executor, "Failed to set loop variable");
                 // Cleanup expanded words
                 for (int j = 0; j < word_count; j++) {
@@ -3248,21 +3248,15 @@ static int execute_assignment(executor_t *executor, const char *assignment) {
     // Expand the value using modern expansion
     char *value = expand_if_needed(executor, eq + 1);
 
-    // POSIX compliance: assignments inside functions should be local by default
+    // POSIX compliance: variable assignments are GLOBAL by default
+    // Local variables are only created via explicit 'local' builtin
     int result;
-    if (symtable_current_level(executor->symtable) > 0) {
-        // Inside function - use local scope
-        result = symtable_set_local_var(executor->symtable, var_name,
-                                        value ? value : "");
-    } else {
-        // Global scope - use global variable
-        result = symtable_set_global_var(executor->symtable, var_name,
-                                         value ? value : "");
+    result = symtable_set_global_var(executor->symtable, var_name,
+                                     value ? value : "");
 
-        // POSIX -a (allexport): automatically export assigned variables
-        if (result == 0 && should_auto_export()) {
-            symtable_export_global(var_name);
-        }
+    // POSIX -a (allexport): automatically export assigned variables
+    if (result == 0 && should_auto_export()) {
+        symtable_export_global(var_name);
     }
 
     if (executor->debug) {

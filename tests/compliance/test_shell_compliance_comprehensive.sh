@@ -12,7 +12,8 @@
 # Date: December 2024
 # ============================================================================
 
-set -e
+# Don't exit on first failure - we want to run all tests
+# set -e
 
 # Color definitions for output
 RED='\033[0;31m'
@@ -247,11 +248,11 @@ test_basic_commands() {
 
     print_section "Exit Status"
     run_test "Command exit status" \
-        '/bin/true; echo $?' \
+        'true; echo $?' \
         "0"
 
     run_test "Failed command status" \
-        '/bin/false; echo $?' \
+        'false; echo $?' \
         "1"
 
     calculate_category_score "Basic Commands"
@@ -654,7 +655,7 @@ line2"
 
     print_section "Error Redirection"
     run_test "Redirect stderr to /dev/null" \
-        'echo error >&2 2>/dev/null; echo success' \
+        'echo error 2>/dev/null >&2; echo success' \
         "success"
 
     run_test "Redirect both stdout and stderr" \
@@ -905,7 +906,7 @@ test_performance_stress() {
     print_section "Memory and Resource Usage"
     run_test "Large array simulation" \
         'data=""; for i in 1 2 3 4 5; do data="$data item$i"; done; echo $data' \
-        " item1 item2 item3 item4 item5"
+        "item1 item2 item3 item4 item5"
 
     run_test "Recursive function test" \
         'countdown() { if [ $1 -gt 0 ]; then echo $1; countdown $(($1 - 1)); else echo done; fi; }; countdown 3' \

@@ -1,9 +1,76 @@
-# AI Assistant Handoff Document - Session 98
+# AI Assistant Handoff Document - Session 99
 
 **Date**: 2026-01-01
-**Session Type**: Critical Bug Fixes
+**Session Type**: POSIX Compliance Fixes
 **Status**: COMPLETE
 **Branch**: `feature/lle`
+
+---
+
+## Session 99: POSIX Variable Scoping Fix & Compliance Test Improvements
+
+Fixed a critical POSIX compliance regression where variable assignments inside functions and loops were incorrectly using local scope instead of global scope. Also made the compliance test suite shell-agnostic for fair comparisons.
+
+### Bugs Fixed
+
+#### 1. POSIX Variable Scoping Regression (Issue #28) - HIGH
+
+**Symptom**: Variables assigned inside functions or loops disappeared after the function/loop ended.
+
+**Failing Tests**:
+- `func() { var=inside; }; func; echo $var` → Expected "inside", got empty
+- `for i in 1 2 3 4 5; do eval "var$i=value$i"; done; echo $var1$var3$var5` → Expected "value1value3value5", got empty
+
+**Root Cause**: In a previous development session, `execute_assignment()` was accidentally changed to use `symtable_set_local_var()` when inside a function or loop scope, rather than `symtable_set_global_var()`.
+
+**POSIX Behavior** (correct):
+- Variable assignments are GLOBAL by default
+- Only the explicit `local` builtin creates function-local variables
+- Loop variables persist after loop completion
+
+**Fix**: Changed `src/executor.c` to always use global scope for regular variable assignments:
+- `execute_assignment()` (~line 3258): Use `symtable_set_global_var()`
+- `execute_for()` (~line 1543): Use `symtable_set_global_var()` for loop variable
+
+**Files Modified**:
+- `src/executor.c` - Fixed variable scoping
+
+#### 2. Compliance Test Suite Scoring Bug
+
+**Symptom**: Test suite showed 71% compliance score despite 131/136 tests passing (96% pass rate).
+
+**Root Cause**: `calculate_category_score()` function used global counters instead of per-category tracking.
+
+**Fix**: Added `CAT_PASSED` and `CAT_TOTAL` per-category counters that reset after each category.
+
+#### 3. Compliance Test Suite Shell-Agnostic Improvements
+
+Made the test suite fair for testing any POSIX shell, not just lusush:
+
+- **Case conversion tests** (`${VAR^}`, `${VAR,,}`): Now use `run_test_optional` to skip on shells that don't support Bash 4+ features (macOS ships Bash 3.2)
+- **Error message tests**: Now use `run_test_error` to check for error condition (non-zero exit) rather than matching exact error message text
+- **Real-world scenario tests**: Rewrote to use explicit word lists and quoted strings for cross-shell compatibility (avoids zsh's no-word-split default)
+- **Removed fake reference percentages**: No longer claims "Bash ~98%, Zsh ~95%" - just shows actual test results
+- **Transparent skipped test tracking**: Shows count and explanation when tests are skipped
+
+**Files Modified**:
+- `tests/compliance/test_comprehensive_compliance.sh` - All fixes above
+
+### Test Results
+
+| Shell | Total | Passed | Failed | Skipped | Score |
+|-------|-------|--------|--------|---------|-------|
+| **Bash 3.2** (macOS) | 136 | 132 | 0 | 4 | 100% |
+| **Zsh 5.9** (macOS) | 136 | 132 | 0 | 4 | 100% |
+| **Lusush** | 136 | 136 | 0 | 0 | 100% |
+
+- **Build**: ✅ All targets pass
+- **Meson Tests**: ✅ 54/54 tests pass
+- **Compliance Tests**: ✅ 136/136 tests pass (100%)
+
+### Documentation Updated
+
+- `docs/lle_implementation/tracking/KNOWN_ISSUES.md` - Added Issue #28 (POSIX Variable Scoping Regression) and marked as resolved
 
 ---
 
