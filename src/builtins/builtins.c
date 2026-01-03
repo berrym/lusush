@@ -4759,11 +4759,17 @@ int bin_display(int argc, char **argv) {
 
             if (editor) {
                 printf("\nSubsystems:\n");
-                printf("  Buffer: %s\n", editor->buffer ? "OK" : "MISSING");
+                /* Buffer and keybindings are session-scoped - created during
+                 * readline and cleaned up after. They're not "MISSING", just
+                 * inactive between prompts. */
+                printf("  Buffer: %s\n",
+                       editor->buffer ? "OK" : "OK (session-scoped)");
                 printf("  History: %s\n",
                        editor->history_system ? "OK" : "MISSING");
                 printf("  Keybindings: %s\n",
-                       editor->keybinding_manager ? "OK" : "MISSING");
+                       editor->keybinding_manager
+                           ? "OK"
+                           : "OK (session-scoped)");
                 printf("  Kill ring: %s\n",
                        editor->kill_ring ? "OK" : "MISSING");
                 printf("  Change tracker: %s\n",
@@ -4818,9 +4824,10 @@ int bin_display(int argc, char **argv) {
             printf("\nHealth: ");
             if (!editor) {
                 printf("ERROR (editor not initialized)\n");
-            } else if (!editor->buffer || !editor->history_system ||
-                       !editor->keybinding_manager) {
-                printf("DEGRADED (missing subsystems)\n");
+            } else if (!editor->history_system) {
+                /* Only check persistent subsystems - buffer and keybindings
+                 * are session-scoped and intentionally NULL between prompts */
+                printf("DEGRADED (missing persistent subsystems)\n");
             } else {
                 printf("OK\n");
             }
