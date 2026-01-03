@@ -13,6 +13,7 @@
  */
 
 #include "lle/completion/source_manager.h"
+#include "lle/completion/builtin_completions.h" /* For builtin arg completions */
 #include "lle/completion/completion_generator.h" /* For existing source functions */
 #include "lle/completion/completion_sources.h" /* For lle_completion_source_aliases */
 #include <string.h>
@@ -337,6 +338,14 @@ lle_result_t lle_source_manager_create(lle_memory_pool_t *pool,
     res = lle_source_manager_register(manager, LLE_SOURCE_HISTORY, "history",
                                       history_source_generate,
                                       history_source_applicable);
+    if (res != LLE_SUCCESS) {
+        return res;
+    }
+
+    /* Register builtin argument completions (options, subcommands, dynamic args) */
+    res = lle_source_manager_register(manager, LLE_SOURCE_CUSTOM, "builtin_args",
+                                      lle_builtin_completions_generate,
+                                      lle_builtin_completions_applicable);
     if (res != LLE_SUCCESS) {
         return res;
     }

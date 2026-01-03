@@ -1,9 +1,87 @@
-# AI Assistant Handoff Document - Session 105
+# AI Assistant Handoff Document - Session 106
 
 **Date**: 2026-01-02
-**Session Type**: Memory Leak Fixes - Zero Leaks Achieved
+**Session Type**: Context-Aware Builtin Tab Completions
 **Status**: COMPLETE
 **Branch**: `feature/lle`
+
+---
+
+## Session 106: Context-Aware Builtin Tab Completions
+
+Implemented comprehensive context-aware tab completions for all 45 shell builtins, including options, subcommands, and dynamic argument completions.
+
+### Feature Implemented
+
+When a user types a builtin command followed by TAB, they now see all available options, subcommands, and dynamic completions relevant to that builtin.
+
+#### Options Completions
+
+| Builtin | Options |
+|---------|---------|
+| `echo` | `-n`, `-e`, `-E` |
+| `read` | `-p`, `-r`, `-t`, `-n`, `-s` |
+| `type` | `-t`, `-p`, `-a` |
+| `ulimit` | `-a`, `-H`, `-S`, `-f`, `-n`, `-t`, `-s`, `-u`, `-v`, `-h` |
+| `fc` | `-e`, `-l`, `-n`, `-r`, `-s` |
+| `command` | `-v`, `-V`, `-p` |
+| `trap` | `-l` |
+| `unalias` | `-a` |
+| `hash` | `-r` |
+| `set` | `-a`, `-C`, `-e`, `-f`, `-n`, `-u`, `-v`, `-x`, `-o`, `+o` |
+| `export` | `-p` |
+| `readonly` | `-p` |
+| `history` | `-c`, `-d`, `-r`, `-w` |
+| `jobs` | `-l`, `-p` |
+
+#### Subcommand Hierarchies
+
+| Builtin | Subcommands |
+|---------|-------------|
+| `display` | `status`, `config`, `stats`, `diagnostics`, `test`, `performance`, `lle`, `help` |
+| `display lle` | `status`, `diagnostics`, `autosuggestions`, `syntax`, `transient`, `theme`, `reset`, `keybindings`, `completions`, `history-import` |
+| `display lle theme` | `list`, `set`, `export`, `reload` |
+| `display performance` | `init`, `report`, `layers`, `memory`, `baseline`, `reset`, `targets`, `monitoring`, `debug` |
+| `debug` | `on`, `off`, `level`, `trace`, `break`, `step`, `next`, `continue`, `stack`, `vars`, `print`, `profile`, `analyze`, `functions`, `function`, `help` |
+| `debug break` | `add`, `remove`, `delete`, `list`, `clear` |
+| `config` | `show`, `get`, `set`, `reload`, `save` |
+| `network` | `hosts`, `refresh`, `help` |
+
+#### Dynamic Argument Completions
+
+| Builtin | Argument Type | Source |
+|---------|---------------|--------|
+| `cd` | directories only | `lle_completion_source_directories()` |
+| `source`, `.` | files | `lle_completion_source_files()` |
+| `type`, `command`, `hash`, `exec` | commands | builtins + PATH |
+| `unset`, `export`, `readonly`, `local`, `read` | variables | `lle_completion_source_variables()` |
+| `unalias` | aliases | alias hash table |
+| `trap` | signals | EXIT, HUP, INT, QUIT, TERM, USR1, USR2, etc. |
+| `fg`, `bg`, `wait` | jobs | %+, %-, %1, %2, %3 |
+| `display lle theme set` | themes | default, minimal, powerline, arrow, classic |
+| `printf`, `test`, `[` | files | file completions for arguments |
+
+### Implementation Details
+
+**New Files**:
+- `include/lle/completion/builtin_completions.h` - Data structures and API
+- `src/lle/completion/builtin_completions.c` - All 45 builtin specs and completion logic
+
+**Modified Files**:
+- `src/lle/completion/source_manager.c` - Register `builtin_args` source
+- `src/lle/meson.build` - Add new source file
+
+**Architecture**:
+- `lle_builtin_completion_spec_t` - Complete spec for a builtin (options, subcommands, arg type)
+- `lle_builtin_subcommand_t` - Nested subcommand with own options/subcommands
+- `lle_builtin_option_t` - Single option with name and description
+- `lle_builtin_arg_type_t` - Enum for dynamic argument types (FILE, DIRECTORY, VARIABLE, etc.)
+
+### Test Results
+
+- **Build**: ✅ All targets compile (no warnings)
+- **Meson Tests**: ✅ 54/54 tests pass
+- **macOS leaks**: ✅ 0 leaks, 0 bytes
 
 ---
 

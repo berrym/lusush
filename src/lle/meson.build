@@ -222,6 +222,7 @@ lle_sources += files(
   'completion/custom_source.c',
   'completion/completion_config.c',
   'completion/ssh_hosts.c',
+  'completion/builtin_completions.c',
 )
 
 # ============================================================================
