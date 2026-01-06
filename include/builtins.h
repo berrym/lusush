@@ -307,6 +307,26 @@ int bin_getopts(int argc, char **argv);
 int bin_local(int argc, char **argv);
 
 /**
+ * @brief Declare variables with attributes
+ *
+ * Declare variables and give them attributes like arrays (-a, -A),
+ * integers (-i), or readonly (-r). Also aliased as 'typeset'.
+ *
+ * Options:
+ *   -a  Declare indexed array
+ *   -A  Declare associative array
+ *   -i  Declare integer variable
+ *   -r  Declare readonly variable
+ *   -x  Export variable
+ *   -p  Display attributes and values
+ *
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on error
+ */
+int bin_declare(int argc, char **argv);
+
+/**
  * @brief Manage command hash table
  * @param argc Argument count
  * @param argv Argument vector

@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased] - Extended Language Support
+
+### Added - Phase 1: Arrays and Arithmetic Command
+- **Indexed array support** with Bash-compatible syntax
+  - Array literal creation: `arr=(one two three)`
+  - Element access: `${arr[0]}`, `${arr[1]}`
+  - All elements expansion: `${arr[@]}`, `${arr[*]}`
+  - Array length: `${#arr[@]}`
+  - Element string length: `${#arr[n]}`
+  - Element assignment: `arr[n]=value`
+  - Sparse array support with efficient binary search storage
+
+- **Arithmetic command `(( ))`** for conditional arithmetic
+  - Returns exit 0 for non-zero results, 1 for zero
+  - Comparison operators: `==`, `!=`, `<`, `>`, `<=`, `>=`
+  - Logical operators: `&&`, `||`
+  - Full arithmetic expression support
+  - Parameter expansion inside arithmetic: `(( ${#arr[@]} == 5 ))`
+
+- **`declare` builtin** with array and integer support
+  - `-a` for indexed arrays
+  - `-A` for associative arrays
+  - `-i` for integer variables (arithmetic evaluation on assignment)
+  - `-r` for readonly variables
+  - `-x` for export
+  - `-p` for printing declarations
+  - `typeset` alias for compatibility
+
+- **New tokens**: `TOK_DOUBLE_LPAREN`, `TOK_DOUBLE_RPAREN`, `TOK_PLUS_ASSIGN`
+- **New node types**: `NODE_ARITH_CMD`, `NODE_ARRAY_LITERAL`, `NODE_ARRAY_ACCESS`, `NODE_ARRAY_ASSIGN`
+- **Comprehensive test suite**: 52 tests in `tests/phase1_arrays_arithmetic_test.sh`
+
+### Added - Phase 0: Shell Mode Infrastructure
+- **Multi-mode architecture** for language compatibility
+  - POSIX mode: Strict POSIX sh compliance
+  - Bash mode: Bash 5.x compatibility
+  - Zsh mode: Zsh compatibility
+  - Lusush mode: Curated best of both (default)
+
+- **35 feature flags** for fine-grained control
+  - Per-feature enable/disable overrides
+  - Mode-specific defaults via feature matrix
+  - Runtime mode switching: `set -o bash`, `set -o zsh`
+
+- **Shebang detection** for automatic mode selection
+- **Debugger integration**: `mode`, `features`, `feature <name>` commands
+- **20 unit tests** for shell mode system
+
+---
+
 ## [1.3.1] - 2025-10-01
 
 ### Added - Configuration System Modernization

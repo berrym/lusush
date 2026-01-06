@@ -32,6 +32,27 @@ typedef enum {
     SYMVAR_FUNCTION // Function definition
 } symvar_type_t;
 
+/* ============================================================================
+ * ARRAY VALUE STORAGE (Phase 1: Extended Language Support)
+ * ============================================================================ */
+
+/**
+ * @brief Array value storage structure
+ *
+ * Supports both indexed arrays (Bash-style) and associative arrays.
+ * Indexed arrays use sparse storage - only set indices consume memory.
+ * Associative arrays use a hash table for key-value storage.
+ */
+typedef struct array_value {
+    char **elements;        /**< Sparse array of element values (indexed) */
+    int *indices;           /**< Parallel array of actual indices (for sparse) */
+    size_t count;           /**< Number of elements currently stored */
+    size_t capacity;        /**< Allocated capacity for elements/indices */
+    size_t max_index;       /**< Highest index used (for ${#arr[@]}) */
+    bool is_associative;    /**< True if associative array (declare -A) */
+    ht_strstr_t *assoc_map; /**< Hash table for associative arrays */
+} array_value_t;
+
 // Variable flags
 typedef enum {
     SYMVAR_NONE = 0,
@@ -609,5 +630,177 @@ int symtable_pop_scope_opt_api(void);
 /* Performance and testing */
 void symtable_benchmark_opt_comparison(int iterations);
 int symtable_opt_test(void);
+
+/* ============================================================================
+ * ARRAY VARIABLE API (Phase 1: Extended Language Support)
+ * ============================================================================ */
+
+/**
+ * @brief Create a new array value
+ *
+ * @param is_associative True for associative array (declare -A)
+ * @return New array value or NULL on failure
+ */
+array_value_t *symtable_array_create(bool is_associative);
+
+/**
+ * @brief Free an array value and all its elements
+ *
+ * @param array Array to free
+ */
+void symtable_array_free(array_value_t *array);
+
+/**
+ * @brief Set an element in an indexed array
+ *
+ * @param array Target array
+ * @param index Element index (0-based internally)
+ * @param value Element value (will be copied)
+ * @return 0 on success, -1 on error
+ */
+int symtable_array_set_index(array_value_t *array, int index, const char *value);
+
+/**
+ * @brief Get an element from an indexed array
+ *
+ * @param array Source array
+ * @param index Element index (0-based internally)
+ * @return Element value or NULL if not set
+ */
+const char *symtable_array_get_index(array_value_t *array, int index);
+
+/**
+ * @brief Set an element in an associative array
+ *
+ * @param array Target array (must be associative)
+ * @param key Element key
+ * @param value Element value (will be copied)
+ * @return 0 on success, -1 on error
+ */
+int symtable_array_set_assoc(array_value_t *array, const char *key,
+                             const char *value);
+
+/**
+ * @brief Get an element from an associative array
+ *
+ * @param array Source array (must be associative)
+ * @param key Element key
+ * @return Element value or NULL if not set
+ */
+const char *symtable_array_get_assoc(array_value_t *array, const char *key);
+
+/**
+ * @brief Append a value to an indexed array
+ *
+ * @param array Target array
+ * @param value Value to append
+ * @return New element index, or -1 on error
+ */
+int symtable_array_append(array_value_t *array, const char *value);
+
+/**
+ * @brief Get the number of elements in an array
+ *
+ * @param array Source array
+ * @return Number of elements
+ */
+size_t symtable_array_length(array_value_t *array);
+
+/**
+ * @brief Unset an element in an indexed array
+ *
+ * @param array Target array
+ * @param index Element index to unset
+ * @return 0 on success, -1 on error
+ */
+int symtable_array_unset_index(array_value_t *array, int index);
+
+/**
+ * @brief Unset an element in an associative array
+ *
+ * @param array Target array (must be associative)
+ * @param key Element key to unset
+ * @return 0 on success, -1 on error
+ */
+int symtable_array_unset_assoc(array_value_t *array, const char *key);
+
+/**
+ * @brief Get all keys/indices from an array
+ *
+ * For indexed arrays, returns string representations of indices.
+ * For associative arrays, returns the keys.
+ *
+ * @param array Source array
+ * @param count Output: number of keys returned
+ * @return Array of key strings (caller must free array and strings)
+ */
+char **symtable_array_get_keys(array_value_t *array, size_t *count);
+
+/**
+ * @brief Get all values from an array
+ *
+ * @param array Source array
+ * @param count Output: number of values returned
+ * @return Array of value strings (caller must free array and strings)
+ */
+char **symtable_array_get_values(array_value_t *array, size_t *count);
+
+/**
+ * @brief Expand array to string for ${arr[*]} or ${arr[@]}
+ *
+ * @param array Source array
+ * @param sep Separator for ${arr[*]}, NULL for ${arr[@]} (space-separated)
+ * @return Expanded string (caller must free)
+ */
+char *symtable_array_expand(array_value_t *array, const char *sep);
+
+/* Array Variable Management */
+
+/**
+ * @brief Set a variable as an array
+ *
+ * @param name Variable name
+ * @param array Array value (ownership transferred)
+ * @return 0 on success, -1 on error
+ */
+int symtable_set_array(const char *name, array_value_t *array);
+
+/**
+ * @brief Get an array variable
+ *
+ * @param name Variable name
+ * @return Array value or NULL if not an array or not found
+ */
+array_value_t *symtable_get_array(const char *name);
+
+/**
+ * @brief Check if a variable is an array
+ *
+ * @param name Variable name
+ * @return True if variable is an array
+ */
+bool symtable_is_array(const char *name);
+
+/**
+ * @brief Set an array element using shell syntax
+ *
+ * Handles both arr[index]=value and arr[key]=value (associative)
+ *
+ * @param name Variable name
+ * @param subscript Index or key string
+ * @param value Element value
+ * @return 0 on success, -1 on error
+ */
+int symtable_set_array_element(const char *name, const char *subscript,
+                               const char *value);
+
+/**
+ * @brief Get an array element using shell syntax
+ *
+ * @param name Variable name
+ * @param subscript Index or key string
+ * @return Element value or NULL
+ */
+char *symtable_get_array_element(const char *name, const char *subscript);
 
 #endif // SYMTABLE_H

@@ -472,6 +472,22 @@ char *debug_get_node_description(node_t *node) {
     case NODE_LOGICAL_OR:
         snprintf(desc, 256, "LOGICAL_OR");
         break;
+    case NODE_ARITH_CMD:
+        snprintf(desc, 256, "ARITH_CMD: (( %s ))",
+                 node->val.str ? node->val.str : "");
+        break;
+    case NODE_ARRAY_LITERAL:
+        snprintf(desc, 256, "ARRAY_LITERAL (%zu elements)",
+                 node->children);
+        break;
+    case NODE_ARRAY_ACCESS:
+        snprintf(desc, 256, "ARRAY_ACCESS: %s",
+                 node->val.str ? node->val.str : "");
+        break;
+    case NODE_ARRAY_ASSIGN:
+        snprintf(desc, 256, "ARRAY_ASSIGN: %s",
+                 node->val.str ? node->val.str : "");
+        break;
     default:
         snprintf(desc, 256, "UNKNOWN_NODE_TYPE_%d", node->type);
         break;

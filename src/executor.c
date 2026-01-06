@@ -98,6 +98,10 @@ static int execute_external_command_with_setup(executor_t *executor,
 static int execute_builtin_command(executor_t *executor, char **argv);
 static int execute_brace_group(executor_t *executor, node_t *group);
 static int execute_subshell(executor_t *executor, node_t *subshell);
+
+// Forward declarations for Phase 1: Arrays and Arithmetic
+static int execute_arithmetic_command(executor_t *executor, node_t *arith_node);
+static int execute_array_assignment(executor_t *executor, node_t *assign_node);
 static bool is_builtin_command(const char *cmd);
 static void set_executor_error(executor_t *executor, const char *message);
 static char *expand_variable(executor_t *executor, const char *var_text);
@@ -605,6 +609,16 @@ static int execute_node(executor_t *executor, node_t *node) {
         return executor_execute_background(executor, node);
     case NODE_VAR:
         // Variable nodes are typically handled by their parent
+        return 0;
+    case NODE_ARITH_CMD:
+        return execute_arithmetic_command(executor, node);
+    case NODE_ARRAY_ASSIGN:
+        return execute_array_assignment(executor, node);
+    case NODE_ARRAY_LITERAL:
+        // Array literals are typically handled by NODE_ARRAY_ASSIGN
+        return 0;
+    case NODE_ARRAY_ACCESS:
+        // Array access is typically handled during variable expansion
         return 0;
     default:
         if (executor->debug) {
@@ -4490,9 +4504,70 @@ static char *parse_parameter_expansion(executor_t *executor,
         return strdup("");
     }
 
-    // Handle length expansion: ${#var}
+    // Handle array length: ${#arr[@]} or ${#arr[*]}
     if (expansion[0] == '#') {
         const char *var_name = expansion + 1;
+
+        // Check for array subscript
+        const char *bracket = strchr(var_name, '[');
+        if (bracket) {
+            size_t name_len = bracket - var_name;
+            char *arr_name = malloc(name_len + 1);
+            if (!arr_name) {
+                return strdup("0");
+            }
+            strncpy(arr_name, var_name, name_len);
+            arr_name[name_len] = '\0';
+
+            // Get subscript
+            const char *close = strchr(bracket, ']');
+            if (close) {
+                size_t sub_len = close - bracket - 1;
+                char *subscript = malloc(sub_len + 1);
+                if (subscript) {
+                    strncpy(subscript, bracket + 1, sub_len);
+                    subscript[sub_len] = '\0';
+
+                    // Check if array exists
+                    array_value_t *array = symtable_get_array(arr_name);
+                    if (array) {
+                        char result_buf[32];
+
+                        if (strcmp(subscript, "@") == 0 ||
+                            strcmp(subscript, "*") == 0) {
+                            // ${#arr[@]} - number of elements
+                            snprintf(result_buf, sizeof(result_buf), "%zu",
+                                     symtable_array_length(array));
+                        } else {
+                            // ${#arr[n]} - length of element at index n
+                            arithm_clear_error();
+                            char *idx_result = arithm_expand(subscript);
+                            if (idx_result && !arithm_error_flag) {
+                                int idx = (int)strtoll(idx_result, NULL, 10);
+                                free(idx_result);
+                                const char *elem =
+                                    symtable_array_get_index(array, idx);
+                                snprintf(result_buf, sizeof(result_buf), "%zu",
+                                         elem ? strlen(elem) : 0);
+                            } else {
+                                if (idx_result) free(idx_result);
+                                snprintf(result_buf, sizeof(result_buf), "0");
+                            }
+                        }
+
+                        free(subscript);
+                        free(arr_name);
+                        return strdup(result_buf);
+                    }
+
+                    free(subscript);
+                }
+            }
+            free(arr_name);
+            return strdup("0");
+        }
+
+        // Regular variable length: ${#var}
         char *value = symtable_get_var(executor->symtable, var_name);
         if (value) {
             int len = strlen(value);
@@ -4503,6 +4578,70 @@ static char *parse_parameter_expansion(executor_t *executor,
             return result ? result : strdup("0");
         }
         return strdup("0");
+    }
+
+    // Handle array element access: ${arr[n]}, ${arr[@]}, ${arr[*]}
+    const char *bracket = strchr(expansion, '[');
+    if (bracket) {
+        size_t name_len = bracket - expansion;
+        char *arr_name = malloc(name_len + 1);
+        if (!arr_name) {
+            return strdup("");
+        }
+        strncpy(arr_name, expansion, name_len);
+        arr_name[name_len] = '\0';
+
+        const char *close = strchr(bracket, ']');
+        if (close) {
+            size_t sub_len = close - bracket - 1;
+            char *subscript = malloc(sub_len + 1);
+            if (subscript) {
+                strncpy(subscript, bracket + 1, sub_len);
+                subscript[sub_len] = '\0';
+
+                array_value_t *array = symtable_get_array(arr_name);
+                if (array) {
+                    char *result = NULL;
+
+                    if (strcmp(subscript, "@") == 0 ||
+                        strcmp(subscript, "*") == 0) {
+                        // ${arr[@]} or ${arr[*]} - all elements
+                        result = symtable_array_expand(array, " ");
+                    } else {
+                        // ${arr[n]} - specific element
+                        arithm_clear_error();
+                        char *idx_result = arithm_expand(subscript);
+                        if (idx_result && !arithm_error_flag) {
+                            int idx = (int)strtoll(idx_result, NULL, 10);
+                            free(idx_result);
+                            const char *elem =
+                                symtable_array_get_index(array, idx);
+                            result = strdup(elem ? elem : "");
+                        } else {
+                            if (idx_result) free(idx_result);
+                            result = strdup("");
+                        }
+                    }
+
+                    free(subscript);
+                    free(arr_name);
+                    return result ? result : strdup("");
+                }
+
+                // Array doesn't exist - check if there are parameter expansion
+                // operators after ]
+                // For example: ${arr[0]:-default}
+                const char *after_bracket = close + 1;
+                if (*after_bracket != '\0') {
+                    // There's more after ] - this might be a parameter expansion
+                    // on an unset array element. For now, treat as empty.
+                }
+
+                free(subscript);
+            }
+        }
+        free(arr_name);
+        return strdup("");
     }
 
     // Look for parameter expansion operators
@@ -6500,4 +6639,299 @@ static int execute_builtin_with_captured_stdout(executor_t *executor,
         }
         return 1;
     }
+}
+
+/**
+ * @brief Execute an arithmetic command (( expr ))
+ *
+ * Evaluates the arithmetic expression and returns 0 (success) if the
+ * result is non-zero, or 1 (failure) if the result is zero.
+ * This matches Bash behavior for arithmetic commands.
+ *
+ * The expression is first expanded (variable substitution) then
+ * evaluated using the arithmetic evaluator.
+ *
+ * @param executor Executor context
+ * @param arith_node Arithmetic command node with expression in val.str
+ * @return 0 if result is non-zero, 1 if result is zero
+ */
+static int execute_arithmetic_command(executor_t *executor,
+                                      node_t *arith_node) {
+    if (!arith_node || !arith_node->val.str) {
+        return 1;
+    }
+
+    const char *expr = arith_node->val.str;
+
+    if (executor->debug) {
+        printf("DEBUG: Executing arithmetic command: (( %s ))\n", expr);
+    }
+
+    // Pre-expand ${...} parameter expansions before arithmetic evaluation
+    // The arithmetic module handles simple $var but not complex ${...} syntax
+    char *expanded_expr = NULL;
+    if (strchr(expr, '{')) {
+        expanded_expr = expand_if_needed(executor, expr);
+        if (expanded_expr) {
+            expr = expanded_expr;
+            if (executor->debug) {
+                printf("DEBUG: Expanded arithmetic expression: (( %s ))\n",
+                       expr);
+            }
+        }
+    }
+
+    // Use the existing arithmetic evaluator with executor context
+    // This handles simple variable expansion internally
+    arithm_clear_error();
+    char *result_str = arithm_expand_with_executor(executor, expr);
+
+    if (!result_str || arithm_error_flag) {
+        // Arithmetic error - could be syntax error or division by zero
+        if (executor->debug) {
+            printf("DEBUG: Arithmetic error in expression: %s\n", expr);
+        }
+        if (result_str) {
+            free(result_str);
+        }
+        return 1;
+    }
+
+    // Convert result to long long to check if non-zero
+    long long result = strtoll(result_str, NULL, 10);
+    free(result_str);
+    free(expanded_expr); // Safe to free NULL
+
+    // Update exit status
+    executor->exit_status = (result != 0) ? 0 : 1;
+
+    if (executor->debug) {
+        printf("DEBUG: Arithmetic result: %lld, exit status: %d\n", result,
+               executor->exit_status);
+    }
+
+    // Return 0 if non-zero (true), 1 if zero (false)
+    return (result != 0) ? 0 : 1;
+}
+
+/**
+ * @brief Execute an array assignment
+ *
+ * Handles both array literal assignment (arr=(a b c)) and
+ * array element assignment (arr[n]=value).
+ *
+ * For array literals, the first child is NODE_ARRAY_LITERAL.
+ * For element assignment, children are subscript and value nodes.
+ *
+ * @param executor Executor context
+ * @param assign_node Array assignment node
+ * @return 0 on success, 1 on error
+ */
+static int execute_array_assignment(executor_t *executor,
+                                    node_t *assign_node) {
+    if (!assign_node || !assign_node->val.str) {
+        return 1;
+    }
+
+    const char *var_name = assign_node->val.str;
+    node_t *first_child = assign_node->first_child;
+
+    if (!first_child) {
+        return 1;
+    }
+
+    if (executor->debug) {
+        printf("DEBUG: Executing array assignment for: %s\n", var_name);
+    }
+
+    // Check if this is an array literal assignment: arr=(a b c)
+    if (first_child->type == NODE_ARRAY_LITERAL) {
+        // Create a new indexed array
+        array_value_t *array = symtable_array_create(false);
+        if (!array) {
+            set_executor_error(executor, "Failed to create array");
+            return 1;
+        }
+
+        // Process each element in the literal
+        int index = 0;
+        node_t *elem = first_child->first_child;
+
+        while (elem) {
+            if (elem->val.str) {
+                const char *elem_str = elem->val.str;
+
+                // Check for [index]=value syntax
+                if (elem_str[0] == '[') {
+                    // Parse [index]=value
+                    const char *bracket_end = strchr(elem_str, ']');
+                    if (bracket_end && bracket_end[1] == '=') {
+                        // Extract index
+                        size_t idx_len = bracket_end - elem_str - 1;
+                        char *idx_str = malloc(idx_len + 1);
+                        if (idx_str) {
+                            strncpy(idx_str, elem_str + 1, idx_len);
+                            idx_str[idx_len] = '\0';
+
+                            // Evaluate index (might be arithmetic)
+                            arithm_clear_error();
+                            char *idx_result = arithm_expand(idx_str);
+                            free(idx_str);
+
+                            if (idx_result && !arithm_error_flag) {
+                                long long idx_val = strtoll(idx_result, NULL, 10);
+                                if (idx_val >= 0) {
+                                    index = (int)idx_val;
+                                }
+                                free(idx_result);
+                            }
+
+                            // Get value after ]=
+                            const char *value = bracket_end + 2;
+
+                            // Expand value if needed
+                            char *expanded = expand_variable(executor, value);
+                            const char *final_value =
+                                expanded ? expanded : value;
+
+                            symtable_array_set_index(array, index, final_value);
+
+                            if (expanded) {
+                                free(expanded);
+                            }
+                        }
+                    }
+                } else {
+                    // Regular element - assign to next index
+                    char *expanded = expand_variable(executor, elem_str);
+                    const char *final_value = expanded ? expanded : elem_str;
+
+                    symtable_array_set_index(array, index, final_value);
+                    index++;
+
+                    if (expanded) {
+                        free(expanded);
+                    }
+                }
+            }
+            elem = elem->next_sibling;
+        }
+
+        // Store the array in the symbol table
+        if (symtable_set_array(var_name, array) != 0) {
+            symtable_array_free(array);
+            set_executor_error(executor, "Failed to store array");
+            return 1;
+        }
+
+        if (executor->debug) {
+            printf("DEBUG: Created array %s with %zu elements\n", var_name,
+                   symtable_array_length(array));
+        }
+
+        return 0;
+    }
+
+    // Array element assignment: arr[n]=value
+    // First child is subscript, second child is value
+    node_t *subscript_node = first_child;
+    node_t *value_node = first_child->next_sibling;
+
+    if (!subscript_node || !subscript_node->val.str) {
+        set_executor_error(executor, "Missing array subscript");
+        return 1;
+    }
+
+    const char *subscript = subscript_node->val.str;
+    const char *value = value_node ? value_node->val.str : "";
+
+    // Check for append operation (value starts with "+=")
+    bool is_append = false;
+    if (value && strlen(value) >= 2 && value[0] == '+' && value[1] == '=') {
+        is_append = true;
+        value += 2; // Skip "+=" prefix
+    }
+
+    // Expand value
+    char *expanded_value = expand_variable(executor, value);
+    const char *final_value = expanded_value ? expanded_value : value;
+
+    // Get or create the array
+    array_value_t *array = symtable_get_array(var_name);
+    if (!array) {
+        // Create new array if it doesn't exist
+        array = symtable_array_create(false);
+        if (!array) {
+            if (expanded_value)
+                free(expanded_value);
+            set_executor_error(executor, "Failed to create array");
+            return 1;
+        }
+        if (symtable_set_array(var_name, array) != 0) {
+            symtable_array_free(array);
+            if (expanded_value)
+                free(expanded_value);
+            set_executor_error(executor, "Failed to store array");
+            return 1;
+        }
+    }
+
+    // Handle subscript - could be "@", "*", or numeric index
+    if (strcmp(subscript, "@") == 0 || strcmp(subscript, "*") == 0) {
+        // Append to array
+        symtable_array_append(array, final_value);
+    } else {
+        // Numeric index - evaluate as arithmetic expression
+        arithm_clear_error();
+        char *idx_result = arithm_expand(subscript);
+
+        if (!idx_result || arithm_error_flag) {
+            if (idx_result)
+                free(idx_result);
+            if (expanded_value)
+                free(expanded_value);
+            set_executor_error(executor, "Invalid array index");
+            return 1;
+        }
+
+        long long idx = strtoll(idx_result, NULL, 10);
+        free(idx_result);
+
+        if (idx < 0) {
+            if (expanded_value)
+                free(expanded_value);
+            set_executor_error(executor, "Invalid array index");
+            return 1;
+        }
+
+        if (is_append) {
+            // Append to existing element
+            const char *existing =
+                symtable_array_get_index(array, (int)idx);
+            if (existing) {
+                size_t new_len = strlen(existing) + strlen(final_value) + 1;
+                char *combined = malloc(new_len);
+                if (combined) {
+                    strcpy(combined, existing);
+                    strcat(combined, final_value);
+                    symtable_array_set_index(array, (int)idx, combined);
+                    free(combined);
+                }
+            } else {
+                symtable_array_set_index(array, (int)idx, final_value);
+            }
+        } else {
+            symtable_array_set_index(array, (int)idx, final_value);
+        }
+    }
+
+    if (expanded_value) {
+        free(expanded_value);
+    }
+
+    if (executor->debug) {
+        printf("DEBUG: Set %s[%s] = %s\n", var_name, subscript, final_value);
+    }
+
+    return 0;
 }

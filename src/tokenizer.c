@@ -11,6 +11,7 @@
 
 #include "tokenizer.h"
 #include "lle/utf8_support.h"
+#include "shell_mode.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -260,6 +261,10 @@ const char *token_type_name(token_type_t type) {
         return "LPAREN";
     case TOK_RPAREN:
         return "RPAREN";
+    case TOK_DOUBLE_LPAREN:
+        return "DOUBLE_LPAREN";
+    case TOK_DOUBLE_RPAREN:
+        return "DOUBLE_RPAREN";
     case TOK_LBRACE:
         return "LBRACE";
     case TOK_RBRACE:
@@ -268,6 +273,8 @@ const char *token_type_name(token_type_t type) {
         return "LBRACKET";
     case TOK_RBRACKET:
         return "RBRACKET";
+    case TOK_PLUS_ASSIGN:
+        return "PLUS_ASSIGN";
     case TOK_IF:
         return "IF";
     case TOK_THEN:
@@ -1033,6 +1040,15 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                              start_pos);
 
         case '+':
+            // Check for += (append/add assignment)
+            if (tokenizer->position + 1 < tokenizer->input_length &&
+                tokenizer->input[tokenizer->position + 1] == '=' &&
+                shell_mode_allows(FEATURE_INDEXED_ARRAYS)) {
+                tokenizer->position += 2;
+                tokenizer->column += 2;
+                return token_new(TOK_PLUS_ASSIGN, "+=", 2, start_line,
+                                 start_column, start_pos);
+            }
             // Let + be handled as part of words (e.g., date +%Y)
             // Fall through to word tokenization
             break;
@@ -1063,12 +1079,30 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
             //                      start_pos);
 
         case '(':
+            // Check for (( arithmetic command
+            if (tokenizer->position + 1 < tokenizer->input_length &&
+                tokenizer->input[tokenizer->position + 1] == '(' &&
+                shell_mode_allows(FEATURE_ARITH_COMMAND)) {
+                tokenizer->position += 2;
+                tokenizer->column += 2;
+                return token_new(TOK_DOUBLE_LPAREN, "((", 2, start_line,
+                                 start_column, start_pos);
+            }
             tokenizer->position++;
             tokenizer->column++;
             return token_new(TOK_LPAREN, "(", 1, start_line, start_column,
                              start_pos);
 
         case ')':
+            // Check for )) arithmetic command end
+            if (tokenizer->position + 1 < tokenizer->input_length &&
+                tokenizer->input[tokenizer->position + 1] == ')' &&
+                shell_mode_allows(FEATURE_ARITH_COMMAND)) {
+                tokenizer->position += 2;
+                tokenizer->column += 2;
+                return token_new(TOK_DOUBLE_RPAREN, "))", 2, start_line,
+                                 start_column, start_pos);
+            }
             tokenizer->position++;
             tokenizer->column++;
             return token_new(TOK_RPAREN, ")", 1, start_line, start_column,

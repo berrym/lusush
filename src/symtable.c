@@ -1657,3 +1657,588 @@ void symtable_benchmark_opt_comparison(int iterations) {
  * @return 0 on success, -1 on failure
  */
 int symtable_opt_test(void) { return symtable_libht_test(); }
+
+// ============================================================================
+// ARRAY VARIABLE IMPLEMENTATION (Phase 1: Extended Language Support)
+// ============================================================================
+
+/** Initial capacity for indexed arrays */
+#define ARRAY_INITIAL_CAPACITY 8
+
+/** Growth factor for array reallocation */
+#define ARRAY_GROWTH_FACTOR 2
+
+/**
+ * @brief Create a new array value
+ */
+array_value_t *symtable_array_create(bool is_associative) {
+    array_value_t *array = calloc(1, sizeof(array_value_t));
+    if (!array) {
+        return NULL;
+    }
+
+    array->is_associative = is_associative;
+    array->count = 0;
+    array->max_index = 0;
+
+    if (is_associative) {
+        // Create hash table for associative array
+        array->assoc_map = ht_strstr_create(DEFAULT_HT_FLAGS);
+        if (!array->assoc_map) {
+            free(array);
+            return NULL;
+        }
+        array->elements = NULL;
+        array->indices = NULL;
+        array->capacity = 0;
+    } else {
+        // Allocate initial capacity for indexed array
+        array->capacity = ARRAY_INITIAL_CAPACITY;
+        array->elements = calloc(array->capacity, sizeof(char *));
+        array->indices = calloc(array->capacity, sizeof(int));
+        if (!array->elements || !array->indices) {
+            free(array->elements);
+            free(array->indices);
+            free(array);
+            return NULL;
+        }
+        array->assoc_map = NULL;
+    }
+
+    return array;
+}
+
+/**
+ * @brief Free an array value and all its elements
+ */
+void symtable_array_free(array_value_t *array) {
+    if (!array) {
+        return;
+    }
+
+    if (array->is_associative) {
+        // Free associative array hash table
+        if (array->assoc_map) {
+            ht_strstr_destroy(array->assoc_map);
+        }
+    } else {
+        // Free indexed array elements
+        if (array->elements) {
+            for (size_t i = 0; i < array->count; i++) {
+                free(array->elements[i]);
+            }
+            free(array->elements);
+        }
+        free(array->indices);
+    }
+
+    free(array);
+}
+
+/**
+ * @brief Find the position of an index in sparse array, or insertion point
+ *
+ * @param array Source array
+ * @param index Index to find
+ * @param found Output: true if index exists
+ * @return Position in indices array
+ */
+static size_t array_find_index_pos(array_value_t *array, int index, bool *found) {
+    *found = false;
+    
+    // Binary search for the index
+    size_t left = 0;
+    size_t right = array->count;
+    
+    while (left < right) {
+        size_t mid = left + (right - left) / 2;
+        if (array->indices[mid] == index) {
+            *found = true;
+            return mid;
+        } else if (array->indices[mid] < index) {
+            left = mid + 1;
+        } else {
+            right = mid;
+        }
+    }
+    
+    return left;  // Insertion point
+}
+
+/**
+ * @brief Ensure array has capacity for one more element
+ */
+static int array_ensure_capacity(array_value_t *array) {
+    if (array->count >= array->capacity) {
+        size_t new_capacity = array->capacity * ARRAY_GROWTH_FACTOR;
+        if (new_capacity < ARRAY_INITIAL_CAPACITY) {
+            new_capacity = ARRAY_INITIAL_CAPACITY;
+        }
+        
+        char **new_elements = realloc(array->elements, 
+                                      new_capacity * sizeof(char *));
+        int *new_indices = realloc(array->indices,
+                                   new_capacity * sizeof(int));
+        
+        if (!new_elements || !new_indices) {
+            // Restore on partial failure
+            if (new_elements) array->elements = new_elements;
+            if (new_indices) array->indices = new_indices;
+            return -1;
+        }
+        
+        array->elements = new_elements;
+        array->indices = new_indices;
+        array->capacity = new_capacity;
+        
+        // Zero new memory
+        for (size_t i = array->count; i < new_capacity; i++) {
+            array->elements[i] = NULL;
+            array->indices[i] = 0;
+        }
+    }
+    
+    return 0;
+}
+
+/**
+ * @brief Set an element in an indexed array
+ */
+int symtable_array_set_index(array_value_t *array, int index, const char *value) {
+    if (!array || array->is_associative || index < 0) {
+        return -1;
+    }
+
+    bool found;
+    size_t pos = array_find_index_pos(array, index, &found);
+
+    if (found) {
+        // Update existing element
+        free(array->elements[pos]);
+        array->elements[pos] = value ? strdup(value) : NULL;
+    } else {
+        // Insert new element
+        if (array_ensure_capacity(array) < 0) {
+            return -1;
+        }
+        
+        // Shift elements to make room
+        for (size_t i = array->count; i > pos; i--) {
+            array->elements[i] = array->elements[i - 1];
+            array->indices[i] = array->indices[i - 1];
+        }
+        
+        array->elements[pos] = value ? strdup(value) : NULL;
+        array->indices[pos] = index;
+        array->count++;
+    }
+
+    if ((size_t)index > array->max_index) {
+        array->max_index = (size_t)index;
+    }
+
+    return 0;
+}
+
+/**
+ * @brief Get an element from an indexed array
+ */
+const char *symtable_array_get_index(array_value_t *array, int index) {
+    if (!array || array->is_associative || index < 0) {
+        return NULL;
+    }
+
+    bool found;
+    size_t pos = array_find_index_pos(array, index, &found);
+
+    if (found) {
+        return array->elements[pos];
+    }
+
+    return NULL;
+}
+
+/**
+ * @brief Set an element in an associative array
+ */
+int symtable_array_set_assoc(array_value_t *array, const char *key,
+                             const char *value) {
+    if (!array || !array->is_associative || !key) {
+        return -1;
+    }
+
+    // Check if key exists and update count
+    if (!ht_strstr_get(array->assoc_map, key)) {
+        array->count++;
+    }
+
+    ht_strstr_insert(array->assoc_map, key, value ? value : "");
+    return 0;
+}
+
+/**
+ * @brief Get an element from an associative array
+ */
+const char *symtable_array_get_assoc(array_value_t *array, const char *key) {
+    if (!array || !array->is_associative || !key) {
+        return NULL;
+    }
+
+    return ht_strstr_get(array->assoc_map, key);
+}
+
+/**
+ * @brief Append a value to an indexed array
+ */
+int symtable_array_append(array_value_t *array, const char *value) {
+    if (!array || array->is_associative) {
+        return -1;
+    }
+
+    int new_index = (int)(array->max_index + 1);
+    if (array->count == 0) {
+        new_index = 0;
+    }
+
+    if (symtable_array_set_index(array, new_index, value) < 0) {
+        return -1;
+    }
+
+    return new_index;
+}
+
+/**
+ * @brief Get the number of elements in an array
+ */
+size_t symtable_array_length(array_value_t *array) {
+    if (!array) {
+        return 0;
+    }
+    return array->count;
+}
+
+/**
+ * @brief Unset an element in an indexed array
+ */
+int symtable_array_unset_index(array_value_t *array, int index) {
+    if (!array || array->is_associative || index < 0) {
+        return -1;
+    }
+
+    bool found;
+    size_t pos = array_find_index_pos(array, index, &found);
+
+    if (!found) {
+        return 0;  // Not an error to unset nonexistent element
+    }
+
+    // Free the element
+    free(array->elements[pos]);
+
+    // Shift remaining elements
+    for (size_t i = pos; i < array->count - 1; i++) {
+        array->elements[i] = array->elements[i + 1];
+        array->indices[i] = array->indices[i + 1];
+    }
+    array->count--;
+
+    // Recalculate max_index if we removed the max
+    if ((size_t)index == array->max_index && array->count > 0) {
+        array->max_index = (size_t)array->indices[array->count - 1];
+    } else if (array->count == 0) {
+        array->max_index = 0;
+    }
+
+    return 0;
+}
+
+/**
+ * @brief Unset an element in an associative array
+ */
+int symtable_array_unset_assoc(array_value_t *array, const char *key) {
+    if (!array || !array->is_associative || !key) {
+        return -1;
+    }
+
+    if (ht_strstr_get(array->assoc_map, key)) {
+        ht_strstr_remove(array->assoc_map, key);
+        array->count--;
+    }
+
+    return 0;
+}
+
+/**
+ * @brief Get all keys/indices from an array
+ */
+char **symtable_array_get_keys(array_value_t *array, size_t *count) {
+    if (!array || !count) {
+        if (count) *count = 0;
+        return NULL;
+    }
+
+    *count = array->count;
+    if (array->count == 0) {
+        return NULL;
+    }
+
+    char **keys = calloc(array->count, sizeof(char *));
+    if (!keys) {
+        *count = 0;
+        return NULL;
+    }
+
+    if (array->is_associative) {
+        // Get keys from hash table
+        ht_enum_t *enumerator = ht_strstr_enum_create(array->assoc_map);
+        if (enumerator) {
+            size_t i = 0;
+            const char *key;
+            const char *val;
+            while (ht_strstr_enum_next(enumerator, &key, &val) && 
+                   i < array->count) {
+                keys[i++] = strdup(key);
+            }
+            ht_strstr_enum_destroy(enumerator);
+        }
+    } else {
+        // Convert indices to strings
+        for (size_t i = 0; i < array->count; i++) {
+            char buf[32];
+            snprintf(buf, sizeof(buf), "%d", array->indices[i]);
+            keys[i] = strdup(buf);
+        }
+    }
+
+    return keys;
+}
+
+/**
+ * @brief Get all values from an array
+ */
+char **symtable_array_get_values(array_value_t *array, size_t *count) {
+    if (!array || !count) {
+        if (count) *count = 0;
+        return NULL;
+    }
+
+    *count = array->count;
+    if (array->count == 0) {
+        return NULL;
+    }
+
+    char **values = calloc(array->count, sizeof(char *));
+    if (!values) {
+        *count = 0;
+        return NULL;
+    }
+
+    if (array->is_associative) {
+        // Get values from hash table
+        ht_enum_t *enumerator = ht_strstr_enum_create(array->assoc_map);
+        if (enumerator) {
+            size_t i = 0;
+            const char *key;
+            const char *val;
+            while (ht_strstr_enum_next(enumerator, &key, &val) && 
+                   i < array->count) {
+                values[i++] = val ? strdup(val) : strdup("");
+            }
+            ht_strstr_enum_destroy(enumerator);
+        }
+    } else {
+        // Copy indexed array values
+        for (size_t i = 0; i < array->count; i++) {
+            values[i] = array->elements[i] ? strdup(array->elements[i]) 
+                                           : strdup("");
+        }
+    }
+
+    return values;
+}
+
+/**
+ * @brief Expand array to string for ${arr[*]} or ${arr[@]}
+ */
+char *symtable_array_expand(array_value_t *array, const char *sep) {
+    if (!array || array->count == 0) {
+        return strdup("");
+    }
+
+    // Default separator is space
+    if (!sep) {
+        sep = " ";
+    }
+    size_t sep_len = strlen(sep);
+
+    // Calculate total length needed
+    size_t total_len = 0;
+    size_t value_count;
+    char **values = symtable_array_get_values(array, &value_count);
+    if (!values) {
+        return strdup("");
+    }
+
+    for (size_t i = 0; i < value_count; i++) {
+        total_len += strlen(values[i]);
+        if (i > 0) {
+            total_len += sep_len;
+        }
+    }
+
+    char *result = malloc(total_len + 1);
+    if (!result) {
+        for (size_t i = 0; i < value_count; i++) {
+            free(values[i]);
+        }
+        free(values);
+        return strdup("");
+    }
+
+    // Build the result string
+    result[0] = '\0';
+    for (size_t i = 0; i < value_count; i++) {
+        if (i > 0) {
+            strcat(result, sep);
+        }
+        strcat(result, values[i]);
+        free(values[i]);
+    }
+    free(values);
+
+    return result;
+}
+
+// ============================================================================
+// ARRAY VARIABLE MANAGEMENT (Global storage integration)
+// ============================================================================
+
+/** Hash table for array storage (separate from regular variables) */
+static ht_strstr_t *array_storage = NULL;
+
+/** Initialize array storage if needed */
+static void ensure_array_storage(void) {
+    if (!array_storage) {
+        array_storage = ht_strstr_create(DEFAULT_HT_FLAGS);
+    }
+}
+
+/**
+ * @brief Set a variable as an array
+ */
+int symtable_set_array(const char *name, array_value_t *array) {
+    if (!name || !array) {
+        return -1;
+    }
+
+    ensure_array_storage();
+    if (!array_storage) {
+        return -1;
+    }
+
+    // Free existing array if present
+    array_value_t *existing = symtable_get_array(name);
+    if (existing) {
+        symtable_array_free(existing);
+    }
+
+    // Store pointer as string (hacky but works with existing ht_strstr)
+    char ptr_str[32];
+    snprintf(ptr_str, sizeof(ptr_str), "%p", (void *)array);
+    
+    ht_strstr_insert(array_storage, name, ptr_str);
+    return 0;
+}
+
+/**
+ * @brief Get an array variable
+ */
+array_value_t *symtable_get_array(const char *name) {
+    if (!name || !array_storage) {
+        return NULL;
+    }
+
+    const char *ptr_str = ht_strstr_get(array_storage, name);
+    if (!ptr_str) {
+        return NULL;
+    }
+
+    void *ptr;
+    if (sscanf(ptr_str, "%p", &ptr) != 1) {
+        return NULL;
+    }
+
+    return (array_value_t *)ptr;
+}
+
+/**
+ * @brief Check if a variable is an array
+ */
+bool symtable_is_array(const char *name) {
+    return symtable_get_array(name) != NULL;
+}
+
+/**
+ * @brief Set an array element using shell syntax
+ */
+int symtable_set_array_element(const char *name, const char *subscript,
+                               const char *value) {
+    if (!name || !subscript) {
+        return -1;
+    }
+
+    array_value_t *array = symtable_get_array(name);
+    if (!array) {
+        // Create new indexed array
+        array = symtable_array_create(false);
+        if (!array) {
+            return -1;
+        }
+        if (symtable_set_array(name, array) < 0) {
+            symtable_array_free(array);
+            return -1;
+        }
+    }
+
+    if (array->is_associative) {
+        return symtable_array_set_assoc(array, subscript, value);
+    } else {
+        // Parse subscript as integer
+        char *endptr;
+        long index = strtol(subscript, &endptr, 10);
+        if (*endptr != '\0' || index < 0) {
+            // Not a valid integer - could be associative key
+            // For now, treat as error for indexed array
+            return -1;
+        }
+        return symtable_array_set_index(array, (int)index, value);
+    }
+}
+
+/**
+ * @brief Get an array element using shell syntax
+ */
+char *symtable_get_array_element(const char *name, const char *subscript) {
+    if (!name || !subscript) {
+        return NULL;
+    }
+
+    array_value_t *array = symtable_get_array(name);
+    if (!array) {
+        return NULL;
+    }
+
+    const char *result;
+    if (array->is_associative) {
+        result = symtable_array_get_assoc(array, subscript);
+    } else {
+        char *endptr;
+        long index = strtol(subscript, &endptr, 10);
+        if (*endptr != '\0' || index < 0) {
+            return NULL;
+        }
+        result = symtable_array_get_index(array, (int)index);
+    }
+
+    return result ? strdup(result) : NULL;
+}

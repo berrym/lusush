@@ -53,6 +53,12 @@ typedef enum {
     NODE_LOGICAL_OR,  // || operator
     // Job control
     NODE_BACKGROUND, // & operator (background execution)
+
+    // Extended language features (Phase 1: Arrays and Arithmetic)
+    NODE_ARITH_CMD,     // (( expr )) - arithmetic command evaluation
+    NODE_ARRAY_LITERAL, // (a b c) - array literal
+    NODE_ARRAY_ACCESS,  // ${arr[index]} - array element access
+    NODE_ARRAY_ASSIGN,  // arr[n]=value or arr=(...) - array assignment
 } node_type_t;
 
 typedef enum {

@@ -13,6 +13,7 @@
 
 #include "executor.h"
 #include "node.h"
+#include "shell_mode.h"
 #include "tokenizer.h"
 
 #include <ctype.h>
@@ -36,6 +37,10 @@ static node_t *parse_function_definition(parser_t *parser);
 static bool is_function_definition(parser_t *parser);
 static node_t *parse_logical_expression(parser_t *parser);
 static node_t *parse_redirection(parser_t *parser);
+
+// Forward declarations for extended language features (Phase 1)
+static node_t *parse_arithmetic_command(parser_t *parser);
+static node_t *parse_array_literal(parser_t *parser);
 
 // Forward declarations for POSIX compliance
 bool is_posix_mode_enabled(void);
@@ -483,6 +488,12 @@ static node_t *parse_simple_command(parser_t *parser) {
         return parse_brace_group(parser);
     }
 
+    // Check for arithmetic command (( expr ))
+    if (current->type == TOK_DOUBLE_LPAREN &&
+        shell_mode_allows(FEATURE_ARITH_COMMAND)) {
+        return parse_arithmetic_command(parser);
+    }
+
     // Check for subshell
     if (current->type == TOK_LPAREN) {
         return parse_subshell(parser);
@@ -520,20 +531,117 @@ static node_t *parse_simple_command(parser_t *parser) {
         return parse_function_definition(parser);
     }
 
-    // Check for assignment (word followed by =)
+    // Check for assignment (word followed by =) or array assignment
     if (token_is_word_like(current->type)) {
         token_t *next = tokenizer_peek(parser->tokenizer);
-        if (next && next->type == TOK_ASSIGN) {
-            // This is an assignment: variable=value
-            node_t *command = new_node(NODE_COMMAND);
-            if (!command) {
-                return NULL;
-            }
 
-            // FIX: Save variable name BEFORE advancing tokenizer
+        // Check for array element assignment: arr[n]=value or arr[n]+=value
+        // Tokenizer produces: arr[n] (WORD) + = (ASSIGN) + value (WORD)
+        // or: arr[n] (WORD) + += (PLUS_ASSIGN) + value (WORD)
+        if (shell_mode_allows(FEATURE_INDEXED_ARRAYS)) {
+            const char *bracket = strchr(current->text, '[');
+            const char *close_bracket = bracket ? strchr(bracket, ']') : NULL;
+
+            // Check for arr[...] followed by = or +=
+            if (bracket && close_bracket && next &&
+                (next->type == TOK_ASSIGN || next->type == TOK_PLUS_ASSIGN)) {
+                // This is an array element assignment
+                // Token format: arr[n] = value (separate tokens)
+
+                // Extract variable name (part before [)
+                size_t var_len = bracket - current->text;
+                char *var_name = malloc(var_len + 1);
+                if (!var_name) {
+                    return NULL;
+                }
+                strncpy(var_name, current->text, var_len);
+                var_name[var_len] = '\0';
+
+                // Extract subscript (part between [ and ])
+                size_t sub_len = close_bracket - bracket - 1;
+                char *subscript = malloc(sub_len + 1);
+                if (!subscript) {
+                    free(var_name);
+                    return NULL;
+                }
+                strncpy(subscript, bracket + 1, sub_len);
+                subscript[sub_len] = '\0';
+
+                // Check if += or =
+                bool is_append = (next->type == TOK_PLUS_ASSIGN);
+
+                tokenizer_advance(parser->tokenizer); // consume arr[n]
+                tokenizer_advance(parser->tokenizer); // consume = or +=
+
+                // Get value token - must copy before advancing
+                token_t *value_token = tokenizer_current(parser->tokenizer);
+                char *value_str = NULL;
+                if (value_token && (token_is_word_like(value_token->type) ||
+                                   value_token->type == TOK_VARIABLE ||
+                                   value_token->type == TOK_STRING ||
+                                   value_token->type == TOK_EXPANDABLE_STRING)) {
+                    value_str = strdup(value_token->text);
+                    tokenizer_advance(parser->tokenizer); // consume value
+                }
+                if (!value_str) {
+                    value_str = strdup("");
+                }
+
+                // Create array assignment node
+                node_t *assign_node = new_node(NODE_ARRAY_ASSIGN);
+                if (!assign_node) {
+                    free(var_name);
+                    free(subscript);
+                    return NULL;
+                }
+
+                assign_node->val.str = var_name; // Transfer ownership
+                assign_node->val_type = VAL_STR;
+
+                // Create subscript child node
+                node_t *subscript_node = new_node(NODE_VAR);
+                if (!subscript_node) {
+                    free(subscript);
+                    free_node_tree(assign_node);
+                    return NULL;
+                }
+                subscript_node->val.str = subscript;
+                subscript_node->val_type = VAL_STR;
+                add_child_node(assign_node, subscript_node);
+
+                // Create value child node
+                node_t *value_node = new_node(NODE_VAR);
+                if (!value_node) {
+                    free_node_tree(assign_node);
+                    return NULL;
+                }
+
+                if (is_append) {
+                    // Encode append with "+=" prefix
+                    size_t vlen = strlen(value_str);
+                    char *append_val = malloc(vlen + 3);
+                    if (append_val) {
+                        strcpy(append_val, "+=");
+                        strcat(append_val, value_str);
+                        value_node->val.str = append_val;
+                        free(value_str);
+                    } else {
+                        value_node->val.str = value_str; // Transfer ownership
+                    }
+                } else {
+                    value_node->val.str = value_str; // Transfer ownership
+                }
+                value_node->val_type = VAL_STR;
+                add_child_node(assign_node, value_node);
+
+                return assign_node;
+            }
+        }
+
+        if (next && next->type == TOK_ASSIGN) {
+            // Save variable name BEFORE advancing tokenizer
             char *var_name = strdup(current->text);
             if (!var_name) {
-                free_node_tree(command);
                 return NULL;
             }
 
@@ -541,6 +649,35 @@ static node_t *parse_simple_command(parser_t *parser) {
             tokenizer_advance(parser->tokenizer); // consume '='
 
             token_t *value = tokenizer_current(parser->tokenizer);
+
+            // Check for array literal assignment: arr=(a b c)
+            if (value && value->type == TOK_LPAREN &&
+                shell_mode_allows(FEATURE_INDEXED_ARRAYS)) {
+                node_t *array_node = parse_array_literal(parser);
+                if (!array_node) {
+                    free(var_name);
+                    return NULL;
+                }
+                // Create array assignment node
+                node_t *assign_node = new_node(NODE_ARRAY_ASSIGN);
+                if (!assign_node) {
+                    free(var_name);
+                    free_node_tree(array_node);
+                    return NULL;
+                }
+                assign_node->val.str = var_name; // Transfer ownership
+                assign_node->val_type = VAL_STR;
+                add_child_node(assign_node, array_node);
+                return assign_node;
+            }
+
+            // Regular scalar assignment: variable=value
+            node_t *command = new_node(NODE_COMMAND);
+            if (!command) {
+                free(var_name);
+                return NULL;
+            }
+
             if (value &&
                 (token_is_word_like(value->type) ||
                  value->type == TOK_VARIABLE || value->type == TOK_ARITH_EXP ||
@@ -2314,3 +2451,328 @@ static node_t *parse_function_definition(parser_t *parser) {
 
     return function_node;
 }
+
+/**
+ * @brief Parse an arithmetic command (( expr ))
+ *
+ * Parses the Bash-style arithmetic command that evaluates an expression
+ * and returns success (0) if non-zero, failure (1) if zero.
+ *
+ * Grammar: (( arithmetic_expression ))
+ *
+ * @param parser Parser instance
+ * @return Arithmetic command AST node with expression in val.str
+ */
+static node_t *parse_arithmetic_command(parser_t *parser) {
+    token_t *current = tokenizer_current(parser->tokenizer);
+    if (!current || current->type != TOK_DOUBLE_LPAREN) {
+        set_parser_error(parser, "Expected '(('");
+        return NULL;
+    }
+
+    // Consume ((
+    tokenizer_advance(parser->tokenizer);
+
+    // Create arithmetic command node
+    node_t *arith_node = new_node(NODE_ARITH_CMD);
+    if (!arith_node) {
+        set_parser_error(parser, "Failed to create arithmetic command node");
+        return NULL;
+    }
+
+    // Collect the arithmetic expression until ))
+    // We need to handle nested parentheses within the expression
+    char *expr = NULL;
+    size_t expr_len = 0;
+    size_t expr_capacity = 256;
+    int paren_depth = 0;
+
+    expr = malloc(expr_capacity);
+    if (!expr) {
+        free_node_tree(arith_node);
+        return NULL;
+    }
+    expr[0] = '\0';
+
+    // Parse tokens until we find )) at depth 0
+    while (!tokenizer_match(parser->tokenizer, TOK_EOF)) {
+        current = tokenizer_current(parser->tokenizer);
+        if (!current) {
+            break;
+        }
+
+        // Check for )) - end of arithmetic command
+        if (current->type == TOK_DOUBLE_RPAREN && paren_depth == 0) {
+            break;
+        }
+
+        // Track nested parentheses
+        if (current->type == TOK_LPAREN) {
+            paren_depth++;
+        } else if (current->type == TOK_RPAREN) {
+            if (paren_depth > 0) {
+                paren_depth--;
+            }
+        }
+
+        // Append token text to expression
+        size_t token_len = strlen(current->text);
+        if (expr_len + token_len + 2 > expr_capacity) {
+            expr_capacity = (expr_len + token_len + 2) * 2;
+            char *new_expr = realloc(expr, expr_capacity);
+            if (!new_expr) {
+                free(expr);
+                free_node_tree(arith_node);
+                return NULL;
+            }
+            expr = new_expr;
+        }
+
+        // Add space between tokens for readability (except at start)
+        // But don't add space before operator characters that might form
+        // multi-character operators (==, !=, <=, >=, &&, ||, etc.)
+        bool is_operator_char =
+            (current->text[0] == '=' || current->text[0] == '!' ||
+             current->text[0] == '<' || current->text[0] == '>' ||
+             current->text[0] == '&' || current->text[0] == '|');
+        bool prev_is_operator =
+            (expr_len > 0 &&
+             (expr[expr_len - 1] == '=' || expr[expr_len - 1] == '!' ||
+              expr[expr_len - 1] == '<' || expr[expr_len - 1] == '>' ||
+              expr[expr_len - 1] == '&' || expr[expr_len - 1] == '|'));
+
+        if (expr_len > 0 && expr[expr_len - 1] != ' ' &&
+            current->type != TOK_RPAREN && expr[expr_len - 1] != '(' &&
+            !(is_operator_char && prev_is_operator)) {
+            expr[expr_len++] = ' ';
+            expr[expr_len] = '\0';
+        }
+
+        strcat(expr, current->text);
+        expr_len = strlen(expr);
+
+        tokenizer_advance(parser->tokenizer);
+    }
+
+    // Expect ))
+    if (!tokenizer_match(parser->tokenizer, TOK_DOUBLE_RPAREN)) {
+        set_parser_error(parser, "Expected '))'");
+        free(expr);
+        free_node_tree(arith_node);
+        return NULL;
+    }
+    tokenizer_advance(parser->tokenizer); // consume ))
+
+    // Trim whitespace from expression
+    while (expr_len > 0 && expr[expr_len - 1] == ' ') {
+        expr[--expr_len] = '\0';
+    }
+    char *start = expr;
+    while (*start == ' ') {
+        start++;
+    }
+    if (start != expr) {
+        memmove(expr, start, strlen(start) + 1);
+    }
+
+    arith_node->val.str = expr;
+    arith_node->val_type = VAL_STR;
+
+    return arith_node;
+}
+
+/**
+ * @brief Parse an array literal (a b c)
+ *
+ * Parses the Bash-style array literal syntax that creates an indexed array.
+ * Elements are separated by whitespace. Supports nested expansions.
+ *
+ * Grammar: ( [element ...] )
+ *
+ * @param parser Parser instance
+ * @return Array literal AST node with elements as children
+ */
+static node_t *parse_array_literal(parser_t *parser) {
+    token_t *current = tokenizer_current(parser->tokenizer);
+    if (!current || current->type != TOK_LPAREN) {
+        set_parser_error(parser, "Expected '('");
+        return NULL;
+    }
+
+    // Consume (
+    tokenizer_advance(parser->tokenizer);
+
+    // Create array literal node
+    node_t *array_node = new_node(NODE_ARRAY_LITERAL);
+    if (!array_node) {
+        set_parser_error(parser, "Failed to create array literal node");
+        return NULL;
+    }
+
+    // Parse elements until )
+    while (!tokenizer_match(parser->tokenizer, TOK_RPAREN) &&
+           !tokenizer_match(parser->tokenizer, TOK_EOF)) {
+
+        current = tokenizer_current(parser->tokenizer);
+        if (!current) {
+            break;
+        }
+
+        // Skip whitespace
+        if (current->type == TOK_WHITESPACE ||
+            current->type == TOK_NEWLINE) {
+            tokenizer_advance(parser->tokenizer);
+            continue;
+        }
+
+        // Check for [index]=value syntax
+        if (current->type == TOK_LBRACKET) {
+            // Parse indexed element [n]=value
+            tokenizer_advance(parser->tokenizer); // consume [
+
+            // Collect index expression
+            char *index_str = NULL;
+            size_t index_len = 0;
+
+            while (!tokenizer_match(parser->tokenizer, TOK_RBRACKET) &&
+                   !tokenizer_match(parser->tokenizer, TOK_EOF)) {
+                token_t *idx_token = tokenizer_current(parser->tokenizer);
+                if (!idx_token) break;
+
+                size_t tlen = strlen(idx_token->text);
+                char *new_idx = realloc(index_str, index_len + tlen + 1);
+                if (!new_idx) {
+                    free(index_str);
+                    free_node_tree(array_node);
+                    return NULL;
+                }
+                index_str = new_idx;
+                strcpy(index_str + index_len, idx_token->text);
+                index_len += tlen;
+
+                tokenizer_advance(parser->tokenizer);
+            }
+
+            if (!tokenizer_match(parser->tokenizer, TOK_RBRACKET)) {
+                set_parser_error(parser, "Expected ']' in array literal");
+                free(index_str);
+                free_node_tree(array_node);
+                return NULL;
+            }
+            tokenizer_advance(parser->tokenizer); // consume ]
+
+            // Expect =
+            if (!tokenizer_match(parser->tokenizer, TOK_ASSIGN)) {
+                set_parser_error(parser, "Expected '=' after array index");
+                free(index_str);
+                free_node_tree(array_node);
+                return NULL;
+            }
+            tokenizer_advance(parser->tokenizer); // consume =
+
+            // Get value
+            current = tokenizer_current(parser->tokenizer);
+            char *value_str = NULL;
+            if (current && (token_is_word_like(current->type) ||
+                           current->type == TOK_VARIABLE ||
+                           current->type == TOK_STRING ||
+                           current->type == TOK_EXPANDABLE_STRING)) {
+                value_str = strdup(current->text);
+                tokenizer_advance(parser->tokenizer);
+            } else {
+                value_str = strdup(""); // Empty value
+            }
+
+            // Create element node with index:value format
+            node_t *elem_node = new_node(NODE_VAR);
+            if (!elem_node) {
+                free(index_str);
+                free(value_str);
+                free_node_tree(array_node);
+                return NULL;
+            }
+
+            // Store as "[index]=value" for later processing
+            size_t total_len = 1 + (index_str ? strlen(index_str) : 0) + 2 +
+                              (value_str ? strlen(value_str) : 0) + 1;
+            char *combined = malloc(total_len);
+            if (combined) {
+                snprintf(combined, total_len, "[%s]=%s",
+                        index_str ? index_str : "0",
+                        value_str ? value_str : "");
+                elem_node->val.str = combined;
+                elem_node->val_type = VAL_STR;
+            }
+
+            free(index_str);
+            free(value_str);
+            add_child_node(array_node, elem_node);
+        }
+        // Regular element (no explicit index)
+        else if (token_is_word_like(current->type) ||
+                 current->type == TOK_VARIABLE ||
+                 current->type == TOK_STRING ||
+                 current->type == TOK_EXPANDABLE_STRING ||
+                 current->type == TOK_ARITH_EXP ||
+                 current->type == TOK_COMMAND_SUB) {
+
+            node_t *elem_node = NULL;
+
+            // Create appropriate node type
+            switch (current->type) {
+            case TOK_STRING:
+                elem_node = new_node(NODE_STRING_LITERAL);
+                break;
+            case TOK_EXPANDABLE_STRING:
+                elem_node = new_node(NODE_STRING_EXPANDABLE);
+                break;
+            case TOK_ARITH_EXP:
+                elem_node = new_node(NODE_ARITH_EXP);
+                break;
+            case TOK_COMMAND_SUB:
+                elem_node = new_node(NODE_COMMAND_SUB);
+                break;
+            default:
+                elem_node = new_node(NODE_VAR);
+                break;
+            }
+
+            if (!elem_node) {
+                free_node_tree(array_node);
+                return NULL;
+            }
+
+            elem_node->val.str = strdup(current->text);
+            elem_node->val_type = VAL_STR;
+            add_child_node(array_node, elem_node);
+
+            tokenizer_advance(parser->tokenizer);
+        } else {
+            // Unknown token type in array literal - skip it
+            tokenizer_advance(parser->tokenizer);
+        }
+    }
+
+    // Expect )
+    if (!tokenizer_match(parser->tokenizer, TOK_RPAREN)) {
+        set_parser_error(parser, "Expected ')' to close array literal");
+        free_node_tree(array_node);
+        return NULL;
+    }
+    tokenizer_advance(parser->tokenizer); // consume )
+
+    return array_node;
+}
+
+/**
+ * @brief Parse an array element assignment arr[index]=value
+ *
+ * Parses the Bash-style array element assignment.
+ * Also handles += for append operations.
+ *
+ * Grammar: name[subscript]=value | name[subscript]+=value
+ *
+ * @param parser Parser instance
+ * @param var_name Name of the array variable
+ * @return Array assignment AST node
+ */

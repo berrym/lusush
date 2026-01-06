@@ -57,12 +57,17 @@ typedef enum {
     TOK_BACKQUOTE,        // `
 
     // Delimiters
-    TOK_LPAREN,   // (
-    TOK_RPAREN,   // )
-    TOK_LBRACE,   // {
-    TOK_RBRACE,   // }
-    TOK_LBRACKET, // [
-    TOK_RBRACKET, // ]
+    TOK_LPAREN,        // (
+    TOK_RPAREN,        // )
+    TOK_DOUBLE_LPAREN, // (( - arithmetic command start
+    TOK_DOUBLE_RPAREN, // )) - arithmetic command end
+    TOK_LBRACE,        // {
+    TOK_RBRACE,        // }
+    TOK_LBRACKET,      // [
+    TOK_RBRACKET,      // ]
+
+    // Extended assignment operators (Phase 1: Arrays/Arithmetic)
+    TOK_PLUS_ASSIGN,   // += - append to array or add to integer
 
     // Keywords (recognized contextually)
     TOK_IF,

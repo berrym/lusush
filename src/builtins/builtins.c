@@ -120,6 +120,8 @@ builtin builtins[] = {
     {"times", "display process times", bin_times},
     {"getopts", "parse command options", bin_getopts},
     {"local", "declare local variables", bin_local},
+    {"declare", "declare variables with attributes", bin_declare},
+    {"typeset", "declare variables with attributes", bin_declare},
     {":", "null command (no-op)", bin_colon},
     {"readonly", "create read-only variables", bin_readonly},
     {"config", "manage shell configuration", bin_config},
@@ -3214,6 +3216,292 @@ int bin_local(int argc, char **argv) {
                 return 1;
             }
         }
+    }
+
+    return 0;
+}
+
+/**
+ * @brief Declare variables with attributes
+ *
+ * Bash/Zsh-compatible declare builtin for declaring variables with
+ * special attributes like indexed arrays, associative arrays, or integers.
+ *
+ * Options:
+ *   -a  Declare indexed array
+ *   -A  Declare associative array
+ *   -i  Declare integer variable (auto-evaluates arithmetic)
+ *   -r  Declare readonly variable
+ *   -x  Export variable to environment
+ *   -p  Print variable attributes and values
+ *
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on error
+ */
+int bin_declare(int argc, char **argv) {
+    bool opt_indexed_array = false;
+    bool opt_assoc_array = false;
+    bool opt_integer = false;
+    bool opt_readonly = false;
+    bool opt_export = false;
+    bool opt_print = false;
+
+    int opt_idx = 1;
+
+    // Parse options
+    while (opt_idx < argc && argv[opt_idx][0] == '-') {
+        const char *opt = argv[opt_idx];
+
+        // Handle -- to stop option processing
+        if (strcmp(opt, "--") == 0) {
+            opt_idx++;
+            break;
+        }
+
+        // Process each character in the option string
+        for (int i = 1; opt[i]; i++) {
+            switch (opt[i]) {
+            case 'a':
+                opt_indexed_array = true;
+                break;
+            case 'A':
+                opt_assoc_array = true;
+                break;
+            case 'i':
+                opt_integer = true;
+                break;
+            case 'r':
+                opt_readonly = true;
+                break;
+            case 'x':
+                opt_export = true;
+                break;
+            case 'p':
+                opt_print = true;
+                break;
+            default:
+                fprintf(stderr, "declare: -%c: invalid option\n", opt[i]);
+                return 2;
+            }
+        }
+        opt_idx++;
+    }
+
+    // Can't have both -a and -A
+    if (opt_indexed_array && opt_assoc_array) {
+        fprintf(stderr, "declare: cannot use -a and -A simultaneously\n");
+        return 1;
+    }
+
+    // If no variable names provided and -p not specified, just return success
+    if (opt_idx >= argc && !opt_print) {
+        return 0;
+    }
+
+    // Handle -p (print) option with no arguments - list all variables
+    if (opt_print && opt_idx >= argc) {
+        // TODO: Implement listing all declared variables with their attributes
+        printf("declare: listing all variables not yet implemented\n");
+        return 0;
+    }
+
+    // Process each variable argument
+    for (int i = opt_idx; i < argc; i++) {
+        char *arg = argv[i];
+        char *eq = strchr(arg, '=');
+        char *name = NULL;
+        char *value = NULL;
+
+        if (eq) {
+            // Assignment: declare var=value or declare -a arr=(...)
+            size_t name_len = eq - arg;
+            name = malloc(name_len + 1);
+            if (!name) {
+                fprintf(stderr, "declare: memory allocation failed\n");
+                return 1;
+            }
+            strncpy(name, arg, name_len);
+            name[name_len] = '\0';
+            value = eq + 1;
+        } else {
+            // Declaration only: declare var
+            name = strdup(arg);
+            if (!name) {
+                fprintf(stderr, "declare: memory allocation failed\n");
+                return 1;
+            }
+            value = NULL;
+        }
+
+        // Validate variable name
+        if (!name[0] || (!isalpha(name[0]) && name[0] != '_')) {
+            fprintf(stderr, "declare: `%s': not a valid identifier\n", name);
+            free(name);
+            return 1;
+        }
+        for (size_t j = 1; name[j]; j++) {
+            if (!isalnum(name[j]) && name[j] != '_') {
+                fprintf(stderr, "declare: `%s': not a valid identifier\n", name);
+                free(name);
+                return 1;
+            }
+        }
+
+        // Handle -p for specific variable
+        if (opt_print) {
+            symtable_manager_t *manager = symtable_get_global_manager();
+            // Check if it's an array
+            array_value_t *arr = symtable_get_array(name);
+            if (arr) {
+                if (arr->is_associative) {
+                    printf("declare -A %s\n", name);
+                } else {
+                    printf("declare -a %s\n", name);
+                }
+            } else if (manager) {
+                char *var_value = symtable_get(manager, name);
+                if (var_value) {
+                    printf("declare -- %s=\"%s\"\n", name, var_value);
+                } else {
+                    fprintf(stderr, "declare: %s: not found\n", name);
+                }
+            } else {
+                fprintf(stderr, "declare: %s: not found\n", name);
+            }
+            free(name);
+            continue;
+        }
+
+        // Handle array declarations
+        if (opt_indexed_array || opt_assoc_array) {
+            array_value_t *arr = symtable_array_create(opt_assoc_array);
+            if (!arr) {
+                fprintf(stderr, "declare: failed to create array\n");
+                free(name);
+                return 1;
+            }
+
+            // If value is provided and starts with (, parse as array literal
+            if (value && value[0] == '(') {
+                // Parse array literal (elem1 elem2 ...)
+                const char *p = value + 1;
+                int idx = 0;
+
+                while (*p && *p != ')') {
+                    // Skip whitespace
+                    while (*p && isspace(*p)) p++;
+                    if (*p == ')' || !*p) break;
+
+                    // Find end of element
+                    const char *elem_start = p;
+                    bool in_quote = false;
+                    char quote_char = 0;
+
+                    while (*p && (in_quote || (!isspace(*p) && *p != ')'))) {
+                        if (!in_quote && (*p == '"' || *p == '\'')) {
+                            in_quote = true;
+                            quote_char = *p;
+                        } else if (in_quote && *p == quote_char) {
+                            in_quote = false;
+                        }
+                        p++;
+                    }
+
+                    size_t elem_len = p - elem_start;
+                    if (elem_len > 0) {
+                        char *elem = malloc(elem_len + 1);
+                        if (elem) {
+                            strncpy(elem, elem_start, elem_len);
+                            elem[elem_len] = '\0';
+
+                            // Check for [n]=value syntax
+                            if (elem[0] == '[') {
+                                char *bracket_end = strchr(elem, ']');
+                                if (bracket_end && bracket_end[1] == '=') {
+                                    *bracket_end = '\0';
+                                    const char *idx_str = elem + 1;
+                                    const char *elem_val = bracket_end + 2;
+
+                                    if (opt_assoc_array) {
+                                        symtable_array_set_assoc(arr, idx_str, elem_val);
+                                    } else {
+                                        int parsed_idx = atoi(idx_str);
+                                        symtable_array_set_index(arr, parsed_idx, elem_val);
+                                    }
+                                }
+                            } else {
+                                // Regular element
+                                symtable_array_set_index(arr, idx++, elem);
+                            }
+                            free(elem);
+                        }
+                    }
+                }
+            }
+
+            if (symtable_set_array(name, arr) != 0) {
+                fprintf(stderr, "declare: failed to store array\n");
+                symtable_array_free(arr);
+                free(name);
+                return 1;
+            }
+        }
+        // Handle integer declaration
+        else if (opt_integer) {
+            symtable_manager_t *manager = symtable_get_global_manager();
+            if (!manager) {
+                fprintf(stderr, "declare: symbol table not available\n");
+                free(name);
+                return 1;
+            }
+            // For integer variables, evaluate value as arithmetic
+            if (value) {
+                char *result = arithm_expand(value);
+                if (result) {
+                    symtable_set(manager, name, result);
+                    free(result);
+                } else {
+                    // If arithmetic eval fails, set to 0
+                    symtable_set(manager, name, "0");
+                }
+            } else {
+                symtable_set(manager, name, "0");
+            }
+        }
+        // Regular variable declaration
+        else {
+            symtable_manager_t *manager = symtable_get_global_manager();
+            if (!manager) {
+                fprintf(stderr, "declare: symbol table not available\n");
+                free(name);
+                return 1;
+            }
+            if (value) {
+                symtable_set(manager, name, value);
+            } else {
+                // Just declare without value
+                symtable_set(manager, name, "");
+            }
+        }
+
+        // Handle readonly - not fully implemented yet
+        if (opt_readonly) {
+            (void)opt_readonly; // Suppress unused warning
+        }
+
+        // Handle export
+        if (opt_export) {
+            symtable_manager_t *manager = symtable_get_global_manager();
+            if (manager) {
+                char *var_value = symtable_get(manager, name);
+                if (var_value) {
+                    setenv(name, var_value, 1);
+                }
+            }
+        }
+
+        free(name);
     }
 
     return 0;
