@@ -223,6 +223,10 @@ typedef struct {
 
     /* Script execution control */
     bool script_execution; /**< Enable script execution */
+
+    /* Shell mode settings (Phase 0: Extended Language Support) */
+    int shell_mode;            /**< Shell mode: 0=posix, 1=bash, 2=zsh, 3=lusush */
+    bool shell_mode_strict;    /**< Disallow runtime mode changes */
 } config_values_t;
 
 /** @brief Global configuration instance */
@@ -457,6 +461,14 @@ bool config_validate_lle_dedup_scope(const char *value);
  * @return true if valid dedup strategy, false otherwise
  */
 bool config_validate_lle_dedup_strategy(const char *value);
+
+/**
+ * @brief Validate a shell mode value
+ *
+ * @param value Shell mode string to validate (posix, bash, zsh, lusush)
+ * @return true if valid shell mode, false otherwise
+ */
+bool config_validate_shell_mode(const char *value);
 
 /* ============================================================================
  * Configuration Value Setters and Getters

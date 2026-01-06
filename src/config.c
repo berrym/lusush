@@ -16,6 +16,7 @@
 #include "autocorrect.h"
 #include "lle/lle_shell_integration.h"
 #include "lusush.h"
+#include "shell_mode.h"
 #include "symtable.h"
 
 #include <ctype.h>
@@ -125,6 +126,18 @@ static const config_enum_mapping_t lle_dedup_strategy_mappings[] = {
 };
 static const config_enum_def_t lle_dedup_strategy_enum = {
     lle_dedup_strategy_mappings, LLE_DEDUP_STRATEGY_KEEP_RECENT};
+
+// Shell Mode mappings (Phase 0: Extended Language Support)
+static const config_enum_mapping_t shell_mode_mappings[] = {
+    {"posix", SHELL_MODE_POSIX},
+    {"sh", SHELL_MODE_POSIX},  /* Alias for posix */
+    {"bash", SHELL_MODE_BASH},
+    {"zsh", SHELL_MODE_ZSH},
+    {"lusush", SHELL_MODE_LUSUSH},
+    {NULL, 0} // Sentinel
+};
+static const config_enum_def_t shell_mode_enum = {
+    shell_mode_mappings, SHELL_MODE_LUSUSH};
 
 // ============================================================================
 // CONFIGURATION OPTION DEFINITIONS
@@ -466,6 +479,14 @@ static config_option_t config_options[] = {
     {"shell.privileged", CONFIG_TYPE_BOOL, CONFIG_SECTION_SHELL, NULL,
      "Restricted shell security (set -o privileged)",
      config_validate_shell_option, NULL},
+
+    // Shell mode settings (Phase 0: Extended Language Support)
+    {"shell.mode", CONFIG_TYPE_ENUM, CONFIG_SECTION_SHELL, &config.shell_mode,
+     "Shell compatibility mode (posix, bash, zsh, lusush)",
+     config_validate_shell_mode, &shell_mode_enum},
+    {"shell.mode_strict", CONFIG_TYPE_BOOL, CONFIG_SECTION_SHELL,
+     &config.shell_mode_strict, "Disallow runtime mode changes",
+     config_validate_bool, NULL},
 };
 
 static const int num_config_options =
@@ -1580,6 +1601,10 @@ void config_set_defaults(void) {
     // Script execution defaults
     config.script_execution = true;
 
+    // Shell mode defaults (Phase 0: Extended Language Support)
+    config.shell_mode = SHELL_MODE_LUSUSH;  // Curated best of Bash/Zsh
+    config.shell_mode_strict = false;        // Allow runtime mode changes
+
     // Line editor - LLE is always enabled (sole line editor)
     // LLE is the only line editor - no config option needed
 }
@@ -1993,6 +2018,10 @@ void config_apply_settings(void) {
     // Apply settings safely - only set basic variables for now
     // More complex integrations will be added after basic functionality works
 
+    // Apply shell mode settings (Phase 0: Extended Language Support)
+    shell_mode_set((shell_mode_t)config.shell_mode);
+    shell_mode_set_strict(config.shell_mode_strict);
+
     // Basic symbol table settings
     symtable_set_global_int("CONFIG_LOADED", 1);
     symtable_set_global_int("HISTORY_NO_DUPS", config.history_no_dups ? 1 : 0);
@@ -2194,6 +2223,18 @@ bool config_validate_lle_dedup_strategy(const char *value) {
     return (strcmp(value, "ignore") == 0 || strcmp(value, "keep-recent") == 0 ||
             strcmp(value, "keep-frequent") == 0 ||
             strcmp(value, "merge") == 0 || strcmp(value, "keep-all") == 0);
+}
+
+/**
+ * @brief Validate shell mode value
+ *
+ * @param value String to validate
+ * @return True if value is a valid shell mode
+ */
+bool config_validate_shell_mode(const char *value) {
+    return (strcmp(value, "posix") == 0 || strcmp(value, "bash") == 0 ||
+            strcmp(value, "zsh") == 0 || strcmp(value, "lusush") == 0 ||
+            strcmp(value, "sh") == 0);  /* sh is alias for posix */
 }
 
 /**

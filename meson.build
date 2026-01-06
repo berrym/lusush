@@ -95,6 +95,7 @@ src = ['src/builtins/alias.c',
        'src/opts.c',
        'src/parser.c',
        'src/posix_opts.c',
+       'src/shell_mode.c',
        'src/signals.c',
        'src/strings.c',
        'src/symtable.c',
@@ -985,6 +986,19 @@ if fs.exists('tests/unit/test_completion_menu_renderer.c')
                                              include_directories: inc,
                                              link_with: lle_lib)
   test('LLE Completion Menu Renderer', test_completion_menu_renderer,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# ============================================================================
+# Shell Mode Unit Tests (Phase 0: Extended Language Support)
+# Tests multi-mode architecture, feature matrix, overrides, shebang detection
+if fs.exists('tests/unit/test_shell_mode.c')
+  test_shell_mode = executable('test_shell_mode',
+                               'tests/unit/test_shell_mode.c',
+                               'src/shell_mode.c',
+                               include_directories: inc)
+  test('Shell Mode System', test_shell_mode,
        suite: 'unit',
        timeout: 30)
 endif

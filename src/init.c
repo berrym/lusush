@@ -24,6 +24,7 @@
 #include "history.h"
 #include "input.h"
 #include "posix_history.h"
+#include "shell_mode.h"
 
 #include "lle/completion/ssh_hosts.h"
 #include "lusush.h"
@@ -112,8 +113,21 @@ static void process_shebang(FILE *file) {
 
     if (fgets(line, sizeof(line), file) != NULL) {
         if (strncmp(line, "#!", 2) == 0) {
-            // This is a shebang line - we just consume it and continue
-            // The shebang has already done its job by launching our shell
+            // This is a shebang line - detect shell mode from it
+            // Examples:
+            //   #!/bin/bash      -> SHELL_MODE_BASH
+            //   #!/bin/zsh       -> SHELL_MODE_ZSH
+            //   #!/bin/sh        -> SHELL_MODE_POSIX
+            //   #!/usr/bin/env bash -> SHELL_MODE_BASH
+            //   #!/usr/bin/env lusush -> SHELL_MODE_LUSUSH (default)
+            shell_mode_t detected;
+            if (shell_mode_detect_from_shebang(line, &detected)) {
+                if (detected != SHELL_MODE_LUSUSH) {
+                    // Only switch if not already the default mode
+                    shell_mode_set(detected);
+                }
+            }
+            // Shebang line consumed - continue with rest of script
             return;
         }
     }

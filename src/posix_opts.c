@@ -15,6 +15,7 @@
 #include "errors.h"
 #include "lle/lle_shell_integration.h"
 #include "lusush.h"
+#include "shell_mode.h"
 #include "symtable.h"
 
 #include <stdbool.h>
@@ -361,52 +362,97 @@ int builtin_set(char **args) {
             if (args[i + 1]) {
                 // Set named option
                 i++; // consume the option name
-                option_mapping_t *opt = find_option_by_name(args[i]);
-                if (opt) {
-                    *(opt->flag) = true;
-                    // Handle mutually exclusive editing modes
-                    if (strcmp(args[i], "emacs") == 0) {
-                        shell_opts.vi_mode =
-                            false; // Disable vi when enabling emacs
-                        lusush_update_editing_mode();
-                    } else if (strcmp(args[i], "vi") == 0) {
-                        shell_opts.emacs_mode =
-                            false; // Disable emacs when enabling vi
-                        lusush_update_editing_mode();
+
+                // Check for shell mode options first (mutually exclusive modes)
+                if (strcmp(args[i], "posix") == 0) {
+                    if (!shell_mode_set(SHELL_MODE_POSIX)) {
+                        error_message("set: cannot change shell mode (strict mode enabled)");
+                        return 1;
                     }
+                    shell_opts.posix_mode = true;
+                } else if (strcmp(args[i], "bash") == 0) {
+                    if (!shell_mode_set(SHELL_MODE_BASH)) {
+                        error_message("set: cannot change shell mode (strict mode enabled)");
+                        return 1;
+                    }
+                    shell_opts.posix_mode = false;
+                } else if (strcmp(args[i], "zsh") == 0) {
+                    if (!shell_mode_set(SHELL_MODE_ZSH)) {
+                        error_message("set: cannot change shell mode (strict mode enabled)");
+                        return 1;
+                    }
+                    shell_opts.posix_mode = false;
+                } else if (strcmp(args[i], "lusush") == 0) {
+                    if (!shell_mode_set(SHELL_MODE_LUSUSH)) {
+                        error_message("set: cannot change shell mode (strict mode enabled)");
+                        return 1;
+                    }
+                    shell_opts.posix_mode = false;
                 } else {
-                    error_message("set: invalid option name: %s", args[i]);
-                    return 1;
+                    option_mapping_t *opt = find_option_by_name(args[i]);
+                    if (opt) {
+                        *(opt->flag) = true;
+                        // Handle mutually exclusive editing modes
+                        if (strcmp(args[i], "emacs") == 0) {
+                            shell_opts.vi_mode =
+                                false; // Disable vi when enabling emacs
+                            lusush_update_editing_mode();
+                        } else if (strcmp(args[i], "vi") == 0) {
+                            shell_opts.emacs_mode =
+                                false; // Disable emacs when enabling vi
+                            lusush_update_editing_mode();
+                        }
+                    } else {
+                        error_message("set: invalid option name: %s", args[i]);
+                        return 1;
+                    }
                 }
             } else {
-                // No argument - show all options
+                // No argument - show all options including shell mode
                 printf("Current shell options:\n");
                 for (int j = 0; option_map[j].name; j++) {
                     printf("set %co %s\n", *(option_map[j].flag) ? '-' : '+',
                            option_map[j].name);
                 }
+                // Also show current shell mode
+                printf("set -o %s  (shell mode)\n", shell_mode_name(shell_mode_get()));
                 return 0;
             }
         } else if (strcmp(arg, "+o") == 0) {
             if (args[i + 1]) {
                 // Unset named option
                 i++; // consume the option name
-                option_mapping_t *opt = find_option_by_name(args[i]);
-                if (opt) {
-                    *(opt->flag) = false;
-                    // Handle mutually exclusive editing modes
-                    if (strcmp(args[i], "emacs") == 0) {
-                        shell_opts.vi_mode =
-                            true; // Enable vi when disabling emacs
-                        lusush_update_editing_mode();
-                    } else if (strcmp(args[i], "vi") == 0) {
-                        shell_opts.emacs_mode =
-                            true; // Enable emacs when disabling vi
-                        lusush_update_editing_mode();
+
+                // Shell mode options - +o switches back to lusush (default)
+                if (strcmp(args[i], "posix") == 0 ||
+                    strcmp(args[i], "bash") == 0 ||
+                    strcmp(args[i], "zsh") == 0) {
+                    if (!shell_mode_set(SHELL_MODE_LUSUSH)) {
+                        error_message("set: cannot change shell mode (strict mode enabled)");
+                        return 1;
                     }
+                    shell_opts.posix_mode = false;
+                } else if (strcmp(args[i], "lusush") == 0) {
+                    // +o lusush is a no-op (can't disable default mode)
+                    // Do nothing
                 } else {
-                    error_message("set: invalid option name: %s", args[i]);
-                    return 1;
+                    option_mapping_t *opt = find_option_by_name(args[i]);
+                    if (opt) {
+                        *(opt->flag) = false;
+                        // Handle mutually exclusive editing modes
+                        if (strcmp(args[i], "emacs") == 0) {
+                            shell_opts.vi_mode =
+                                true; // Enable vi when disabling emacs
+                            lusush_update_editing_mode();
+                        } else if (strcmp(args[i], "vi") == 0) {
+                            shell_opts.emacs_mode =
+                                true; // Enable emacs when disabling vi
+                            lusush_update_editing_mode();
+                        }
+                    } else {
+                        error_message("set: invalid option name: %s", args[i]);
+                        return 1;
+                    }
                 }
             } else {
                 // No argument - show all options in +o format (read-only
@@ -416,6 +462,8 @@ int builtin_set(char **args) {
                     printf("set %co %s\n", *(option_map[j].flag) ? '-' : '+',
                            option_map[j].name);
                 }
+                // Also show current shell mode
+                printf("set -o %s  (shell mode)\n", shell_mode_name(shell_mode_get()));
                 return 0;
             }
         } else if (strcmp(arg, "--") == 0) {
