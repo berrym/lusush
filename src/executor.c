@@ -4295,6 +4295,293 @@ static char *convert_case_all_lower(const char *str) {
 }
 
 /**
+ * @brief Pattern substitution for ${var/pattern/replacement}
+ *
+ * Replaces pattern matches in str with replacement.
+ * Supports glob patterns (* and ?).
+ *
+ * @param str Source string
+ * @param pattern Pattern to match (supports * and ?)
+ * @param replacement Replacement string
+ * @param global If true, replace all occurrences; if false, only first
+ * @return New string with substitutions (caller must free)
+ */
+static char *pattern_substitute(const char *str, const char *pattern,
+                                const char *replacement, bool global) {
+    if (!str) {
+        return strdup("");
+    }
+    if (!pattern || !pattern[0]) {
+        return strdup(str);
+    }
+    if (!replacement) {
+        replacement = "";
+    }
+
+    size_t str_len = strlen(str);
+    size_t pattern_len = strlen(pattern);
+    size_t replacement_len = strlen(replacement);
+
+    // Allocate result buffer - estimate size
+    size_t result_size = str_len * 2 + 1;
+    char *result = malloc(result_size);
+    if (!result) {
+        return strdup(str);
+    }
+    result[0] = '\0';
+    size_t result_pos = 0;
+
+    size_t i = 0;
+    bool replaced = false;
+
+    while (i < str_len) {
+        // Try to match pattern at current position
+        bool matched = false;
+        size_t match_len = 0;
+
+        // Simple pattern matching - check for exact match or glob
+        if (strchr(pattern, '*') || strchr(pattern, '?')) {
+            // Use fnmatch for glob patterns
+            // Try increasing lengths to find the match
+            for (size_t try_len = 1; try_len <= str_len - i; try_len++) {
+                char *substr = malloc(try_len + 1);
+                if (substr) {
+                    strncpy(substr, str + i, try_len);
+                    substr[try_len] = '\0';
+                    if (fnmatch(pattern, substr, 0) == 0) {
+                        matched = true;
+                        match_len = try_len;
+                        // For greedy matching with *, keep trying longer
+                        if (strchr(pattern, '*')) {
+                            for (size_t longer = try_len + 1; longer <= str_len - i; longer++) {
+                                char *longer_substr = malloc(longer + 1);
+                                if (longer_substr) {
+                                    strncpy(longer_substr, str + i, longer);
+                                    longer_substr[longer] = '\0';
+                                    if (fnmatch(pattern, longer_substr, 0) == 0) {
+                                        match_len = longer;
+                                    }
+                                    free(longer_substr);
+                                }
+                            }
+                        }
+                        free(substr);
+                        break;
+                    }
+                    free(substr);
+                }
+            }
+        } else {
+            // Exact substring match
+            if (strncmp(str + i, pattern, pattern_len) == 0) {
+                matched = true;
+                match_len = pattern_len;
+            }
+        }
+
+        if (matched && (!replaced || global)) {
+            // Ensure we have enough space
+            if (result_pos + replacement_len + 1 >= result_size) {
+                result_size = result_size * 2 + replacement_len;
+                char *new_result = realloc(result, result_size);
+                if (!new_result) {
+                    free(result);
+                    return strdup(str);
+                }
+                result = new_result;
+            }
+
+            // Copy replacement
+            strcpy(result + result_pos, replacement);
+            result_pos += replacement_len;
+            i += match_len;
+            replaced = true;
+        } else {
+            // No match, copy current character
+            if (result_pos + 1 >= result_size) {
+                result_size *= 2;
+                char *new_result = realloc(result, result_size);
+                if (!new_result) {
+                    free(result);
+                    return strdup(str);
+                }
+                result = new_result;
+            }
+            result[result_pos++] = str[i++];
+        }
+    }
+
+    result[result_pos] = '\0';
+    return result;
+}
+
+/**
+ * @brief Quote a string for safe reuse as shell input
+ *
+ * Used for ${var@Q} transformation.
+ *
+ * @param str String to quote
+ * @return Quoted string (caller must free)
+ */
+static char *transform_quote(const char *str) {
+    if (!str) {
+        return strdup("''");
+    }
+
+    // Use $'...' quoting for strings with special characters
+    size_t len = strlen(str);
+    bool needs_special = false;
+
+    for (size_t i = 0; i < len; i++) {
+        if (str[i] < 32 || str[i] == '\'' || str[i] == '\\') {
+            needs_special = true;
+            break;
+        }
+    }
+
+    if (needs_special) {
+        // Use $'...' format with escape sequences
+        size_t result_size = len * 4 + 4;
+        char *result = malloc(result_size);
+        if (!result) {
+            return strdup("''");
+        }
+
+        size_t pos = 0;
+        result[pos++] = '$';
+        result[pos++] = '\'';
+
+        for (size_t i = 0; i < len; i++) {
+            unsigned char c = str[i];
+            if (c == '\'') {
+                result[pos++] = '\\';
+                result[pos++] = '\'';
+            } else if (c == '\\') {
+                result[pos++] = '\\';
+                result[pos++] = '\\';
+            } else if (c == '\n') {
+                result[pos++] = '\\';
+                result[pos++] = 'n';
+            } else if (c == '\t') {
+                result[pos++] = '\\';
+                result[pos++] = 't';
+            } else if (c == '\r') {
+                result[pos++] = '\\';
+                result[pos++] = 'r';
+            } else if (c < 32) {
+                pos += snprintf(result + pos, result_size - pos, "\\x%02x", c);
+            } else {
+                result[pos++] = c;
+            }
+        }
+
+        result[pos++] = '\'';
+        result[pos] = '\0';
+        return result;
+    } else {
+        // Simple single quotes
+        size_t result_size = len + 3;
+        char *result = malloc(result_size);
+        if (!result) {
+            return strdup("''");
+        }
+        snprintf(result, result_size, "'%s'", str);
+        return result;
+    }
+}
+
+/**
+ * @brief Expand escape sequences in a string
+ *
+ * Used for ${var@E} transformation.
+ *
+ * @param str String with escape sequences
+ * @return Expanded string (caller must free)
+ */
+static char *transform_escape(const char *str) {
+    if (!str) {
+        return strdup("");
+    }
+
+    size_t len = strlen(str);
+    char *result = malloc(len + 1);
+    if (!result) {
+        return strdup("");
+    }
+
+    size_t j = 0;
+    for (size_t i = 0; i < len; i++) {
+        if (str[i] == '\\' && i + 1 < len) {
+            switch (str[i + 1]) {
+            case 'n': result[j++] = '\n'; i++; break;
+            case 't': result[j++] = '\t'; i++; break;
+            case 'r': result[j++] = '\r'; i++; break;
+            case '\\': result[j++] = '\\'; i++; break;
+            case '\'': result[j++] = '\''; i++; break;
+            case '"': result[j++] = '"'; i++; break;
+            case 'a': result[j++] = '\a'; i++; break;
+            case 'b': result[j++] = '\b'; i++; break;
+            case 'e': result[j++] = '\033'; i++; break;
+            case 'f': result[j++] = '\f'; i++; break;
+            case 'v': result[j++] = '\v'; i++; break;
+            case 'x': // Hex escape \xHH
+                if (i + 3 < len && isxdigit(str[i + 2]) && isxdigit(str[i + 3])) {
+                    char hex[3] = {str[i + 2], str[i + 3], '\0'};
+                    result[j++] = (char)strtol(hex, NULL, 16);
+                    i += 3;
+                } else {
+                    result[j++] = str[i];
+                }
+                break;
+            default:
+                result[j++] = str[i];
+                break;
+            }
+        } else {
+            result[j++] = str[i];
+        }
+    }
+
+    result[j] = '\0';
+    return result;
+}
+
+/**
+ * @brief Create assignment statement form
+ *
+ * Used for ${var@A} transformation.
+ *
+ * @param name Variable name
+ * @param value Variable value
+ * @return Assignment string like "name='value'" (caller must free)
+ */
+static char *transform_assignment(const char *name, const char *value) {
+    if (!name) {
+        return strdup("");
+    }
+    if (!value) {
+        value = "";
+    }
+
+    // Quote the value
+    char *quoted = transform_quote(value);
+    if (!quoted) {
+        return strdup("");
+    }
+
+    size_t result_size = strlen(name) + strlen(quoted) + 2;
+    char *result = malloc(result_size);
+    if (!result) {
+        free(quoted);
+        return strdup("");
+    }
+
+    snprintf(result, result_size, "%s=%s", name, quoted);
+    free(quoted);
+    return result;
+}
+
+/**
  * @brief Recursively expand variables within a string
  *
  * Expands all variable references, arithmetic expressions, and
@@ -4550,6 +4837,112 @@ static char *parse_parameter_expansion(executor_t *executor,
         return strdup("");
     }
 
+    // Handle indirect expansion: ${!name} or ${!prefix*} or ${!prefix@}
+    if (expansion[0] == '!') {
+        const char *var_name = expansion + 1;
+        size_t name_len = strlen(var_name);
+
+        // Check for ${!prefix*} or ${!prefix@} - list variable names
+        if (name_len > 0 && (var_name[name_len - 1] == '*' ||
+                             var_name[name_len - 1] == '@')) {
+            // Extract prefix (without * or @)
+            char *prefix = malloc(name_len);
+            if (!prefix) {
+                return strdup("");
+            }
+            strncpy(prefix, var_name, name_len - 1);
+            prefix[name_len - 1] = '\0';
+
+            // Get all variable names matching prefix from environment
+            // For now, scan environment variables
+            size_t prefix_len = strlen(prefix);
+            size_t result_size = 256;
+            char *result = malloc(result_size);
+            if (!result) {
+                free(prefix);
+                return strdup("");
+            }
+            result[0] = '\0';
+            size_t result_pos = 0;
+
+            extern char **environ;
+            for (char **env = environ; *env; env++) {
+                if (strncmp(*env, prefix, prefix_len) == 0) {
+                    char *eq = strchr(*env, '=');
+                    if (eq) {
+                        size_t var_len = eq - *env;
+                        if (result_pos + var_len + 2 >= result_size) {
+                            result_size *= 2;
+                            char *new_result = realloc(result, result_size);
+                            if (!new_result) {
+                                free(result);
+                                free(prefix);
+                                return strdup("");
+                            }
+                            result = new_result;
+                        }
+                        if (result_pos > 0) {
+                            result[result_pos++] = ' ';
+                        }
+                        strncpy(result + result_pos, *env, var_len);
+                        result_pos += var_len;
+                        result[result_pos] = '\0';
+                    }
+                }
+            }
+
+            free(prefix);
+            return result;
+        }
+
+        // Check for ${!arr[@]} or ${!arr[*]} - array keys
+        const char *bracket = strchr(var_name, '[');
+        if (bracket) {
+            size_t arr_name_len = bracket - var_name;
+            char *arr_name = malloc(arr_name_len + 1);
+            if (!arr_name) {
+                return strdup("");
+            }
+            strncpy(arr_name, var_name, arr_name_len);
+            arr_name[arr_name_len] = '\0';
+
+            array_value_t *array = symtable_get_array(arr_name);
+            free(arr_name);
+
+            if (array) {
+                // Return array indices as space-separated string
+                size_t count;
+                char **keys = symtable_array_get_keys(array, &count);
+                if (keys && count > 0) {
+                    size_t result_size = count * 12;  // Enough for integers
+                    char *result = malloc(result_size);
+                    if (result) {
+                        result[0] = '\0';
+                        for (size_t i = 0; i < count; i++) {
+                            if (i > 0) strcat(result, " ");
+                            strcat(result, keys[i]);
+                            free(keys[i]);
+                        }
+                        free(keys);
+                        return result;
+                    }
+                    for (size_t i = 0; i < count; i++) free(keys[i]);
+                    free(keys);
+                }
+            }
+            return strdup("");
+        }
+
+        // Simple indirect expansion: ${!name} - value of variable named by name
+        char *indirect_name = symtable_get_var(executor->symtable, var_name);
+        if (indirect_name && indirect_name[0]) {
+            // Get the value of the variable whose name is in indirect_name
+            char *result = symtable_get_var(executor->symtable, indirect_name);
+            return strdup(result ? result : "");
+        }
+        return strdup("");
+    }
+
     // Handle array length: ${#arr[@]} or ${#arr[*]}
     if (expansion[0] == '#') {
         const char *var_name = expansion + 1;
@@ -4692,8 +5085,29 @@ static char *parse_parameter_expansion(executor_t *executor,
 
     // Look for parameter expansion operators
     const char *op_pos = NULL;
-    const char *operators[] = {":-", ":+", "##", "%%", "^^", ",,", "#", "%",
-                               "^",  ",",  "-",  "+",  ":=", "=",  ":", NULL};
+    // Order matters: longer operators first, then shorter ones
+    // 0-14: existing operators, 15-18: new Phase 4 operators
+    const char *operators[] = {
+        ":-",  // 0: use default if unset or empty
+        ":+",  // 1: use alternative if set and non-empty
+        "##",  // 2: remove longest prefix pattern
+        "%%",  // 3: remove longest suffix pattern
+        "^^",  // 4: uppercase all
+        ",,",  // 5: lowercase all
+        "#",   // 6: remove shortest prefix pattern
+        "%",   // 7: remove shortest suffix pattern
+        "^",   // 8: uppercase first
+        ",",   // 9: lowercase first
+        "-",   // 10: use default if unset
+        "+",   // 11: use alternative if set
+        ":=",  // 12: assign default if unset or empty
+        "=",   // 13: assign default if unset
+        ":",   // 14: substring
+        "//",  // 15: replace all occurrences
+        "/",   // 16: replace first occurrence
+        "@",   // 17: transformations
+        NULL
+    };
     int op_type = -1;
 
     // Find the first valid operator - prioritize longer operators first
@@ -4720,6 +5134,10 @@ static char *parse_parameter_expansion(executor_t *executor,
                     part_of_longer = true;
                 }
                 if (strcmp(operators[i], "%") == 0 && found[1] == '%') {
+                    part_of_longer = true;
+                }
+                // Check for // before processing single /
+                if (strcmp(operators[i], "/") == 0 && found[1] == '/') {
                     part_of_longer = true;
                 }
 
@@ -4921,6 +5339,94 @@ static char *parse_parameter_expansion(executor_t *executor,
 
                 result = extract_substring(var_value, offset, length);
                 free(expanded_offset_str);
+            } else {
+                result = strdup("");
+            }
+            break;
+
+        case 15: // ${var//pattern/replacement} - replace all occurrences
+            if (var_value) {
+                // expanded_default contains "pattern/replacement"
+                // Find the separator between pattern and replacement
+                char *sep = strchr(expanded_default, '/');
+                if (sep) {
+                    size_t pattern_len = sep - expanded_default;
+                    char *pattern = malloc(pattern_len + 1);
+                    if (pattern) {
+                        strncpy(pattern, expanded_default, pattern_len);
+                        pattern[pattern_len] = '\0';
+                        const char *replacement = sep + 1;
+                        result = pattern_substitute(var_value, pattern, replacement, true);
+                        free(pattern);
+                    } else {
+                        result = strdup(var_value);
+                    }
+                } else {
+                    // No replacement, just remove pattern
+                    result = pattern_substitute(var_value, expanded_default, "", true);
+                }
+            } else {
+                result = strdup("");
+            }
+            break;
+
+        case 16: // ${var/pattern/replacement} - replace first occurrence
+            if (var_value) {
+                // expanded_default contains "pattern/replacement"
+                char *sep = strchr(expanded_default, '/');
+                if (sep) {
+                    size_t pattern_len = sep - expanded_default;
+                    char *pattern = malloc(pattern_len + 1);
+                    if (pattern) {
+                        strncpy(pattern, expanded_default, pattern_len);
+                        pattern[pattern_len] = '\0';
+                        const char *replacement = sep + 1;
+                        result = pattern_substitute(var_value, pattern, replacement, false);
+                        free(pattern);
+                    } else {
+                        result = strdup(var_value);
+                    }
+                } else {
+                    // No replacement, just remove pattern
+                    result = pattern_substitute(var_value, expanded_default, "", false);
+                }
+            } else {
+                result = strdup("");
+            }
+            break;
+
+        case 17: // ${var@op} - transformations
+            if (var_value && expanded_default[0]) {
+                char op = expanded_default[0];
+                switch (op) {
+                case 'Q': // Quote value for reuse as input
+                    result = transform_quote(var_value);
+                    break;
+                case 'E': // Expand escape sequences
+                    result = transform_escape(var_value);
+                    break;
+                case 'P': // Expand as prompt string
+                    result = strdup(var_value); // TODO: prompt expansion
+                    break;
+                case 'A': // Assignment statement form
+                    result = transform_assignment(var_name, var_value);
+                    break;
+                case 'a': // Attribute flags
+                    result = strdup(""); // TODO: return variable attributes
+                    break;
+                case 'U': // Uppercase all
+                    result = convert_case_all_upper(var_value);
+                    break;
+                case 'u': // Uppercase first
+                    result = convert_case_first_upper(var_value);
+                    break;
+                case 'L': // Lowercase all
+                    result = convert_case_all_lower(var_value);
+                    break;
+                default:
+                    result = strdup(var_value);
+                    break;
+                }
             } else {
                 result = strdup("");
             }
