@@ -1,6 +1,6 @@
 # Getting Started with Lusush
 
-**A comprehensive guide to using the only shell with integrated debugging capabilities**
+**Your first steps with the shell that does everything differently**
 
 ---
 
@@ -9,74 +9,89 @@
 1. [What is Lusush?](#what-is-lusush)
 2. [Installation](#installation)
 3. [First Steps](#first-steps)
-4. [Basic Shell Usage](#basic-shell-usage)
-5. [Your First Debugging Session](#your-first-debugging-session)
-6. [Essential Features](#essential-features)
-7. [Configuration and Customization](#configuration-and-customization)
-8. [Moving from Other Shells](#moving-from-other-shells)
+4. [The Line Editor (LLE)](#the-line-editor-lle)
+5. [Shell Modes](#shell-modes)
+6. [Your First Script](#your-first-script)
+7. [The Integrated Debugger](#the-integrated-debugger)
+8. [Configuration](#configuration)
 9. [Next Steps](#next-steps)
 
 ---
 
 ## What is Lusush?
 
-Lusush is a modern, POSIX-compliant shell that adds something no other shell offers: **integrated interactive debugging**. While it works like any standard shell for daily tasks, it provides unique capabilities that make script development and troubleshooting dramatically easier.
+Lusush is an advanced interactive shell that combines the familiarity of Bash and Zsh with capabilities found nowhere else.
 
-### 🔍 **Unique Features**
-- **Integrated Debugger**: Debug scripts interactively without external tools
-- **Complete POSIX Compliance**: All 24 major shell options implemented
-- **Modern User Experience**: Professional themes and smart corrections
-- **Enterprise Security**: Privileged mode and advanced security features
+### Three Things That Set Lusush Apart
 
-### 👥 **Who Should Use Lusush**
-- **Developers**: Who write and debug shell scripts
-- **DevOps Engineers**: Managing automation and deployment scripts
-- **System Administrators**: Working with system scripts
-- **Students**: Learning shell scripting with visual debugging
-- **Anyone**: Who wants a better shell experience
+**1. LLE - The Lusush Line Editor**
+
+Every other shell wraps GNU Readline or implements something similar. Lusush built its own line editor from scratch. LLE provides Emacs-style editing, context-aware completions for all 45 builtins, real-time syntax highlighting, and the foundation for features that aren't possible with traditional line editing libraries.
+
+**2. Multi-Mode Shell Architecture**
+
+Run in POSIX mode for strict compliance, Bash mode for compatibility with bash scripts, Zsh mode for zsh scripts, or Lusush mode (the default) which combines the best features from all three plus Lusush-specific extensions.
+
+**3. Integrated Interactive Debugging**
+
+No other shell offers this. Set breakpoints, step through scripts line by line, inspect variables at any point in execution, and profile performance - all from within the shell itself.
+
+### Who Should Use Lusush
+
+- **Script developers** who want debugging that actually works
+- **Power users** who want modern editing and completions
+- **Teams** running scripts from mixed environments (bash, zsh, POSIX)
+- **Anyone** who wants a shell that respects their time
 
 ---
 
 ## Installation
 
-### Prerequisites
+### Build Requirements
 
-Make sure you have the required build tools:
+Lusush has minimal dependencies:
 
 ```bash
 # Ubuntu/Debian
-sudo apt-get install build-essential meson ninja-build libreadline-dev
+sudo apt-get install build-essential meson ninja-build
 
 # CentOS/RHEL/Fedora
-sudo dnf install gcc meson ninja-build readline-devel
+sudo dnf install gcc meson ninja-build
 
 # macOS (with Homebrew)
-brew install meson ninja readline
+brew install meson ninja
+
+# Arch Linux
+sudo pacman -S base-devel meson ninja
 ```
+
+Note: Lusush does not require readline. LLE is a complete, native implementation.
 
 ### Build from Source
 
 ```bash
-# 1. Clone the repository
+# Clone the repository
 git clone https://github.com/lusush/lusush.git
 cd lusush
 
-# 2. Build with Meson
+# Build with Meson
 meson setup builddir
 ninja -C builddir
 
-# 3. Test the build
+# Verify the build
 ./builddir/lusush --version
+# Output: lusush 1.4.0
 ```
 
-### Verify Installation
+### Optional: Install System-Wide
 
 ```bash
-# Check that Lusush works
-./builddir/lusush --help
+# Install to /usr/local (requires root)
+sudo ninja -C builddir install
 
-# Test basic functionality
-echo 'echo "Hello, Lusush!"' | ./builddir/lusush
+# Or install to custom location
+meson setup builddir --prefix=/home/user/.local
+ninja -C builddir install
 ```
 
 ---
@@ -89,587 +104,463 @@ echo 'echo "Hello, Lusush!"' | ./builddir/lusush
 # Start interactive session
 ./builddir/lusush
 
-# You'll see a prompt like:
-[user@hostname] /current/directory $ 
+# You'll see a prompt with context
+[user@hostname] ~/projects/lusush (main) $
 ```
 
-### Basic Commands
+The prompt shows your username, hostname, current directory, and git branch when applicable.
 
-Try these basic commands to get familiar:
+### Basic Interaction
 
 ```bash
-# Current directory
-pwd
+# Navigation
+pwd                    # Print working directory
+cd ~/projects          # Change directory
+ls -la                 # List files
 
-# List files
-ls
+# Variables
+name="Lusush"
+echo "Welcome to $name"
 
-# Create a directory
-mkdir test_lusush
-cd test_lusush
-
-# Create a simple file
-echo "Hello, World!" > hello.txt
-cat hello.txt
+# Environment
+export EDITOR=vim
+echo $EDITOR
 ```
 
 ### Getting Help
 
 ```bash
-# Shell help
+# General help
 help
 
-# Command-specific help
-help echo
+# Builtin-specific help
+help cd
 help set
+help debug
 
-# Debugger help
-debug help
+# Display system information
+display lle diagnostics    # LLE status
+display features           # Enabled features
 ```
 
 ---
 
-## Basic Shell Usage
+## The Line Editor (LLE)
 
-### Variables and Environment
+LLE is what you interact with every time you type a command. It's not readline - it's a purpose-built editor designed for shell interaction.
+
+### Emacs Mode (Default)
+
+LLE ships with complete Emacs-style keybindings:
+
+| Keybinding | Action |
+|------------|--------|
+| `Ctrl-A` | Beginning of line |
+| `Ctrl-E` | End of line |
+| `Ctrl-B` | Move backward one character |
+| `Ctrl-F` | Move forward one character |
+| `Alt-B` | Move backward one word |
+| `Alt-F` | Move forward one word |
+| `Ctrl-K` | Kill to end of line |
+| `Ctrl-U` | Kill to beginning of line |
+| `Ctrl-W` | Kill previous word |
+| `Ctrl-Y` | Yank (paste) killed text |
+| `Ctrl-D` | Delete character / EOF on empty line |
+| `Ctrl-L` | Clear screen |
+| `Ctrl-R` | Reverse history search |
+| `Ctrl-P` / `Up` | Previous history |
+| `Ctrl-N` / `Down` | Next history |
+| `Tab` | Complete |
+| `Ctrl-_` | Undo |
+
+### Context-Aware Tab Completion
+
+LLE knows what you're typing:
 
 ```bash
-# Set a variable
-name="Alice"
-echo "Hello, $name"
+# Command completion
+deb<Tab>              # Completes to "debug"
 
-# Export to environment
-export PATH_BACKUP="$PATH"
-echo $PATH_BACKUP
+# Subcommand completion
+debug <Tab>           # Shows: on off vars print trace profile ...
 
-# Check all variables
-set | head -10
+# Builtin-specific arguments
+set -o <Tab>          # Shows all shell options
+config set <Tab>      # Shows configuration sections
+display <Tab>         # Shows: lle features themes
+
+# File completion
+cat ~/Doc<Tab>        # Completes paths
+
+# Variable completion
+echo $HO<Tab>         # Completes $HOME
 ```
 
-### Basic Scripting
+All 45 shell builtins have context-aware completions that understand their specific options and arguments.
 
-Create your first script:
+### Syntax Highlighting
+
+As you type, LLE colors your input:
+
+- **Commands**: Highlighted when valid, indicated when not found
+- **Strings**: Quoted text in a distinct color
+- **Variables**: `$var` and `${var}` highlighted
+- **Operators**: Pipes, redirections, and control operators
+- **Comments**: Dimmed or distinct color
+
+This isn't cosmetic - it helps catch errors before you press Enter.
+
+### Multi-Line Editing
+
+Incomplete commands continue naturally:
 
 ```bash
-# Create a script file
-cat > first_script.sh << 'EOF'
+$ for i in 1 2 3; do
+>     echo "Number: $i"
+> done
+Number: 1
+Number: 2
+Number: 3
+```
+
+LLE understands shell syntax and provides continuation prompts appropriately.
+
+---
+
+## Shell Modes
+
+Lusush can behave like different shells depending on what you need.
+
+### Available Modes
+
+| Mode | Description |
+|------|-------------|
+| `lusush` | Default. All features enabled. Best interactive experience. |
+| `posix` | Strict POSIX sh compliance. For portable scripts. |
+| `bash` | Bash compatibility. Arrays, `[[]]`, process substitution. |
+| `zsh` | Zsh compatibility. Extended globbing, parameter expansion. |
+
+### Setting the Mode
+
+```bash
+# Interactive - set mode
+set -o lusush      # Default mode (usually already set)
+set -o posix       # Strict POSIX mode
+set -o bash        # Bash compatibility
+set -o zsh         # Zsh compatibility
+
+# In scripts - shebang detection
+#!/usr/bin/env lusush          # Lusush mode
+#!/usr/bin/env lusush --posix  # POSIX mode
+```
+
+### What Changes Between Modes
+
+**POSIX mode** disables extensions for maximum portability:
+- No arrays
+- No `[[]]` (use `[ ]`)
+- No process substitution
+- No extended globbing
+
+**Bash mode** enables Bash-compatible features:
+- Indexed and associative arrays
+- `[[]]` extended test
+- Process substitution `<()` and `>()`
+- Extended parameter expansion
+
+**Zsh mode** adds Zsh-specific behaviors:
+- Glob qualifiers
+- Additional parameter expansion forms
+- Zsh-style option names
+
+**Lusush mode** (default) provides everything:
+- All Bash features
+- All Zsh features
+- Lusush-specific extensions (hooks, enhanced debugging)
+- Best interactive experience
+
+### Recommendation
+
+Use **Lusush mode** for interactive work and scripts that will only run in Lusush. Use **POSIX mode** for scripts that must be portable. Use **Bash/Zsh modes** when running scripts from those environments.
+
+---
+
+## Your First Script
+
+### A Simple Script
+
+```bash
 #!/usr/bin/env lusush
 
-# Simple script demonstration
+# hello.sh - First lusush script
+echo "Hello from Lusush v1.4.0"
+
+# Variables work as expected
 name="World"
 echo "Hello, $name!"
 
-# Basic loop
-for i in 1 2 3; do
-    echo "Count: $i"
+# Loops
+for item in apple banana cherry; do
+    echo "Fruit: $item"
 done
+```
 
-# Conditional
-if [ -f "hello.txt" ]; then
-    echo "File exists!"
-else
-    echo "File not found"
+Save as `hello.sh`, then:
+
+```bash
+chmod +x hello.sh
+./hello.sh
+```
+
+### Using Extended Syntax
+
+Lusush mode enables modern shell features:
+
+```bash
+#!/usr/bin/env lusush
+
+# Arrays
+fruits=(apple banana cherry)
+echo "First fruit: ${fruits[0]}"
+echo "All fruits: ${fruits[@]}"
+
+# Associative arrays
+declare -A colors
+colors[apple]="red"
+colors[banana]="yellow"
+echo "Apple is ${colors[apple]}"
+
+# Extended test
+file="script.sh"
+if [[ $file == *.sh ]]; then
+    echo "This is a shell script"
 fi
-EOF
 
-# Make it executable
-chmod +x first_script.sh
+# Arithmetic
+count=5
+(( count++ ))
+echo "Count is now: $count"
 
-# Run it
-./first_script.sh
+# Process substitution
+diff <(ls dir1) <(ls dir2)
+
+# Extended parameter expansion
+text="hello world"
+echo "${text^^}"        # HELLO WORLD
+echo "${text//o/0}"     # hell0 w0rld
 ```
 
-### POSIX Shell Options
+### Debugging Your Script
 
-Lusush implements all 24 POSIX shell options:
-
-```bash
-# See all options
-set -o
-
-# Enable strict error handling
-set -e
-set -u
-
-# Enable tracing (great for debugging)
-set -x
-echo "This command will be traced"
-set +x
-
-# Check current status
-set -o | grep -E "(errexit|nounset|xtrace)"
-```
-
-### ⚠️ Important Limitation: Variable Scope
-
-**Critical**: Variables modified inside `for` loops do not persist outside the loop:
+This is where Lusush stands alone:
 
 ```bash
-# ❌ This will NOT work as expected
-result=0
-for i in 1 2 3; do
-    result=$((result + i))  # Updates inside loop only
-done
-echo $result  # Will still be 0!
-
-# ✅ Use while loops for variable persistence
-result=0
-i=1
-while [ $i -le 3 ]; do
-    result=$((result + i))  # Updates persist
-    i=$((i + 1))
-done
-echo $result  # Will be 6 as expected
-```
-
-**Recommendation**: Use `while` loops when you need variables to persist across iterations.
-
----
-
-## Your First Debugging Session
-
-This is where Lusush truly shines. No other shell can do this!
-
-### Enable the Debugger
-
-```bash
-# Show debugger commands
-debug help
+#!/usr/bin/env lusush
 
 # Enable debugging
 debug on
-```
 
-### Debug a Simple Script
-
-```bash
-# Create a debug example
-cat > debug_example.sh << 'EOF'
-#!/usr/bin/env lusush
-
-echo "Starting debug example"
-counter=1
-max=5
-
-while [ $counter -le $max ]; do
-    echo "Processing item $counter"
-    result=$((counter * 2))
+# Your code runs with full visibility
+for i in 1 2 3; do
+    result=$((i * 10))
     echo "Result: $result"
-    counter=$((counter + 1))
 done
 
-echo "Processing complete"
-EOF
-
-chmod +x debug_example.sh
-```
-
-### Interactive Debugging Session
-
-```bash
-# Enable debugging
-debug on 2
-
-# Run the script - you'll see detailed output
-./debug_example.sh
-
-# Inspect variables during execution
+# Check variables at any point
+debug print result
 debug vars
 
-# Look at specific variables
-debug print counter
-debug print result
-debug print max
-```
-
-### Example Debug Output
-
-```bash
-$ debug on 2
-[DEBUG] Debug mode enabled (level: 2)
-[DEBUG] Debug session started at: 23592.704952486
-Debug mode enabled
-
-$ counter=1
-[DEBUG] TRACE: ../src/executor.c:427 - COMMAND: counter=1
-
-$ debug print counter
-[DEBUG] VARIABLE: counter
-[DEBUG] Value: '1'
-[DEBUG] Scope: global
-[DEBUG] Type: string
-```
-
-### Advanced Debugging Features
-
-```bash
-# Enable execution tracing
-debug trace on
-echo "This command is traced"
-debug trace off
-
-# Enable performance profiling
-debug profile on
-# ... run some commands ...
-debug profile report
-debug profile off
-
-# Analyze script structure
-debug functions
-
-# Turn off debugging
 debug off
 ```
 
----
-
-## Essential Features
-
-### Themes and Appearance
-
-```bash
-# List available themes
-theme list
-
-# Switch to dark theme
-theme set dark
-
-# See current theme
-theme show
-```
-
-### Smart Corrections and Configuration
-
-```bash
-# Enable smart features
-config set autocorrect.enabled true
-config set display.performance_monitoring true
-
-# Try typing a wrong command - Lusush will suggest corrections
-ehco "hello"    # Suggests: "echo"
-
-# Check configuration
-config list
-```
-
-### Git Integration
-
-If you're in a git repository:
-
-```bash
-cd /path/to/git/repo
-
-# The prompt will show git status
-[user@hostname] /path/to/repo (main ✓) $ 
-
-# Make some changes and see status updates
-echo "change" >> README.md
-# Prompt shows: (main +1)
-
-git add README.md
-# Prompt shows: (main ↑1)
-```
-
-### Tab Completion
-
-```bash
-# Complete commands
-de<TAB>          # Completes to "debug"
-
-# Complete options
-debug <TAB>      # Shows debug subcommands
-
-# Complete file names
-cat hel<TAB>     # Completes to hello.txt
-
-# Complete config options
-config set <TAB> # Shows available config options
-```
+Run the script and watch the debugger trace execution, show variable values, and let you understand exactly what's happening.
 
 ---
 
-## Configuration and Customization
+## The Integrated Debugger
 
-### Configuration System
+No other shell has this. The debugger is built into Lusush, not bolted on.
 
-Lusush features a modern configuration system with **dual interfaces** - traditional POSIX and modern config syntax:
+### Quick Start
 
 ```bash
-# View all configuration
-config show                           # Show all sections
-config show shell                     # Show all 24 shell options
-config show completion                # Show completion settings
+# Enable debugging
+debug on
 
-# Modern shell options interface (NEW in v1.3.0)
-config set shell.errexit true        # Modern syntax for set -e
-config set shell.xtrace on           # Modern syntax for set -x
-config set shell.posix true          # Enable strict POSIX mode
-config set shell.privileged true     # Security restrictions
+# Run commands - they're traced
+ls -la
+echo "test"
 
-# Traditional POSIX still works perfectly
-set -e                               # Same as shell.errexit true
-set -o xtrace                        # Same as shell.xtrace true
+# Inspect state
+debug vars           # Show all variables
+debug print PATH     # Show specific variable
 
-# Other configuration areas
-config set completion.enabled true   # Enable tab completion
-config set prompt.theme dark         # Set theme
-config set behavior.spell_correction true  # Smart corrections
-
-# Get specific settings
-config get shell.errexit            # Check current state
-config get prompt.theme             # Get current theme
-
-# Both interfaces stay synchronized
-config set shell.verbose true       # Set via modern interface
-set -o | grep verbose               # Shows as enabled in traditional interface
+# Disable
+debug off
 ```
 
-### Shell Behavior
-
-Lusush provides two equivalent ways to configure shell behavior:
+### Debug Levels
 
 ```bash
-# Modern discoverable syntax (recommended for new development)
-config set shell.errexit true        # Exit on command failure
-config set shell.nounset true        # Error on unset variables  
-config set shell.pipefail true       # Pipeline failure detection
-config set shell.xtrace true         # Trace command execution
-config set shell.verbose true        # Show input lines
-
-# Traditional POSIX syntax (works identically)
-set -eu                              # Strict error handling
-set -o pipefail                      # Pipeline failure detection
-set -xv                              # Trace and verbose mode
-
-# Editing preferences
-config set shell.emacs true          # Emacs-style editing
-config set shell.vi true             # Vi-style editing (mutually exclusive)
-
-# Check all settings - both ways show the same information
-config show shell                    # Modern interface with descriptions
-set -o                              # Traditional interface
+debug on 1    # Basic tracing
+debug on 2    # Detailed tracing
+debug on 3    # Maximum verbosity
 ```
 
-### Creating Your Profile
+### Profiling
 
 ```bash
-# Create a custom startup script
-cat > ~/.lusushrc << 'EOF'
-# Lusush startup configuration
+# Start profiling
+debug profile on
 
-# Modern shell options (discoverable and self-documenting)
-config set shell.hashall true        # Hash commands for speed
-config set shell.errexit true        # Exit on errors (safer scripts)
-config set shell.emacs true          # Emacs-style editing
+# Run some commands
+for i in $(seq 1 100); do
+    echo $i > /dev/null
+done
 
-# Enhanced features
-config set completion.enabled true   # Tab completion
-config set behavior.spell_correction true  # Smart corrections
-config set prompt.theme modern       # Modern theme
+# See timing information
+debug profile report
+debug profile off
+```
 
-# Custom aliases
+### In Scripts
+
+```bash
+#!/usr/bin/env lusush
+
+# Selective debugging
+complex_function() {
+    debug on 2
+    # ... complex logic ...
+    debug off
+}
+
+# Profile specific sections
+debug profile on
+expensive_operation
+debug profile report
+debug profile off
+```
+
+For comprehensive debugging documentation, see [DEBUGGER_GUIDE.md](DEBUGGER_GUIDE.md).
+
+---
+
+## Configuration
+
+### The Config System
+
+Lusush uses a modern configuration system:
+
+```bash
+# View configuration
+config show                    # All sections
+config show shell              # Shell options
+config show completion         # Completion settings
+config show display            # Display settings
+
+# Get specific values
+config get shell.errexit
+config get completion.enabled
+
+# Set values
+config set shell.errexit true
+config set display.syntax_highlighting true
+```
+
+### Shell Options
+
+Both modern and traditional syntax work:
+
+```bash
+# Modern syntax (self-documenting)
+config set shell.errexit true    # Exit on error
+config set shell.nounset true    # Error on unset variables
+config set shell.xtrace true     # Trace execution
+
+# Traditional POSIX syntax (also works)
+set -e                           # Same as shell.errexit
+set -u                           # Same as shell.nounset
+set -x                           # Same as shell.xtrace
+```
+
+### Startup Configuration
+
+Create `~/.lusushrc` for persistent configuration:
+
+```bash
+# ~/.lusushrc - Lusush startup configuration
+
+# Shell behavior
+config set shell.errexit false
+config set shell.emacs true
+
+# Completion
+config set completion.enabled true
+
+# Display
+config set display.syntax_highlighting true
+
+# Aliases
 alias ll='ls -la'
-alias la='ls -A'
-alias l='ls -CF'
+alias gs='git status'
+alias gd='git diff'
 
-# Development shortcuts
-alias debug-on='debug on 2'
-alias debug-off='debug off'
-
-# Welcome message
-echo "Lusush loaded with custom configuration"
-EOF
-```
-
----
-
-## Moving from Other Shells
-
-### From Bash
-
-Most bash scripts work directly in Lusush:
-
-```bash
-#!/usr/bin/env lusush
-# This bash script works in Lusush
-set -euo pipefail
-
-function my_function() {
-    local var="$1"
-    echo "Processing: $var"
+# Functions
+mkcd() {
+    mkdir -p "$1" && cd "$1"
 }
 
-my_function "test"
-```
-
-**Bonus**: Add debugging to your existing bash scripts:
-
-```bash
-#!/usr/bin/env lusush
-# Your existing bash script
-set -euo pipefail
-
-# Add debugging capability
-debug on 1    # Enable basic debugging
-
-# Your existing code works unchanged
-# ... rest of script ...
-
-debug off     # Clean exit
-```
-
-### From Zsh
-
-```bash
-# Zsh habits that work in Lusush
-setopt() {
-    # Zsh: setopt PIPE_FAIL
-    # Lusush equivalent:
-    set -o pipefail
+# Hook functions (Lusush-specific)
+precmd() {
+    # Runs before each prompt
+    :
 }
 
-# Most zsh scripts need minimal changes
-```
-
-### From Fish
-
-```bash
-# Fish users will appreciate Lusush's modern features
-# Professional themes and performance optimization
-# Plus the unique debugging capabilities
+preexec() {
+    # Runs before each command
+    :
+}
 ```
 
 ---
 
 ## Next Steps
 
-### Learn Advanced Debugging
+You now have a working Lusush installation with:
+- LLE for modern command-line editing
+- Tab completion that understands context
+- Syntax highlighting as you type
+- Shell modes for any script compatibility needs
+- Integrated debugging unavailable anywhere else
 
-```bash
-# Try breakpoints (when available)
-debug break add myscript.sh 15
-debug break list
+### Explore Further
 
-# Use step-by-step execution
-debug step
-debug continue
+| Document | What You'll Learn |
+|----------|-------------------|
+| [USER_GUIDE.md](USER_GUIDE.md) | Complete feature reference |
+| [LLE_GUIDE.md](LLE_GUIDE.md) | Full LLE documentation |
+| [EXTENDED_SYNTAX.md](EXTENDED_SYNTAX.md) | Arrays, `[[]]`, process substitution |
+| [SHELL_MODES.md](SHELL_MODES.md) | Detailed mode documentation |
+| [DEBUGGER_GUIDE.md](DEBUGGER_GUIDE.md) | Complete debugging reference |
+| [BUILTIN_COMMANDS.md](BUILTIN_COMMANDS.md) | All 48 builtin commands |
+| [HOOKS_AND_PLUGINS.md](HOOKS_AND_PLUGINS.md) | Hook system and plugins |
 
-# Performance analysis
-debug profile on
-# ... run performance-critical code ...
-debug profile report
-```
+### Try These
 
-### Explore POSIX Compliance
+1. **Explore completions**: Type partial commands and press Tab
+2. **Try the debugger**: `debug on`, run commands, `debug vars`
+3. **Test extended syntax**: Arrays, `[[]]`, `${var^^}`
+4. **Set up your profile**: Create `~/.lusushrc` with your preferences
+5. **Read the LLE guide**: Master the keybindings
 
-```bash
-# Discover all 24 shell options with modern interface
-config show shell                    # Lists all options with descriptions
-
-# Traditional interface still works
-set -o                              # See current settings
-
-# Try modern syntax
-config set shell.posix true         # Strict POSIX mode
-config set shell.privileged true    # Security restrictions
-config set shell.pipefail true      # Pipeline failure detection
-
-# Both interfaces work together seamlessly
-set -e                              # Traditional
-config get shell.errexit           # Returns: true (synchronized)
-
-# See the complete reference
-# Read: docs/SHELL_OPTIONS.md and docs/CONFIG_SYSTEM.md
-```
-
-### Customize Your Environment
-
-```bash
-# Explore themes
-theme list
-theme set <theme_name>
-
-# Configure advanced features
-config show              # See all configuration sections
-config show shell        # See all 24 shell options
-config set shell.errexit true  # Modern shell option syntax
-
-# Create custom functions
-my_debug() {
-    debug on 2
-    "$@"                 # Run the passed command
-    debug off
-}
-
-# Use it
-my_debug ./myscript.sh
-```
-
-### Read More Documentation
-
-- **[Debugger Guide](DEBUGGER_GUIDE.md)** - Complete debugging reference
-- **[Shell Options](SHELL_OPTIONS.md)** - All 24 POSIX options explained
-- **[Built-in Commands](BUILTIN_COMMANDS.md)** - Command reference
-- **[Configuration System](CONFIG_SYSTEM.md)** - Modern config with shell options integration
-- **[Security Features](SECURITY.md)** - Enterprise security options
-
----
-
-## Common First-Time Questions
-
-### Q: Why choose Lusush over bash/zsh/fish?
-**A:** Lusush is the only shell with integrated debugging. If you ever write shell scripts, this capability alone makes development dramatically easier. Plus, it maintains full POSIX compliance.
-
-### Q: Will my existing scripts work?
-**A:** Yes! Lusush is POSIX-compliant, so standard shell scripts work without changes. You can gradually add debugging capabilities as needed.
-
-### Q: Is it ready for production?
-**A:** Yes. All core functionality and the debugger are production-ready. Lusush has been comprehensively tested and validated.
-
-### Q: How do I learn the debugger?
-**A:** Start with `debug help`, then try `debug on` and `debug vars` with simple commands. The [Debugger Guide](DEBUGGER_GUIDE.md) has comprehensive examples.
-
-### Q: Can I use it as my daily shell?
-**A:** Absolutely! Lusush works as a full replacement for bash, zsh, or other shells, with the added benefit of debugging capabilities when you need them.
-
----
-
-## Getting Help
-
-### Built-in Help
+### Get Help
 
 ```bash
 help              # General help
+help <builtin>    # Specific builtin help
 debug help        # Debugger help
-config             # Configuration help (shows usage)
-config show        # Show all available options
-theme help        # Theme help
+display help      # Display system help
 ```
 
-### Documentation
-
-- Complete documentation in the `docs/` directory
-- All features are documented with examples
-- Professional deployment guides available
-
-### Community
-
-- **Issues**: Report bugs or ask questions on GitHub
-- **Discussions**: Community support and tips
-- **Documentation**: Comprehensive guides for all features
-
----
-
-## Welcome to Better Shell Scripting
-
-You now have the only shell with integrated debugging capabilities. This unique feature will transform how you develop, troubleshoot, and understand shell scripts.
-
-**Start experimenting with:**
-1. Basic shell usage with helpful features
-2. Simple debugging with `debug on` and `debug vars`
-3. Customization with themes and configuration
-4. Gradual migration of your existing scripts
-
-**Remember:** Lusush does everything other shells do, plus interactive debugging that no other shell offers. You're now equipped with professional-grade shell scripting capabilities that simply aren't available anywhere else.
-
-Happy scripting! 🚀
+Welcome to Lusush. You're now using a shell that was built to be worth using.

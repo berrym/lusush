@@ -1,98 +1,207 @@
 # Lusush Documentation Index
 
-**Last Updated**: October 2024  
-**Version**: 1.3.0  
-**Status**: Production Ready - The Only Shell with Integrated Interactive Debugging
+**Version**: 1.4.0  
+**The advanced interactive shell with LLE, multi-mode architecture, and integrated debugging**
 
 ---
 
-## Quick Navigation
+## Quick Start
 
-### Essential Documentation
-- **[README](../README.md)** - Main project overview and quick start
-- **[Installation Guide](INSTALLATION.md)** - Complete setup instructions
-- **[Getting Started](GETTING_STARTED.md)** - Beginner-friendly tutorial
-- **[User Guide](USER_GUIDE.md)** - Comprehensive user documentation
-
-### Core Features
-- **[Configuration System](CONFIG_SYSTEM.md)** - Shell configuration and options
-- **[Shell Options Reference](SHELL_OPTIONS.md)** - Complete POSIX options guide
-- **[Built-in Commands](BUILTIN_COMMANDS.md)** - Command reference with examples
-
-### Advanced Topics
-- **[Advanced Scripting Guide](ADVANCED_SCRIPTING_GUIDE.md)** - Professional scripting techniques
-- **[Completion System](COMPLETION_SYSTEM.md)** - Tab completion system
-- **[Feature Comparison](FEATURE_COMPARISON.md)** - Comparison with other shells
-
-### Reference
-- **[Changelog](CHANGELOG.md)** - Version history and changes
-- **[Comprehensive Test Suite](COMPREHENSIVE_TEST_SUITE.md)** - Testing framework
+| Document | Description |
+|----------|-------------|
+| [README](../README.md) | Project overview, features, quick start |
+| [Getting Started](GETTING_STARTED.md) | First-time user guide |
+| [User Guide](USER_GUIDE.md) | Complete feature reference |
+| [Changelog](../CHANGELOG.md) | Version history and release notes |
 
 ---
 
-## Documentation by Audience
+## Core Features
 
-### For Beginners
-1. **[Installation Guide](INSTALLATION.md)** - Get Lusush running on your system
-2. **[Getting Started](GETTING_STARTED.md)** - Learn the basics with hands-on examples
-3. **[User Guide](USER_GUIDE.md)** - Comprehensive guide to daily usage
-4. **[Configuration System](CONFIG_SYSTEM.md)** - Shell configuration basics
+### Line Editing (LLE)
 
-### For Advanced Users
-1. **[Advanced Scripting Guide](ADVANCED_SCRIPTING_GUIDE.md)** - Professional scripting techniques
-2. **[Shell Options Reference](SHELL_OPTIONS.md)** - Complete POSIX compliance guide
-3. **[Built-in Commands](BUILTIN_COMMANDS.md)** - Enhanced command capabilities
-4. **[Completion System](COMPLETION_SYSTEM.md)** - Tab completion customization
+| Document | Description |
+|----------|-------------|
+| [LLE Guide](LLE_GUIDE.md) | Complete LLE documentation |
+| Emacs keybindings | Full reference in LLE Guide |
+| Vi mode | In development - see LLE Guide |
+| Syntax highlighting | See LLE Guide |
 
-### For System Administrators
-1. **[Configuration System](CONFIG_SYSTEM.md)** - Enterprise configuration management
-2. **[Debugger Guide](DEBUGGER_GUIDE.md)** - Debug deployment and system scripts
-3. **[Shell Options Reference](SHELL_OPTIONS.md)** - Production shell configuration
-4. **[Feature Comparison](FEATURE_COMPARISON.md)** - Compare with existing shells
-5. **[Comprehensive Test Suite](COMPREHENSIVE_TEST_SUITE.md)** - Validation and testing
+### Shell Modes
 
----
+| Document | Description |
+|----------|-------------|
+| [Shell Modes](SHELL_MODES.md) | POSIX, Bash, Zsh, Lusush mode documentation |
+| [POSIX Compliance](SHELL_OPTIONS.md) | All 24 POSIX shell options |
 
-## Documentation by Category
+### Extended Syntax
 
-### Core Shell Features
-- **[Shell Options Reference](SHELL_OPTIONS.md)** - All POSIX shell options
-- **[Built-in Commands](BUILTIN_COMMANDS.md)** - Enhanced built-in commands
-- **[Advanced Scripting Guide](ADVANCED_SCRIPTING_GUIDE.md)** - Scripting best practices
+| Document | Description |
+|----------|-------------|
+| [Extended Syntax](EXTENDED_SYNTAX.md) | Arrays, `[[]]`, process substitution, parameter expansion |
+| [Advanced Scripting](ADVANCED_SCRIPTING_GUIDE.md) | Professional scripting with extended syntax |
 
-### User Interface
-- **Theme System** (covered in User Guide) - Professional theme system with 6 themes
-- **Display System** (covered in User Guide) - Layered display architecture
-- **[Completion System](COMPLETION_SYSTEM.md)** - Intelligent tab completion
+### Completion System
 
-### Configuration and Customization
-- **[Configuration System](CONFIG_SYSTEM.md)** - Modern configuration interface
-- **Environment Variables** (covered in User Guide) - Shell behavior control
-- **Performance Tuning** (covered in User Guide) - Optimization settings
+| Document | Description |
+|----------|-------------|
+| [Completion System](COMPLETION_SYSTEM.md) | LLE completions, context-aware builtin completions |
 
-### Development and Testing
-- **[Comprehensive Test Suite](COMPREHENSIVE_TEST_SUITE.md)** - Test framework
-- **Performance Monitoring** (covered in User Guide) - System performance tracking
-- **Cross-Platform Support** (covered in Installation Guide) - Multi-platform compatibility
+### Hook System
+
+| Document | Description |
+|----------|-------------|
+| [Hooks and Plugins](HOOKS_AND_PLUGINS.md) | precmd, preexec, chpwd, periodic, hook arrays |
+
+### Debugging
+
+| Document | Description |
+|----------|-------------|
+| [Debugger Guide](DEBUGGER_GUIDE.md) | Breakpoints, stepping, variable inspection, profiling |
 
 ---
 
-## Future Development
+## Reference
 
-### Planned Features (Not in v1.3.0)
-- **[LLE Specification](lle_specification/)** - Lusush Line Editor planning documents
-  - Complete readline replacement architecture
-  - Advanced text manipulation capabilities
-  - Enhanced completion and suggestion systems
+### Commands
+
+| Document | Description |
+|----------|-------------|
+| [Builtin Commands](BUILTIN_COMMANDS.md) | All 48 shell builtins |
+| [Shell Options](SHELL_OPTIONS.md) | All shell options with modern and traditional syntax |
+
+### Configuration
+
+| Document | Description |
+|----------|-------------|
+| [Configuration System](CONFIG_SYSTEM.md) | Config file format, `config` command, startup files |
+| [Installation](INSTALLATION.md) | Build requirements, installation, platform notes |
+
+### Comparison
+
+| Document | Description |
+|----------|-------------|
+| [Feature Comparison](FEATURE_COMPARISON.md) | Lusush vs Bash, Zsh, Fish, other shells |
 
 ---
 
-## Getting Help
+## By Audience
 
-### Quick References
-- Use `help` command in lusush for built-in command help
-- Use `man lusush` for manual page (if installed)
-- Use `display help` for display system commands
-- Use `theme help` for theme system commands
+### New Users
+
+1. [Getting Started](GETTING_STARTED.md) - Installation, first steps, basic usage
+2. [User Guide](USER_GUIDE.md) - Feature overview
+3. [LLE Guide](LLE_GUIDE.md) - Learn the line editor
+
+### Daily Users
+
+1. [User Guide](USER_GUIDE.md) - Feature reference
+2. [Builtin Commands](BUILTIN_COMMANDS.md) - Command reference
+3. [Configuration System](CONFIG_SYSTEM.md) - Customize your shell
+4. [Completion System](COMPLETION_SYSTEM.md) - Tab completion
+
+### Script Writers
+
+1. [Extended Syntax](EXTENDED_SYNTAX.md) - Arrays, tests, process substitution
+2. [Advanced Scripting](ADVANCED_SCRIPTING_GUIDE.md) - Best practices
+3. [Shell Modes](SHELL_MODES.md) - Choose the right mode
+4. [Debugger Guide](DEBUGGER_GUIDE.md) - Debug your scripts
+
+### Power Users
+
+1. [Hooks and Plugins](HOOKS_AND_PLUGINS.md) - Customize shell behavior
+2. [Shell Options](SHELL_OPTIONS.md) - Fine-tune options
+3. [LLE Guide](LLE_GUIDE.md) - Master line editing
+
+### Migrating Users
+
+1. [Feature Comparison](FEATURE_COMPARISON.md) - Compare with your current shell
+2. [Shell Modes](SHELL_MODES.md) - Run existing scripts
+3. [Getting Started](GETTING_STARTED.md) - Transition guide
+
+---
+
+## What's New in v1.4.0
+
+### Major Features
+
+- **LLE (Lusush Line Editor)**: Native line editor replacing readline
+  - Complete Emacs keybindings (42 actions)
+  - Context-aware completions for all 45 builtins
+  - Real-time syntax highlighting (30+ token types)
+  - Vi mode framework (wiring in progress)
+
+- **Multi-Mode Architecture**: Run in the mode you need
+  - POSIX mode for strict compliance
+  - Bash mode for bash script compatibility
+  - Zsh mode for zsh script compatibility
+  - Lusush mode (default) with all features
+
+- **Extended Language Support**: Modern shell syntax
+  - Arrays (indexed and associative)
+  - Arithmetic: `(())`, `let`
+  - Extended test: `[[]]`, `=~` regex
+  - Process substitution: `<()`, `>()`
+  - Extended parameter expansion
+  - Extended globbing and glob qualifiers
+  - Control flow: `;&`, `;;&`, `select`, `time`
+
+- **Hook System**: Zsh-style hooks
+  - `precmd`, `preexec`, `chpwd`, `periodic`
+  - Hook arrays for multiple handlers
 
 ### Documentation
+
+New documents for v1.4.0:
+
+| Document | Content |
+|----------|---------|
+| [LLE Guide](LLE_GUIDE.md) | Complete LLE reference |
+| [Extended Syntax](EXTENDED_SYNTAX.md) | Extended language features |
+| [Shell Modes](SHELL_MODES.md) | Mode documentation |
+| [Hooks and Plugins](HOOKS_AND_PLUGINS.md) | Hook system |
+
+---
+
+## Help Commands
+
+```bash
+help                    # General help
+help <builtin>          # Specific builtin help
+debug help              # Debugger help
+display help            # Display system help
+config show             # Configuration overview
+```
+
+---
+
+## File Listing
+
+### Root
+
+| File | Description |
+|------|-------------|
+| `README.md` | Project overview |
+| `CHANGELOG.md` | Release notes |
+| `LICENSE` | License information |
+
+### docs/
+
+| File | Description |
+|------|-------------|
+| `GETTING_STARTED.md` | First-time user guide |
+| `USER_GUIDE.md` | Complete feature reference |
+| `LLE_GUIDE.md` | Line editor documentation |
+| `EXTENDED_SYNTAX.md` | Extended shell syntax |
+| `SHELL_MODES.md` | Mode documentation |
+| `COMPLETION_SYSTEM.md` | Completion documentation |
+| `HOOKS_AND_PLUGINS.md` | Hook system |
+| `DEBUGGER_GUIDE.md` | Debugging reference |
+| `BUILTIN_COMMANDS.md` | Builtin reference |
+| `SHELL_OPTIONS.md` | Shell options reference |
+| `CONFIG_SYSTEM.md` | Configuration reference |
+| `INSTALLATION.md` | Installation guide |
+| `ADVANCED_SCRIPTING_GUIDE.md` | Scripting guide |
+| `FEATURE_COMPARISON.md` | Shell comparison |
+| `CHANGELOG.md` | Detailed changelog |
+| `DOCUMENTATION_INDEX.md` | This file |

@@ -2,6 +2,8 @@
 
 **The only shell with built-in interactive debugging capabilities**
 
+**Version**: 1.4.0
+
 ---
 
 ## Table of Contents

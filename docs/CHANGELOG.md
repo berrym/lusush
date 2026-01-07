@@ -7,6 +7,90 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.0] - 2026-01-06
+
+### Major Features
+
+#### LLE (Lusush Line Editor)
+Complete replacement of GNU Readline with a native line editor:
+
+- **44 Emacs keybinding actions** - Full Emacs-style editing
+- **Context-aware completions** - All 45 shell builtins have specific completion logic
+- **Real-time syntax highlighting** - 45 token types with semantic coloring
+- **Multi-line editing** - Natural continuation for incomplete commands
+- **Kill ring** - Full cut/paste history
+- **Undo/redo** - Complete undo support
+- **Vi mode framework** - In development, targeting v1.4.0 release
+
+#### Multi-Mode Shell Architecture
+Run scripts from different shell environments:
+
+- **Lusush mode** (default) - All features enabled
+- **POSIX mode** - Strict POSIX sh compliance
+- **Bash mode** - Bash 4.x compatibility
+- **Zsh mode** - Zsh compatibility with glob qualifiers
+
+Switch modes with `set -o posix`, `set -o bash`, `set -o zsh`, or `set -o lusush`.
+
+#### Extended Language Support (Phases 1-7)
+
+**Phase 1: Arrays and Arithmetic**
+- Indexed arrays: `arr=(a b c)`, `${arr[0]}`, `${arr[@]}`
+- Associative arrays: `declare -A map`
+- Arithmetic command: `(( count++ ))`
+- `let` builtin
+
+**Phase 2: Extended Tests**
+- Extended test: `[[ ]]`
+- Pattern matching: `[[ $str == *.txt ]]`
+- Regex matching: `[[ $str =~ pattern ]]`
+- BASH_REMATCH array for captures
+
+**Phase 3: Process Substitution**
+- Input substitution: `<(command)`
+- Output substitution: `>(command)`
+- Proper FIFO management
+
+**Phase 4: Extended Parameter Expansion**
+- Case modification: `${var^^}`, `${var,,}`
+- Pattern substitution: `${var//old/new}`
+- Indirect expansion: `${!var}`
+- Transformations: `${var@Q}`
+
+**Phase 5: Extended Globbing**
+- Extended patterns: `?(pat)`, `*(pat)`, `+(pat)`, `!(pat)`
+
+**Phase 6: Control Flow Extensions**
+- Case fall-through: `;&`, `;;&`
+- `select` loop
+- `time` keyword
+
+**Phase 7: Functions and Hooks**
+- Nameref variables: `local -n ref=$1`
+- Anonymous functions: `() { cmd; }`
+- Glob qualifiers: `*(.)`, `*(/)`, `*(@)`, `*(*)`
+- Hook functions: `precmd`, `preexec`, `chpwd`, `periodic`
+- Hook arrays: `precmd_functions`, etc.
+- Plugin system foundation
+
+### Added
+- 48 shell builtins with context-aware completion
+- Theme system with 6 built-in themes
+- Integrated debugger (breakpoints, stepping, profiling)
+- Modern configuration interface (`config` command)
+
+### Changed
+- Removed GNU Readline dependency (LLE is native)
+- Rewrote all documentation for v1.4.0
+
+### Fixed
+- Zero memory leaks (verified with macOS leaks tool)
+- Proper AST sibling node cleanup
+- Variable expansion double-free
+- Arithmetic stack item leaks
+
+---
+
 ## [Unreleased] - Extended Language Support
 
 ### Added - Phase 2: Extended Tests `[[ ]]`

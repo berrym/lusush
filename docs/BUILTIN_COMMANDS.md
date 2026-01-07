@@ -1,993 +1,695 @@
-# Lusush Built-in Commands Reference
+# Builtin Commands Reference
 
-**Complete guide to all built-in commands in Lusush v1.3.0**
+**All 48 shell builtin commands in Lusush v1.4.0**
 
 ---
 
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Core Shell Commands](#core-shell-commands)
-3. [File and Directory Commands](#file-and-directory-commands)
-4. [Variable and Environment Commands](#variable-and-environment-commands)
-5. [Control Flow Commands](#control-flow-commands)
-6. [Process and Job Management](#process-and-job-management)
-7. [Unique Lusush Commands](#unique-lusush-commands)
-8. [I/O and Text Processing](#io-and-text-processing)
-9. [System Information Commands](#system-information-commands)
-10. [Quick Reference](#quick-reference)
+2. [POSIX Standard Builtins](#posix-standard-builtins)
+3. [Extended Builtins](#extended-builtins)
+4. [Lusush-Specific Builtins](#lusush-specific-builtins)
+5. [Quick Reference](#quick-reference)
 
 ---
 
 ## Overview
 
-Lusush implements a comprehensive set of POSIX-compliant built-in commands, enhanced with modern features and the unique integrated debugger. All commands maintain full POSIX compatibility while providing additional functionality where appropriate.
+Lusush provides 48 builtin commands. These execute within the shell process without spawning external programs, making them faster and giving them access to shell internals.
 
-### 📚 **Command Categories**
+### Builtin Categories
 
-- **POSIX Standard**: Full compliance with POSIX specifications
-- **Enhanced**: POSIX-compliant with additional features
-- **Lusush Unique**: Commands available only in Lusush (like `debug`)
-- **Modern**: Traditional commands with improved usability
+| Category | Commands |
+|----------|----------|
+| POSIX Standard | `:`, `.`, `break`, `continue`, `eval`, `exec`, `exit`, `export`, `readonly`, `return`, `set`, `shift`, `trap`, `unset` |
+| POSIX Utilities | `alias`, `bg`, `cd`, `command`, `fc`, `fg`, `getopts`, `hash`, `jobs`, `pwd`, `read`, `test`, `times`, `type`, `ulimit`, `umask`, `unalias`, `wait` |
+| Extended | `declare`, `echo`, `false`, `help`, `history`, `local`, `printf`, `source`, `true`, `typeset`, `[` |
+| Lusush-Specific | `clear`, `config`, `debug`, `display`, `network`, `terminal` |
 
 ---
 
-## Core Shell Commands
+## POSIX Standard Builtins
 
-### `echo`
-**Display text**
+### `:` (colon)
+
+Null command. Does nothing, returns success.
 
 ```bash
-# Basic usage
-echo "Hello, World!"
-echo Hello World
-
-# With variables
-name="Alice"
-echo "Hello, $name"
-
-# Multiple arguments
-echo one two three
-
-# Escape sequences (with -e)
-echo -e "Line 1\nLine 2\tTabbed"
-
-# Suppress newline (with -n)
-echo -n "No newline: "
-echo "continues here"
+:                     # No-op
+: ${var:=default}     # Parameter expansion side effects
+while :; do           # Infinite loop
+    # ...
+done
 ```
 
-**Options:**
-- `-n`: Do not output trailing newline
-- `-e`: Enable interpretation of backslash escapes
-- `-E`: Disable interpretation of backslash escapes (default)
+### `.` (dot) / `source`
 
----
-
-### `printf`
-**Formatted output (Enhanced with POSIX compliance)**
+Execute commands from a file in the current shell.
 
 ```bash
-# Basic formatting
-printf "Hello, %s!\n" "World"
-
-# Number formatting
-printf "Number: %d, Float: %.2f\n" 42 3.14159
-
-# Dynamic field width (Lusush enhancement)
-printf "%*s\n" 10 "right"        # Right-align in 10 characters
-printf "%-*s|\n" 10 "left"       # Left-align in 10 characters
-
-# Dynamic precision
-printf "%.*f\n" 3 3.14159        # 3 decimal places
-
-# Multiple formats
-printf "%-10s %5d %8.2f\n" "Item" 42 123.456
+. ./script.sh         # Execute script.sh
+source ~/.bashrc      # Same as .
+. config.sh arg1      # With arguments
 ```
 
-**Format Specifiers:**
-- `%s`: String
-- `%d`, `%i`: Integer
-- `%f`: Float
-- `%x`, `%X`: Hexadecimal
-- `%o`: Octal
-- `%c`: Character
-- `%*s`: Dynamic width (Lusush enhancement)
-- `%.*f`: Dynamic precision (Lusush enhancement)
+### `break`
 
----
-
-### `read`
-**Read input from user or file (Enhanced)**
+Exit from a loop.
 
 ```bash
-# Basic input
-read name
-echo "Hello, $name"
+for i in 1 2 3 4 5; do
+    if [ $i -eq 3 ]; then
+        break           # Exit loop
+    fi
+done
 
-# With prompt (Lusush enhancement)
-read -p "Enter your name: " name
-
-# Read multiple variables
-read first last
-echo "First: $first, Last: $last"
-
-# Raw input (preserve backslashes)
-read -r line
-
-# Read from file
-read line < file.txt
-
-# Timeout (if supported)
-read -t 5 -p "Enter within 5 seconds: " input
+break 2               # Break out of 2 nested loops
 ```
 
-**Options:**
-- `-p prompt`: Display prompt before reading
-- `-r`: Raw mode (don't interpret backslash escapes)
-- `-t timeout`: Timeout in seconds
-- `-n count`: Read only specified number of characters
+### `continue`
 
----
-
-### `test` / `[`
-**Evaluate conditional expressions (Enhanced)**
+Skip to next iteration of a loop.
 
 ```bash
-# File tests
-test -f file.txt          # File exists and is regular file
-test -d directory         # Directory exists
-test -r file.txt          # File is readable
-test -w file.txt          # File is writable
-test -x script.sh         # File is executable
+for i in 1 2 3 4 5; do
+    if [ $i -eq 3 ]; then
+        continue        # Skip 3
+    fi
+    echo $i
+done
 
-# String tests
-test -z "$var"            # String is empty
-test -n "$var"            # String is not empty
-test "$a" = "$b"          # Strings are equal
-test "$a" != "$b"         # Strings are not equal
-
-# Numeric comparisons
-test "$a" -eq "$b"        # Numbers are equal
-test "$a" -ne "$b"        # Numbers are not equal
-test "$a" -lt "$b"        # a less than b
-test "$a" -le "$b"        # a less than or equal to b
-test "$a" -gt "$b"        # a greater than b
-test "$a" -ge "$b"        # a greater than or equal to b
-
-# Logical operations (Lusush enhancement)
-test ! -f file.txt        # NOT file exists
-test -f file1.txt -a -f file2.txt    # AND operation
-test -f file1.txt -o -f file2.txt    # OR operation
-
-# Bracket notation
-[ -f file.txt ] && echo "File exists"
-[ "$name" = "Alice" ] && echo "Hello Alice"
+continue 2            # Continue outer loop
 ```
 
----
+### `eval`
 
-### `type`
-**Display command type (Enhanced with POSIX compliance)**
+Evaluate arguments as shell commands.
 
 ```bash
-# Basic usage
-type echo                 # Shows: echo is a shell builtin
-type ls                   # Shows: ls is /bin/ls
-type my_function          # Shows: my_function is a function
+cmd="echo hello"
+eval $cmd             # Executes: echo hello
 
-# Show all locations (-a option)
-type -a echo              # Shows all instances
-
-# Show only path (-p option)
-type -p ls                # Shows: /bin/ls
-
-# Show only type (-t option)
-type -t echo              # Shows: builtin
-type -t ls                # Shows: file
-type -t my_function       # Shows: function
+var=PATH
+eval echo \$$var      # Echoes value of $PATH
 ```
 
-**Options:**
-- `-a`: Show all locations of command
-- `-p`: Show only the path (for external commands)
-- `-t`: Show only the type (builtin, file, function, etc.)
+### `exec`
 
----
-
-## File and Directory Commands
-
-### `cd`
-**Change directory**
+Replace shell with command, or redirect file descriptors.
 
 ```bash
-# Basic usage
-cd /path/to/directory
-cd ~                      # Home directory
-cd -                      # Previous directory
-cd                        # Home directory (no args)
-
-# Relative paths
-cd ..                     # Parent directory
-cd ../..                  # Two levels up
-cd ./subdir               # Subdirectory
-
-# With error handling
-cd /nonexistent 2>/dev/null || echo "Directory not found"
+exec ls               # Replace shell with ls
+exec 3< file.txt      # Open file on fd 3
+exec 1> output.txt    # Redirect stdout to file
+exec 2>&1             # Redirect stderr to stdout
 ```
 
-**Special Variables:**
-- `PWD`: Current working directory
-- `OLDPWD`: Previous working directory
+### `exit`
 
----
-
-### `pwd`
-**Print working directory**
+Exit the shell.
 
 ```bash
-# Show current directory
-pwd
-
-# In scripts
-current_dir=$(pwd)
-echo "Working in: $current_dir"
+exit                  # Exit with last command's status
+exit 0                # Exit with success
+exit 1                # Exit with failure
 ```
 
----
+### `export`
 
-### `mkdir`
-**Create directories**
+Export variables to environment.
 
 ```bash
-# Create single directory
-mkdir newdir
-
-# Create multiple directories
-mkdir dir1 dir2 dir3
-
-# Create parent directories (-p)
-mkdir -p path/to/deep/directory
-
-# With permissions
-mkdir -m 755 publicdir
+export VAR=value      # Export with value
+export VAR            # Export existing variable
+export -p             # List all exports
+export -n VAR         # Remove export (keep variable)
 ```
 
----
+### `readonly`
 
-### `rmdir`
-**Remove empty directories**
+Make variables read-only.
 
 ```bash
-# Remove empty directory
-rmdir emptydir
-
-# Remove multiple empty directories
-rmdir dir1 dir2 dir3
-
-# Remove parent directories if empty (-p)
-rmdir -p path/to/empty/dirs
+readonly VAR=value    # Create read-only variable
+readonly VAR          # Make existing variable read-only
+readonly -p           # List read-only variables
 ```
 
----
+### `return`
 
-## Variable and Environment Commands
+Return from a function.
+
+```bash
+my_func() {
+    if [ $# -eq 0 ]; then
+        return 1      # Return with error
+    fi
+    return 0          # Return success
+}
+```
 
 ### `set`
-**Set shell options and positional parameters**
+
+Set shell options and positional parameters.
 
 ```bash
-# Show all variables and functions
-set
+# Set options
+set -e                # Exit on error
+set -u                # Error on unset variables
+set -x                # Trace execution
+set -o errexit        # Long form
+
+# Disable options
+set +e                # Disable exit on error
 
 # Set positional parameters
 set -- arg1 arg2 arg3
-echo "First: $1, Second: $2, Third: $3"
+echo $1 $2 $3
 
-# Clear positional parameters
-set --
+# Show all variables
+set
 
-# Shell options (see SHELL_OPTIONS.md for complete reference)
-set -e                    # Exit on error
-set -u                    # Error on unset variables
-set -x                    # Trace execution
-set -o errexit            # Long form
-set +e                    # Disable option
-
-# Show option status
+# Show options
 set -o
 ```
 
----
+See [SHELL_OPTIONS.md](SHELL_OPTIONS.md) for all options.
+
+### `shift`
+
+Shift positional parameters.
+
+```bash
+echo $1 $2 $3         # arg1 arg2 arg3
+shift
+echo $1 $2            # arg2 arg3
+shift 2               # Shift by 2
+```
+
+### `trap`
+
+Set signal handlers.
+
+```bash
+# Trap signals
+trap 'echo Interrupted' INT
+trap 'cleanup' EXIT
+trap '' TERM          # Ignore SIGTERM
+
+# Remove trap
+trap - INT
+
+# List traps
+trap
+```
 
 ### `unset`
-**Remove variables or functions**
+
+Remove variables or functions.
 
 ```bash
-# Remove variable
-VAR="value"
-unset VAR
-echo $VAR                 # Empty
-
-# Remove function
-my_func() { echo "hello"; }
-unset my_func
-my_func                   # Command not found
-
-# Remove multiple items
-unset VAR1 VAR2 VAR3
+unset VAR             # Remove variable
+unset -v VAR          # Remove variable (explicit)
+unset -f func         # Remove function
 ```
 
 ---
 
-### `export`
-**Export variables to environment**
-
-```bash
-# Export existing variable
-VAR="value"
-export VAR
-
-# Export and assign
-export PATH="/usr/local/bin:$PATH"
-export EDITOR="vim"
-
-# Show all exported variables
-export
-
-# Remove from export (but keep variable)
-export -n VAR
-```
-
----
+## POSIX Utilities
 
 ### `alias`
-**Create command aliases**
+
+Create command aliases.
 
 ```bash
-# Create alias
 alias ll='ls -la'
-alias la='ls -A'
-alias grep='grep --color=auto'
-
-# Show all aliases
-alias
-
-# Show specific alias
-alias ll
-
-# Temporary disable alias
-\ll                       # Run actual 'll' command, not alias
+alias                 # List all aliases
+alias ll              # Show specific alias
 ```
-
----
-
-### `unalias`
-**Remove aliases**
-
-```bash
-# Remove specific alias
-unalias ll
-
-# Remove all aliases
-unalias -a
-```
-
----
-
-## Control Flow Commands
-
-### `if` / `then` / `else` / `elif` / `fi`
-**Conditional execution**
-
-```bash
-# Basic if statement
-if [ -f "file.txt" ]; then
-    echo "File exists"
-fi
-
-# If-else
-if [ "$USER" = "root" ]; then
-    echo "Running as root"
-else
-    echo "Running as regular user"
-fi
-
-# Multiple conditions
-if [ -f "config.txt" ]; then
-    echo "Config found"
-elif [ -f "config.conf" ]; then
-    echo "Alternative config found"
-else
-    echo "No config file found"
-fi
-```
-
----
-
-### `for`
-**Iterate over lists**
-
-```bash
-# Basic for loop
-for item in apple banana cherry; do
-    echo "Fruit: $item"
-done
-
-# File iteration
-for file in *.txt; do
-    echo "Processing: $file"
-done
-
-# Number sequence
-for i in 1 2 3 4 5; do
-    echo "Number: $i"
-done
-
-# With command substitution
-for user in $(cat users.txt); do
-    echo "User: $user"
-done
-```
-
----
-
-### `while`
-**Loop while condition is true**
-
-```bash
-# Basic while loop
-counter=1
-while [ $counter -le 5 ]; do
-    echo "Count: $counter"
-    counter=$((counter + 1))
-done
-
-# Read file line by line
-while read line; do
-    echo "Line: $line"
-done < file.txt
-
-# Infinite loop (use with caution)
-while true; do
-    echo "Running..."
-    sleep 1
-done
-```
-
----
-
-### `case`
-**Pattern matching**
-
-```bash
-# Basic case statement
-case "$1" in
-    start)
-        echo "Starting service"
-        ;;
-    stop)
-        echo "Stopping service"
-        ;;
-    restart)
-        echo "Restarting service"
-        ;;
-    *)
-        echo "Usage: $0 {start|stop|restart}"
-        ;;
-esac
-
-# Pattern matching
-case "$filename" in
-    *.txt)
-        echo "Text file"
-        ;;
-    *.pdf)
-        echo "PDF file"
-        ;;
-    *.jpg|*.png|*.gif)
-        echo "Image file"
-        ;;
-    *)
-        echo "Unknown file type"
-        ;;
-esac
-```
-
----
-
-## Process and Job Management
-
-### `jobs`
-**List active jobs**
-
-```bash
-# Show all jobs
-jobs
-
-# Show job PIDs
-jobs -p
-
-# Show running jobs only
-jobs -r
-
-# Show stopped jobs only
-jobs -s
-```
-
----
 
 ### `bg`
-**Put jobs in background**
+
+Resume job in background.
 
 ```bash
-# Start job in background
-sleep 100 &
-
-# Put current job in background
-sleep 100
-# Press Ctrl+Z
-bg
-
-# Put specific job in background
-bg %1
+bg                    # Resume most recent job
+bg %1                 # Resume job 1
+bg %job_name          # Resume by name
 ```
 
----
+### `cd`
+
+Change directory.
+
+```bash
+cd /path/to/dir       # Absolute path
+cd relative/path      # Relative path
+cd                    # Home directory
+cd -                  # Previous directory ($OLDPWD)
+cd ~user              # User's home directory
+```
+
+### `command`
+
+Execute command, bypassing functions and aliases.
+
+```bash
+command ls            # Run ls, not alias
+command -v ls         # Show how ls would be executed
+command -V ls         # Verbose description
+command -p ls         # Use default PATH
+```
+
+### `fc`
+
+Fix command - edit and re-execute history entries.
+
+```bash
+fc                    # Edit last command in $EDITOR
+fc -l                 # List recent history
+fc -l -10             # List last 10 commands
+fc -s pattern=replace # Substitute and execute
+fc 100 110            # Edit range of history
+```
 
 ### `fg`
-**Bring jobs to foreground**
+
+Bring job to foreground.
 
 ```bash
-# Bring most recent job to foreground
-fg
+fg                    # Most recent job
+fg %1                 # Job 1
+fg %job_name          # By name
+```
 
-# Bring specific job to foreground
-fg %1
-fg %job_name
+### `getopts`
+
+Parse command options.
+
+```bash
+while getopts "ab:c" opt; do
+    case $opt in
+        a) echo "Option a" ;;
+        b) echo "Option b: $OPTARG" ;;
+        c) echo "Option c" ;;
+        \?) echo "Invalid option" ;;
+    esac
+done
+shift $((OPTIND - 1))
+```
+
+### `hash`
+
+Remember command locations.
+
+```bash
+hash                  # List hashed commands
+hash -r               # Clear hash table
+hash ls               # Hash ls
+hash -d ls            # Remove ls from hash
+hash -p /usr/bin/ls ls  # Set explicit path
+```
+
+### `jobs`
+
+List jobs.
+
+```bash
+jobs                  # List all jobs
+jobs -l               # Include PIDs
+jobs -p               # PIDs only
+jobs -r               # Running only
+jobs -s               # Stopped only
+```
+
+### `pwd`
+
+Print working directory.
+
+```bash
+pwd                   # Current directory
+pwd -L                # Logical (with symlinks)
+pwd -P                # Physical (resolved)
+```
+
+### `read`
+
+Read input.
+
+```bash
+read var              # Read into var
+read -p "Prompt: " var  # With prompt
+read -r line          # Raw mode (no backslash escape)
+read -t 5 var         # Timeout
+read -n 1 char        # Single character
+read -s pass          # Silent (passwords)
+read -a array         # Into array
+```
+
+### `test` / `[`
+
+Evaluate expressions.
+
+```bash
+test -f file          # File exists
+[ -d dir ]            # Directory exists
+[ "$a" = "$b" ]       # String equality
+[ $n -eq 5 ]          # Numeric equality
+[ -z "$str" ]         # Empty string
+[ -n "$str" ]         # Non-empty string
+```
+
+See [EXTENDED_SYNTAX.md](EXTENDED_SYNTAX.md) for `[[]]`.
+
+### `times`
+
+Display process times.
+
+```bash
+times                 # Show shell and child times
+# Output: user_shell system_shell
+#         user_children system_children
+```
+
+### `type`
+
+Display command type.
+
+```bash
+type ls               # ls is /bin/ls
+type cd               # cd is a shell builtin
+type -t ls            # file
+type -a echo          # All locations
+type -p ls            # Path only
+```
+
+### `ulimit`
+
+Set resource limits.
+
+```bash
+ulimit -a             # Show all limits
+ulimit -n             # Open files
+ulimit -n 1024        # Set open files limit
+ulimit -c unlimited   # Unlimited core size
+ulimit -v 1000000     # Virtual memory (KB)
+```
+
+### `umask`
+
+Set file creation mask.
+
+```bash
+umask                 # Show current mask
+umask 022             # Set mask (octal)
+umask -S              # Symbolic format
+umask u=rwx,g=rx,o=rx # Symbolic set
+```
+
+### `unalias`
+
+Remove aliases.
+
+```bash
+unalias ll            # Remove ll alias
+unalias -a            # Remove all aliases
+```
+
+### `wait`
+
+Wait for jobs to complete.
+
+```bash
+wait                  # Wait for all background jobs
+wait $pid             # Wait for specific PID
+wait %1               # Wait for job 1
+wait -n               # Wait for any job
 ```
 
 ---
 
-### `kill`
-**Terminate processes**
+## Extended Builtins
+
+### `declare` / `typeset`
+
+Declare variables with attributes.
 
 ```bash
-# Kill by PID
-kill 1234
+declare var=value     # Declare variable
+declare -i num=42     # Integer
+declare -a arr        # Indexed array
+declare -A map        # Associative array
+declare -r const=val  # Read-only
+declare -x var        # Export
+declare -l lower      # Lowercase
+declare -u upper      # Uppercase
+declare -n ref=other  # Nameref
+declare -p var        # Print declaration
+declare -f func       # Print function
+declare -F            # List function names
+```
 
-# Kill by job number
-kill %1
+### `echo`
 
-# Kill with specific signal
-kill -9 1234              # SIGKILL
-kill -TERM 1234           # SIGTERM
-kill -HUP 1234            # SIGHUP
+Display text.
 
-# Kill all background jobs
-kill $(jobs -p)
+```bash
+echo "Hello World"
+echo -n "No newline"
+echo -e "Tab:\tNewline:\n"
+echo -E "Literal \n"   # No escape interpretation
+```
+
+### `false`
+
+Return failure status.
+
+```bash
+false                 # Returns 1
+if false; then        # Never executes
+    echo "Never"
+fi
+```
+
+### `help`
+
+Display builtin help.
+
+```bash
+help                  # List all builtins
+help cd               # Help for cd
+help -s cd            # Short usage
+```
+
+### `history`
+
+Command history.
+
+```bash
+history               # Show history
+history 10            # Last 10 entries
+history -c            # Clear history
+history -d 5          # Delete entry 5
+history -a            # Append to file
+history -r            # Read from file
+history -w            # Write to file
+```
+
+### `local`
+
+Declare local variables in functions.
+
+```bash
+my_func() {
+    local var=value   # Local to function
+    local -i num=42   # Local integer
+    local -a arr      # Local array
+    local -n ref=$1   # Local nameref
+}
+```
+
+### `printf`
+
+Formatted output.
+
+```bash
+printf "Hello %s\n" "World"
+printf "%d + %d = %d\n" 2 3 5
+printf "%.2f\n" 3.14159
+printf "%10s\n" "right"
+printf "%-10s\n" "left"
+printf "%*s\n" 10 "dynamic"
+printf "%.*f\n" 2 3.14159
+```
+
+### `true`
+
+Return success status.
+
+```bash
+true                  # Returns 0
+while true; do        # Infinite loop
+    # ...
+done
 ```
 
 ---
 
-## Unique Lusush Commands
+## Lusush-Specific Builtins
 
-### `debug`
-**Integrated debugger (Unique to Lusush)**
+### `clear`
+
+Clear the terminal screen.
 
 ```bash
-# Show debugger help
-debug help
-
-# Enable debugging
-debug on                  # Basic level
-debug on 2                # Verbose level
-debug on 3                # Trace level
-
-# Debug status
-debug                     # Show current status
-
-# Variable inspection
-debug vars                # Show all variables
-debug print VAR           # Show specific variable
-
-# Execution control
-debug step                # Step to next command
-debug next                # Step over function calls
-debug continue            # Continue execution
-
-# Function analysis
-debug functions           # List all functions
-debug function name       # Show specific function
-
-# Performance profiling
-debug profile on          # Enable profiling
-debug profile report      # Show performance data
-debug profile reset       # Reset profiling data
-debug profile off         # Disable profiling
-
-# Execution tracing
-debug trace on            # Enable execution tracing
-debug trace off           # Disable tracing
-
-# Advanced features
-debug break add file line # Add breakpoint (when available)
-debug break list          # List breakpoints
-debug break remove id     # Remove breakpoint
-debug break clear         # Clear all breakpoints
-debug stack               # Show call stack
-debug analyze script      # Analyze script for issues
-
-# Disable debugging
-debug off
+clear                 # Clear screen
 ```
-
-**Debug Levels:**
-- 0: None (disabled)
-- 1: Basic debugging
-- 2: Verbose debugging
-- 3: Trace execution
-- 4: Full profiling
-
----
 
 ### `config`
-**Configuration management**
+
+Manage shell configuration.
 
 ```bash
-# Show all configuration
-config list
+# View configuration
+config show           # All sections
+config show shell     # Shell options
+config show completion
+config show display
 
-# Get specific setting
-config get theme.name
-config get display.performance_monitoring
+# Get/set values
+config get shell.errexit
+config set shell.errexit true
+config set completion.enabled true
 
-# Set configuration
-config set theme.name dark
-config set display.performance_monitoring true
-config set display.optimization_level 2
-
-# Reset to defaults
-config reset
-
-# Show configuration help
-config help
+# Persistence
+config save           # Save to file
+config reset          # Reset to defaults
 ```
 
-**Common Configuration Options:**
-- `theme.name`: Current theme (modern, dark, light, etc.)
-- `autocorrect.enabled`: Enable "Did you mean" suggestions
-- `display.performance_monitoring`: Enable performance monitoring
-- `completion.enhanced`: Enhanced tab completion
+### `debug`
 
----
-
-### `theme`
-**Professional Theme System**
+Integrated debugger.
 
 ```bash
-# Show current theme and list all available themes
-theme
+# Enable/disable
+debug on              # Basic debugging
+debug on 2            # Verbose
+debug on 3            # Trace
+debug off             # Disable
 
-# List all themes organized by category
-theme list
+# Inspection
+debug vars            # All variables
+debug print VAR       # Specific variable
+debug functions       # List functions
 
-# Set active theme (changes immediately)
-theme set corporate        # Professional business theme
-theme set dark            # Modern dark theme with bright accents
-theme set light           # Clean light theme with excellent readability
-theme set colorful        # Vibrant theme for creative workflows
-theme set minimal         # Ultra-minimal for distraction-free work
-theme set classic         # Traditional shell appearance
+# Tracing
+debug trace on        # Enable trace
+debug trace off       # Disable trace
 
-# Preview theme without applying
-theme preview dark
+# Profiling
+debug profile on      # Start profiling
+debug profile report  # Show results
+debug profile off     # Stop profiling
 
-# Show detailed information about a theme
-theme info corporate
-
-# Display color palette of active theme
-theme colors
-
-# Show theme system statistics
-theme stats
-
-# Complete help
-theme help
+# Help
+debug help            # Full documentation
 ```
 
-**Available Themes by Category:**
+See [DEBUGGER_GUIDE.md](DEBUGGER_GUIDE.md) for complete documentation.
 
-**Professional:**
-- `corporate`: Business-appropriate colors and professional styling
+### `display`
 
-**Developer:**
-- `dark`: Modern dark theme with bright accent colors for extended coding
-
-**Minimal:**
-- `light`: Clean light theme with excellent readability
-- `minimal`: Ultra-minimal theme for distraction-free work
-
-**Creative:**
-- `colorful`: Vibrant colorful theme for creative workflows
-
-**Classic:**
-- `classic`: Traditional shell appearance with basic colors
-
-**Git Integration:**
-All themes include intelligent git-aware prompts that automatically display branch status, changes, and tracking information.
-
----
-
-## I/O and Text Processing
-
-### `cat`
-**Display file contents**
+Control display system.
 
 ```bash
-# Display file
-cat file.txt
-
-# Display multiple files
-cat file1.txt file2.txt
-
-# Number lines (-n)
-cat -n file.txt
-
-# Show non-printing characters (-v)
-cat -v file.txt
-
-# Create file with heredoc
-cat > newfile.txt << 'EOF'
-Line 1
-Line 2
-Line 3
-EOF
+display status        # System status
+display lle diagnostics  # LLE status
+display features      # Enabled features
+display themes        # Available themes
+display stats         # Performance stats
+display config        # Configuration
+display help          # Full documentation
 ```
 
----
+### `network`
 
-### `head`
-**Display first lines of file**
+Manage network and SSH hosts.
 
 ```bash
-# First 10 lines (default)
-head file.txt
-
-# First n lines
-head -n 5 file.txt
-head -5 file.txt
-
-# Multiple files
-head file1.txt file2.txt
-
-# First n bytes
-head -c 100 file.txt
+network hosts list    # List known hosts
+network hosts add hostname  # Add host
+network hosts remove hostname  # Remove host
+network hosts refresh # Refresh from files
 ```
 
----
+### `terminal`
 
-### `tail`
-**Display last lines of file**
-
-```bash
-# Last 10 lines (default)
-tail file.txt
-
-# Last n lines
-tail -n 5 file.txt
-tail -5 file.txt
-
-# Follow file changes (-f)
-tail -f logfile.txt
-
-# Multiple files
-tail file1.txt file2.txt
-```
-
----
-
-### `wc`
-**Count lines, words, characters**
+Display terminal information.
 
 ```bash
-# Count everything
-wc file.txt
-
-# Count lines only (-l)
-wc -l file.txt
-
-# Count words only (-w)
-wc -w file.txt
-
-# Count characters only (-c)
-wc -c file.txt
-
-# Multiple files
-wc *.txt
-
-# From pipe
-echo "hello world" | wc -w
-```
-
----
-
-## System Information Commands
-
-### `uname`
-**System information**
-
-```bash
-# System name
-uname
-
-# All information (-a)
-uname -a
-
-# Specific information
-uname -s              # System name
-uname -n              # Node name
-uname -r              # Release
-uname -v              # Version
-uname -m              # Machine type
-```
-
----
-
-### `date`
-**Display or set date**
-
-```bash
-# Current date and time
-date
-
-# Formatted output
-date "+%Y-%m-%d"          # 2025-01-01
-date "+%Y-%m-%d %H:%M:%S" # 2025-01-01 15:30:45
-date "+%A, %B %d, %Y"     # Monday, January 01, 2025
-
-# Specific timezone
-TZ=UTC date
-
-# Unix timestamp
-date +%s
-```
-
----
-
-### `hostname`
-**Display or set hostname**
-
-```bash
-# Show hostname
-hostname
-
-# Show fully qualified domain name
-hostname -f
-
-# Show IP address
-hostname -i
-```
-
----
-
-### `whoami`
-**Display current username**
-
-```bash
-# Current user
-whoami
-
-# Use in scripts
-current_user=$(whoami)
-echo "Running as: $current_user"
+terminal              # Terminal info
+terminal info         # Detailed info
+terminal capabilities # Capability detection
 ```
 
 ---
 
 ## Quick Reference
 
-### Essential Commands Summary
+### All 48 Builtins
 
-| Category | Commands |
-|----------|----------|
-| **Core** | `echo`, `printf`, `read`, `test`, `type` |
-| **Files** | `cd`, `pwd`, `mkdir`, `rmdir`, `cat`, `head`, `tail` |
-| **Variables** | `set`, `unset`, `export`, `alias`, `unalias` |
-| **Control** | `if`, `for`, `while`, `case` |
-| **Jobs** | `jobs`, `bg`, `fg`, `kill` |
-| **Unique** | `debug`, `config`, `theme` |
-| **System** | `uname`, `date`, `hostname`, `whoami` |
-
-### Lusush Enhancements
-
-| Command | Enhancement |
-|---------|-------------|
-| `printf` | Dynamic field width (`%*s`) and precision (`%.*f`) |
-| `read` | Prompt option (`-p`) |
-| `test` | Logical operations (`-a`, `-o`, `!`) |
-| `type` | Complete POSIX compliance (`-a`, `-p`, `-t`) |
-| `debug` | **Unique**: Complete interactive debugger |
-| `config` | **Unique**: Modern configuration system |
-| `theme` | **Unique**: Professional theme management |
-
-### Command Exit Codes
-
-```bash
-# Success
-true                      # Always returns 0
-echo "hello"              # Returns 0 on success
-
-# Failure
-false                     # Always returns 1
-test -f nonexistent       # Returns 1 (false)
-
-# Check exit code
-command
-echo $?                   # Shows exit code of last command
-
-# Use in conditionals
-if command; then
-    echo "Command succeeded"
-else
-    echo "Command failed with code: $?"
-fi
 ```
+:           .           [           alias       bg
+break       cd          clear       command     config
+continue    debug       declare     display     echo
+eval        exec        exit        export      false
+fc          fg          getopts     hash        help
+history     jobs        local       network     printf
+pwd         read        readonly    return      set
+shift       source      terminal    test        times
+trap        true        type        typeset     ulimit
+umask       unalias     unset       wait
+```
+
+### By Purpose
+
+| Purpose | Builtins |
+|---------|----------|
+| Flow control | `break`, `continue`, `return`, `exit` |
+| Loops | `for`, `while`, `until` (keywords, not builtins) |
+| Conditionals | `test`, `[`, `if` (keyword) |
+| Variables | `declare`, `export`, `local`, `readonly`, `unset`, `typeset` |
+| Functions | `return`, `local`, `declare -f` |
+| Jobs | `bg`, `fg`, `jobs`, `wait` |
+| Signals | `trap` |
+| I/O | `echo`, `printf`, `read` |
+| Directory | `cd`, `pwd` |
+| History | `fc`, `history` |
+| Aliases | `alias`, `unalias` |
+| Shell config | `set`, `config` |
+| Commands | `command`, `type`, `hash`, `eval`, `exec`, `.`, `source` |
+| Debugging | `debug` |
+| Display | `display`, `clear`, `terminal` |
+| Resources | `ulimit`, `umask`, `times` |
+| Options | `getopts`, `shift` |
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | General error |
+| 2 | Misuse of builtin |
+| 126 | Command not executable |
+| 127 | Command not found |
+| 128+n | Killed by signal n |
 
 ---
 
----
+## See Also
 
-## display
-**Layered Display System Interface**
-
-### Usage
-```bash
-display status              # Show display system status  
-display enable              # Enable layered display system
-display disable             # Disable layered display system
-display config              # Show detailed configuration
-display stats               # Show performance statistics
-display diagnostics         # Show comprehensive diagnostics
-display help                # Show complete command reference
-```
-
-### Description
-The `display` command provides an interface to Lusush's revolutionary layered display architecture. This system enables coordinated display management with universal prompt compatibility, real-time syntax highlighting, and intelligent layer combination.
-
-**Note**: The underlying layered display controller architecture exists but full integration is planned for a future release. Currently operates in standard display mode.
-
-### Environment Variables
-- `LUSUSH_LAYERED_DISPLAY=1|0` - Enable/disable at startup
-- `LUSUSH_DISPLAY_DEBUG=1|0` - Enable debug output  
-- `LUSUSH_DISPLAY_OPTIMIZATION=0-4` - Set optimization level (0=disabled, 4=maximum)
-
-### Examples
-```bash
-# Check system status
-display status
-
-# Show current configuration
-display config
-
-# Enable layered display system (when integration is complete)
-display enable
-
-# Performance diagnostics
-display stats
-display diagnostics
-```
-
----
-
-## Conclusion
-
-Lusush provides a comprehensive set of built-in commands that combine POSIX compliance with modern enhancements. The unique `debug` command sets Lusush apart from all other shells, providing capabilities that simply aren't available anywhere else.
-
-Key advantages:
-- **Complete POSIX compliance**: All standard commands work as expected
-- **Modern enhancements**: Improved usability without breaking compatibility
-- **Unique capabilities**: Integrated debugger, configuration system, themes, layered display architecture
-- **Professional quality**: Suitable for development, production, and education
-
-Whether you're using Lusush for daily shell work, script development, or learning, these built-in commands provide everything needed for professional shell scripting and system administration.
+- [USER_GUIDE.md](USER_GUIDE.md) - Complete shell reference
+- [SHELL_OPTIONS.md](SHELL_OPTIONS.md) - Shell option reference
+- [COMPLETION_SYSTEM.md](COMPLETION_SYSTEM.md) - Context-aware completions
+- [DEBUGGER_GUIDE.md](DEBUGGER_GUIDE.md) - Debugging reference

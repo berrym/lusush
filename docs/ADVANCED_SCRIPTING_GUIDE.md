@@ -1,711 +1,830 @@
-# Advanced Scripting Guide for Lusush
+# Advanced Scripting Guide
 
-> **Professional shell scripting with modern development tools**
-
-Lusush provides advanced scripting capabilities that go beyond standard POSIX shells. This guide covers the enhanced function system, debugging workflows, multiline construct handling, and real-world scripting patterns that make Lusush suitable for professional development environments.
-
-> **⚠️ Development Status**: Lusush is under active development. While the core features documented here (functions, debugging, multiline constructs) are functional, some advanced debug commands, configuration options, or edge cases may be partially implemented or evolving. Always verify functionality with `debug help` and test thoroughly in your environment.
-
-## 🎯 What Makes Lusush Advanced
-
-Lusush builds upon solid POSIX foundations while adding modern development features:
-
-- **Enhanced function system** with parameter validation and advanced return values
-- **Professional debugging tools** for script development and troubleshooting
-- **Complete multiline support** for complex constructs via stdin/pipe
-- **Function introspection** for development and maintenance
-- **Robust parsing** that handles real-world shell scripts correctly
-
-## 🏗️ Enhanced Function System
-
-### Function Parameter Validation
-
-Lusush supports function parameter definitions with validation and default values:
-
-```bash
-# Function with required and optional parameters
-function deploy(environment, version="latest") {
-    if [ -z "$environment" ]; then
-        echo "Error: Environment parameter is required"
-        return 1
-    fi
-    
-    echo "Deploying $version to $environment"
-    return 0
-}
-
-# Function calls with parameter validation
-deploy production v2.1.0     # Uses specified version
-deploy staging               # Uses default version "latest"
-deploy                       # Error: Environment required
-```
-
-### Advanced Return Values
-
-Beyond exit codes, Lusush functions can return string values:
-
-```bash
-function calculate_total(base, tax_rate="0.08") {
-    local tax=$(echo "$base * $tax_rate" | bc -l)
-    local total=$(echo "$base + $tax" | bc -l)
-    return_value "$total"
-}
-
-# Capture function return value
-total=$(calculate_total 100.00 0.10)
-echo "Total cost: $total"  # Output: Total cost: 110.00
-
-# Use in conditional expressions
-if [ "$(calculate_total 50)" = "54.00" ]; then
-    echo "Tax calculation correct"
-fi
-```
-
-### Function Introspection and Debugging
-
-Lusush provides built-in tools for function development:
-
-```bash
-# Define a complex function
-function process_data(input_file, output_format="json") {
-    local temp_file="/tmp/processing_$$"
-    local line_count=0
-    
-    if [ ! -f "$input_file" ]; then
-        echo "Error: Input file not found: $input_file"
-        return 1
-    fi
-    
-    # Process data based on format
-    case "$output_format" in
-        "json") 
-            process_as_json "$input_file" > "$temp_file"
-            ;;
-        "csv")
-            process_as_csv "$input_file" > "$temp_file"
-            ;;
-        *)
-            echo "Error: Unknown format: $output_format"
-            return 2
-            ;;
-    esac
-    
-    line_count=$(wc -l < "$temp_file")
-    return_value "$line_count"
-}
-
-# Function introspection
-debug functions                          # List all defined functions
-debug function process_data             # Show function details and usage
-```
-
-## 🔍 Professional Debugging Workflow
-
-### Debug Command Overview
-
-Lusush provides comprehensive debugging capabilities:
-
-```bash
-# Enable debugging
-debug on 2                              # Set debug level (0-4)
-debug trace on                          # Enable execution tracing
-
-# Breakpoint management
-debug break add script.sh 25            # Add breakpoint at line 25
-debug break add script.sh 30 'count > 10'  # Conditional breakpoint
-debug break list                         # List all breakpoints
-debug break remove 1                     # Remove breakpoint by ID
-
-# Execution control
-debug step                              # Step into next statement
-debug next                              # Step over next statement
-debug continue                          # Continue execution
-
-# Variable inspection
-debug vars                              # Show all variables
-debug print variable_name               # Print specific variable
-debug stack                             # Show call stack
-
-# Performance analysis
-debug profile on                        # Enable profiling
-debug profile report                    # Show performance report
-debug profile reset                     # Reset profiling data
-```
-
-### Debugging Real-World Scripts
-
-```bash
-function backup_system(backup_path, compression="gzip") {
-    local timestamp=$(date +%Y%m%d_%H%M%S)
-    local backup_file="$backup_path/system_backup_$timestamp.tar"
-    local temp_list="/tmp/backup_files_$$"
-    
-    echo "Starting system backup to $backup_file"
-    
-    # Create list of files to backup
-    find /etc /home -type f -size -100M > "$temp_list" 2>/dev/null
-    
-    if [ ! -s "$temp_list" ]; then
-        echo "Error: No files found to backup"
-        return 1
-    fi
-    
-    # Perform backup based on compression type
-    case "$compression" in
-        "gzip")
-            tar czf "$backup_file.gz" -T "$temp_list"
-            ;;
-        "bzip2")
-            tar cjf "$backup_file.bz2" -T "$temp_list"
-            ;;
-        "none")
-            tar cf "$backup_file" -T "$temp_list"
-            ;;
-        *)
-            echo "Error: Unknown compression: $compression"
-            return 2
-            ;;
-    esac
-    
-    local exit_code=$?
-    rm -f "$temp_list"
-    
-    if [ $exit_code -eq 0 ]; then
-        echo "Backup completed successfully"
-        return_value "$backup_file"
-    else
-        echo "Backup failed with exit code $exit_code"
-        return $exit_code
-    fi
-}
-
-# Debug the backup function
-debug break add backup.sh 15            # Break at compression switch
-debug on 2                              # Enable detailed debugging
-backup_result=$(backup_system /backups gzip)
-echo "Backup result: $backup_result"
-```
-
-## 🔄 Multiline Construct Mastery
-
-### Complex Multiline Functions
-
-Lusush handles sophisticated multiline function definitions correctly:
-
-```bash
-function deploy_application(environment, config_path, options="") {
-    local app_name="myapp"
-    local deploy_dir="/opt/$app_name"
-    local config_file="$config_path/$environment.conf"
-    local log_file="/var/log/deploy_$(date +%Y%m%d).log"
-    
-    echo "Starting deployment to $environment" | tee -a "$log_file"
-    
-    # Validate environment configuration
-    if [ ! -f "$config_file" ]; then
-        echo "Error: Configuration not found: $config_file" | tee -a "$log_file"
-        return 1
-    fi
-    
-    # Create deployment directory if needed
-    if [ ! -d "$deploy_dir" ]; then
-        if ! mkdir -p "$deploy_dir"; then
-            echo "Error: Cannot create deploy directory" | tee -a "$log_file"
-            return 2
-        fi
-    fi
-    
-    # Deploy application files
-    for component in api web worker; do
-        echo "Deploying $component..." | tee -a "$log_file"
-        
-        if [ -d "dist/$component" ]; then
-            if ! cp -r "dist/$component" "$deploy_dir/"; then
-                echo "Error: Failed to deploy $component" | tee -a "$log_file"
-                return 3
-            fi
-        else
-            echo "Warning: Component $component not found" | tee -a "$log_file"
-        fi
-    done
-    
-    # Apply configuration
-    if ! cp "$config_file" "$deploy_dir/config.conf"; then
-        echo "Error: Failed to copy configuration" | tee -a "$log_file"
-        return 4
-    fi
-    
-    echo "Deployment completed successfully" | tee -a "$log_file"
-    return_value "$deploy_dir"
-}
-```
-
-### Advanced Case Statement Patterns
-
-```bash
-function process_request(method, path, data="") {
-    local response_code=200
-    local response_body=""
-    
-    case "$method" in
-        "GET")
-            case "$path" in
-                "/api/users")
-                    response_body='{"users": []}'
-                    ;;
-                "/api/status")
-                    response_body='{"status": "healthy"}'
-                    ;;
-                *)
-                    response_code=404
-                    response_body='{"error": "Not found"}'
-                    ;;
-            esac
-            ;;
-        "POST")
-            case "$path" in
-                "/api/users")
-                    if [ -n "$data" ]; then
-                        response_body='{"message": "User created"}'
-                        response_code=201
-                    else
-                        response_code=400
-                        response_body='{"error": "Missing data"}'
-                    fi
-                    ;;
-                *)
-                    response_code=404
-                    response_body='{"error": "Not found"}'
-                    ;;
-            esac
-            ;;
-        "PUT"|"PATCH")
-            response_code=501
-            response_body='{"error": "Not implemented"}'
-            ;;
-        *)
-            response_code=405
-            response_body='{"error": "Method not allowed"}'
-            ;;
-    esac
-    
-    echo "HTTP/1.1 $response_code"
-    echo "Content-Type: application/json"
-    echo
-    echo "$response_body"
-}
-```
-
-### Here Document Applications
-
-```bash
-function generate_config(app_name, environment, database_url) {
-    local config_file="/tmp/${app_name}_${environment}.conf"
-    
-    cat <<CONFIG_END > "$config_file"
-# Generated configuration for $app_name
-# Environment: $environment
-# Generated: $(date)
-
-[application]
-name = $app_name
-environment = $environment
-debug = $([ "$environment" = "development" ] && echo "true" || echo "false")
-
-[database]
-url = $database_url
-pool_size = 10
-timeout = 30
-
-[logging]
-level = $([ "$environment" = "production" ] && echo "INFO" || echo "DEBUG")
-file = /var/log/$app_name.log
-CONFIG_END
-
-    return_value "$config_file"
-}
-
-function send_notification(recipient, subject, message) {
-    local email_file="/tmp/notification_$$.txt"
-    
-    cat <<EMAIL_END > "$email_file"
-To: $recipient
-Subject: $subject
-Date: $(date -R)
-
-$message
-
---
-This is an automated message from $(hostname)
-Generated at $(date)
-EMAIL_END
-
-    # Send email (mock implementation)
-    echo "Email saved to $email_file"
-    return_value "$email_file"
-}
-```
-
-## 🛠️ Real-World Scripting Patterns
-
-### Configuration Management
-
-```bash
-function load_config(config_file, section="") {
-    local current_section=""
-    local found_value=""
-    
-    if [ ! -f "$config_file" ]; then
-        echo "Error: Configuration file not found: $config_file"
-        return 1
-    fi
-    
-    while IFS='=' read -r key value; do
-        # Handle section headers
-        case "$key" in
-            \[*\])
-                current_section="${key#[}"
-                current_section="${current_section%]}"
-                ;;
-            \#*|"")
-                # Skip comments and empty lines
-                continue
-                ;;
-            *)
-                if [ -n "$section" ] && [ "$current_section" = "$section" ]; then
-                    echo "$key=$value"
-                elif [ -z "$section" ]; then
-                    echo "[$current_section] $key=$value"
-                fi
-                ;;
-        esac
-    done < "$config_file"
-}
-
-function validate_config(config_file) {
-    local errors=0
-    local required_keys="database_url app_name environment"
-    
-    for key in $required_keys; do
-        if ! grep -q "^$key=" "$config_file"; then
-            echo "Error: Missing required configuration: $key"
-            errors=$((errors + 1))
-        fi
-    done
-    
-    return $errors
-}
-```
-
-### Error Handling and Retry Logic
-
-```bash
-function retry_command(max_attempts, delay, command_args) {
-    local attempt=1
-    local exit_code=0
-    
-    while [ $attempt -le "$max_attempts" ]; do
-        echo "Attempt $attempt/$max_attempts: $command_args"
-        
-        if eval "$command_args"; then
-            echo "Command succeeded on attempt $attempt"
-            return 0
-        fi
-        
-        exit_code=$?
-        
-        if [ $attempt -eq "$max_attempts" ]; then
-            echo "Command failed after $max_attempts attempts (exit code: $exit_code)"
-            return $exit_code
-        fi
-        
-        echo "Attempt $attempt failed, retrying in $delay seconds..."
-        sleep "$delay"
-        attempt=$((attempt + 1))
-    done
-}
-
-function safe_execute(command_args, timeout="30") {
-    local temp_output="/tmp/safe_execute_$$"
-    local temp_error="/tmp/safe_execute_err_$$"
-    local exit_code=0
-    
-    # Execute with timeout
-    timeout "$timeout" sh -c "$command_args" > "$temp_output" 2> "$temp_error"
-    exit_code=$?
-    
-    case $exit_code in
-        0)
-            cat "$temp_output"
-            ;;
-        124)
-            echo "Error: Command timed out after $timeout seconds"
-            ;;
-        *)
-            echo "Error: Command failed with exit code $exit_code"
-            cat "$temp_error" >&2
-            ;;
-    esac
-    
-    rm -f "$temp_output" "$temp_error"
-    return $exit_code
-}
-```
-
-### Data Processing Pipelines
-
-```bash
-function process_log_file(log_file, pattern, output_format="summary") {
-    local temp_matches="/tmp/matches_$$"
-    local temp_summary="/tmp/summary_$$"
-    
-    if [ ! -f "$log_file" ]; then
-        echo "Error: Log file not found: $log_file"
-        return 1
-    fi
-    
-    # Extract matching lines
-    grep "$pattern" "$log_file" > "$temp_matches" || {
-        echo "No matches found for pattern: $pattern"
-        return 0
-    }
-    
-    local match_count=$(wc -l < "$temp_matches")
-    echo "Found $match_count matches for pattern: $pattern"
-    
-    case "$output_format" in
-        "summary")
-            # Generate summary
-            {
-                echo "Log Analysis Summary"
-                echo "===================="
-                echo "File: $log_file"
-                echo "Pattern: $pattern"
-                echo "Matches: $match_count"
-                echo "Analysis time: $(date)"
-                echo ""
-                echo "Recent matches:"
-                tail -10 "$temp_matches"
-            } > "$temp_summary"
-            
-            cat "$temp_summary"
-            return_value "$temp_summary"
-            ;;
-        "full")
-            cat "$temp_matches"
-            return_value "$temp_matches"
-            ;;
-        "count")
-            echo "$match_count"
-            return_value "$match_count"
-            ;;
-        *)
-            echo "Error: Unknown output format: $output_format"
-            rm -f "$temp_matches" "$temp_summary"
-            return 1
-            ;;
-    esac
-    
-    rm -f "$temp_matches"
-}
-```
-
-## 🚀 Best Practices
-
-### Function Organization
-
-```bash
-# Library-style function organization
-function string_length(input_string) {
-    return_value "${#input_string}"
-}
-
-function string_contains(haystack, needle) {
-    case "$haystack" in
-        *"$needle"*) return_value "true" ;;
-        *) return_value "false" ;;
-    esac
-}
-
-function string_trim(input_string) {
-    # Simple trim using sed (POSIX compliant)
-    local trimmed
-    trimmed=$(echo "$input_string" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-    return_value "$trimmed"
-}
-
-# Use functions as building blocks
-function validate_email(email_address) {
-    local length=$(string_length "$email_address")
-    
-    if [ "$length" -lt 5 ]; then
-        return_value "false"
-        return
-    fi
-    
-    if $(string_contains "$email_address" "@"); then
-        return_value "true"
-    else
-        return_value "false"
-    fi
-}
-```
-
-### Error Handling Patterns
-
-```bash
-function robust_file_operation(source_file, dest_file, operation="copy") {
-    # Input validation
-    if [ -z "$source_file" ] || [ -z "$dest_file" ]; then
-        echo "Error: Source and destination files required"
-        return 1
-    fi
-    
-    if [ ! -f "$source_file" ]; then
-        echo "Error: Source file not found: $source_file"
-        return 2
-    fi
-    
-    # Check destination directory
-    local dest_dir=$(dirname "$dest_file")
-    if [ ! -d "$dest_dir" ]; then
-        echo "Creating destination directory: $dest_dir"
-        if ! mkdir -p "$dest_dir"; then
-            echo "Error: Cannot create destination directory"
-            return 3
-        fi
-    fi
-    
-    # Perform operation
-    case "$operation" in
-        "copy")
-            if cp "$source_file" "$dest_file"; then
-                echo "File copied successfully"
-                return_value "$dest_file"
-            else
-                echo "Error: Copy operation failed"
-                return 4
-            fi
-            ;;
-        "move")
-            if mv "$source_file" "$dest_file"; then
-                echo "File moved successfully"
-                return_value "$dest_file"
-            else
-                echo "Error: Move operation failed"
-                return 5
-            fi
-            ;;
-        *)
-            echo "Error: Unknown operation: $operation"
-            return 6
-            ;;
-    esac
-}
-```
-
-### Testing and Validation
-
-```bash
-function run_tests() {
-    local test_count=0
-    local pass_count=0
-    local fail_count=0
-    
-    echo "Running Lusush script tests..."
-    echo "=============================="
-    
-    # Test function parameter validation
-    test_count=$((test_count + 1))
-    if result=$(string_length "hello"); then
-        if [ "$result" = "5" ]; then
-            echo "PASS: String length calculation"
-            pass_count=$((pass_count + 1))
-        else
-            echo "FAIL: String length calculation (expected 5, got $result)"
-            fail_count=$((fail_count + 1))
-        fi
-    else
-        echo "FAIL: String length function error"
-        fail_count=$((fail_count + 1))
-    fi
-    
-    # Test return value system
-    test_count=$((test_count + 1))
-    if $(string_contains "hello world" "world"); then
-        echo "PASS: String contains detection"
-        pass_count=$((pass_count + 1))
-    else
-        echo "FAIL: String contains detection"
-        fail_count=$((fail_count + 1))
-    fi
-    
-    # Test error handling
-    test_count=$((test_count + 1))
-    if ! robust_file_operation "/nonexistent" "/tmp/test" "copy" 2>/dev/null; then
-        echo "PASS: Error handling for missing file"
-        pass_count=$((pass_count + 1))
-    else
-        echo "FAIL: Should have failed for missing file"
-        fail_count=$((fail_count + 1))
-    fi
-    
-    echo ""
-    echo "Test Results:"
-    echo "============="
-    echo "Total: $test_count"
-    echo "Passed: $pass_count"
-    echo "Failed: $fail_count"
-    
-    if [ $fail_count -eq 0 ]; then
-        echo "All tests passed!"
-        return 0
-    else
-        echo "Some tests failed."
-        return 1
-    fi
-}
-```
-
-## 🔧 Development Workflow Integration
-
-### Script Development Process
-
-1. **Write functions with parameter validation**
-2. **Use return_value for complex return data**
-3. **Add debug breakpoints during development**
-4. **Test multiline constructs thoroughly**
-5. **Use function introspection for documentation**
-6. **Implement comprehensive error handling**
-
-### Debugging Session Example
-
-```bash
-# 1. Enable debugging
-debug on 2
-debug trace on
-
-# 2. Set strategic breakpoints
-debug break add myscript.sh 25 'error_count > 0'
-debug break add myscript.sh 50
-
-# 3. Run your script
-./myscript.sh production
-
-# 4. When breakpoint hits:
-# - Use 'debug vars' to inspect variables
-# - Use 'debug stack' to see call hierarchy
-# - Use 'debug step' to step through execution
-# - Use 'debug continue' to resume
-
-# 5. Analyze performance
-debug profile report
-```
-
-This guide demonstrates the advanced scripting capabilities available in Lusush. The enhanced function system, debugging tools, and robust multiline support make it suitable for professional shell script development while maintaining POSIX compatibility.
+**Professional shell scripting with Lusush v1.4.0**
 
 ---
 
-**Development Status Disclaimer**: Lusush is actively developed software. While all examples in this guide have been tested with current Lusush, some advanced debugging features, configuration integration, or edge cases may be partially implemented or subject to change. Always test scripts thoroughly in your environment and use `debug help` and `config show` to verify available features in your version.
+## Table of Contents
 
-**Note**: All examples use POSIX-compliant syntax that works in current Lusush. Report any issues or inconsistencies to help improve the shell's reliability and documentation accuracy.
+1. [Script Structure](#script-structure)
+2. [Error Handling](#error-handling)
+3. [Working with Arrays](#working-with-arrays)
+4. [Advanced Functions](#advanced-functions)
+5. [Process Management](#process-management)
+6. [Data Processing](#data-processing)
+7. [Using Hooks](#using-hooks)
+8. [Debugging Scripts](#debugging-scripts)
+9. [Performance](#performance)
+10. [Portability](#portability)
+
+---
+
+## Script Structure
+
+### Standard Header
+
+```bash
+#!/usr/bin/env lusush
+
+# script.sh - Description of what the script does
+# Usage: script.sh [options] arguments
+# Author: Your Name
+
+set -euo pipefail
+
+# Constants
+readonly SCRIPT_NAME="${0##*/}"
+readonly SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Configuration
+DEBUG=${DEBUG:-false}
+VERBOSE=${VERBOSE:-false}
+```
+
+### Strict Mode
+
+Always use strict mode for robust scripts:
+
+```bash
+set -e          # Exit on error
+set -u          # Error on unset variables
+set -o pipefail # Pipeline failure propagation
+
+# Or combined
+set -euo pipefail
+```
+
+### Script Organization
+
+```bash
+#!/usr/bin/env lusush
+set -euo pipefail
+
+#----------------------------------------------------------
+# Configuration
+#----------------------------------------------------------
+
+readonly VERSION="1.0.0"
+readonly CONFIG_FILE="${HOME}/.myconfig"
+
+#----------------------------------------------------------
+# Functions
+#----------------------------------------------------------
+
+usage() {
+    cat <<EOF
+Usage: ${0##*/} [OPTIONS] COMMAND
+
+Options:
+    -h, --help      Show this help
+    -v, --verbose   Verbose output
+    -d, --debug     Debug mode
+
+Commands:
+    start           Start the service
+    stop            Stop the service
+    status          Show status
+EOF
+}
+
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >&2
+}
+
+die() {
+    log "ERROR: $*"
+    exit 1
+}
+
+#----------------------------------------------------------
+# Main
+#----------------------------------------------------------
+
+main() {
+    local verbose=false
+    
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -h|--help)
+                usage
+                exit 0
+                ;;
+            -v|--verbose)
+                verbose=true
+                shift
+                ;;
+            -*)
+                die "Unknown option: $1"
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+    
+    [[ $# -eq 0 ]] && die "Command required"
+    
+    case "$1" in
+        start)  do_start ;;
+        stop)   do_stop ;;
+        status) do_status ;;
+        *)      die "Unknown command: $1" ;;
+    esac
+}
+
+main "$@"
+```
+
+---
+
+## Error Handling
+
+### Exit on Error
+
+```bash
+set -e  # Exit immediately on error
+
+# Some commands are expected to fail
+if ! command -v optional_tool >/dev/null 2>&1; then
+    echo "optional_tool not found, using fallback"
+fi
+
+# Or use || true for commands that may fail
+grep pattern file.txt || true
+```
+
+### Error Traps
+
+```bash
+# Cleanup on exit
+cleanup() {
+    rm -f "$TEMP_FILE"
+    [[ -n "${PID:-}" ]] && kill "$PID" 2>/dev/null
+}
+trap cleanup EXIT
+
+# Handle errors
+on_error() {
+    echo "Error on line $1" >&2
+    exit 1
+}
+trap 'on_error $LINENO' ERR
+
+# Handle interrupts
+on_interrupt() {
+    echo "Interrupted" >&2
+    exit 130
+}
+trap on_interrupt INT TERM
+```
+
+### Error Functions
+
+```bash
+# Die with message
+die() {
+    echo "ERROR: $*" >&2
+    exit 1
+}
+
+# Die with usage
+die_usage() {
+    echo "ERROR: $*" >&2
+    usage >&2
+    exit 1
+}
+
+# Warning (continue)
+warn() {
+    echo "WARNING: $*" >&2
+}
+
+# Usage
+[[ $# -lt 1 ]] && die_usage "Missing argument"
+[[ -f "$1" ]] || die "File not found: $1"
+```
+
+### Validating Input
+
+```bash
+validate_number() {
+    local value="$1"
+    [[ "$value" =~ ^[0-9]+$ ]] || die "Invalid number: $value"
+}
+
+validate_file() {
+    local file="$1"
+    [[ -f "$file" ]] || die "File not found: $file"
+    [[ -r "$file" ]] || die "Cannot read: $file"
+}
+
+validate_directory() {
+    local dir="$1"
+    [[ -d "$dir" ]] || die "Directory not found: $dir"
+    [[ -w "$dir" ]] || die "Cannot write to: $dir"
+}
+```
+
+---
+
+## Working with Arrays
+
+### Array Basics
+
+```bash
+# Indexed arrays
+files=()
+files+=("file1.txt")
+files+=("file2.txt")
+
+# From glob
+scripts=(*.sh)
+
+# From command output
+readarray -t lines < file.txt
+# Or
+mapfile -t lines < file.txt
+
+# Iterate
+for file in "${files[@]}"; do
+    process "$file"
+done
+
+# Check if empty
+if [[ ${#files[@]} -eq 0 ]]; then
+    echo "No files"
+fi
+```
+
+### Associative Arrays
+
+```bash
+declare -A config
+
+# Load configuration
+config[host]="localhost"
+config[port]="8080"
+config[debug]="false"
+
+# Access
+echo "Connecting to ${config[host]}:${config[port]}"
+
+# Check key exists
+if [[ -v config[host] ]]; then
+    echo "Host configured"
+fi
+
+# Iterate
+for key in "${!config[@]}"; do
+    echo "$key = ${config[$key]}"
+done
+```
+
+### Array Operations
+
+```bash
+# Length
+count=${#array[@]}
+
+# Slice
+subset=("${array[@]:2:3}")  # 3 elements starting at index 2
+
+# Contains
+contains() {
+    local item="$1"
+    shift
+    for element in "$@"; do
+        [[ "$element" == "$item" ]] && return 0
+    done
+    return 1
+}
+
+if contains "target" "${array[@]}"; then
+    echo "Found"
+fi
+
+# Join
+join_array() {
+    local delimiter="$1"
+    shift
+    local result="$1"
+    shift
+    for item in "$@"; do
+        result+="${delimiter}${item}"
+    done
+    echo "$result"
+}
+
+result=$(join_array "," "${array[@]}")
+```
+
+### Passing Arrays to Functions
+
+```bash
+# Pass by expansion
+process_files() {
+    local files=("$@")
+    for file in "${files[@]}"; do
+        echo "Processing: $file"
+    done
+}
+process_files "${my_files[@]}"
+
+# Pass by nameref (Lusush mode)
+process_array() {
+    local -n arr=$1
+    for item in "${arr[@]}"; do
+        echo "Item: $item"
+    done
+}
+process_array my_array
+```
+
+---
+
+## Advanced Functions
+
+### Local Variables
+
+```bash
+calculate() {
+    local -i a=$1 b=$2
+    local -i result
+    result=$((a + b))
+    echo "$result"
+}
+```
+
+### Namerefs
+
+```bash
+# Return multiple values
+get_dimensions() {
+    local -n width_ref=$1
+    local -n height_ref=$2
+    width_ref=1920
+    height_ref=1080
+}
+
+get_dimensions w h
+echo "${w}x${h}"
+
+# Modify caller's array
+append_items() {
+    local -n arr_ref=$1
+    shift
+    arr_ref+=("$@")
+}
+
+items=()
+append_items items "a" "b" "c"
+```
+
+### Function Libraries
+
+```bash
+# lib/string.sh
+string_trim() {
+    local str="$1"
+    str="${str#"${str%%[![:space:]]*}"}"
+    str="${str%"${str##*[![:space:]]}"}"
+    echo "$str"
+}
+
+string_upper() {
+    echo "${1^^}"
+}
+
+string_lower() {
+    echo "${1,,}"
+}
+
+# lib/array.sh
+array_contains() {
+    local needle="$1"
+    shift
+    for item in "$@"; do
+        [[ "$item" == "$needle" ]] && return 0
+    done
+    return 1
+}
+
+# main.sh
+source lib/string.sh
+source lib/array.sh
+```
+
+---
+
+## Process Management
+
+### Background Jobs
+
+```bash
+# Start background job
+long_task &
+pid=$!
+
+# Wait for completion
+wait "$pid"
+status=$?
+
+# Multiple jobs
+pids=()
+for file in *.data; do
+    process_file "$file" &
+    pids+=($!)
+done
+
+# Wait for all
+for pid in "${pids[@]}"; do
+    wait "$pid"
+done
+```
+
+### Process Substitution
+
+```bash
+# Compare outputs
+diff <(ls dir1) <(ls dir2)
+
+# Feed to command
+while read -r line; do
+    echo "Line: $line"
+done < <(some_command)
+
+# Multiple inputs
+paste <(cut -f1 file1) <(cut -f2 file2)
+```
+
+### Timeouts
+
+```bash
+# Timeout command
+if ! timeout 30 long_running_command; then
+    echo "Command timed out"
+fi
+
+# Custom timeout
+run_with_timeout() {
+    local timeout=$1
+    shift
+    
+    "$@" &
+    local pid=$!
+    
+    (
+        sleep "$timeout"
+        kill -TERM "$pid" 2>/dev/null
+    ) &
+    local killer=$!
+    
+    wait "$pid"
+    local status=$?
+    
+    kill "$killer" 2>/dev/null
+    wait "$killer" 2>/dev/null
+    
+    return $status
+}
+```
+
+---
+
+## Data Processing
+
+### Text Processing
+
+```bash
+# Line-by-line processing
+while IFS= read -r line; do
+    # Process line
+    [[ "$line" =~ ^# ]] && continue  # Skip comments
+    [[ -z "$line" ]] && continue     # Skip empty
+    process "$line"
+done < input.txt
+
+# Field processing
+while IFS=: read -r user _ uid gid _ home shell; do
+    echo "User $user (UID $uid) uses $shell"
+done < /etc/passwd
+
+# CSV processing
+while IFS=, read -r name email phone; do
+    echo "Contact: $name <$email>"
+done < contacts.csv
+```
+
+### JSON with jq
+
+```bash
+# Extract field
+name=$(jq -r '.name' data.json)
+
+# Process array
+jq -c '.items[]' data.json | while read -r item; do
+    id=$(echo "$item" | jq -r '.id')
+    process_item "$id"
+done
+
+# Build JSON
+generate_report() {
+    jq -n \
+        --arg date "$(date -Iseconds)" \
+        --arg host "$(hostname)" \
+        --argjson count "$item_count" \
+        '{date: $date, host: $host, items: $count}'
+}
+```
+
+### Configuration Files
+
+```bash
+# INI-style parsing
+parse_ini() {
+    local file="$1"
+    local section=""
+    
+    while IFS='=' read -r key value; do
+        # Remove leading/trailing whitespace
+        key="${key#"${key%%[![:space:]]*}"}"
+        key="${key%"${key##*[![:space:]]}"}"
+        
+        case "$key" in
+            \[*\])
+                section="${key:1:-1}"
+                ;;
+            ''|\#*)
+                continue
+                ;;
+            *)
+                echo "${section}_${key}=${value}"
+                ;;
+        esac
+    done < "$file"
+}
+
+# Usage
+eval "$(parse_ini config.ini)"
+echo "Database host: $database_host"
+```
+
+---
+
+## Using Hooks
+
+### Command Timing
+
+```bash
+# In ~/.lusushrc
+declare -A _cmd_stats
+
+preexec() {
+    _cmd_start=$(date +%s.%N)
+    _cmd_text="$1"
+}
+
+precmd() {
+    if [[ -n "${_cmd_start:-}" ]]; then
+        local end=$(date +%s.%N)
+        local elapsed=$(echo "$end - $_cmd_start" | bc)
+        
+        if (( $(echo "$elapsed > 5" | bc -l) )); then
+            echo "Command took ${elapsed}s"
+        fi
+        
+        # Track statistics
+        local cmd="${_cmd_text%% *}"
+        _cmd_stats[$cmd]=$((${_cmd_stats[$cmd]:-0} + 1))
+        
+        unset _cmd_start
+    fi
+}
+```
+
+### Directory Hooks
+
+```bash
+# Auto-activate environments
+chpwd() {
+    # Python
+    if [[ -f "venv/bin/activate" ]]; then
+        source venv/bin/activate
+    elif [[ -n "${VIRTUAL_ENV:-}" ]]; then
+        deactivate 2>/dev/null
+    fi
+    
+    # Node.js
+    if [[ -f ".nvmrc" ]]; then
+        nvm use 2>/dev/null
+    fi
+    
+    # Load local environment
+    if [[ -f ".env" ]]; then
+        set -a
+        source .env
+        set +a
+    fi
+}
+```
+
+---
+
+## Debugging Scripts
+
+### Using the Debugger
+
+```bash
+#!/usr/bin/env lusush
+set -euo pipefail
+
+# Enable debugging
+debug on 2
+
+# Your script
+for file in *.txt; do
+    debug print file
+    process "$file"
+done
+
+debug off
+```
+
+### Profiling
+
+```bash
+#!/usr/bin/env lusush
+
+debug profile on
+
+# Code to profile
+expensive_function
+another_function
+
+debug profile report
+debug profile off
+```
+
+### Trace Mode
+
+```bash
+# Enable trace in script
+set -x
+
+# Or for specific section
+set -x
+risky_operation
+set +x
+
+# With custom prefix
+PS4='+ ${BASH_SOURCE}:${LINENO}: '
+set -x
+```
+
+### Debug Functions
+
+```bash
+debug_log() {
+    [[ "${DEBUG:-false}" == "true" ]] || return 0
+    echo "[DEBUG] $*" >&2
+}
+
+debug_var() {
+    [[ "${DEBUG:-false}" == "true" ]] || return 0
+    local var="$1"
+    local -n ref=$var
+    echo "[DEBUG] $var = $ref" >&2
+}
+
+# Usage
+DEBUG=true
+debug_log "Starting process"
+debug_var my_variable
+```
+
+---
+
+## Performance
+
+### Avoid Subshells
+
+```bash
+# BAD: Creates subshell
+output=$(cat file.txt)
+
+# GOOD: No subshell
+output=$(< file.txt)
+
+# BAD: Subshell in loop
+cat file.txt | while read -r line; do
+    count=$((count + 1))  # Lost after loop
+done
+
+# GOOD: No subshell
+while read -r line; do
+    count=$((count + 1))
+done < file.txt
+```
+
+### Use Builtins
+
+```bash
+# BAD: External command
+length=$(echo "$string" | wc -c)
+
+# GOOD: Builtin
+length=${#string}
+
+# BAD: External command
+basename=$(basename "$path")
+
+# GOOD: Parameter expansion
+basename=${path##*/}
+
+# BAD: External command
+dirname=$(dirname "$path")
+
+# GOOD: Parameter expansion
+dirname=${path%/*}
+```
+
+### Batch Operations
+
+```bash
+# BAD: Many processes
+for file in *.txt; do
+    grep pattern "$file"
+done
+
+# GOOD: Single process
+grep pattern *.txt
+
+# BAD: Repeated lookups
+for user in $(cat users.txt); do
+    id "$user"
+done
+
+# GOOD: Single command
+xargs -I{} id {} < users.txt
+```
+
+---
+
+## Portability
+
+### POSIX Mode
+
+For maximum portability:
+
+```bash
+#!/usr/bin/env lusush
+set -o posix
+
+# POSIX-only constructs
+# No arrays, no [[ ]], no process substitution
+```
+
+### Feature Detection
+
+```bash
+# Check for feature before using
+if [[ -v BASH_VERSION ]] || [[ -v LUSUSH_VERSION ]]; then
+    # Use arrays
+    declare -a items
+else
+    # Fall back to string
+    items=""
+fi
+```
+
+### Portable Constructs
+
+```bash
+# Instead of [[ ]]
+if [ "$a" = "$b" ]; then
+    echo "Equal"
+fi
+
+# Instead of arrays
+# Use positional parameters
+set -- item1 item2 item3
+for item in "$@"; do
+    echo "$item"
+done
+
+# Instead of process substitution
+# Use temporary files
+cmd1 > /tmp/out1
+cmd2 > /tmp/out2
+diff /tmp/out1 /tmp/out2
+rm /tmp/out1 /tmp/out2
+```
+
+---
+
+## See Also
+
+- [EXTENDED_SYNTAX.md](EXTENDED_SYNTAX.md) - Extended language features
+- [SHELL_MODES.md](SHELL_MODES.md) - Portability modes
+- [DEBUGGER_GUIDE.md](DEBUGGER_GUIDE.md) - Complete debugging reference
+- [HOOKS_AND_PLUGINS.md](HOOKS_AND_PLUGINS.md) - Hook system

@@ -1,23 +1,34 @@
 # Lusush User Guide
 
-**Version**: 1.3.0  
-**Last Updated**: October 2024
+**Version**: 1.4.0  
+**Complete feature reference for the Lusush shell**
 
-Welcome to Lusush, the advanced interactive shell designed for professional environments. This guide covers all features available in the production v1.3.0 release.
+---
 
 ## Table of Contents
 
-- [Getting Started](#getting-started)
-- [Basic Usage](#basic-usage)
-- [Shell Features](#shell-features)
-- [Theme System](#theme-system)
-- [Display System](#display-system)
-- [Configuration](#configuration)
-- [POSIX Compliance](#posix-compliance)
-- [Performance](#performance)
-- [Troubleshooting](#troubleshooting)
+1. [Overview](#overview)
+2. [Shell Modes](#shell-modes)
+3. [Line Editing (LLE)](#line-editing-lle)
+4. [Extended Syntax](#extended-syntax)
+5. [Completion System](#completion-system)
+6. [Hook System](#hook-system)
+7. [Debugging](#debugging)
+8. [Theme System](#theme-system)
+9. [Configuration](#configuration)
+10. [Builtin Commands](#builtin-commands)
+11. [POSIX Compliance](#posix-compliance)
+12. [Scripting](#scripting)
 
-## Getting Started
+---
+
+## Overview
+
+Lusush v1.4.0 is an advanced interactive shell with three distinguishing capabilities:
+
+1. **LLE (Lusush Line Editor)**: A native line editor with Emacs keybindings, context-aware completions, and syntax highlighting - not a readline wrapper
+2. **Multi-Mode Architecture**: Run in POSIX, Bash, Zsh, or Lusush mode depending on your needs
+3. **Integrated Debugging**: Set breakpoints, step through code, inspect variables, and profile performance from within the shell
 
 ### Starting Lusush
 
@@ -26,646 +37,980 @@ Welcome to Lusush, the advanced interactive shell designed for professional envi
 lusush
 
 # Execute a command
-lusush -c "echo 'Hello, World!'"
+lusush -c "echo 'Hello'"
 
 # Run a script
 lusush script.sh
 
-# Force interactive mode
-lusush -i
+# Specific mode
+lusush --posix script.sh
+lusush --bash script.sh
 ```
 
 ### Command Line Options
 
-```bash
-lusush [OPTIONS] [SCRIPT] [ARGUMENTS...]
+| Option | Description |
+|--------|-------------|
+| `-c COMMAND` | Execute command string and exit |
+| `-i` | Force interactive mode |
+| `-l` | Act as login shell |
+| `-s` | Read commands from standard input |
+| `-e` | Exit on error (`set -e`) |
+| `-x` | Trace execution (`set -x`) |
+| `-u` | Error on unset variables (`set -u`) |
+| `-v` | Verbose mode (`set -v`) |
+| `-f` | Disable pathname expansion (`set -f`) |
+| `--posix` | POSIX compliance mode |
+| `--bash` | Bash compatibility mode |
+| `--zsh` | Zsh compatibility mode |
+| `--help` | Show help message |
+| `--version` | Show version information |
 
-Options:
-  -c COMMAND    Execute command string and exit
-  -i            Force interactive mode
-  -l            Act as login shell
-  -s            Read commands from standard input
-  -e            Exit on error (set -e)
-  -x            Trace execution (set -x)
-  -u            Treat unset variables as error (set -u)
-  -v            Verbose mode (set -v)
-  -f            Disable pathname expansion (set -f)
-  --help        Show help message
-  --version     Show version information
+---
+
+## Shell Modes
+
+Lusush operates in one of four modes, each with different feature sets and behaviors.
+
+### Lusush Mode (Default)
+
+The recommended mode for interactive use and Lusush-specific scripts. All features enabled:
+
+- Extended syntax (arrays, `[[]]`, process substitution)
+- Bash and Zsh compatible features
+- Hook system (precmd, preexec, chpwd, periodic)
+- Full LLE capabilities
+- Integrated debugging
+
+```bash
+set -o lusush    # Enable (usually default)
 ```
 
-## Basic Usage
+### POSIX Mode
 
-### Command Execution
+Strict POSIX sh compliance for maximum portability:
 
-Lusush executes commands just like any POSIX shell:
+- No arrays
+- No `[[]]` (use `[ ]`)
+- No process substitution
+- No extended globbing
+- POSIX-defined behavior only
 
 ```bash
-# Simple commands
-echo "Hello, World!"
-ls -la
-cd /home/user
-
-# Pipes and redirection
-ls | grep ".txt"
-echo "content" > file.txt
-cat < input.txt
-
-# Background jobs
-long_running_command &
+set -o posix     # Enable POSIX mode
+lusush --posix   # Start in POSIX mode
 ```
 
-### Variables
+### Bash Mode
+
+Bash-compatible feature set:
+
+- Indexed arrays: `arr=(a b c)`
+- Associative arrays: `declare -A`
+- Extended test: `[[]]`
+- Process substitution: `<()`, `>()`
+- Extended parameter expansion
+- Bash-style brace expansion
 
 ```bash
-# Set variables
-name="John"
-count=42
-
-# Use variables
-echo "Hello, $name"
-echo "Count: ${count}"
-
-# Environment variables
-export PATH="$PATH:/new/path"
+set -o bash      # Enable Bash mode
 ```
 
-### Control Structures
+### Zsh Mode
+
+Zsh-compatible feature set:
+
+- All Bash features
+- Glob qualifiers: `*(.)`, `*(/)`, `*(@)`
+- Extended parameter expansion forms
+- Zsh-style option names
 
 ```bash
-# If statements
-if [ "$name" = "John" ]; then
-    echo "Hello John"
-else
-    echo "Hello stranger"
+set -o zsh       # Enable Zsh mode
+```
+
+### Mode Feature Matrix
+
+| Feature | POSIX | Bash | Zsh | Lusush |
+|---------|-------|------|-----|--------|
+| Basic syntax | Yes | Yes | Yes | Yes |
+| Indexed arrays | No | Yes | Yes | Yes |
+| Associative arrays | No | Yes | Yes | Yes |
+| `[[]]` extended test | No | Yes | Yes | Yes |
+| Process substitution | No | Yes | Yes | Yes |
+| Extended globbing | No | Yes | Yes | Yes |
+| Glob qualifiers | No | No | Yes | Yes |
+| Hook functions | No | No | Partial | Yes |
+| Plugin system | No | No | No | Yes |
+
+---
+
+## Line Editing (LLE)
+
+LLE is Lusush's native line editor. It is not based on GNU Readline or any external library.
+
+### Emacs Mode
+
+LLE provides complete Emacs-style editing:
+
+**Movement**
+
+| Keybinding | Action |
+|------------|--------|
+| `Ctrl-A` | Beginning of line |
+| `Ctrl-E` | End of line |
+| `Ctrl-B` | Backward one character |
+| `Ctrl-F` | Forward one character |
+| `Alt-B` | Backward one word |
+| `Alt-F` | Forward one word |
+
+**Editing**
+
+| Keybinding | Action |
+|------------|--------|
+| `Ctrl-D` | Delete character (or EOF on empty line) |
+| `Backspace` | Delete backward |
+| `Ctrl-K` | Kill to end of line |
+| `Ctrl-U` | Kill to beginning of line |
+| `Ctrl-W` | Kill previous word |
+| `Alt-D` | Kill next word |
+| `Ctrl-Y` | Yank (paste) killed text |
+| `Alt-Y` | Yank-pop (cycle through kill ring) |
+| `Ctrl-T` | Transpose characters |
+| `Alt-T` | Transpose words |
+| `Ctrl-_` | Undo |
+
+**History**
+
+| Keybinding | Action |
+|------------|--------|
+| `Ctrl-P` / `Up` | Previous history entry |
+| `Ctrl-N` / `Down` | Next history entry |
+| `Ctrl-R` | Reverse incremental search |
+| `Alt-<` | Beginning of history |
+| `Alt->` | End of history |
+
+**Completion**
+
+| Keybinding | Action |
+|------------|--------|
+| `Tab` | Complete |
+| `Alt-?` | List completions |
+| `Alt-*` | Insert all completions |
+
+**Control**
+
+| Keybinding | Action |
+|------------|--------|
+| `Ctrl-L` | Clear screen |
+| `Ctrl-C` | Interrupt (SIGINT) |
+| `Ctrl-Z` | Suspend (SIGTSTP) |
+| `Ctrl-D` | EOF (on empty line) |
+
+### Vi Mode
+
+Vi mode is in development. Framework exists, targeting v1.4.0 release.
+
+### Syntax Highlighting
+
+LLE highlights your input in real-time:
+
+- **Commands**: Valid commands highlighted, unknown commands indicated
+- **Builtins**: Distinguished from external commands
+- **Strings**: Single and double quotes
+- **Variables**: `$var`, `${var}`, `$(...)`
+- **Operators**: Pipes, redirections, logic operators
+- **Comments**: `# comment`
+- **Errors**: Syntax errors indicated before execution
+
+### Multi-Line Editing
+
+Incomplete commands continue naturally with proper indentation:
+
+```bash
+$ for i in 1 2 3; do
+>     echo "Number: $i"
+> done
+```
+
+---
+
+## Extended Syntax
+
+Lusush mode (and Bash/Zsh modes) support extended shell syntax beyond POSIX.
+
+### Arrays
+
+**Indexed Arrays**
+
+```bash
+# Declaration
+fruits=(apple banana cherry)
+declare -a numbers
+
+# Assignment
+fruits[0]="apple"
+fruits[3]="date"
+
+# Access
+echo "${fruits[0]}"        # First element
+echo "${fruits[@]}"        # All elements
+echo "${#fruits[@]}"       # Count
+echo "${!fruits[@]}"       # Indices
+
+# Slicing
+echo "${fruits[@]:1:2}"    # Elements 1-2
+```
+
+**Associative Arrays**
+
+```bash
+# Declaration (required)
+declare -A colors
+
+# Assignment
+colors[apple]="red"
+colors[banana]="yellow"
+colors[cherry]="red"
+
+# Access
+echo "${colors[apple]}"    # red
+echo "${colors[@]}"        # All values
+echo "${!colors[@]}"       # All keys
+```
+
+### Arithmetic
+
+**Arithmetic Expansion**
+
+```bash
+result=$((5 + 3))
+result=$((count * 2))
+result=$((a > b ? a : b))
+```
+
+**Arithmetic Command**
+
+```bash
+(( count++ ))
+(( total += value ))
+if (( count > 10 )); then
+    echo "Over ten"
 fi
+```
 
-# For loops
-for file in *.txt; do
-    echo "Processing: $file"
-done
+**let Builtin**
 
-# While loops
-counter=1
-while [ $counter -le 5 ]; do
-    echo "Count: $counter"
-    counter=$((counter + 1))
-done
+```bash
+let count=count+1
+let "total = a + b"
+```
 
-# Case statements
-case "$1" in
-    start)
-        echo "Starting service"
+**Operators**
+
+| Operator | Description |
+|----------|-------------|
+| `+ - * /` | Basic arithmetic |
+| `%` | Modulo |
+| `**` | Exponentiation |
+| `++ --` | Increment/decrement |
+| `<< >>` | Bit shift |
+| `& \| ^` | Bitwise AND, OR, XOR |
+| `~` | Bitwise NOT |
+| `< > <= >=` | Comparison |
+| `== !=` | Equality |
+| `&&` | Logical AND |
+| `\|\|` | Logical OR |
+| `? :` | Ternary |
+
+### Extended Test
+
+The `[[]]` construct provides enhanced testing:
+
+```bash
+# Pattern matching
+[[ $file == *.sh ]]
+
+# Regex matching
+[[ $email =~ ^[a-z]+@[a-z]+\.[a-z]+$ ]]
+
+# Logical operators
+[[ -f $file && -r $file ]]
+[[ $a == $b || $a == $c ]]
+
+# Negation
+[[ ! -d $dir ]]
+
+# String comparison
+[[ $str1 < $str2 ]]    # Lexicographic
+```
+
+### Process Substitution
+
+Treat command output as a file:
+
+```bash
+# Compare outputs
+diff <(ls dir1) <(ls dir2)
+
+# Feed to command expecting file
+wc -l <(find . -name "*.c")
+
+# Write to process
+tee >(gzip > file.gz) >(wc -l > count.txt)
+```
+
+### Parameter Expansion
+
+**Case Modification**
+
+```bash
+name="hello world"
+echo "${name^}"         # Hello world (first char upper)
+echo "${name^^}"        # HELLO WORLD (all upper)
+echo "${name,}"         # hello world (first char lower)
+echo "${name,,}"        # hello world (all lower)
+```
+
+**Substitution**
+
+```bash
+path="/home/user/file.txt"
+echo "${path/user/admin}"      # Replace first
+echo "${path//\//\\}"          # Replace all
+echo "${path/#\/home/~}"       # Replace at start
+echo "${path/%.txt/.md}"       # Replace at end
+```
+
+**Substring**
+
+```bash
+str="Hello World"
+echo "${str:0:5}"       # Hello
+echo "${str:6}"         # World
+echo "${str: -5}"       # World (note space)
+echo "${str:0:-6}"      # Hello
+```
+
+**Length and Removal**
+
+```bash
+echo "${#str}"          # 11 (length)
+echo "${path#*/}"       # home/user/file.txt (remove shortest prefix)
+echo "${path##*/}"      # file.txt (remove longest prefix)
+echo "${path%/*}"       # /home/user (remove shortest suffix)
+echo "${path%%/*}"      # (empty, remove longest suffix)
+```
+
+**Indirect Expansion**
+
+```bash
+name="PATH"
+echo "${!name}"         # Value of $PATH
+```
+
+**Transformation**
+
+```bash
+str="hello"
+echo "${str@Q}"         # Quoted: 'hello'
+echo "${str@E}"         # Escape sequences expanded
+echo "${str@P}"         # Prompt expansion
+echo "${str@A}"         # Assignment form: str='hello'
+echo "${str@a}"         # Attributes (for declared vars)
+```
+
+### Extended Globbing
+
+Enable with `shopt -s extglob`:
+
+```bash
+# Zero or one match
+ls ?(pattern)
+
+# Zero or more matches
+ls *(pattern)
+
+# One or more matches
+ls +(pattern)
+
+# Exactly one (negated)
+ls @(pattern)
+
+# Anything except
+ls !(pattern)
+
+# Examples
+ls *.+(c|h)             # .c or .h files
+ls !(*.o|*.a)           # Not .o or .a files
+```
+
+### Glob Qualifiers (Zsh/Lusush Mode)
+
+Filter glob results by file attributes:
+
+```bash
+ls *(.)    # Regular files only
+ls *(/)    # Directories only
+ls *(@)    # Symbolic links only
+ls *(*)    # Executable files only
+```
+
+### Case Fall-Through
+
+Extended case statement patterns:
+
+```bash
+case "$opt" in
+    -v|--verbose)
+        verbose=1
+        ;&              # Fall through to next
+    -d|--debug)
+        debug=1
         ;;
-    stop)
-        echo "Stopping service"
-        ;;
+    -*)
+        ;;&             # Continue pattern testing
     *)
-        echo "Usage: $0 {start|stop}"
+        echo "Unknown"
         ;;
 esac
 ```
 
-### Functions
+### Select Loop
+
+Interactive menu:
 
 ```bash
-# Define functions
-greet() {
-    echo "Hello, $1!"
+select choice in "Option 1" "Option 2" "Quit"; do
+    case $choice in
+        "Option 1") echo "First" ;;
+        "Option 2") echo "Second" ;;
+        "Quit") break ;;
+    esac
+done
+```
+
+### Time Keyword
+
+Measure execution time:
+
+```bash
+time sleep 1
+time { cmd1; cmd2; cmd3; }
+```
+
+---
+
+## Completion System
+
+LLE provides context-aware completions.
+
+### Completion Types
+
+- **Command completion**: Executables in `$PATH`
+- **Builtin completion**: All 48 shell builtins
+- **File completion**: Paths and filenames
+- **Variable completion**: `$VAR` names
+- **Option completion**: Command-specific options
+
+### Context-Aware Builtin Completions
+
+All 45 completable builtins understand their arguments:
+
+```bash
+set -o <Tab>        # Shows all shell options
+config set <Tab>    # Shows config sections
+debug <Tab>         # Shows: on off vars print trace profile ...
+display <Tab>       # Shows: lle features themes status
+theme <Tab>         # Shows: list set show info
+```
+
+### Completion Behavior
+
+```bash
+command<Tab>        # Complete command name
+/path/to/<Tab>      # Complete path
+$VAR<Tab>           # Complete variable name
+cmd --<Tab>         # Complete long options
+cmd -<Tab>          # Complete short options
+```
+
+---
+
+## Hook System
+
+Lusush provides Zsh-style hook functions.
+
+### Hook Functions
+
+**precmd**
+
+Runs after each command completes, before the prompt is displayed:
+
+```bash
+precmd() {
+    # Update terminal title
+    echo -ne "\033]0;$(pwd)\007"
+}
+```
+
+**preexec**
+
+Runs after a command is entered but before it executes:
+
+```bash
+preexec() {
+    # Log command
+    echo "$(date): $1" >> ~/.command_log
+}
+```
+
+**chpwd**
+
+Runs when the current directory changes:
+
+```bash
+chpwd() {
+    # Auto-ls on directory change
+    ls
+}
+```
+
+**periodic**
+
+Runs periodically (interval set by `PERIOD` variable):
+
+```bash
+PERIOD=60    # Every 60 seconds
+periodic() {
+    # Check for new mail
+    check_mail
+}
+```
+
+### Hook Arrays
+
+For multiple handlers on the same event:
+
+```bash
+# Add functions to arrays
+precmd_functions+=(my_precmd_handler)
+preexec_functions+=(my_preexec_handler)
+chpwd_functions+=(my_chpwd_handler)
+periodic_functions+=(my_periodic_handler)
+
+# Functions are called in order
+my_precmd_handler() {
+    echo "First handler"
 }
 
-# Call functions
-greet "Alice"
-
-# Functions with return values
-add() {
-    local result=$(($1 + $2))
-    echo $result
+another_precmd_handler() {
+    echo "Second handler"
 }
 
-sum=$(add 5 3)
-echo "Sum: $sum"
+precmd_functions=(my_precmd_handler another_precmd_handler)
 ```
 
-## Shell Features
+---
 
-### Command History
+## Debugging
+
+Lusush is the only shell with integrated interactive debugging.
+
+### Enabling Debug Mode
 
 ```bash
-# Search history
-history | grep "command"
-
-# Execute previous command
-!!
-
-# Execute command from history
-!123
-
-# History expansion
-!cd    # Last command starting with 'cd'
+debug on        # Basic debugging
+debug on 2      # Detailed tracing
+debug on 3      # Maximum verbosity
+debug off       # Disable
 ```
 
-### Tab Completion
-
-Lusush provides intelligent tab completion:
+### Inspecting State
 
 ```bash
-# File completion
-cat /etc/pas<TAB>      # Completes to /etc/passwd
-
-# Command completion
-ech<TAB>               # Completes to echo
-
-# Variable completion
-echo $HO<TAB>          # Completes to $HOME
-
-# Git-aware completion (in git repositories)
-git che<TAB>           # Completes to checkout
-git checkout mai<TAB>  # Completes to main
+debug vars              # Show all variables
+debug print VAR         # Show specific variable
+debug functions         # List defined functions
 ```
 
-### Aliases
+### Execution Tracing
 
 ```bash
-# Create aliases
-alias ll='ls -la'
-alias grep='grep --color=auto'
-
-# Use aliases
-ll
-grep "pattern" file.txt
-
-# Remove aliases
-unalias ll
-
-# List all aliases
-alias
+debug trace on          # Enable tracing
+# Commands show execution details
+debug trace off         # Disable tracing
 ```
 
-### Job Control
+### Performance Profiling
 
 ```bash
-# Run command in background
-long_command &
-
-# List jobs
-jobs
-
-# Bring job to foreground
-fg %1
-
-# Send job to background
-bg %1
-
-# Kill job
-kill %1
+debug profile on
+# Run commands to profile
+debug profile report    # Show timing information
+debug profile off
 ```
+
+### In Scripts
+
+```bash
+#!/usr/bin/env lusush
+
+# Debug specific section
+debug on 2
+complex_function
+debug off
+
+# Profile critical path
+debug profile on
+expensive_operation
+debug profile report
+debug profile off
+```
+
+For complete debugging documentation, see [DEBUGGER_GUIDE.md](DEBUGGER_GUIDE.md).
+
+---
 
 ## Theme System
 
-Lusush includes a professional theme system with 6 built-in themes.
+Lusush includes a professional theme system.
 
 ### Available Themes
 
-- **default**: Clean, minimalist design
-- **corporate**: Professional business appearance
-- **dark**: High contrast dark theme
-- **colorful**: Vibrant development theme
-- **minimal**: Ultra-clean minimal design
-- **classic**: Traditional shell appearance
+- **default**: Clean, minimalist
+- **corporate**: Professional business
+- **dark**: High contrast dark
+- **colorful**: Vibrant development
+- **minimal**: Ultra-clean
+- **classic**: Traditional shell
 
 ### Theme Commands
 
 ```bash
-# List all available themes
-theme list
-
-# Show current theme
-theme show
-
-# Switch themes
-theme set dark
-theme set corporate
-theme set minimal
-
-# Get theme information
-theme info dark
-
-# Show theme colors
-theme colors
+theme list              # List all themes
+theme show              # Current theme details
+theme set <name>        # Switch themes
+theme info <name>       # Theme information
+theme colors            # Show color palette
 ```
 
 ### Git Integration
 
-All themes include intelligent git integration:
+Prompts show git status when in a repository:
 
 ```bash
-# In a git repository, prompts show:
 [user@host] ~/project (main) $           # Current branch
-[user@host] ~/project (main ✓) $         # Clean repository
-[user@host] ~/project (feature *) $      # Uncommitted changes
-[user@host] ~/project (main +2) $        # Staged changes
+[user@host] ~/project (main +) $         # Uncommitted changes
+[user@host] ~/project (main !) $         # Staged changes
 ```
 
-### Symbol Compatibility
-
-Themes automatically adapt to terminal capabilities:
+### Symbol Modes
 
 ```bash
-# Set symbol mode
-theme symbols unicode    # Use Unicode symbols
-theme symbols ascii      # Use ASCII symbols
-theme symbols auto       # Auto-detect (default)
+theme symbols unicode   # Unicode symbols
+theme symbols ascii     # ASCII fallback
+theme symbols auto      # Auto-detect (default)
 ```
 
-## Display System
-
-Lusush uses an advanced layered display architecture for optimal performance.
-
-### Display Commands
-
-```bash
-# Show system status
-display status
-
-# Show performance statistics
-display stats
-
-# Show configuration
-display config
-
-# Show system diagnostics
-display diagnostics
-
-# Show help
-display help
-```
-
-### Performance Monitoring
-
-```bash
-# Initialize performance monitoring
-display performance init
-
-# Show performance report
-display performance report
-
-# Show detailed performance report
-display performance report detail
-
-# Show memory usage
-display performance memory
-
-# Show layer-specific performance
-display performance layers
-```
+---
 
 ## Configuration
 
-### Configuration File
+### Config System
+
+Lusush uses a modern configuration interface:
+
+```bash
+# View configuration
+config show                     # All sections
+config show shell               # Shell options
+config show completion          # Completion settings
+config show display             # Display settings
+
+# Get values
+config get shell.errexit
+
+# Set values
+config set shell.errexit true
+config set completion.enabled true
+config set display.syntax_highlighting true
+
+# Save to file
+config save
+
+# Reset defaults
+config reset
+```
+
+### Shell Options
+
+Both modern and traditional syntax work:
+
+```bash
+# Modern (self-documenting)
+config set shell.errexit true
+config set shell.nounset true
+config set shell.pipefail true
+
+# Traditional POSIX
+set -e
+set -u
+set -o pipefail
+```
+
+### Startup Files
 
 Lusush reads configuration from `~/.lusushrc`:
 
-```ini
-# Theme settings
-theme.name = "dark"
-theme.symbol_mode = "auto"
-
-# Performance settings
-display.performance_monitoring = true
-display.optimization_level = 2
+```bash
+# ~/.lusushrc
 
 # Shell behavior
-shell.history_size = 1000
-shell.interactive_comments = true
+config set shell.errexit false
+config set shell.emacs true
 
-# Completion settings
-completion.enabled = true
-completion.case_sensitive = false
+# Features
+config set completion.enabled true
+config set display.syntax_highlighting true
+
+# Aliases
+alias ll='ls -la'
+alias gs='git status'
+
+# Functions
+mkcd() {
+    mkdir -p "$1" && cd "$1"
+}
+
+# Hooks
+precmd() {
+    # Update prompt info
+}
 ```
 
 ### Environment Variables
 
 ```bash
-# Display settings
-export LUSUSH_DISPLAY_DEBUG=1           # Enable debug output
-export LUSUSH_DISPLAY_OPTIMIZATION=2    # Set optimization level
-
-# Theme settings
-export LUSUSH_THEME=dark                # Default theme
+export LUSUSH_THEME=dark
+export LUSUSH_DEBUG=1
+export LUSUSH_DISPLAY_OPTIMIZATION=2
 ```
 
-### Configuration Commands
+---
+
+## Builtin Commands
+
+Lusush provides 48 builtin commands.
+
+### POSIX Standard Builtins
+
+```
+:          .          alias      bg         break
+cd         command    continue   eval       exec
+exit       export     false      fc         fg
+getopts    hash       jobs       kill       pwd
+read       readonly   return     set        shift
+times      trap       true       type       ulimit
+umask      unalias    unset      wait
+```
+
+### Extended Builtins
+
+```
+declare    local      let        printf     source
+test       [          [[
+```
+
+### Lusush-Specific Builtins
+
+```
+config     display    debug      network    theme
+help
+```
+
+### Notable Builtins
+
+**config** - Configuration management
 
 ```bash
-# Show all configuration
-config show
-
-# Show specific section
-config show shell
-config show theme
-
-# Set configuration values
-config set theme.name dark
-config set display.optimization_level 3
-
-# Get configuration values
-config get theme.name
-
-# Save configuration
+config show [section]
+config get <key>
+config set <key> <value>
 config save
-
-# Reset to defaults
 config reset
 ```
+
+**debug** - Integrated debugger
+
+```bash
+debug on [level]
+debug off
+debug vars
+debug print <var>
+debug trace on|off
+debug profile on|off|report
+```
+
+**display** - Display system control
+
+```bash
+display status
+display lle diagnostics
+display features
+display themes
+display stats
+```
+
+For complete builtin documentation, see [BUILTIN_COMMANDS.md](BUILTIN_COMMANDS.md).
+
+---
 
 ## POSIX Compliance
 
-Lusush is fully POSIX compliant and supports all standard shell options.
+Lusush implements all 24 POSIX shell options.
 
-### Shell Options
+### Shell Options Reference
 
-```bash
-# Error handling
-set -e          # Exit on error (errexit)
-set -u          # Error on unset variables (nounset)
-set +e          # Disable exit on error
+| Option | Short | Description |
+|--------|-------|-------------|
+| `allexport` | `-a` | Export all variables |
+| `errexit` | `-e` | Exit on command failure |
+| `hashall` | `-h` | Hash command locations |
+| `ignoreeof` | | Require explicit exit |
+| `interactive` | `-i` | Interactive mode |
+| `monitor` | `-m` | Job control |
+| `noclobber` | `-C` | Don't overwrite files |
+| `noexec` | `-n` | Read but don't execute |
+| `noglob` | `-f` | Disable globbing |
+| `nolog` | | Don't log functions |
+| `notify` | `-b` | Report job status immediately |
+| `nounset` | `-u` | Error on unset variables |
+| `pipefail` | | Pipeline failure detection |
+| `posix` | | POSIX compliance mode |
+| `privileged` | `-p` | Privileged mode |
+| `verbose` | `-v` | Print input lines |
+| `vi` | | Vi editing mode |
+| `xtrace` | `-x` | Trace execution |
 
-# Debugging and tracing
-set -x          # Trace execution (xtrace)
-set -v          # Verbose input (verbose)
-set +x          # Disable tracing
-
-# Globbing and expansion
-set -f          # Disable pathname expansion (noglob)
-set +f          # Enable pathname expansion
-
-# Other options
-set -m          # Enable job control (monitor)
-set -h          # Remember command locations (hashall)
-set -C          # Don't overwrite files (noclobber)
-
-# Show all options
-set -o
-```
-
-### Long Option Names
+### Setting Options
 
 ```bash
-# Using long option names
-set -o errexit     # Same as set -e
-set -o nounset     # Same as set -u
-set -o xtrace      # Same as set -x
-set -o verbose     # Same as set -v
-set -o noglob      # Same as set -f
-set -o monitor     # Same as set -m
-set -o noclobber   # Same as set -C
+# Short form
+set -e -u -x
+
+# Combined
+set -eux
+
+# Long form
+set -o errexit
+set -o nounset
+set -o xtrace
+
+# Config form
+config set shell.errexit true
+
+# Disable
+set +e
+set +o errexit
+config set shell.errexit false
 ```
 
-### Built-in Commands
+---
 
-Lusush provides all standard POSIX built-in commands:
+## Scripting
 
-```bash
-# File operations
-cd, pwd, mkdir, rmdir
-
-# Text processing
-echo, printf, read
-
-# Variable operations
-export, unset, readonly
-
-# Process control
-exec, exit, return, wait
-
-# Shell state
-set, unset, alias, unalias
-
-# Utility
-type, which, command, test, [
-```
-
-## Performance
-
-### Performance Features
-
-- **Layered Display Architecture**: Optimized display system
-- **Memory Pool Management**: Efficient memory allocation
-- **Intelligent Caching**: Smart caching for frequently used operations
-- **Performance Monitoring**: Real-time performance metrics
-
-### Performance Tuning
-
-```bash
-# Optimization levels (0-4)
-config set display.optimization_level 4    # Maximum optimization
-config set display.optimization_level 0    # Basic functionality
-
-# Enable performance monitoring
-config set display.performance_monitoring true
-
-# View performance statistics
-display performance report
-```
-
-### Performance Monitoring
-
-```bash
-# Initialize monitoring
-display performance init
-
-# Run some commands
-echo "test"
-ls
-pwd
-
-# Check results
-display performance report
-```
-
-Sample output:
-```
-=== Enhanced Performance Report ===
-Cache Performance:
-  Operations: 24 total (12 hits, 12 misses)
-  Hit Rate: 50.0% (Target: >75.0%)
-Display Timing:
-  Operations: 18 measured
-  Average: 0.05ms (Target: <50.0ms) ✓
-Memory Pool Performance:
-  Pool allocations: 45 (100.0% hit rate)
-  Malloc fallbacks: 0
-  Active allocations: 23
-  Pool memory usage: 1842 bytes
-  Avg allocation time: 48 ns
-  Pool efficiency: EXCELLENT ✓
-```
-
-## Troubleshooting
-
-### Common Issues
-
-#### Configuration Problems
-
-```bash
-# Check configuration syntax
-config validate
-
-# Show current configuration
-config show
-
-# Reset to defaults
-config reset
-```
-
-#### Performance Issues
-
-```bash
-# Check system performance
-display performance report
-
-# Show diagnostics
-display diagnostics
-
-# Reduce optimization level
-config set display.optimization_level 1
-```
-
-#### Theme Issues
-
-```bash
-# Check theme compatibility
-theme info
-
-# Use ASCII symbols for compatibility
-theme symbols ascii
-
-# Switch to basic theme
-theme set classic
-```
-
-#### Display Issues
-
-```bash
-# Check display status
-display status
-
-# Show display configuration
-display config
-
-# Check terminal capabilities
-echo $TERM
-tput colors
-```
-
-### Debug Information
-
-```bash
-# Show system information
-lusush --version
-
-# Show build information
-config show system
-
-# Show environment
-env | grep LUSUSH
-```
-
-### Getting Help
-
-```bash
-# Command help
-help
-help set
-help theme
-
-# Manual pages
-man lusush
-
-# Version information
-lusush --version
-```
-
-### Performance Troubleshooting
-
-```bash
-# Monitor performance
-display performance init
-# Run problematic commands
-display performance report
-
-# Check memory usage
-display performance memory
-
-# Show diagnostics
-display diagnostics
-```
-
-## Advanced Usage
-
-### Scripting Best Practices
+### Script Structure
 
 ```bash
 #!/usr/bin/env lusush
 
-# Enable strict mode
+# Strict mode (recommended)
 set -euo pipefail
 
-# Use functions for reusable code
-log() {
-    echo "[$(date)] $*" >&2
-}
+# Your script here
+```
 
-# Proper error handling
+### Error Handling
+
+```bash
+# Exit on error
+set -e
+
+# Trap errors
+trap 'echo "Error on line $LINENO"; exit 1' ERR
+
+# Check commands
 if ! command -v git >/dev/null 2>&1; then
-    log "ERROR: git is required"
+    echo "git required" >&2
     exit 1
 fi
+```
 
-# Use local variables in functions
-process_files() {
-    local dir="$1"
-    local pattern="$2"
-    
-    find "$dir" -name "$pattern" | while read -r file; do
-        log "Processing: $file"
-        # Process file
-    done
+### Functions
+
+```bash
+# Standard function
+my_function() {
+    local arg="$1"
+    echo "Processing: $arg"
+}
+
+# With nameref (Lusush mode)
+swap() {
+    local -n ref1=$1
+    local -n ref2=$2
+    local tmp=$ref1
+    ref1=$ref2
+    ref2=$tmp
 }
 ```
 
-### Integration with Other Tools
+### Portable Scripts
+
+For maximum portability, use POSIX mode:
 
 ```bash
-# Git integration
-if git rev-parse --git-dir > /dev/null 2>&1; then
-    echo "In git repository: $(git branch --show-current)"
-fi
+#!/usr/bin/env lusush
+set -o posix
 
-# SSH integration
-if [ -n "$SSH_CONNECTION" ]; then
-    echo "Connected via SSH"
-fi
-
-# Screen/tmux integration
-if [ -n "$STY" ] || [ -n "$TMUX" ]; then
-    echo "Running in screen/tmux"
-fi
+# POSIX-only constructs
+# No arrays, no [[]], no process substitution
 ```
 
-### Custom Prompt Configuration
-
-While lusush uses themes for prompt styling, you can customize behavior:
+### Debugging Scripts
 
 ```bash
-# Configure git integration
-config set theme.git_enabled true
-config set theme.show_branch true
-config set theme.show_status true
+#!/usr/bin/env lusush
 
-# Configure symbols
-config set theme.symbol_mode auto
+# Debug the whole script
+debug on 2
+
+# Or debug specific sections
+process_data() {
+    debug on
+    # complex logic
+    debug off
+}
+
+# Profile performance
+debug profile on
+expensive_operation
+debug profile report
+debug profile off
 ```
 
-This completes the Lusush User Guide. For more technical details, see the documentation in the `docs/` directory.
+---
+
+## Further Reading
+
+| Document | Description |
+|----------|-------------|
+| [LLE_GUIDE.md](LLE_GUIDE.md) | Complete LLE documentation |
+| [EXTENDED_SYNTAX.md](EXTENDED_SYNTAX.md) | Detailed syntax reference |
+| [SHELL_MODES.md](SHELL_MODES.md) | Mode documentation |
+| [DEBUGGER_GUIDE.md](DEBUGGER_GUIDE.md) | Debugging reference |
+| [BUILTIN_COMMANDS.md](BUILTIN_COMMANDS.md) | All 48 builtins |
+| [HOOKS_AND_PLUGINS.md](HOOKS_AND_PLUGINS.md) | Hook system |
+| [CONFIG_SYSTEM.md](CONFIG_SYSTEM.md) | Configuration reference |
+| [SHELL_OPTIONS.md](SHELL_OPTIONS.md) | All shell options |
