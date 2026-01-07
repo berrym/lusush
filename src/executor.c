@@ -13,6 +13,7 @@
 #include "executor.h"
 
 #include "alias.h"
+#include "shell_mode.h"
 #include "arithmetic.h"
 #include "autocorrect.h"
 #include "builtins.h"
@@ -107,6 +108,9 @@ static int execute_array_assignment(executor_t *executor, node_t *assign_node);
 
 // Forward declarations for Phase 2: Extended Tests
 static int execute_extended_test(executor_t *executor, node_t *test_node);
+
+// Forward declarations for Phase 3: Process Substitution
+static char *expand_process_substitution(executor_t *executor, node_t *proc_sub);
 static bool is_builtin_command(const char *cmd);
 static void set_executor_error(executor_t *executor, const char *message);
 static char *expand_variable(executor_t *executor, const char *var_text);
@@ -1236,6 +1240,10 @@ static int execute_pipeline(executor_t *executor, node_t *pipeline) {
         // Left command: write to pipe
         close(pipe_fd[0]);
         dup2(pipe_fd[1], STDOUT_FILENO);
+        // Check if |& was used - also redirect stderr to the pipe
+        if (pipeline->val_type == VAL_SINT && pipeline->val.sint == 1) {
+            dup2(pipe_fd[1], STDERR_FILENO);
+        }
         close(pipe_fd[1]);
 
         int result = execute_node(executor, left);
@@ -2014,6 +2022,14 @@ static char **build_argv_from_ast(executor_t *executor, node_t *command,
                         // Command substitution: $(cmd) or `cmd`
                         expanded_arg = expand_command_substitution(
                             executor, child->val.str);
+                    } else if (child->type == NODE_PROC_SUB_IN ||
+                               child->type == NODE_PROC_SUB_OUT) {
+                        // Process substitution: <(cmd) or >(cmd)
+                        expanded_arg = expand_process_substitution(
+                            executor, child);
+                        if (!expanded_arg) {
+                            goto cleanup_and_fail;
+                        }
                     } else {
                         // Regular variables and other expandable content
                         expanded_arg =
@@ -6604,10 +6620,11 @@ static bool has_stdout_redirections(node_t *command) {
     node_t *child = command->first_child;
     while (child) {
         // Check for stdout-affecting redirections
-        if (child->type == NODE_REDIR_OUT ||     // >
-            child->type == NODE_REDIR_APPEND ||  // >>
-            child->type == NODE_REDIR_BOTH ||    // &>
-            child->type == NODE_REDIR_CLOBBER) { // >|
+        if (child->type == NODE_REDIR_OUT ||          // >
+            child->type == NODE_REDIR_APPEND ||       // >>
+            child->type == NODE_REDIR_BOTH ||         // &>
+            child->type == NODE_REDIR_BOTH_APPEND ||  // &>>
+            child->type == NODE_REDIR_CLOBBER) {      // >|
             return true;
         }
         child = child->next_sibling;
@@ -7448,4 +7465,109 @@ static int execute_array_assignment(executor_t *executor,
     }
 
     return 0;
+}
+
+/**
+ * @brief Expand a process substitution <(cmd) or >(cmd)
+ *
+ * Creates a FIFO or uses /dev/fd mechanism to provide a filename
+ * that connects to the command's stdout (for <()) or stdin (for >()).
+ *
+ * @param executor Executor context
+ * @param proc_sub Process substitution node (NODE_PROC_SUB_IN or NODE_PROC_SUB_OUT)
+ * @return Path to the FIFO/fd, or NULL on error (caller must free)
+ */
+static char *expand_process_substitution(executor_t *executor, node_t *proc_sub) {
+    if (!executor || !proc_sub) {
+        return NULL;
+    }
+
+    // Check if feature is enabled
+    if (!shell_mode_allows(FEATURE_PROCESS_SUBSTITUTION)) {
+        set_executor_error(executor, "Process substitution not enabled");
+        return NULL;
+    }
+
+    bool is_input = (proc_sub->type == NODE_PROC_SUB_IN);  // <(cmd)
+
+    // Create a pipe for communication
+    int pipefd[2];
+    if (pipe(pipefd) == -1) {
+        set_executor_error(executor, "Failed to create pipe for process substitution");
+        return NULL;
+    }
+
+    pid_t pid = fork();
+    if (pid == -1) {
+        close(pipefd[0]);
+        close(pipefd[1]);
+        set_executor_error(executor, "Failed to fork for process substitution");
+        return NULL;
+    }
+
+    if (pid == 0) {
+        // Child process - execute the command
+        if (is_input) {
+            // <(cmd): command writes to pipe, parent reads
+            close(pipefd[0]);  // Close read end
+            dup2(pipefd[1], STDOUT_FILENO);
+            close(pipefd[1]);
+        } else {
+            // >(cmd): parent writes to pipe, command reads
+            close(pipefd[1]);  // Close write end
+            dup2(pipefd[0], STDIN_FILENO);
+            close(pipefd[0]);
+        }
+
+        // Execute the command list in the process substitution
+        // Create a child executor
+        executor_t *child_executor = executor_new();
+        if (!child_executor) {
+            _exit(1);
+        }
+
+        // Copy function definitions to child
+        copy_function_definitions(child_executor, executor);
+
+        // Execute each command in the process substitution
+        int result = 0;
+        node_t *cmd = proc_sub->first_child;
+        while (cmd) {
+            result = execute_node(child_executor, cmd);
+            cmd = cmd->next_sibling;
+        }
+
+        executor_free(child_executor);
+        _exit(result);
+    }
+
+    // Parent process
+    char *path = NULL;
+
+    if (is_input) {
+        // <(cmd): We need to provide a readable path
+        // Close write end, keep read end
+        close(pipefd[1]);
+
+        // Use /dev/fd/N mechanism if available (macOS and Linux)
+        path = malloc(32);
+        if (path) {
+            snprintf(path, 32, "/dev/fd/%d", pipefd[0]);
+        }
+    } else {
+        // >(cmd): We need to provide a writable path
+        // Close read end, keep write end
+        close(pipefd[0]);
+
+        path = malloc(32);
+        if (path) {
+            snprintf(path, 32, "/dev/fd/%d", pipefd[1]);
+        }
+    }
+
+    // Note: The pipe fd remains open and will be used when the command
+    // accesses the /dev/fd/N path. The child will be reaped by SIGCHLD handler
+    // or waitpid in the main execution loop.
+
+    return path;
 }

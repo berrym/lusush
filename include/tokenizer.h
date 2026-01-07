@@ -72,6 +72,13 @@ typedef enum {
     TOK_PLUS_ASSIGN,   // += - append to array or add to integer
     TOK_REGEX_MATCH,   // =~ - regex match operator in [[ ]]
 
+    // Process substitution and extended pipes (Phase 3)
+    TOK_PROC_SUB_IN,   // <( - process substitution input
+    TOK_PROC_SUB_OUT,  // >( - process substitution output
+    TOK_PIPE_STDERR,   // |& - pipe both stdout and stderr
+    TOK_APPEND_BOTH,   // &>> - append both stdout and stderr
+    TOK_COPROC,        // coproc keyword
+
     // Keywords (recognized contextually)
     TOK_IF,
     TOK_THEN,

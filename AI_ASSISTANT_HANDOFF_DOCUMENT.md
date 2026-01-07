@@ -1,9 +1,186 @@
-# AI Assistant Handoff Document - Session 109
+# AI Assistant Handoff Document - Session 110
 
 **Date**: 2026-01-06
-**Session Type**: Extended Language Support - Phase 2: Extended Tests `[[ ]]`
+**Session Type**: Extended Language Support - Phase 3: Process Substitution
 **Status**: COMPLETE
 **Branch**: `feature/lle`
+
+---
+
+## Session 110: Process Substitution (Phase 3)
+
+Implemented process substitution `<(cmd)` and `>(cmd)`, pipe stderr `|&`, and append both `&>>`. These features enable powerful pipeline and redirection capabilities.
+
+### Features Implemented
+
+#### 1. Process Substitution Input `<(cmd)`
+
+Provides a filename that reads from a command's stdout:
+
+```bash
+# Simple usage
+cat <(echo hello)                    # prints "hello"
+
+# Compare two command outputs
+diff <(ls /dir1) <(ls /dir2)         # diff directory listings
+
+# Multiple process substitutions
+cat <(echo first) <(echo second)     # prints "first\nsecond"
+
+# Pipeline inside process substitution
+cat <(echo HELLO | tr A-Z a-z)       # prints "hello"
+
+# With commands that expect files
+wc -l <(seq 1 100)                   # counts lines from seq
+```
+
+#### 2. Process Substitution Output `>(cmd)`
+
+Provides a filename that writes to a command's stdin:
+
+```bash
+# Send output to multiple commands
+echo "hello" | tee >(cat -n) >(wc -w)    # numbered and word count
+
+# Log to a command while continuing pipeline
+command | tee >(logger) | next_command
+```
+
+#### 3. Pipe Stderr `|&`
+
+Shorthand for `2>&1 |` - pipes both stdout and stderr to next command:
+
+```bash
+# Capture errors in pipeline
+ls /nonexistent |& grep "No such"        # errors go through grep
+
+# Both streams combined
+(echo stdout; echo stderr >&2) |& cat    # both appear
+
+# Error filtering
+command |& grep -v "warning"             # filter warnings from stderr
+```
+
+#### 4. Append Both `&>>`
+
+Appends both stdout and stderr to a file:
+
+```bash
+# Log all output
+command &>> logfile.txt                  # append stdout + stderr
+
+# Multiple commands to same log
+cmd1 &>> log.txt
+cmd2 &>> log.txt                         # appends, doesn't overwrite
+
+# Compare with &> (overwrites)
+cmd &> file.txt                          # overwrites file
+cmd &>> file.txt                         # appends to file
+```
+
+### New Tokens (tokenizer.h)
+
+| Token | Symbol | Purpose |
+|-------|--------|---------|
+| `TOK_PROC_SUB_IN` | `<(` | Process substitution input |
+| `TOK_PROC_SUB_OUT` | `>(` | Process substitution output |
+| `TOK_PIPE_STDERR` | `\|&` | Pipe both stdout and stderr |
+| `TOK_APPEND_BOTH` | `&>>` | Append both to file |
+| `TOK_COPROC` | `coproc` | Coproc keyword (reserved) |
+
+### New Node Types (node.h)
+
+| Node | Purpose |
+|------|---------|
+| `NODE_PROC_SUB_IN` | `<(cmd)` process substitution input |
+| `NODE_PROC_SUB_OUT` | `>(cmd)` process substitution output |
+| `NODE_REDIR_BOTH_APPEND` | `&>>` append both stdout and stderr |
+| `NODE_COPROC` | Coproc (reserved for future) |
+
+### Implementation Details
+
+#### Parser (`src/parser.c`)
+
+- **`parse_process_substitution()`**: Parses `<(cmd_list)` and `>(cmd_list)`
+  - Consumes `<(` or `>(` token
+  - Recursively parses commands until `)`
+  - Creates `NODE_PROC_SUB_IN` or `NODE_PROC_SUB_OUT`
+
+- **`parse_pipeline()`**: Extended to handle `|&`
+  - Recognizes `TOK_PIPE_STDERR` in addition to `TOK_PIPE`
+  - Sets `pipe_node->val.sint = 1` flag for stderr piping
+
+- **`parse_simple_command()`**: Handles process substitution as arguments
+  - Detects `TOK_PROC_SUB_IN` / `TOK_PROC_SUB_OUT` in argument list
+  - Calls `parse_process_substitution()` for these tokens
+
+- **`parse_redirection()`**: Added `TOK_APPEND_BOTH` case
+  - Maps to `NODE_REDIR_BOTH_APPEND`
+
+#### Executor (`src/executor.c`)
+
+- **`expand_process_substitution()`**: Core implementation
+  - Creates a pipe with `pipe()`
+  - Forks child process
+  - Child redirects stdout/stdin and executes command list
+  - Parent returns `/dev/fd/N` path for the pipe fd
+  - Works on both macOS and Linux
+
+- **`execute_pipeline()`**: Extended for `|&`
+  - Checks `pipeline->val.sint == 1` flag
+  - If set, also `dup2(pipe_fd, STDERR_FILENO)` in left command
+
+- **`build_argv_from_ast()`**: Handles process substitution nodes
+  - Calls `expand_process_substitution()` for proc sub node types
+  - Adds returned path to argument list
+
+#### Redirection (`src/redirection.c`)
+
+- **`NODE_REDIR_BOTH_APPEND`** case added:
+  - Opens file with `O_WRONLY | O_CREAT | O_APPEND`
+  - Redirects both `STDOUT_FILENO` and `STDERR_FILENO`
+
+### Modified Files
+
+| File | Changes |
+|------|---------|
+| `include/tokenizer.h` | Added `TOK_PROC_SUB_IN`, `TOK_PROC_SUB_OUT`, `TOK_PIPE_STDERR`, `TOK_APPEND_BOTH`, `TOK_COPROC` |
+| `src/tokenizer.c` | Recognition of `<(`, `>(`, `\|&`, `&>>` tokens with mode check |
+| `include/node.h` | Added `NODE_PROC_SUB_IN`, `NODE_PROC_SUB_OUT`, `NODE_REDIR_BOTH_APPEND`, `NODE_COPROC` |
+| `src/parser.c` | `parse_process_substitution()`, extended `parse_pipeline()` for `\|&`, extended redirections |
+| `src/executor.c` | `expand_process_substitution()` with `/dev/fd` mechanism, `\|&` pipeline handling |
+| `src/redirection.c` | `NODE_REDIR_BOTH_APPEND` handling |
+| `src/debug/debug_core.c` | Node descriptions for new types |
+
+### New Test File
+
+`tests/phase3_process_substitution_test.sh` - 23 comprehensive tests covering:
+- Basic `<(cmd)` usage with cat, echo
+- Multiple `<(cmd)` arguments (diff pattern)
+- Complex commands inside `<()`
+- Output process substitution `>(cmd)` with tee
+- `|&` capturing stderr
+- `|&` with both stdout and stderr
+- `&>>` appending stdout and stderr
+- `&>` vs `&>>` (overwrite vs append)
+- Combined features
+- Syntax validation
+
+### Test Results
+
+- **Phase 1 Tests**: 52/52 passing (100%)
+- **Phase 2 Tests**: 100/100 passing (100%)
+- **Phase 3 Tests**: 23/23 passing (100%)
+- **Build**: Clean compilation
+
+### Next Steps (Phase 4)
+
+Phase 4 will implement Extended Parameter Expansion:
+- Case modification `${var^^}`, `${var,,}`
+- Substring extraction `${var:offset:length}`
+- Pattern substitution `${var/pattern/replacement}`
+- Indirect expansion `${!prefix*}`
+- Transformations `${var@Q}`, `${var@E}`
 
 ---
 

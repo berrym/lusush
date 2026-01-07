@@ -280,6 +280,24 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         break;
     }
 
+    case NODE_REDIR_BOTH_APPEND: {
+        // Append both stdout/stderr: command &>> file
+        int fd = open(target, O_WRONLY | O_CREAT | O_APPEND, 0644);
+        if (fd == -1) {
+            perror(target);
+            result = 1;
+            break;
+        }
+        if (dup2(fd, STDOUT_FILENO) == -1 || dup2(fd, STDERR_FILENO) == -1) {
+            perror("dup2");
+            close(fd);
+            result = 1;
+            break;
+        }
+        close(fd);
+        break;
+    }
+
     case NODE_REDIR_HEREDOC: {
         // Here document: command << DELIMITER
         result = setup_here_document(target, false);

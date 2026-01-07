@@ -34,6 +34,7 @@ typedef enum {
     NODE_REDIR_HEREDOC_STRIP, // '<<-'
     NODE_REDIR_HERESTRING,    // '<<<'
     NODE_REDIR_BOTH,          // '&>'
+    NODE_REDIR_BOTH_APPEND,   // '&>>' - append both stdout and stderr
     NODE_REDIR_FD,            // '&1', '&2', etc.
     NODE_REDIR_CLOBBER,       // '>|'
     // List types for semantic clarity
@@ -62,6 +63,11 @@ typedef enum {
 
     // Extended language features (Phase 2: Extended Tests)
     NODE_EXTENDED_TEST, // [[ expr ]] - extended test command
+
+    // Extended language features (Phase 3: Process Substitution)
+    NODE_PROC_SUB_IN,   // <(cmd) - process substitution input
+    NODE_PROC_SUB_OUT,  // >(cmd) - process substitution output
+    NODE_COPROC,        // coproc name cmd - coprocess
 } node_type_t;
 
 typedef enum {

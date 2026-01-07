@@ -281,6 +281,16 @@ const char *token_type_name(token_type_t type) {
         return "PLUS_ASSIGN";
     case TOK_REGEX_MATCH:
         return "REGEX_MATCH";
+    case TOK_PROC_SUB_IN:
+        return "PROC_SUB_IN";
+    case TOK_PROC_SUB_OUT:
+        return "PROC_SUB_OUT";
+    case TOK_PIPE_STDERR:
+        return "PIPE_STDERR";
+    case TOK_APPEND_BOTH:
+        return "APPEND_BOTH";
+    case TOK_COPROC:
+        return "COPROC";
     case TOK_IF:
         return "IF";
     case TOK_THEN:
@@ -932,18 +942,27 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                              start_pos);
 
         case '|':
-            if (tokenizer->position + 1 < tokenizer->input_length &&
-                tokenizer->input[tokenizer->position + 1] == '|') {
-                tokenizer->position += 2;
-                tokenizer->column += 2;
-                return token_new(TOK_LOGICAL_OR, "||", 2, start_line,
-                                 start_column, start_pos);
-            } else {
-                tokenizer->position++;
-                tokenizer->column++;
-                return token_new(TOK_PIPE, "|", 1, start_line, start_column,
-                                 start_pos);
+            if (tokenizer->position + 1 < tokenizer->input_length) {
+                char next = tokenizer->input[tokenizer->position + 1];
+                if (next == '|') {
+                    tokenizer->position += 2;
+                    tokenizer->column += 2;
+                    return token_new(TOK_LOGICAL_OR, "||", 2, start_line,
+                                     start_column, start_pos);
+                }
+                // Pipe stderr |& (shorthand for 2>&1 |)
+                if (next == '&' &&
+                    shell_mode_allows(FEATURE_PROCESS_SUBSTITUTION)) {
+                    tokenizer->position += 2;
+                    tokenizer->column += 2;
+                    return token_new(TOK_PIPE_STDERR, "|&", 2, start_line,
+                                     start_column, start_pos);
+                }
             }
+            tokenizer->position++;
+            tokenizer->column++;
+            return token_new(TOK_PIPE, "|", 1, start_line, start_column,
+                             start_pos);
 
         case '&':
             if (tokenizer->position + 1 < tokenizer->input_length) {
@@ -954,6 +973,15 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                     return token_new(TOK_LOGICAL_AND, "&&", 2, start_line,
                                      start_column, start_pos);
                 } else if (next == '>') {
+                    // Check for &>> (append both stdout and stderr)
+                    if (tokenizer->position + 2 < tokenizer->input_length &&
+                        tokenizer->input[tokenizer->position + 2] == '>' &&
+                        shell_mode_allows(FEATURE_PROCESS_SUBSTITUTION)) {
+                        tokenizer->position += 3;
+                        tokenizer->column += 3;
+                        return token_new(TOK_APPEND_BOTH, "&>>", 3, start_line,
+                                         start_column, start_pos);
+                    }
                     tokenizer->position += 2;
                     tokenizer->column += 2;
                     return token_new(TOK_REDIRECT_BOTH, "&>", 2, start_line,
@@ -968,6 +996,14 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
         case '<':
             if (tokenizer->position + 1 < tokenizer->input_length) {
                 char next = tokenizer->input[tokenizer->position + 1];
+                // Process substitution <( - check before heredoc
+                if (next == '(' && 
+                    shell_mode_allows(FEATURE_PROCESS_SUBSTITUTION)) {
+                    tokenizer->position += 2;
+                    tokenizer->column += 2;
+                    return token_new(TOK_PROC_SUB_IN, "<(", 2, start_line,
+                                     start_column, start_pos);
+                }
                 if (next == '<') {
                     if (tokenizer->position + 2 < tokenizer->input_length &&
                         tokenizer->input[tokenizer->position + 2] == '<') {
@@ -997,33 +1033,42 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                              start_pos);
 
         case '>':
-            if (tokenizer->position + 1 < tokenizer->input_length &&
-                tokenizer->input[tokenizer->position + 1] == '>') {
-                tokenizer->position += 2;
-                tokenizer->column += 2;
-                return token_new(TOK_APPEND, ">>", 2, start_line, start_column,
-                                 start_pos);
-            } else if (tokenizer->position + 1 < tokenizer->input_length &&
-                       tokenizer->input[tokenizer->position + 1] == '|') {
-                tokenizer->position += 2;
-                tokenizer->column += 2;
-                return token_new(TOK_REDIRECT_CLOBBER, ">|", 2, start_line,
-                                 start_column, start_pos);
-            } else if (tokenizer->position + 1 < tokenizer->input_length &&
-                       tokenizer->input[tokenizer->position + 1] == '&' &&
-                       tokenizer->position + 2 < tokenizer->input_length &&
-                       isdigit(tokenizer->input[tokenizer->position + 2])) {
-                // Handle >&N pattern (redirect stdout to file descriptor N)
-                tokenizer->position += 3;
-                tokenizer->column += 3;
-                return token_new(TOK_REDIRECT_FD, &tokenizer->input[start_pos],
-                                 3, start_line, start_column, start_pos);
-            } else {
-                tokenizer->position++;
-                tokenizer->column++;
-                return token_new(TOK_REDIRECT_OUT, ">", 1, start_line,
-                                 start_column, start_pos);
+            if (tokenizer->position + 1 < tokenizer->input_length) {
+                char next = tokenizer->input[tokenizer->position + 1];
+                // Process substitution >(
+                if (next == '(' &&
+                    shell_mode_allows(FEATURE_PROCESS_SUBSTITUTION)) {
+                    tokenizer->position += 2;
+                    tokenizer->column += 2;
+                    return token_new(TOK_PROC_SUB_OUT, ">(", 2, start_line,
+                                     start_column, start_pos);
+                }
+                if (next == '>') {
+                    tokenizer->position += 2;
+                    tokenizer->column += 2;
+                    return token_new(TOK_APPEND, ">>", 2, start_line, start_column,
+                                     start_pos);
+                }
+                if (next == '|') {
+                    tokenizer->position += 2;
+                    tokenizer->column += 2;
+                    return token_new(TOK_REDIRECT_CLOBBER, ">|", 2, start_line,
+                                     start_column, start_pos);
+                }
+                if (next == '&' &&
+                    tokenizer->position + 2 < tokenizer->input_length &&
+                    isdigit(tokenizer->input[tokenizer->position + 2])) {
+                    // Handle >&N pattern (redirect stdout to file descriptor N)
+                    tokenizer->position += 3;
+                    tokenizer->column += 3;
+                    return token_new(TOK_REDIRECT_FD, &tokenizer->input[start_pos],
+                                     3, start_line, start_column, start_pos);
+                }
             }
+            tokenizer->position++;
+            tokenizer->column++;
+            return token_new(TOK_REDIRECT_OUT, ">", 1, start_line,
+                             start_column, start_pos);
 
         case '=':
             // Check for =~ regex match operator (inside [[ ]])

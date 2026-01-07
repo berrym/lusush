@@ -45,6 +45,9 @@ static node_t *parse_array_literal(parser_t *parser);
 // Forward declarations for extended language features (Phase 2)
 static node_t *parse_extended_test(parser_t *parser);
 
+// Forward declarations for extended language features (Phase 3)
+static node_t *parse_process_substitution(parser_t *parser);
+
 // Forward declarations for POSIX compliance
 bool is_posix_mode_enabled(void);
 static char *collect_heredoc_content(parser_t *parser, const char *delimiter,
@@ -424,8 +427,11 @@ static node_t *parse_pipeline(parser_t *parser) {
         return NULL;
     }
 
-    if (tokenizer_match(parser->tokenizer, TOK_PIPE)) {
-        tokenizer_advance(parser->tokenizer); // consume |
+    if (tokenizer_match(parser->tokenizer, TOK_PIPE) ||
+        tokenizer_match(parser->tokenizer, TOK_PIPE_STDERR)) {
+        // Check if this is |& (pipe stderr too)
+        bool pipe_stderr = tokenizer_match(parser->tokenizer, TOK_PIPE_STDERR);
+        tokenizer_advance(parser->tokenizer); // consume | or |&
 
         // Skip newlines after pipe - allows multiline pipelines
         while (tokenizer_match(parser->tokenizer, TOK_NEWLINE) ||
@@ -445,6 +451,11 @@ static node_t *parse_pipeline(parser_t *parser) {
             free_node_tree(right);
             return NULL;
         }
+
+        // Use val.sint to indicate if stderr should also be piped
+        // 0 = normal pipe (stdout only), 1 = |& (stdout + stderr)
+        pipe_node->val.sint = pipe_stderr ? 1 : 0;
+        pipe_node->val_type = VAL_SINT;
 
         add_child_node(pipe_node, left);
         add_child_node(pipe_node, right);
@@ -765,7 +776,8 @@ static node_t *parse_simple_command(parser_t *parser) {
             arg_token->type == TOK_REDIRECT_BOTH ||
             arg_token->type == TOK_APPEND_ERR ||
             arg_token->type == TOK_REDIRECT_FD ||
-            arg_token->type == TOK_REDIRECT_CLOBBER) {
+            arg_token->type == TOK_REDIRECT_CLOBBER ||
+            arg_token->type == TOK_APPEND_BOTH) {
 
             node_t *redir_node = parse_redirection(parser);
             if (!redir_node) {
@@ -774,6 +786,16 @@ static node_t *parse_simple_command(parser_t *parser) {
             }
 
             add_child_node(command, redir_node);
+        }
+        // Handle process substitution <(cmd) and >(cmd)
+        else if (arg_token->type == TOK_PROC_SUB_IN ||
+                 arg_token->type == TOK_PROC_SUB_OUT) {
+            node_t *proc_sub_node = parse_process_substitution(parser);
+            if (!proc_sub_node) {
+                free_node_tree(command);
+                return NULL;
+            }
+            add_child_node(command, proc_sub_node);
         }
         // Handle all argument tokens with unified concatenation logic
         else if (arg_token->type == TOK_STRING ||
@@ -1071,6 +1093,9 @@ static node_t *parse_redirection(parser_t *parser) {
         break;
     case TOK_REDIRECT_CLOBBER:
         node_type = NODE_REDIR_CLOBBER;
+        break;
+    case TOK_APPEND_BOTH:
+        node_type = NODE_REDIR_BOTH_APPEND;
         break;
     default:
         set_parser_error(parser, "Unknown redirection token");
@@ -2941,6 +2966,89 @@ static node_t *parse_extended_test(parser_t *parser) {
     test_node->val_type = VAL_STR;
 
     return test_node;
+}
+
+/**
+ * @brief Parse a process substitution <(cmd) or >(cmd)
+ *
+ * Process substitution allows a command's output or input to be used
+ * as a filename. <(cmd) provides a filename that reads from cmd's stdout,
+ * >(cmd) provides a filename that writes to cmd's stdin.
+ *
+ * Grammar: <( command_list ) | >( command_list )
+ *
+ * @param parser Parser instance
+ * @return Process substitution AST node
+ */
+static node_t *parse_process_substitution(parser_t *parser) {
+    token_t *current = tokenizer_current(parser->tokenizer);
+    if (!current) {
+        return NULL;
+    }
+
+    // Determine type based on token
+    node_type_t node_type;
+    const char *op_name;
+    if (current->type == TOK_PROC_SUB_IN) {
+        node_type = NODE_PROC_SUB_IN;
+        op_name = "<(";
+    } else if (current->type == TOK_PROC_SUB_OUT) {
+        node_type = NODE_PROC_SUB_OUT;
+        op_name = ">(";
+    } else {
+        set_parser_error(parser, "Expected '<(' or '>('");
+        return NULL;
+    }
+
+    // Check if feature is enabled
+    if (!shell_mode_allows(FEATURE_PROCESS_SUBSTITUTION)) {
+        set_parser_error(parser, "Process substitution not enabled");
+        return NULL;
+    }
+
+    // Create the process substitution node
+    node_t *proc_sub_node = new_node(node_type);
+    if (!proc_sub_node) {
+        set_parser_error(parser, "Failed to create process substitution node");
+        return NULL;
+    }
+
+    // Consume the <( or >( token
+    tokenizer_advance(parser->tokenizer);
+
+    // Skip whitespace after opening
+    skip_separators(parser);
+
+    // Parse commands until ')'
+    while (!tokenizer_match(parser->tokenizer, TOK_RPAREN) &&
+           !tokenizer_match(parser->tokenizer, TOK_EOF) && !parser->has_error) {
+
+        node_t *command = parse_logical_expression(parser);
+        if (!command) {
+            if (!parser->has_error) {
+                break; // End of input
+            }
+            free_node_tree(proc_sub_node);
+            return NULL;
+        }
+
+        add_child_node(proc_sub_node, command);
+
+        // Skip separators between commands
+        skip_separators(parser);
+    }
+
+    // Expect ')'
+    if (!expect_token(parser, TOK_RPAREN)) {
+        free_node_tree(proc_sub_node);
+        return NULL;
+    }
+
+    // Store the operator for debugging
+    proc_sub_node->val.str = strdup(op_name);
+    proc_sub_node->val_type = VAL_STR;
+
+    return proc_sub_node;
 }
 
 /**
