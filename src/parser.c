@@ -42,6 +42,9 @@ static node_t *parse_redirection(parser_t *parser);
 static node_t *parse_arithmetic_command(parser_t *parser);
 static node_t *parse_array_literal(parser_t *parser);
 
+// Forward declarations for extended language features (Phase 2)
+static node_t *parse_extended_test(parser_t *parser);
+
 // Forward declarations for POSIX compliance
 bool is_posix_mode_enabled(void);
 static char *collect_heredoc_content(parser_t *parser, const char *delimiter,
@@ -492,6 +495,12 @@ static node_t *parse_simple_command(parser_t *parser) {
     if (current->type == TOK_DOUBLE_LPAREN &&
         shell_mode_allows(FEATURE_ARITH_COMMAND)) {
         return parse_arithmetic_command(parser);
+    }
+
+    // Check for extended test [[ expr ]]
+    if (current->type == TOK_DOUBLE_LBRACKET &&
+        shell_mode_allows(FEATURE_EXTENDED_TEST)) {
+        return parse_extended_test(parser);
     }
 
     // Check for subshell
@@ -2762,6 +2771,176 @@ static node_t *parse_array_literal(parser_t *parser) {
     tokenizer_advance(parser->tokenizer); // consume )
 
     return array_node;
+}
+
+/**
+ * @brief Parse an extended test command [[ expression ]]
+ *
+ * Parses Bash/Zsh-style extended test expressions. These support:
+ * - String comparisons: ==, !=, <, >
+ * - Pattern matching: == with glob patterns (unquoted RHS)
+ * - Regex matching: =~ with POSIX extended regex
+ * - Logical operators: &&, ||, !
+ * - Grouping: ( expression )
+ * - File tests: -f, -d, -e, -r, -w, -x, etc.
+ * - String tests: -z, -n
+ *
+ * Unlike [ ], extended tests:
+ * - Don't perform word splitting on variables
+ * - Don't perform glob expansion on arguments
+ * - Support && and || directly (not -a and -o)
+ * - Support < and > for string comparison without escaping
+ *
+ * Grammar: [[ conditional_expression ]]
+ *
+ * @param parser Parser instance
+ * @return Extended test AST node with expression in val.str
+ */
+static node_t *parse_extended_test(parser_t *parser) {
+    token_t *current = tokenizer_current(parser->tokenizer);
+    if (!current || current->type != TOK_DOUBLE_LBRACKET) {
+        set_parser_error(parser, "Expected '[['");
+        return NULL;
+    }
+
+    // Consume [[
+    tokenizer_advance(parser->tokenizer);
+
+    // Create extended test node
+    node_t *test_node = new_node(NODE_EXTENDED_TEST);
+    if (!test_node) {
+        set_parser_error(parser, "Failed to create extended test node");
+        return NULL;
+    }
+
+    // Collect the test expression until ]]
+    // We need to handle nested (( )) for grouping within [[ ]]
+    char *expr = NULL;
+    size_t expr_len = 0;
+    size_t expr_capacity = 256;
+    int paren_depth = 0;
+    bool in_regex = false;  // Track if we're parsing a regex pattern after =~
+
+    expr = malloc(expr_capacity);
+    if (!expr) {
+        free_node_tree(test_node);
+        return NULL;
+    }
+    expr[0] = '\0';
+
+    // Parse tokens until we find ]] at depth 0
+    while (!tokenizer_match(parser->tokenizer, TOK_EOF)) {
+        current = tokenizer_current(parser->tokenizer);
+        if (!current) {
+            break;
+        }
+
+        // Check for ]] - end of extended test
+        if (current->type == TOK_DOUBLE_RBRACKET && paren_depth == 0) {
+            break;
+        }
+
+        // Check for logical operators that end regex context
+        // && and || are expression separators in [[ ]]
+        if ((current->type == TOK_LOGICAL_AND || current->type == TOK_LOGICAL_OR) && 
+            paren_depth == 0) {
+            in_regex = false;
+        }
+
+        // Track nested parentheses for grouping
+        if (current->type == TOK_LPAREN) {
+            paren_depth++;
+        } else if (current->type == TOK_RPAREN) {
+            if (paren_depth > 0) {
+                paren_depth--;
+            }
+        }
+
+        // Append token text to expression
+        size_t token_len = strlen(current->text);
+        if (expr_len + token_len + 2 > expr_capacity) {
+            expr_capacity = (expr_len + token_len + 2) * 2;
+            char *new_expr = realloc(expr, expr_capacity);
+            if (!new_expr) {
+                free(expr);
+                free_node_tree(test_node);
+                return NULL;
+            }
+            expr = new_expr;
+        }
+
+        // Determine if we should skip adding a space before this token
+        bool skip_space = false;
+
+        if (in_regex) {
+            // In regex mode: don't add spaces between regex tokens
+            // This keeps ^hello$ as one unit instead of ^ hello $
+            skip_space = true;
+        } else {
+            // Normal mode: add spaces between tokens with some exceptions
+            bool is_operator_char =
+                (current->text[0] == '=' || current->text[0] == '!' ||
+                 current->text[0] == '<' || current->text[0] == '>' ||
+                 current->text[0] == '&' || current->text[0] == '|' ||
+                 current->text[0] == '~');
+            bool prev_is_operator =
+                (expr_len > 0 &&
+                 (expr[expr_len - 1] == '=' || expr[expr_len - 1] == '!' ||
+                  expr[expr_len - 1] == '<' || expr[expr_len - 1] == '>' ||
+                  expr[expr_len - 1] == '&' || expr[expr_len - 1] == '|'));
+
+            // Don't add space:
+            // - Before ) or after (
+            // - After ) when followed by ( (for regex groups like )(
+            // - Between consecutive operators
+            skip_space = (current->type == TOK_RPAREN) ||
+                         (expr_len > 0 && expr[expr_len - 1] == '(') ||
+                         (expr_len > 0 && expr[expr_len - 1] == ')' && 
+                          current->type == TOK_LPAREN) ||
+                         (is_operator_char && prev_is_operator);
+        }
+
+        if (expr_len > 0 && expr[expr_len - 1] != ' ' && !skip_space) {
+            expr[expr_len++] = ' ';
+            expr[expr_len] = '\0';
+        }
+
+        strcat(expr, current->text);
+        expr_len = strlen(expr);
+
+        // Check if we just added the =~ operator - next tokens are regex
+        if (current->type == TOK_REGEX_MATCH) {
+            in_regex = true;
+        }
+
+        tokenizer_advance(parser->tokenizer);
+    }
+
+    // Expect ]]
+    if (!tokenizer_match(parser->tokenizer, TOK_DOUBLE_RBRACKET)) {
+        set_parser_error(parser, "Expected ']]'");
+        free(expr);
+        free_node_tree(test_node);
+        return NULL;
+    }
+    tokenizer_advance(parser->tokenizer); // consume ]]
+
+    // Trim whitespace from expression
+    while (expr_len > 0 && expr[expr_len - 1] == ' ') {
+        expr[--expr_len] = '\0';
+    }
+    char *start = expr;
+    while (*start == ' ') {
+        start++;
+    }
+    if (start != expr) {
+        memmove(expr, start, strlen(start) + 1);
+    }
+
+    test_node->val.str = expr;
+    test_node->val_type = VAL_STR;
+
+    return test_node;
 }
 
 /**

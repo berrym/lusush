@@ -9,6 +9,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - Extended Language Support
 
+### Added - Phase 2: Extended Tests `[[ ]]`
+- **Extended test command `[[ ]]`** with Bash-compatible syntax
+  - String comparisons: `==`, `!=`, `<`, `>`
+  - Pattern matching with glob wildcards: `*`, `?`, `[...]`
+  - No word splitting or glob expansion inside `[[ ]]`
+
+- **Regex matching with `=~` operator**
+  - POSIX extended regular expressions
+  - Anchors: `^` (start), `$` (end)
+  - Character classes: `[a-z]`, `[0-9]`
+  - Capture groups with BASH_REMATCH array
+  - Alternation: `cat|dog`
+  - Optional quantifiers: `?`, `+`, `*`
+
+- **BASH_REMATCH array** for regex capture groups
+  - `${BASH_REMATCH[0]}` - full match
+  - `${BASH_REMATCH[1]}` - first capture group
+  - Up to 10 capture groups supported
+
+- **File tests** for extended test
+  - Existence: `-e`, `-f`, `-d`
+  - Permissions: `-r`, `-w`, `-x`
+  - Size: `-s` (non-empty)
+  - Type: `-L`, `-h` (symbolic link)
+
+- **String tests**: `-z` (empty), `-n` (non-empty)
+
+- **Numeric comparisons**: `-eq`, `-ne`, `-lt`, `-le`, `-gt`, `-ge`
+
+- **Logical operators** with short-circuit evaluation
+  - Negation: `!`
+  - AND: `&&`
+  - OR: `||`
+  - Parentheses grouping: `( expr )`
+
+- **New tokens**: `TOK_DOUBLE_LBRACKET`, `TOK_DOUBLE_RBRACKET`, `TOK_REGEX_MATCH`
+- **New node type**: `NODE_EXTENDED_TEST`
+- **Comprehensive test suite**: 100 tests in `tests/phase2_extended_test_test.sh`
+
+### Fixed
+- Variable expansion for expressions like `$i -lt 3` now correctly expands to `5 -lt 3`
+
 ### Added - Phase 1: Arrays and Arithmetic Command
 - **Indexed array support** with Bash-compatible syntax
   - Array literal creation: `arr=(one two three)`

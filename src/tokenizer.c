@@ -273,8 +273,14 @@ const char *token_type_name(token_type_t type) {
         return "LBRACKET";
     case TOK_RBRACKET:
         return "RBRACKET";
+    case TOK_DOUBLE_LBRACKET:
+        return "DOUBLE_LBRACKET";
+    case TOK_DOUBLE_RBRACKET:
+        return "DOUBLE_RBRACKET";
     case TOK_PLUS_ASSIGN:
         return "PLUS_ASSIGN";
+    case TOK_REGEX_MATCH:
+        return "REGEX_MATCH";
     case TOK_IF:
         return "IF";
     case TOK_THEN:
@@ -1020,6 +1026,15 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
             }
 
         case '=':
+            // Check for =~ regex match operator (inside [[ ]])
+            if (tokenizer->position + 1 < tokenizer->input_length &&
+                tokenizer->input[tokenizer->position + 1] == '~' &&
+                shell_mode_allows(FEATURE_REGEX_MATCH)) {
+                tokenizer->position += 2;
+                tokenizer->column += 2;
+                return token_new(TOK_REGEX_MATCH, "=~", 2, start_line,
+                                 start_column, start_pos);
+            }
             tokenizer->position++;
             tokenizer->column++;
             return token_new(TOK_ASSIGN, "=", 1, start_line, start_column,
@@ -1121,12 +1136,30 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                              start_pos);
 
         case '[':
+            // Check for [[ extended test
+            if (tokenizer->position + 1 < tokenizer->input_length &&
+                tokenizer->input[tokenizer->position + 1] == '[' &&
+                shell_mode_allows(FEATURE_EXTENDED_TEST)) {
+                tokenizer->position += 2;
+                tokenizer->column += 2;
+                return token_new(TOK_DOUBLE_LBRACKET, "[[", 2, start_line,
+                                 start_column, start_pos);
+            }
             tokenizer->position++;
             tokenizer->column++;
             return token_new(TOK_LBRACKET, "[", 1, start_line, start_column,
                              start_pos);
 
         case ']':
+            // Check for ]] extended test end
+            if (tokenizer->position + 1 < tokenizer->input_length &&
+                tokenizer->input[tokenizer->position + 1] == ']' &&
+                shell_mode_allows(FEATURE_EXTENDED_TEST)) {
+                tokenizer->position += 2;
+                tokenizer->column += 2;
+                return token_new(TOK_DOUBLE_RBRACKET, "]]", 2, start_line,
+                                 start_column, start_pos);
+            }
             tokenizer->position++;
             tokenizer->column++;
             return token_new(TOK_RBRACKET, "]", 1, start_line, start_column,

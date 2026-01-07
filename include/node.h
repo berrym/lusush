@@ -59,6 +59,9 @@ typedef enum {
     NODE_ARRAY_LITERAL, // (a b c) - array literal
     NODE_ARRAY_ACCESS,  // ${arr[index]} - array element access
     NODE_ARRAY_ASSIGN,  // arr[n]=value or arr=(...) - array assignment
+
+    // Extended language features (Phase 2: Extended Tests)
+    NODE_EXTENDED_TEST, // [[ expr ]] - extended test command
 } node_type_t;
 
 typedef enum {

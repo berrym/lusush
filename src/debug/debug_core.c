@@ -488,6 +488,10 @@ char *debug_get_node_description(node_t *node) {
         snprintf(desc, 256, "ARRAY_ASSIGN: %s",
                  node->val.str ? node->val.str : "");
         break;
+    case NODE_EXTENDED_TEST:
+        snprintf(desc, 256, "EXTENDED_TEST: [[ %s ]]",
+                 node->val.str ? node->val.str : "");
+        break;
     default:
         snprintf(desc, 256, "UNKNOWN_NODE_TYPE_%d", node->type);
         break;

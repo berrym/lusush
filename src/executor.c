@@ -32,8 +32,10 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <fnmatch.h>
 #include <glob.h>
 #include <pwd.h>
+#include <regex.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -99,9 +101,12 @@ static int execute_builtin_command(executor_t *executor, char **argv);
 static int execute_brace_group(executor_t *executor, node_t *group);
 static int execute_subshell(executor_t *executor, node_t *subshell);
 
-// Forward declarations for Phase 1: Arrays and Arithmetic
+/// Forward declarations for Phase 1: Arrays and Arithmetic
 static int execute_arithmetic_command(executor_t *executor, node_t *arith_node);
 static int execute_array_assignment(executor_t *executor, node_t *assign_node);
+
+// Forward declarations for Phase 2: Extended Tests
+static int execute_extended_test(executor_t *executor, node_t *test_node);
 static bool is_builtin_command(const char *cmd);
 static void set_executor_error(executor_t *executor, const char *message);
 static char *expand_variable(executor_t *executor, const char *var_text);
@@ -612,6 +617,8 @@ static int execute_node(executor_t *executor, node_t *node) {
         return 0;
     case NODE_ARITH_CMD:
         return execute_arithmetic_command(executor, node);
+    case NODE_EXTENDED_TEST:
+        return execute_extended_test(executor, node);
     case NODE_ARRAY_ASSIGN:
         return execute_array_assignment(executor, node);
     case NODE_ARRAY_LITERAL:
@@ -2359,7 +2366,30 @@ char *expand_if_needed(executor_t *executor, const char *text) {
             return expand_arithmetic(executor, text);
         } else if (strncmp(text, "$(", 2) == 0) {
             return expand_command_substitution(executor, text);
+        } else if (strncmp(text, "${", 2) == 0) {
+            // ${var} format - check if there's more text after }
+            const char *close_brace = strchr(text, '}');
+            if (close_brace && close_brace[1] != '\0') {
+                // Text continues after ${var}, use quoted string expansion
+                return expand_quoted_string(executor, text);
+            }
+            return expand_variable(executor, text);
         } else {
+            // $var format - check if there's more text after variable name
+            const char *p = text + 1;  // Skip $
+            // Find end of variable name
+            if (*p == '?' || *p == '$' || *p == '#' || *p == '*' ||
+                *p == '@' || *p == '!' || (*p >= '0' && *p <= '9')) {
+                p++;  // Single character special variable
+            } else {
+                while (*p && (isalnum(*p) || *p == '_')) {
+                    p++;
+                }
+            }
+            // If there's more text after the variable, use quoted string expansion
+            if (*p != '\0') {
+                return expand_quoted_string(executor, text);
+            }
             return expand_variable(executor, text);
         }
     }
@@ -6712,6 +6742,490 @@ static int execute_arithmetic_command(executor_t *executor,
 
     // Return 0 if non-zero (true), 1 if zero (false)
     return (result != 0) ? 0 : 1;
+}
+
+/**
+ * @brief Match a string against a glob pattern
+ *
+ * Uses fnmatch for shell-style pattern matching.
+ *
+ * @param str String to match
+ * @param pattern Glob pattern
+ * @return true if matches, false otherwise
+ */
+static bool extended_test_pattern_match(const char *str, const char *pattern) {
+    if (!str || !pattern) {
+        return false;
+    }
+    // FNM_EXTMATCH would enable extended patterns, but isn't portable
+    return fnmatch(pattern, str, 0) == 0;
+}
+
+/**
+ * @brief Match a string against a regex and populate BASH_REMATCH
+ *
+ * Uses POSIX extended regular expressions. Capture groups are stored
+ * in the BASH_REMATCH array variable.
+ *
+ * @param executor Executor context (for setting BASH_REMATCH)
+ * @param str String to match
+ * @param pattern Regex pattern
+ * @return true if matches, false otherwise
+ */
+static bool extended_test_regex_match(executor_t *executor, const char *str,
+                                      const char *pattern) {
+    if (!str || !pattern) {
+        return false;
+    }
+
+    regex_t regex;
+    int ret = regcomp(&regex, pattern, REG_EXTENDED);
+    if (ret != 0) {
+        // Regex compilation failed
+        if (executor->debug) {
+            char errbuf[256];
+            regerror(ret, &regex, errbuf, sizeof(errbuf));
+            printf("DEBUG: Regex compilation failed: %s\n", errbuf);
+        }
+        return false;
+    }
+
+    // Match with capture groups (up to 10 groups)
+    regmatch_t matches[10];
+    ret = regexec(&regex, str, 10, matches, 0);
+
+    if (ret == 0) {
+        // Match successful - populate BASH_REMATCH array
+        // Use symtable_set_array_element which handles array creation
+        for (int i = 0; i < 10 && matches[i].rm_so != -1; i++) {
+            size_t match_len = matches[i].rm_eo - matches[i].rm_so;
+            char *match_str = malloc(match_len + 1);
+            if (match_str) {
+                strncpy(match_str, str + matches[i].rm_so, match_len);
+                match_str[match_len] = '\0';
+                
+                // Convert index to string for subscript
+                char subscript[16];
+                snprintf(subscript, sizeof(subscript), "%d", i);
+                symtable_set_array_element("BASH_REMATCH", subscript, match_str);
+                free(match_str);
+            }
+        }
+        regfree(&regex);
+        return true;
+    }
+
+    regfree(&regex);
+    return false;
+}
+
+/**
+ * @brief Evaluate a file test operator
+ *
+ * Handles file test operators like -f, -d, -e, -r, -w, -x, etc.
+ *
+ * @param op The operator (e.g., "-f", "-d")
+ * @param path The file path to test
+ * @return true if test passes, false otherwise
+ */
+static bool extended_test_file_test(const char *op, const char *path) {
+    if (!op || !path) {
+        return false;
+    }
+
+    struct stat st;
+    bool exists = (stat(path, &st) == 0);
+
+    if (strcmp(op, "-e") == 0) {
+        return exists;
+    } else if (strcmp(op, "-f") == 0) {
+        return exists && S_ISREG(st.st_mode);
+    } else if (strcmp(op, "-d") == 0) {
+        return exists && S_ISDIR(st.st_mode);
+    } else if (strcmp(op, "-r") == 0) {
+        return access(path, R_OK) == 0;
+    } else if (strcmp(op, "-w") == 0) {
+        return access(path, W_OK) == 0;
+    } else if (strcmp(op, "-x") == 0) {
+        return access(path, X_OK) == 0;
+    } else if (strcmp(op, "-s") == 0) {
+        return exists && st.st_size > 0;
+    } else if (strcmp(op, "-L") == 0 || strcmp(op, "-h") == 0) {
+        struct stat lst;
+        return (lstat(path, &lst) == 0) && S_ISLNK(lst.st_mode);
+    } else if (strcmp(op, "-b") == 0) {
+        return exists && S_ISBLK(st.st_mode);
+    } else if (strcmp(op, "-c") == 0) {
+        return exists && S_ISCHR(st.st_mode);
+    } else if (strcmp(op, "-p") == 0) {
+        return exists && S_ISFIFO(st.st_mode);
+    } else if (strcmp(op, "-S") == 0) {
+        return exists && S_ISSOCK(st.st_mode);
+    } else if (strcmp(op, "-g") == 0) {
+        return exists && (st.st_mode & S_ISGID);
+    } else if (strcmp(op, "-u") == 0) {
+        return exists && (st.st_mode & S_ISUID);
+    } else if (strcmp(op, "-k") == 0) {
+        return exists && (st.st_mode & S_ISVTX);
+    } else if (strcmp(op, "-O") == 0) {
+        return exists && (st.st_uid == getuid());
+    } else if (strcmp(op, "-G") == 0) {
+        return exists && (st.st_gid == getgid());
+    }
+
+    return false;
+}
+
+/**
+ * @brief Execute an extended test command [[ expression ]]
+ *
+ * Evaluates the conditional expression within [[ ]].
+ * Supports string comparisons, pattern matching, regex matching,
+ * file tests, and logical operators.
+ *
+ * @param executor Executor context
+ * @param test_node Extended test node with expression in val.str
+ * @return 0 if test passes (true), 1 if fails (false)
+ */
+
+// Forward declaration for recursive evaluation
+static bool evaluate_simple_test(executor_t *executor, const char *expr);
+
+/**
+ * @brief Find a logical operator (&& or ||) at the top level
+ *
+ * Scans for && or || that is not inside parentheses.
+ * Returns pointer to the operator or NULL if not found.
+ * Also sets op_len to 2 if found.
+ */
+static char *find_logical_operator(char *expr, int *op_len, char *op_type) {
+    int paren_depth = 0;
+    char *p = expr;
+    
+    while (*p) {
+        if (*p == '(') {
+            paren_depth++;
+        } else if (*p == ')') {
+            paren_depth--;
+        } else if (paren_depth == 0) {
+            // Check for || first (lower precedence, so we want to split on it first)
+            if (p[0] == '|' && p[1] == '|') {
+                *op_len = 2;
+                *op_type = '|';
+                return p;
+            }
+            // Check for &&
+            if (p[0] == '&' && p[1] == '&') {
+                *op_len = 2;
+                *op_type = '&';
+                return p;
+            }
+        }
+        p++;
+    }
+    return NULL;
+}
+
+/**
+ * @brief Evaluate an extended test expression with && and ||
+ *
+ * Recursively evaluates expressions, handling:
+ * - || (OR) with lowest precedence
+ * - && (AND) with higher precedence
+ * - Parentheses for grouping
+ * - Simple test expressions
+ */
+static bool evaluate_extended_expr(executor_t *executor, char *expr) {
+    // Trim whitespace
+    while (*expr && isspace(*expr)) expr++;
+    char *end = expr + strlen(expr) - 1;
+    while (end > expr && isspace(*end)) *end-- = '\0';
+    
+    if (*expr == '\0') {
+        return false;
+    }
+    
+    // Check if entire expression is wrapped in parentheses
+    if (*expr == '(' && *(expr + strlen(expr) - 1) == ')') {
+        // Check if they match (not just opening and closing from different groups)
+        int depth = 0;
+        bool matched = true;
+        for (char *p = expr; *p; p++) {
+            if (*p == '(') depth++;
+            else if (*p == ')') depth--;
+            if (depth == 0 && *(p+1) != '\0') {
+                matched = false;
+                break;
+            }
+        }
+        if (matched) {
+            // Strip outer parentheses
+            char *inner = expr + 1;
+            expr[strlen(expr) - 1] = '\0';
+            return evaluate_extended_expr(executor, inner);
+        }
+    }
+    
+    // Look for || first (lowest precedence)
+    int op_len = 0;
+    char op_type = 0;
+    char *op_pos = find_logical_operator(expr, &op_len, &op_type);
+    
+    if (op_pos && op_type == '|') {
+        // Split on ||
+        *op_pos = '\0';
+        char *left = expr;
+        char *right = op_pos + 2;
+        
+        // Short-circuit: if left is true, don't evaluate right
+        if (evaluate_extended_expr(executor, left)) {
+            return true;
+        }
+        return evaluate_extended_expr(executor, right);
+    }
+    
+    // Look for && (higher precedence than ||)
+    op_pos = NULL;
+    op_len = 0;
+    op_type = 0;
+    
+    // Re-scan for && only
+    int paren_depth = 0;
+    for (char *p = expr; *p; p++) {
+        if (*p == '(') paren_depth++;
+        else if (*p == ')') paren_depth--;
+        else if (paren_depth == 0 && p[0] == '&' && p[1] == '&') {
+            op_pos = p;
+            op_len = 2;
+            op_type = '&';
+            break;
+        }
+    }
+    
+    if (op_pos && op_type == '&') {
+        // Split on &&
+        *op_pos = '\0';
+        char *left = expr;
+        char *right = op_pos + 2;
+        
+        // Short-circuit: if left is false, don't evaluate right
+        if (!evaluate_extended_expr(executor, left)) {
+            return false;
+        }
+        return evaluate_extended_expr(executor, right);
+    }
+    
+    // No logical operators at this level - evaluate as simple test
+    return evaluate_simple_test(executor, expr);
+}
+
+/**
+ * @brief Evaluate a simple test expression (no && or ||)
+ */
+static bool evaluate_simple_test(executor_t *executor, const char *expr) {
+    char *p = (char *)expr;
+    
+    // Skip leading whitespace
+    while (*p && isspace(*p)) p++;
+    
+    // Check for negation
+    bool negate = false;
+    if (*p == '!') {
+        negate = true;
+        p++;
+        while (*p && isspace(*p)) p++;
+    }
+    
+    bool result = false;
+    
+    // Check for unary file/string tests
+    if (*p == '-' && p[1] && isalpha(p[1])) {
+        // Extract operator
+        char op[4] = {0};
+        int op_len = 0;
+        while (*p && !isspace(*p) && op_len < 3) {
+            op[op_len++] = *p++;
+        }
+        op[op_len] = '\0';
+        
+        // Skip whitespace
+        while (*p && isspace(*p)) p++;
+        
+        // String tests
+        if (strcmp(op, "-z") == 0) {
+            result = (*p == '\0');
+        } else if (strcmp(op, "-n") == 0) {
+            result = (*p != '\0');
+        } else {
+            // File tests - get the path (rest of line, trimmed)
+            char *path = strdup(p);
+            if (path) {
+                char *end = path + strlen(path) - 1;
+                while (end > path && isspace(*end)) *end-- = '\0';
+                result = extended_test_file_test(op, path);
+                free(path);
+            }
+        }
+    } else {
+        // Binary expression: lhs op rhs
+        char *lhs_start = p;
+        char *op_start = NULL;
+        char op_type[4] = {0};
+        
+        // Scan for binary operator
+        char *scan = p;
+        int paren_depth = 0;
+        
+        while (*scan) {
+            if (*scan == '(') paren_depth++;
+            else if (*scan == ')') paren_depth--;
+            else if (paren_depth == 0) {
+                if (scan[0] == '=' && scan[1] == '=') {
+                    op_start = scan;
+                    strcpy(op_type, "==");
+                    break;
+                } else if (scan[0] == '!' && scan[1] == '=') {
+                    op_start = scan;
+                    strcpy(op_type, "!=");
+                    break;
+                } else if (scan[0] == '=' && scan[1] == '~') {
+                    op_start = scan;
+                    strcpy(op_type, "=~");
+                    break;
+                } else if (scan[0] == '<' && scan[1] != '<') {
+                    op_start = scan;
+                    strcpy(op_type, "<");
+                    break;
+                } else if (scan[0] == '>' && scan[1] != '>') {
+                    op_start = scan;
+                    strcpy(op_type, ">");
+                    break;
+                } else if (scan[0] == '-' && isalpha(scan[1])) {
+                    if (strncmp(scan, "-eq", 3) == 0 && (isspace(scan[3]) || scan[3] == '\0')) {
+                        op_start = scan;
+                        strcpy(op_type, "-eq");
+                        break;
+                    } else if (strncmp(scan, "-ne", 3) == 0 && (isspace(scan[3]) || scan[3] == '\0')) {
+                        op_start = scan;
+                        strcpy(op_type, "-ne");
+                        break;
+                    } else if (strncmp(scan, "-lt", 3) == 0 && (isspace(scan[3]) || scan[3] == '\0')) {
+                        op_start = scan;
+                        strcpy(op_type, "-lt");
+                        break;
+                    } else if (strncmp(scan, "-le", 3) == 0 && (isspace(scan[3]) || scan[3] == '\0')) {
+                        op_start = scan;
+                        strcpy(op_type, "-le");
+                        break;
+                    } else if (strncmp(scan, "-gt", 3) == 0 && (isspace(scan[3]) || scan[3] == '\0')) {
+                        op_start = scan;
+                        strcpy(op_type, "-gt");
+                        break;
+                    } else if (strncmp(scan, "-ge", 3) == 0 && (isspace(scan[3]) || scan[3] == '\0')) {
+                        op_start = scan;
+                        strcpy(op_type, "-ge");
+                        break;
+                    }
+                }
+            }
+            scan++;
+        }
+        
+        if (op_start && op_type[0]) {
+            // Extract LHS
+            size_t lhs_len = op_start - lhs_start;
+            char *lhs = malloc(lhs_len + 1);
+            if (lhs) {
+                strncpy(lhs, lhs_start, lhs_len);
+                lhs[lhs_len] = '\0';
+                char *end = lhs + strlen(lhs) - 1;
+                while (end >= lhs && isspace(*end)) *end-- = '\0';
+            }
+            
+            // Extract RHS
+            char *rhs_start = op_start + strlen(op_type);
+            while (*rhs_start && isspace(*rhs_start)) rhs_start++;
+            char *rhs = strdup(rhs_start);
+            if (rhs) {
+                char *end = rhs + strlen(rhs) - 1;
+                while (end >= rhs && isspace(*end)) *end-- = '\0';
+            }
+            
+            // Evaluate based on operator
+            if (strcmp(op_type, "==") == 0) {
+                result = extended_test_pattern_match(lhs, rhs);
+            } else if (strcmp(op_type, "!=") == 0) {
+                result = !extended_test_pattern_match(lhs, rhs);
+            } else if (strcmp(op_type, "=~") == 0) {
+                result = extended_test_regex_match(executor, lhs, rhs);
+            } else if (strcmp(op_type, "<") == 0) {
+                result = (strcmp(lhs ? lhs : "", rhs ? rhs : "") < 0);
+            } else if (strcmp(op_type, ">") == 0) {
+                result = (strcmp(lhs ? lhs : "", rhs ? rhs : "") > 0);
+            } else if (strcmp(op_type, "-eq") == 0) {
+                result = (atoll(lhs ? lhs : "0") == atoll(rhs ? rhs : "0"));
+            } else if (strcmp(op_type, "-ne") == 0) {
+                result = (atoll(lhs ? lhs : "0") != atoll(rhs ? rhs : "0"));
+            } else if (strcmp(op_type, "-lt") == 0) {
+                result = (atoll(lhs ? lhs : "0") < atoll(rhs ? rhs : "0"));
+            } else if (strcmp(op_type, "-le") == 0) {
+                result = (atoll(lhs ? lhs : "0") <= atoll(rhs ? rhs : "0"));
+            } else if (strcmp(op_type, "-gt") == 0) {
+                result = (atoll(lhs ? lhs : "0") > atoll(rhs ? rhs : "0"));
+            } else if (strcmp(op_type, "-ge") == 0) {
+                result = (atoll(lhs ? lhs : "0") >= atoll(rhs ? rhs : "0"));
+            }
+            
+            free(lhs);
+            free(rhs);
+        } else {
+            // No operator - non-empty string is true
+            result = (*p != '\0');
+        }
+    }
+    
+    return negate ? !result : result;
+}
+
+static int execute_extended_test(executor_t *executor, node_t *test_node) {
+    if (!test_node || !test_node->val.str) {
+        return 1;
+    }
+
+    const char *expr = test_node->val.str;
+
+    if (executor->debug) {
+        printf("DEBUG: Executing extended test: [[ %s ]]\n", expr);
+    }
+
+    // First, expand variables in the expression
+    char *expanded = expand_if_needed(executor, expr);
+    if (!expanded) {
+        expanded = strdup(expr);
+    }
+    if (!expanded) {
+        return 1;
+    }
+
+    if (executor->debug) {
+        printf("DEBUG: Expanded extended test: [[ %s ]]\n", expanded);
+    }
+
+    // Evaluate the expression using recursive evaluator
+    // This handles &&, ||, parentheses, and simple tests
+    bool result = evaluate_extended_expr(executor, expanded);
+
+    free(expanded);
+
+    // Update exit status
+    executor->exit_status = result ? 0 : 1;
+
+    if (executor->debug) {
+        printf("DEBUG: Extended test result: %s, exit status: %d\n",
+               result ? "true" : "false", executor->exit_status);
+    }
+
+    return result ? 0 : 1;
 }
 
 /**

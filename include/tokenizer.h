@@ -57,17 +57,20 @@ typedef enum {
     TOK_BACKQUOTE,        // `
 
     // Delimiters
-    TOK_LPAREN,        // (
-    TOK_RPAREN,        // )
-    TOK_DOUBLE_LPAREN, // (( - arithmetic command start
-    TOK_DOUBLE_RPAREN, // )) - arithmetic command end
-    TOK_LBRACE,        // {
-    TOK_RBRACE,        // }
-    TOK_LBRACKET,      // [
-    TOK_RBRACKET,      // ]
+    TOK_LPAREN,         // (
+    TOK_RPAREN,         // )
+    TOK_DOUBLE_LPAREN,  // (( - arithmetic command start
+    TOK_DOUBLE_RPAREN,  // )) - arithmetic command end
+    TOK_LBRACE,         // {
+    TOK_RBRACE,         // }
+    TOK_LBRACKET,       // [
+    TOK_RBRACKET,       // ]
+    TOK_DOUBLE_LBRACKET, // [[ - extended test start
+    TOK_DOUBLE_RBRACKET, // ]] - extended test end
 
-    // Extended assignment operators (Phase 1: Arrays/Arithmetic)
+    // Extended operators (Phase 1-2)
     TOK_PLUS_ASSIGN,   // += - append to array or add to integer
+    TOK_REGEX_MATCH,   // =~ - regex match operator in [[ ]]
 
     // Keywords (recognized contextually)
     TOK_IF,
