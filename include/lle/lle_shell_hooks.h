@@ -9,9 +9,10 @@
  * this module ensures they are called at the appropriate times.
  *
  * Hook Function Reference:
- * - precmd()  - Called before each prompt display (after command completes)
- * - preexec() - Called before command execution, receives command as $1
- * - chpwd()   - Called after directory change (cd), PWD/OLDPWD are set
+ * - precmd()   - Called before each prompt display (after command completes)
+ * - preexec()  - Called before command execution, receives command as $1
+ * - chpwd()    - Called after directory change (cd), PWD/OLDPWD are set
+ * - periodic() - Called every PERIOD seconds (if PERIOD variable is set)
  *
  * Hook Arrays (Zsh Compatibility):
  * In addition to single hook functions, users can define arrays of function
@@ -48,10 +49,11 @@
  * at specific points in the shell's execution lifecycle.
  */
 typedef enum {
-    LLE_HOOK_PRECMD,  /**< Called before prompt display (after command) */
-    LLE_HOOK_PREEXEC, /**< Called before command execution */
-    LLE_HOOK_CHPWD,   /**< Called after directory change */
-    LLE_HOOK_COUNT    /**< Number of hook types */
+    LLE_HOOK_PRECMD,   /**< Called before prompt display (after command) */
+    LLE_HOOK_PREEXEC,  /**< Called before command execution */
+    LLE_HOOK_CHPWD,    /**< Called after directory change */
+    LLE_HOOK_PERIODIC, /**< Called periodically based on PERIOD variable */
+    LLE_HOOK_COUNT     /**< Number of hook types */
 } lle_hook_type_t;
 
 /* ============================================================================

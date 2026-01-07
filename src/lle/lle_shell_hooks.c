@@ -22,6 +22,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 /* ============================================================================
  * STATIC STATE
@@ -36,11 +37,15 @@ static lle_hook_type_t g_current_hook = LLE_HOOK_COUNT;
 /** Hook call statistics */
 static size_t g_hook_call_counts[LLE_HOOK_COUNT] = {0};
 
+/** Last time periodic hook was called (for PERIOD-based timing) */
+static time_t g_last_periodic_call = 0;
+
 /** Hook function names */
 static const char *g_hook_names[LLE_HOOK_COUNT] = {
     [LLE_HOOK_PRECMD] = "precmd",
     [LLE_HOOK_PREEXEC] = "preexec",
     [LLE_HOOK_CHPWD] = "chpwd",
+    [LLE_HOOK_PERIODIC] = "periodic",
 };
 
 /** Hook array names (Zsh compatibility: precmd_functions, etc.) */
@@ -48,6 +53,7 @@ static const char *g_hook_array_names[LLE_HOOK_COUNT] = {
     [LLE_HOOK_PRECMD] = "precmd_functions",
     [LLE_HOOK_PREEXEC] = "preexec_functions",
     [LLE_HOOK_CHPWD] = "chpwd_functions",
+    [LLE_HOOK_PERIODIC] = "periodic_functions",
 };
 
 /* ============================================================================
@@ -146,6 +152,47 @@ static int call_hook_array(lle_hook_type_t hook_type, const char *arg) {
     return called;
 }
 
+/**
+ * @brief Check and call periodic hook if PERIOD has elapsed
+ *
+ * In Zsh, if the PERIOD variable is set to a positive integer, the
+ * periodic() function is called every PERIOD seconds before each prompt.
+ * This is useful for tasks like checking mail or updating status.
+ */
+static void check_periodic_hook(void) {
+    // Get the PERIOD variable
+    char *period_str = symtable_get_global("PERIOD");
+    if (!period_str) {
+        return;
+    }
+
+    // Parse the period value
+    long period = strtol(period_str, NULL, 10);
+    free(period_str);
+
+    if (period <= 0) {
+        return;
+    }
+
+    // Check if enough time has elapsed
+    time_t now = time(NULL);
+    if (g_last_periodic_call == 0) {
+        // First call - initialize but don't trigger immediately
+        g_last_periodic_call = now;
+        return;
+    }
+
+    if ((now - g_last_periodic_call) >= period) {
+        // Time to call periodic hook
+        g_last_periodic_call = now;
+
+        g_current_hook = LLE_HOOK_PERIODIC;
+        call_hook_function(LLE_HOOK_PERIODIC, NULL);
+        call_hook_array(LLE_HOOK_PERIODIC, NULL);
+        g_current_hook = LLE_HOOK_COUNT;
+    }
+}
+
 /* ============================================================================
  * EVENT HANDLERS
  * ============================================================================ */
@@ -154,6 +201,7 @@ static int call_hook_array(lle_hook_type_t hook_type, const char *arg) {
  * @brief Handler for POST_COMMAND events -> precmd hook
  *
  * Called after a command completes, before the next prompt is displayed.
+ * Also checks and triggers the periodic hook if PERIOD has elapsed.
  */
 static void hook_precmd_handler(void *event_data, void *user_data) {
     (void)event_data;
@@ -173,6 +221,9 @@ static void hook_precmd_handler(void *event_data, void *user_data) {
     call_hook_function(LLE_HOOK_PRECMD, NULL);
     call_hook_array(LLE_HOOK_PRECMD, NULL);
     g_current_hook = LLE_HOOK_COUNT;
+
+    // Check and call periodic hook if PERIOD has elapsed
+    check_periodic_hook();
 }
 
 /**

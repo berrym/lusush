@@ -102,6 +102,7 @@ chpwd() {
 | `precmd` | `LLE_SHELL_EVENT_POST_COMMAND` | After command completes |
 | `preexec` | `LLE_SHELL_EVENT_PRE_COMMAND` | Before command execution |
 | `chpwd` | `LLE_SHELL_EVENT_DIRECTORY_CHANGED` | After cd |
+| `periodic` | Checked during `precmd` | Every PERIOD seconds |
 
 #### 4. Hook Arrays (Zsh Compatibility)
 
@@ -123,6 +124,7 @@ precmd_functions=(my_timer my_prompt_update)
 | `precmd_functions` | `precmd()` |
 | `preexec_functions` | `preexec()` |
 | `chpwd_functions` | `chpwd()` |
+| `periodic_functions` | `periodic()` |
 
 **Implementation:**
 - `g_hook_array_names[]` maps hook types to array names
@@ -201,9 +203,8 @@ Fixed three categories of memory leaks identified with macOS `leaks` tool:
 
 ### Remaining Work
 
-- `periodic` hook (timer-based, lower priority)
-- Autocorrect.c updates for new syntax recognition
-- LLE syntax highlighting for new features
+- Autocorrect.c updates for new syntax recognition (anon functions, glob qualifiers)
+- LLE syntax highlighting for new features (hook function names, plugin syntax)
 
 ---
 
