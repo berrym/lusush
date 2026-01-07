@@ -359,4 +359,57 @@ int executor_get_current_script_line(executor_t *executor);
  */
 bool is_privileged_redirection_allowed(const char *target);
 
+/* ============================================================================
+ * Hook Functions (Phase 7: Zsh-Specific)
+ * ============================================================================ */
+
+/**
+ * @brief Call a hook function if defined
+ *
+ * Executes a user-defined hook function (precmd, preexec, chpwd, periodic)
+ * if it exists. Only active when FEATURE_HOOK_FUNCTIONS is enabled.
+ *
+ * @param executor Executor context
+ * @param hook_name Name of the hook function (e.g., "precmd")
+ * @param arg Optional argument to pass to the hook (e.g., command for preexec)
+ * @return Exit status of hook function, or 0 if not defined
+ */
+int executor_call_hook(executor_t *executor, const char *hook_name,
+                       const char *arg);
+
+/**
+ * @brief Call precmd hook (before prompt display)
+ *
+ * @param executor Executor context
+ * @return Exit status of hook, or 0 if not defined
+ */
+int executor_call_precmd(executor_t *executor);
+
+/**
+ * @brief Call preexec hook (before command execution)
+ *
+ * @param executor Executor context
+ * @param command The command about to be executed
+ * @return Exit status of hook, or 0 if not defined
+ */
+int executor_call_preexec(executor_t *executor, const char *command);
+
+/**
+ * @brief Call chpwd hook (after directory change)
+ *
+ * @param executor Executor context
+ * @return Exit status of hook, or 0 if not defined
+ */
+int executor_call_chpwd(executor_t *executor);
+
+/**
+ * @brief Check if currently executing inside a hook
+ *
+ * Used to prevent recursive hook calls (e.g., precmd running a command
+ * that would trigger another precmd).
+ *
+ * @return true if currently in hook execution
+ */
+bool executor_in_hook(void);
+
 #endif // EXECUTOR_H

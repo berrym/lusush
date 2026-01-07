@@ -21,6 +21,7 @@
 #include "lle/lle_editor.h"
 #include "lle/lle_readline.h"
 #include "lle/lle_shell_event_hub.h"
+#include "lle/lle_shell_hooks.h"
 #include "lle/lle_watchdog.h"
 #include "lle/prompt/composer.h"
 #include "lle/prompt/segment.h"
@@ -200,6 +201,14 @@ lle_result_t lle_shell_integration_init(void) {
     }
     integ->init_state.event_hub_initialized = true;
 
+    /* Step 4.5: Initialize shell hook function bridge (Phase 7)
+     * This registers handlers that call user-defined hook functions
+     * (precmd, preexec, chpwd) when shell events fire. */
+    /* Note: We set g_lle_integration temporarily so hooks can register */
+    g_lle_integration = integ;
+    lle_shell_hooks_init();
+    g_lle_integration = NULL;  /* Will be set permanently at end */
+
     /* Step 5: Create and configure LLE editor */
     result = create_and_configure_editor(integ);
     if (result != LLE_SUCCESS) {
@@ -284,6 +293,9 @@ void lle_shell_integration_shutdown(void) {
 
     /* Destroy editor */
     destroy_editor(integ);
+
+    /* Cleanup shell hook function bridge (Phase 7) */
+    lle_shell_hooks_cleanup();
 
     /* Destroy event hub */
     if (integ->event_hub) {

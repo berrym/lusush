@@ -1342,6 +1342,34 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
             }
         }
 
+        // Check for glob qualifier suffix: (.) (/) (@) (*) (r) (w)
+        // Only if FEATURE_GLOB_QUALIFIERS is enabled and word contains glob chars
+        if (shell_mode_allows(FEATURE_GLOB_QUALIFIERS)) {
+            size_t word_len = tokenizer->position - start;
+            bool has_glob_char = false;
+            for (size_t i = 0; i < word_len; i++) {
+                if (tokenizer->input[start + i] == '*' ||
+                    tokenizer->input[start + i] == '?' ||
+                    tokenizer->input[start + i] == '[') {
+                    has_glob_char = true;
+                    break;
+                }
+            }
+            
+            if (has_glob_char &&
+                tokenizer->position + 2 < tokenizer->input_length &&
+                tokenizer->input[tokenizer->position] == '(') {
+                char qual = tokenizer->input[tokenizer->position + 1];
+                if ((qual == '.' || qual == '/' || qual == '@' ||
+                     qual == '*' || qual == 'r' || qual == 'w') &&
+                    tokenizer->input[tokenizer->position + 2] == ')') {
+                    // Include the glob qualifier in the word token
+                    tokenizer->position += 3;
+                    tokenizer->column += 3;
+                }
+            }
+        }
+
         size_t length = tokenizer->position - start;
         token_type_t type =
             is_numeric ? TOK_NUMBER

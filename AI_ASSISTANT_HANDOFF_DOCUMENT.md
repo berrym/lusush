@@ -1,13 +1,136 @@
-# AI Assistant Handoff Document - Session 111
+# AI Assistant Handoff Document - Session 112
 
 **Date**: 2026-01-06
-**Session Type**: Extended Language Support - Phase 4: Extended Parameter Expansion
-**Status**: COMPLETE
+**Session Type**: Extended Language Support - Phase 7: Zsh-Specific Features
+**Status**: IN PROGRESS
 **Branch**: `feature/lle`
 
 ---
 
-## Session 111: Extended Parameter Expansion (Phase 4)
+## Session 112: Zsh-Specific Features (Phase 7)
+
+Implementing Zsh-specific features including anonymous functions, glob qualifiers, and hook functions.
+
+### Features Implemented
+
+#### 1. Anonymous Functions `() { body }`
+
+Zsh-style immediately-invoked anonymous functions:
+
+```bash
+# Immediately executed, no name stored
+() { echo "anonymous"; }     # prints "anonymous"
+
+# With arguments (future enhancement)
+() { echo "result: $1"; } arg1
+
+# Useful for scoping
+() {
+    local x=private
+    echo "$x"
+}
+```
+
+**Implementation:**
+- `NODE_ANON_FUNCTION` added to `include/node.h`
+- `parse_anonymous_function()` in `src/parser.c` with lookahead for `() {` pattern
+- `execute_anonymous_function()` in `src/executor.c`
+- Creates temporary function scope, executes body, pops scope
+
+#### 2. Glob Qualifiers `*(.)`, `*(/)`, `*(@)`, `*(*)`
+
+Zsh-style file type filtering in glob patterns:
+
+```bash
+# Regular files only
+echo *(.)               # only files, not directories
+
+# Directories only
+echo *(/)               # only directories
+
+# Symbolic links only
+echo *(@)               # only symlinks
+
+# Executable files only
+echo *(*)               # only executable files
+
+# Readable files
+echo *(r)               # only readable files
+
+# Writable files
+echo *(w)               # only writable files
+```
+
+**Implementation:**
+- `FEATURE_GLOB_QUALIFIERS` in `include/shell_mode.h`
+- `glob_qualifier_t` enum and `parse_glob_qualifier()` in `src/executor.c`
+- `matches_glob_qualifier()` filters glob results by file type
+- Tokenizer modified to include qualifier suffix as part of word token
+
+#### 3. Hook Functions (precmd, preexec, chpwd)
+
+User-defined functions called automatically at shell lifecycle events:
+
+```bash
+# Called after each command, before prompt display
+precmd() {
+    echo "[precmd: ready for next command]"
+}
+
+# Called before command execution, receives command as $1
+preexec() {
+    echo "[preexec: about to run: $1]"
+}
+
+# Called after directory change
+chpwd() {
+    echo "[chpwd: now in $PWD]"
+}
+```
+
+**Implementation:**
+- `include/lle/lle_shell_hooks.h`: Hook bridge API
+- `src/lle/lle_shell_hooks.c`: Event handlers that call user-defined functions
+- `executor_call_hook()`, `executor_call_precmd()`, `executor_call_preexec()`, `executor_call_chpwd()` in `src/executor.c`
+- Integrated with LLE Shell Event Hub (`lle_shell_event_hub.c`)
+- Recursion guard prevents hooks from triggering themselves
+- Feature-gated via `FEATURE_HOOK_FUNCTIONS`
+
+**Event Mapping:**
+| Hook | Event Source | When Called |
+|------|--------------|-------------|
+| `precmd` | `LLE_SHELL_EVENT_POST_COMMAND` | After command completes |
+| `preexec` | `LLE_SHELL_EVENT_PRE_COMMAND` | Before command execution |
+| `chpwd` | `LLE_SHELL_EVENT_DIRECTORY_CHANGED` | After cd |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `include/node.h` | Added `NODE_ANON_FUNCTION` |
+| `include/executor.h` | Added hook function declarations |
+| `include/lle/lle_shell_hooks.h` | NEW: Hook bridge API |
+| `src/parser.c` | Anonymous function parsing, glob qualifier detection |
+| `src/tokenizer.c` | Glob qualifier as part of word token |
+| `src/executor.c` | Anonymous function execution, glob filtering, hook calls |
+| `src/lle/lle_shell_hooks.c` | NEW: Event handlers for hooks |
+| `src/lle/lle_shell_integration.c` | Register hooks at init, cleanup at shutdown |
+| `src/lle/meson.build` | Added `lle_shell_hooks.c` |
+| `src/debug/debug_core.c` | Node description for `NODE_ANON_FUNCTION` |
+
+### Tests
+
+- `tests/phase7_hook_functions_test.sh`: 10/12 tests pass (2 skipped for implementation-specific behavior)
+- All 55 existing tests continue to pass
+
+### Remaining Work
+
+- Plugin system foundation (`lusush_plugin_t` structure)
+- Comprehensive Phase 7 test suite
+
+---
+
+## Previous Session: Session 111 - Extended Parameter Expansion (Phase 4)
 
 Implemented extended parameter expansion features including pattern substitution, indirect expansion, and transformations. Many features (case modification, substring extraction) were already implemented, so this phase focused on completing the missing pieces.
 

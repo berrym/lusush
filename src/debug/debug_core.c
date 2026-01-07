@@ -527,6 +527,9 @@ char *debug_get_node_description(node_t *node) {
         snprintf(desc, 256, "TIME%s",
                  (node->val_type == VAL_SINT && node->val.sint == 1) ? " -p" : "");
         break;
+    case NODE_ANON_FUNCTION:
+        snprintf(desc, 256, "ANON_FUNCTION () { ... }");
+        break;
     default:
         snprintf(desc, 256, "UNKNOWN_NODE_TYPE_%d", node->type);
         break;

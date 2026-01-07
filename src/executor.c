@@ -77,6 +77,7 @@ static int execute_until(executor_t *executor, node_t *until_node);
 static int execute_for(executor_t *executor, node_t *for_node);
 static int execute_select(executor_t *executor, node_t *select_node);
 static int execute_time(executor_t *executor, node_t *time_node);
+static int execute_anonymous_function(executor_t *executor, node_t *anon_node);
 static int execute_case(executor_t *executor, node_t *case_node);
 static int execute_logical_and(executor_t *executor, node_t *and_node);
 static int execute_logical_or(executor_t *executor, node_t *or_node);
@@ -309,6 +310,7 @@ void executor_free(executor_t *executor) {
             function_def_t *next = func->next;
             free(func->name);
             free_node_tree(func->body);
+            free_function_params(func->params);
             free(func);
             func = next;
         }
@@ -640,6 +642,8 @@ static int execute_node(executor_t *executor, node_t *node) {
     case NODE_ARRAY_ACCESS:
         // Array access is typically handled during variable expansion
         return 0;
+    case NODE_ANON_FUNCTION:
+        return execute_anonymous_function(executor, node);
     default:
         if (executor->debug) {
             printf("DEBUG: Unknown node type %d, skipping\n", node->type);
@@ -2001,6 +2005,49 @@ static int execute_time(executor_t *executor, node_t *time_node) {
 }
 
 /**
+ * @brief Execute an anonymous function (Zsh-style)
+ *
+ * Anonymous functions are immediately executed with a new scope.
+ * Syntax: () { body }
+ *
+ * @param executor Executor context
+ * @param anon_node Anonymous function node
+ * @return Exit status of the function body
+ */
+static int execute_anonymous_function(executor_t *executor, node_t *anon_node) {
+    if (!anon_node || anon_node->type != NODE_ANON_FUNCTION) {
+        return 1;
+    }
+
+    node_t *body = anon_node->first_child;
+    if (!body) {
+        return 0; // Empty anonymous function
+    }
+
+    // Create a new scope for the anonymous function
+    if (symtable_push_scope(executor->symtable, SCOPE_FUNCTION, "<anonymous>") != 0) {
+        set_executor_error(executor, "Failed to create anonymous function scope");
+        return 1;
+    }
+
+    // Set positional parameters ($# = 0, no arguments)
+    symtable_set_local_var(executor->symtable, "#", "0");
+
+    // Execute the body
+    int result = execute_node(executor, body);
+
+    // Check for function return (special code 200-455)
+    if (result >= 200 && result <= 455) {
+        result = result - 200; // Extract actual return value
+    }
+
+    // Pop the scope
+    symtable_pop_scope(executor->symtable);
+
+    return result;
+}
+
+/**
  * @brief Execute logical AND operator (&&)
  *
  * Short-circuit evaluation: executes right operand only if
@@ -2825,6 +2872,16 @@ static int execute_brace_group(executor_t *executor, node_t *group) {
             printf("DEBUG: Brace group command result: %d\n", last_result);
         }
 
+        // Check for function return (special code 200-455) - propagate it
+        if (last_result >= 200 && last_result <= 455) {
+            return last_result;
+        }
+
+        // Check for loop control (break/continue)
+        if (executor->loop_control != LOOP_NORMAL) {
+            break;
+        }
+
         command = command->next_sibling;
     }
 
@@ -2898,6 +2955,99 @@ static int execute_subshell(executor_t *executor, node_t *subshell) {
  * @param expanded_count Output: number of matches
  * @return Array of matching paths (caller must free), or NULL on error
  */
+/**
+ * @brief Glob qualifier types (Zsh-style)
+ */
+typedef enum {
+    GLOB_QUAL_NONE,     // No qualifier
+    GLOB_QUAL_FILE,     // (.) - regular files only
+    GLOB_QUAL_DIR,      // (/) - directories only
+    GLOB_QUAL_LINK,     // (@) - symbolic links only
+    GLOB_QUAL_EXEC,     // (*) - executable files
+    GLOB_QUAL_READABLE, // (r) - readable files
+    GLOB_QUAL_WRITABLE, // (w) - writable files
+} glob_qualifier_t;
+
+/**
+ * @brief Parse and strip glob qualifier from pattern
+ *
+ * @param pattern Input pattern (may be modified)
+ * @param base_pattern Output: pattern without qualifier (must be freed)
+ * @return Glob qualifier type
+ */
+static glob_qualifier_t parse_glob_qualifier(const char *pattern, char **base_pattern) {
+    if (!pattern || !base_pattern) {
+        *base_pattern = pattern ? strdup(pattern) : NULL;
+        return GLOB_QUAL_NONE;
+    }
+
+    size_t len = strlen(pattern);
+    
+    // Check for qualifier pattern: ends with (X) where X is a qualifier char
+    if (len >= 3 && pattern[len - 1] == ')') {
+        // Find matching open paren
+        const char *open_paren = strrchr(pattern, '(');
+        if (open_paren && open_paren == pattern + len - 3) {
+            char qual_char = pattern[len - 2];
+            glob_qualifier_t qual = GLOB_QUAL_NONE;
+            
+            switch (qual_char) {
+            case '.': qual = GLOB_QUAL_FILE; break;
+            case '/': qual = GLOB_QUAL_DIR; break;
+            case '@': qual = GLOB_QUAL_LINK; break;
+            case '*': qual = GLOB_QUAL_EXEC; break;
+            case 'r': qual = GLOB_QUAL_READABLE; break;
+            case 'w': qual = GLOB_QUAL_WRITABLE; break;
+            default: break;
+            }
+            
+            if (qual != GLOB_QUAL_NONE) {
+                // Strip the qualifier
+                *base_pattern = strndup(pattern, len - 3);
+                return qual;
+            }
+        }
+    }
+    
+    *base_pattern = strdup(pattern);
+    return GLOB_QUAL_NONE;
+}
+
+/**
+ * @brief Check if file matches glob qualifier
+ *
+ * @param path File path to check
+ * @param qualifier Glob qualifier type
+ * @return true if file matches qualifier
+ */
+static bool matches_glob_qualifier(const char *path, glob_qualifier_t qualifier) {
+    if (qualifier == GLOB_QUAL_NONE) {
+        return true;
+    }
+    
+    struct stat st;
+    if (lstat(path, &st) != 0) {
+        return false;
+    }
+    
+    switch (qualifier) {
+    case GLOB_QUAL_FILE:
+        return S_ISREG(st.st_mode);
+    case GLOB_QUAL_DIR:
+        return S_ISDIR(st.st_mode);
+    case GLOB_QUAL_LINK:
+        return S_ISLNK(st.st_mode);
+    case GLOB_QUAL_EXEC:
+        return S_ISREG(st.st_mode) && (st.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH));
+    case GLOB_QUAL_READABLE:
+        return access(path, R_OK) == 0;
+    case GLOB_QUAL_WRITABLE:
+        return access(path, W_OK) == 0;
+    default:
+        return true;
+    }
+}
+
 static char **expand_glob_pattern(const char *pattern, int *expanded_count) {
     if (!pattern || !expanded_count) {
         *expanded_count = 0;
@@ -2917,8 +3067,24 @@ static char **expand_glob_pattern(const char *pattern, int *expanded_count) {
         return NULL;
     }
 
+    // Parse glob qualifier (Zsh-style)
+    char *base_pattern = NULL;
+    glob_qualifier_t qualifier = GLOB_QUAL_NONE;
+    
+    if (shell_mode_allows(FEATURE_GLOB_QUALIFIERS)) {
+        qualifier = parse_glob_qualifier(pattern, &base_pattern);
+    } else {
+        base_pattern = strdup(pattern);
+    }
+    
+    if (!base_pattern) {
+        *expanded_count = 0;
+        return NULL;
+    }
+
     glob_t globbuf;
-    int glob_result = glob(pattern, GLOB_NOSORT, NULL, &globbuf);
+    int glob_result = glob(base_pattern, GLOB_NOSORT, NULL, &globbuf);
+    free(base_pattern);
 
     if (glob_result == GLOB_NOMATCH) {
         // No matches - return original pattern (POSIX behavior)
@@ -2937,33 +3103,82 @@ static char **expand_glob_pattern(const char *pattern, int *expanded_count) {
         return NULL;
     }
 
-    // Success - copy results
-    *expanded_count = globbuf.gl_pathc;
-    char **result = malloc((globbuf.gl_pathc + 1) * sizeof(char *));
-    if (!result) {
-        globfree(&globbuf);
-        *expanded_count = 0;
-        return NULL;
-    }
-
-    for (size_t i = 0; i < globbuf.gl_pathc; i++) {
-        result[i] = strdup(globbuf.gl_pathv[i]);
-
-        if (!result[i]) {
-            // Cleanup on allocation failure
-            for (size_t j = 0; j < i; j++) {
-                free(result[j]);
-            }
-            free(result);
+    // Success - copy results, filtering by qualifier if present
+    if (qualifier == GLOB_QUAL_NONE) {
+        // No filtering needed
+        *expanded_count = globbuf.gl_pathc;
+        char **result = malloc((globbuf.gl_pathc + 1) * sizeof(char *));
+        if (!result) {
             globfree(&globbuf);
             *expanded_count = 0;
             return NULL;
         }
-    }
-    result[globbuf.gl_pathc] = NULL;
 
-    globfree(&globbuf);
-    return result;
+        for (size_t i = 0; i < globbuf.gl_pathc; i++) {
+            result[i] = strdup(globbuf.gl_pathv[i]);
+
+            if (!result[i]) {
+                // Cleanup on allocation failure
+                for (size_t j = 0; j < i; j++) {
+                    free(result[j]);
+                }
+                free(result);
+                globfree(&globbuf);
+                *expanded_count = 0;
+                return NULL;
+            }
+        }
+        result[globbuf.gl_pathc] = NULL;
+
+        globfree(&globbuf);
+        return result;
+    } else {
+        // Filter results by glob qualifier
+        char **result = malloc((globbuf.gl_pathc + 1) * sizeof(char *));
+        if (!result) {
+            globfree(&globbuf);
+            *expanded_count = 0;
+            return NULL;
+        }
+
+        size_t match_count = 0;
+        for (size_t i = 0; i < globbuf.gl_pathc; i++) {
+            if (matches_glob_qualifier(globbuf.gl_pathv[i], qualifier)) {
+                result[match_count] = strdup(globbuf.gl_pathv[i]);
+                if (!result[match_count]) {
+                    // Cleanup on allocation failure
+                    for (size_t j = 0; j < match_count; j++) {
+                        free(result[j]);
+                    }
+                    free(result);
+                    globfree(&globbuf);
+                    *expanded_count = 0;
+                    return NULL;
+                }
+                match_count++;
+            }
+        }
+        result[match_count] = NULL;
+        
+        globfree(&globbuf);
+        
+        if (match_count == 0) {
+            // No matches after filtering - return original pattern
+            free(result);
+            result = malloc(2 * sizeof(char *));
+            if (result) {
+                result[0] = strdup(pattern);
+                result[1] = NULL;
+                *expanded_count = 1;
+            } else {
+                *expanded_count = 0;
+            }
+            return result;
+        }
+        
+        *expanded_count = match_count;
+        return result;
+    }
 }
 
 /**
@@ -8379,4 +8594,120 @@ static char *expand_process_substitution(executor_t *executor, node_t *proc_sub)
     // or waitpid in the main execution loop.
 
     return path;
+}
+
+/* ============================================================================
+ * HOOK FUNCTIONS (Phase 7: Zsh-Specific)
+ * ============================================================================ */
+
+/**
+ * @brief Flag to prevent recursive hook calls
+ *
+ * When a hook function runs a command, we don't want that command to trigger
+ * another hook call. This flag prevents that recursion.
+ */
+static bool g_in_hook_execution = false;
+
+/**
+ * @brief Call a hook function if defined
+ *
+ * Executes a user-defined hook function (precmd, preexec, chpwd) if it exists.
+ * Only active when FEATURE_HOOK_FUNCTIONS is enabled.
+ *
+ * @param executor Executor context
+ * @param hook_name Name of the hook function (e.g., "precmd")
+ * @param arg Optional argument to pass to the hook (e.g., command for preexec)
+ * @return Exit status of hook function, or 0 if not defined
+ */
+int executor_call_hook(executor_t *executor, const char *hook_name,
+                       const char *arg) {
+    if (!executor || !hook_name) {
+        return 0;
+    }
+
+    // Check if hook functions are enabled
+    if (!shell_mode_allows(FEATURE_HOOK_FUNCTIONS)) {
+        return 0;
+    }
+
+    // Prevent recursive hook calls
+    if (g_in_hook_execution) {
+        return 0;
+    }
+
+    // Look up the hook function
+    function_def_t *func = find_function(executor, hook_name);
+    if (!func) {
+        return 0;  // Hook not defined, that's fine
+    }
+
+    // Set recursion guard
+    g_in_hook_execution = true;
+
+    // Build argv for the function call
+    int argc;
+    char *argv[3];
+    argv[0] = (char *)hook_name;
+
+    if (arg) {
+        argv[1] = (char *)arg;
+        argv[2] = NULL;
+        argc = 2;
+    } else {
+        argv[1] = NULL;
+        argc = 1;
+    }
+
+    // Call the function
+    int result = execute_function_call(executor, hook_name, argv, argc);
+
+    // Handle return code translation (200-455 range is internal return signal)
+    if (result >= 200 && result <= 455) {
+        result = result - 200;
+    }
+
+    // Clear recursion guard
+    g_in_hook_execution = false;
+
+    return result;
+}
+
+/**
+ * @brief Call precmd hook (before prompt display)
+ *
+ * @param executor Executor context
+ * @return Exit status of hook, or 0 if not defined
+ */
+int executor_call_precmd(executor_t *executor) {
+    return executor_call_hook(executor, "precmd", NULL);
+}
+
+/**
+ * @brief Call preexec hook (before command execution)
+ *
+ * @param executor Executor context
+ * @param command The command about to be executed
+ * @return Exit status of hook, or 0 if not defined
+ */
+int executor_call_preexec(executor_t *executor, const char *command) {
+    return executor_call_hook(executor, "preexec", command);
+}
+
+/**
+ * @brief Call chpwd hook (after directory change)
+ *
+ * @param executor Executor context
+ * @return Exit status of hook, or 0 if not defined
+ */
+int executor_call_chpwd(executor_t *executor) {
+    return executor_call_hook(executor, "chpwd", NULL);
+}
+
+/**
+ * @brief Check if currently executing inside a hook
+ *
+ * @return true if in hook execution
+ */
+bool executor_in_hook(void) {
+    return g_in_hook_execution;
 }

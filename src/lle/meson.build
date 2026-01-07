@@ -253,6 +253,7 @@ lle_sources += files(
 # only with the main shell executable.
 lle_shell_sources = files(
   'lle_shell_integration.c',
+  'lle_shell_hooks.c',
 )
 
 # ============================================================================

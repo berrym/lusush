@@ -52,6 +52,9 @@ static node_t *parse_process_substitution(parser_t *parser);
 static node_t *parse_select_statement(parser_t *parser);
 static node_t *parse_time_command(parser_t *parser);
 
+// Forward declarations for extended language features (Phase 7: Zsh)
+static node_t *parse_anonymous_function(parser_t *parser);
+
 // Forward declarations for POSIX compliance
 bool is_posix_mode_enabled(void);
 static char *collect_heredoc_content(parser_t *parser, const char *delimiter,
@@ -518,8 +521,35 @@ static node_t *parse_simple_command(parser_t *parser) {
         return parse_extended_test(parser);
     }
 
-    // Check for subshell
+    // Check for anonymous function () { body } or subshell
     if (current->type == TOK_LPAREN) {
+        // Peek ahead to check for anonymous function syntax: () { ... }
+        if (shell_mode_allows(FEATURE_ANONYMOUS_FUNCTIONS)) {
+            token_t *next = tokenizer_peek(parser->tokenizer);
+            if (next && next->type == TOK_RPAREN) {
+                // Save position before advancing to check third token
+                size_t saved_pos = current->position;
+                size_t saved_line = parser->tokenizer->line;
+                size_t saved_col = parser->tokenizer->column;
+                
+                tokenizer_advance(parser->tokenizer); // consume (
+                tokenizer_advance(parser->tokenizer); // consume )
+                token_t *after_paren = tokenizer_current(parser->tokenizer);
+                
+                if (after_paren && after_paren->type == TOK_LBRACE) {
+                    // This is an anonymous function () { body }
+                    return parse_anonymous_function(parser);
+                }
+                
+                // Not anonymous function - restore tokenizer state
+                parser->tokenizer->position = saved_pos;
+                parser->tokenizer->line = saved_line;
+                parser->tokenizer->column = saved_col;
+                tokenizer_refresh_from_position(parser->tokenizer);
+                current = tokenizer_current(parser->tokenizer);
+            }
+        }
+        // Regular subshell
         return parse_subshell(parser);
     }
 
@@ -2111,6 +2141,36 @@ static node_t *parse_time_command(parser_t *parser) {
     add_child_node(time_node, pipeline);
 
     return time_node;
+}
+
+/**
+ * @brief Parse an anonymous function (Zsh-style)
+ *
+ * Parses: () { body }
+ * Anonymous functions are immediately executed with no arguments.
+ * The tokenizer has already consumed '(' and ')' when this is called,
+ * and the current token is '{'.
+ *
+ * @param parser Parser instance
+ * @return Anonymous function AST node
+ */
+static node_t *parse_anonymous_function(parser_t *parser) {
+    // Current token should be '{' - we've already consumed () 
+    node_t *anon_node = new_node(NODE_ANON_FUNCTION);
+    if (!anon_node) {
+        return NULL;
+    }
+
+    // Parse the brace group body
+    node_t *body = parse_brace_group(parser);
+    if (!body) {
+        free_node_tree(anon_node);
+        set_parser_error(parser, "Expected brace group after ()");
+        return NULL;
+    }
+
+    add_child_node(anon_node, body);
+    return anon_node;
 }
 
 /**
