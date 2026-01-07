@@ -29,7 +29,8 @@ typedef enum {
     SYMVAR_STRING,  // Regular string variable
     SYMVAR_INTEGER, // Integer variable (for arithmetic)
     SYMVAR_ARRAY,   // Array variable (bash extension)
-    SYMVAR_FUNCTION // Function definition
+    SYMVAR_FUNCTION, // Function definition
+    SYMVAR_NAMEREF  // Nameref variable (reference to another variable)
 } symvar_type_t;
 
 /* ============================================================================
@@ -60,7 +61,11 @@ typedef enum {
     SYMVAR_READONLY = (1 << 1),    // Variable is read-only
     SYMVAR_LOCAL = (1 << 2),       // Variable is local to current scope
     SYMVAR_SPECIAL_VAR = (1 << 3), // Special system variable
-    SYMVAR_UNSET = (1 << 4)        // Variable is explicitly unset
+    SYMVAR_UNSET = (1 << 4),       // Variable is explicitly unset
+    SYMVAR_NAMEREF_FLAG = (1 << 5), // Variable is a nameref (local -n)
+    SYMVAR_LOWERCASE = (1 << 6),   // Convert value to lowercase (declare -l)
+    SYMVAR_UPPERCASE = (1 << 7),   // Convert value to uppercase (declare -u)
+    SYMVAR_TRACE = (1 << 8)        // Trace attribute (declare -t)
 } symvar_flags_t;
 
 // Scope types for different contexts
@@ -186,6 +191,17 @@ size_t symtable_current_level(symtable_manager_t *manager);
  */
 const char *symtable_current_scope_name(symtable_manager_t *manager);
 
+/**
+ * @brief Check if currently executing within a function scope
+ *
+ * Searches the scope stack for any SCOPE_FUNCTION scope.
+ * Used by return builtin to validate context.
+ *
+ * @param manager Manager instance
+ * @return true if in a function scope, false otherwise
+ */
+bool symtable_in_function_scope(symtable_manager_t *manager);
+
 /* Variable Operations */
 
 /**
@@ -239,6 +255,68 @@ char *symtable_get_var(symtable_manager_t *manager, const char *name);
  * @return 0 on success, -1 on error
  */
 int symtable_unset_var(symtable_manager_t *manager, const char *name);
+
+/* ============================================================================
+ * NAMEREF SUPPORT (Phase 6: Function Enhancements)
+ * ============================================================================ */
+
+/**
+ * @brief Create a nameref variable
+ *
+ * Creates a variable that references another variable by name.
+ * When the nameref is accessed, the referenced variable is used.
+ *
+ * @param manager Manager instance
+ * @param name Nameref variable name
+ * @param target Name of the variable to reference
+ * @param flags Additional flags (SYMVAR_LOCAL, etc.)
+ * @return 0 on success, -1 on error
+ */
+int symtable_set_nameref(symtable_manager_t *manager, const char *name,
+                         const char *target, symvar_flags_t flags);
+
+/**
+ * @brief Resolve a nameref to its target variable name
+ *
+ * Follows the nameref chain to find the ultimate target variable.
+ * Detects circular references and returns NULL in that case.
+ *
+ * @param manager Manager instance
+ * @param name Variable name (may be a nameref)
+ * @param max_depth Maximum chain depth to follow (prevents infinite loops)
+ * @return Resolved variable name or NULL if circular/not found
+ */
+const char *symtable_resolve_nameref(symtable_manager_t *manager,
+                                     const char *name, int max_depth);
+
+/**
+ * @brief Check if a variable is a nameref
+ *
+ * @param manager Manager instance
+ * @param name Variable name
+ * @return True if variable is a nameref
+ */
+bool symtable_is_nameref(symtable_manager_t *manager, const char *name);
+
+/**
+ * @brief Get variable flags
+ *
+ * @param manager Manager instance
+ * @param name Variable name
+ * @return Variable flags or SYMVAR_NONE if not found
+ */
+symvar_flags_t symtable_get_flags(symtable_manager_t *manager, const char *name);
+
+/**
+ * @brief Set variable flags
+ *
+ * @param manager Manager instance
+ * @param name Variable name
+ * @param flags Flags to set
+ * @return 0 on success, -1 on error
+ */
+int symtable_set_flags(symtable_manager_t *manager, const char *name,
+                       symvar_flags_t flags);
 
 /**
  * @brief Check if a variable exists

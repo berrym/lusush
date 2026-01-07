@@ -3570,10 +3570,20 @@ static int execute_assignment(executor_t *executor, const char *assignment) {
     // Expand the value using modern expansion
     char *value = expand_if_needed(executor, eq + 1);
 
+    // Resolve nameref if the variable is a nameref (max depth 10)
+    const char *target_name = var_name;
+    if (symtable_is_nameref(executor->symtable, var_name)) {
+        const char *resolved = symtable_resolve_nameref(executor->symtable,
+                                                        var_name, 10);
+        if (resolved && resolved != var_name) {
+            target_name = resolved;
+        }
+    }
+
     // POSIX compliance: variable assignments are GLOBAL by default
     // Local variables are only created via explicit 'local' builtin
     int result;
-    result = symtable_set_global_var(executor->symtable, var_name,
+    result = symtable_set_global_var(executor->symtable, target_name,
                                      value ? value : "");
 
     // POSIX -a (allexport): automatically export assigned variables
@@ -5925,8 +5935,19 @@ static char *expand_variable(executor_t *executor, const char *var_text) {
                 strncpy(name, var_name, name_len);
                 name[name_len] = '\0';
 
-                // Look up in modern symbol table
-                char *value = symtable_get_var(executor->symtable, name);
+                // Resolve nameref if applicable (max depth 10 to prevent loops)
+                const char *resolved_name = name;
+                if (symtable_is_nameref(executor->symtable, name)) {
+                    const char *target = symtable_resolve_nameref(
+                        executor->symtable, name, 10);
+                    if (target && target != name) {
+                        resolved_name = target;
+                    }
+                }
+
+                // Look up in modern symbol table using resolved name
+                char *value = symtable_get_var(executor->symtable,
+                                               resolved_name);
 
                 // Check for unset variable error (set -u)
                 if (!value && shell_opts.unset_error && name_len > 0) {

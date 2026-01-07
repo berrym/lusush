@@ -84,6 +84,10 @@ typedef struct executor {
     int current_script_line;   // Current line number in script
     bool in_script_execution;  // True if executing from script file
 
+    // Sourced script tracking (Phase 6: return from sourced scripts)
+    int source_depth;          // Depth of nested source commands (0 = not sourced)
+    bool source_return;        // True if return was called in sourced script
+
     // Expansion error tracking
     bool expansion_error;      // True if error occurred during expansion
     int expansion_exit_status; // Exit status from expansion errors

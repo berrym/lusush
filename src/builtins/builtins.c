@@ -1379,6 +1379,12 @@ int bin_source(int argc, char **argv) {
         return 1;
     }
 
+    // Track source depth for return support
+    // Save and reset source_return flag for this source level
+    bool saved_source_return = executor->source_return;
+    executor->source_depth++;
+    executor->source_return = false;
+
     // Set script execution context for debugging
     executor_set_script_context(executor, argv[1], 1);
 
@@ -1388,6 +1394,12 @@ int bin_source(int argc, char **argv) {
 
     // Read complete multi-line constructs instead of line by line
     while ((complete_input = get_input_complete(file)) != NULL) {
+        // Check if return was called in sourced script
+        if (executor->source_return) {
+            free(complete_input);
+            break;
+        }
+
         // Skip empty constructs
         char *trimmed = complete_input;
         while (*trimmed == ' ' || *trimmed == '\t' || *trimmed == '\n')
@@ -1403,6 +1415,15 @@ int bin_source(int argc, char **argv) {
 
         // Parse and execute the complete construct
         int construct_result = parse_and_execute(complete_input);
+        
+        // Check for return from sourced script (exit code 200+)
+        if (construct_result >= 200 && construct_result <= 455) {
+            result = construct_result - 200;
+            executor->source_return = true;
+            free(complete_input);
+            break;
+        }
+        
         if (construct_result != 0) {
             result = construct_result;
         }
@@ -1410,6 +1431,10 @@ int bin_source(int argc, char **argv) {
         free(complete_input);
         construct_number++;
     }
+
+    // Clear source tracking and restore parent's source_return state
+    executor->source_depth--;
+    executor->source_return = saved_source_return;
 
     // Clear script execution context
     executor_clear_script_context(executor);
@@ -2141,7 +2166,21 @@ int bin_return_value(int argc, char **argv) {
  * @return Special return code (200 + exit_code) for executor recognition
  */
 int bin_return(int argc, char **argv) {
-    int return_code = 0; // Default return code
+    // Default to last exit status (POSIX behavior)
+    int return_code = last_exit_status;
+
+    // Get executor context to check if we're in a valid return context
+    executor_t *executor = get_global_executor();
+
+    // Check if we're in a function or sourced script
+    bool in_function = executor && executor->symtable &&
+                       symtable_in_function_scope(executor->symtable);
+    bool in_source = executor && executor->source_depth > 0;
+
+    if (!in_function && !in_source) {
+        fprintf(stderr, "return: can only `return' from a function or sourced script\n");
+        return 1;
+    }
 
     // Parse optional return code argument
     if (argc > 1) {
@@ -2161,7 +2200,7 @@ int bin_return(int argc, char **argv) {
     // Return a special exit code that the executor can recognize as "function
     // return" We'll use a specific value that doesn't conflict with normal exit
     // codes
-    return 200 + (return_code & 0xFF); // 200-255 range for function returns
+    return 200 + (return_code & 0xFF); // 200-455 range for function/source returns
 }
 
 /**
@@ -3154,13 +3193,40 @@ int bin_local(int argc, char **argv) {
         return 1;
     }
 
+    // Parse options
+    bool opt_nameref = false;
+    int opt_idx = 1;
+
+    while (opt_idx < argc && argv[opt_idx][0] == '-') {
+        const char *opt = argv[opt_idx];
+
+        // Handle -- to stop option processing
+        if (strcmp(opt, "--") == 0) {
+            opt_idx++;
+            break;
+        }
+
+        // Process each character in the option string
+        for (int i = 1; opt[i]; i++) {
+            switch (opt[i]) {
+            case 'n':
+                opt_nameref = true;
+                break;
+            default:
+                fprintf(stderr, "local: -%c: invalid option\n", opt[i]);
+                return 2;
+            }
+        }
+        opt_idx++;
+    }
+
     // Process each argument
-    for (int i = 1; i < argc; i++) {
+    for (int i = opt_idx; i < argc; i++) {
         char *arg = argv[i];
         char *eq = strchr(arg, '=');
 
         if (eq) {
-            // Assignment: local var=value
+            // Assignment: local var=value or local -n ref=target
             size_t name_len = eq - arg;
             char *name = malloc(name_len + 1);
             if (!name) {
@@ -3186,12 +3252,23 @@ int bin_local(int argc, char **argv) {
                 }
             }
 
-            // Set the local variable
             char *value = eq + 1;
-            if (symtable_set_local_var(manager, name, value) != 0) {
-                error_message("local: failed to set variable");
-                free(name);
-                return 1;
+
+            if (opt_nameref) {
+                // Create local nameref: local -n ref=target
+                symvar_flags_t flags = SYMVAR_LOCAL | SYMVAR_NAMEREF_FLAG;
+                if (symtable_set_nameref(manager, name, value, flags) != 0) {
+                    error_message("local: failed to create nameref");
+                    free(name);
+                    return 1;
+                }
+            } else {
+                // Set the local variable
+                if (symtable_set_local_var(manager, name, value) != 0) {
+                    error_message("local: failed to set variable");
+                    free(name);
+                    return 1;
+                }
             }
 
             free(name);
@@ -3208,6 +3285,11 @@ int bin_local(int argc, char **argv) {
                     error_message("local: invalid variable name");
                     return 1;
                 }
+            }
+
+            if (opt_nameref) {
+                error_message("local: -n requires assignment (local -n ref=target)");
+                return 1;
             }
 
             // Declare the local variable with empty value
@@ -3246,6 +3328,11 @@ int bin_declare(int argc, char **argv) {
     bool opt_readonly = false;
     bool opt_export = false;
     bool opt_print = false;
+    bool opt_nameref = false;
+    bool opt_global = false;
+    bool opt_lowercase = false;
+    bool opt_uppercase = false;
+    bool opt_trace = false;
 
     int opt_idx = 1;
 
@@ -3280,12 +3367,33 @@ int bin_declare(int argc, char **argv) {
             case 'p':
                 opt_print = true;
                 break;
+            case 'n':
+                opt_nameref = true;
+                break;
+            case 'g':
+                opt_global = true;
+                break;
+            case 'l':
+                opt_lowercase = true;
+                break;
+            case 'u':
+                opt_uppercase = true;
+                break;
+            case 't':
+                opt_trace = true;
+                break;
             default:
                 fprintf(stderr, "declare: -%c: invalid option\n", opt[i]);
                 return 2;
             }
         }
         opt_idx++;
+    }
+
+    // Can't have both -l and -u
+    if (opt_lowercase && opt_uppercase) {
+        fprintf(stderr, "declare: cannot use -l and -u simultaneously\n");
+        return 1;
     }
 
     // Can't have both -a and -A
@@ -3469,6 +3577,29 @@ int bin_declare(int argc, char **argv) {
                 symtable_set(manager, name, "0");
             }
         }
+        // Handle nameref declaration (-n)
+        else if (opt_nameref) {
+            symtable_manager_t *manager = symtable_get_global_manager();
+            if (!manager) {
+                fprintf(stderr, "declare: symbol table not available\n");
+                free(name);
+                return 1;
+            }
+            if (!value) {
+                fprintf(stderr, "declare: -n requires a target variable\n");
+                free(name);
+                return 1;
+            }
+            symvar_flags_t flags = SYMVAR_NAMEREF_FLAG;
+            if (!opt_global) {
+                flags |= SYMVAR_LOCAL;
+            }
+            if (symtable_set_nameref(manager, name, value, flags) != 0) {
+                fprintf(stderr, "declare: failed to create nameref\n");
+                free(name);
+                return 1;
+            }
+        }
         // Regular variable declaration
         else {
             symtable_manager_t *manager = symtable_get_global_manager();
@@ -3477,20 +3608,69 @@ int bin_declare(int argc, char **argv) {
                 free(name);
                 return 1;
             }
+
+            // Apply case transformations if requested
+            char *final_value = NULL;
             if (value) {
-                symtable_set(manager, name, value);
+                if (opt_lowercase) {
+                    final_value = strdup(value);
+                    if (final_value) {
+                        for (char *p = final_value; *p; p++) {
+                            *p = tolower((unsigned char)*p);
+                        }
+                    }
+                } else if (opt_uppercase) {
+                    final_value = strdup(value);
+                    if (final_value) {
+                        for (char *p = final_value; *p; p++) {
+                            *p = toupper((unsigned char)*p);
+                        }
+                    }
+                } else {
+                    final_value = strdup(value);
+                }
+            }
+
+            // Build flags
+            symvar_flags_t flags = SYMVAR_NONE;
+            if (opt_readonly) {
+                flags |= SYMVAR_READONLY;
+            }
+            if (opt_export) {
+                flags |= SYMVAR_EXPORTED;
+            }
+            if (opt_lowercase) {
+                flags |= SYMVAR_LOWERCASE;
+            }
+            if (opt_uppercase) {
+                flags |= SYMVAR_UPPERCASE;
+            }
+            if (opt_trace) {
+                flags |= SYMVAR_TRACE;
+            }
+            if (!opt_global) {
+                flags |= SYMVAR_LOCAL;
+            }
+
+            if (final_value) {
+                if (opt_global) {
+                    // Use global scope for -g flag
+                    symtable_set_global_var(manager, name, final_value);
+                } else {
+                    symtable_set_var(manager, name, final_value, flags);
+                }
+                free(final_value);
             } else {
                 // Just declare without value
-                symtable_set(manager, name, "");
+                if (opt_global) {
+                    symtable_set_global_var(manager, name, "");
+                } else {
+                    symtable_set_var(manager, name, "", flags);
+                }
             }
         }
 
-        // Handle readonly - not fully implemented yet
-        if (opt_readonly) {
-            (void)opt_readonly; // Suppress unused warning
-        }
-
-        // Handle export
+        // Handle export (also set in environment)
         if (opt_export) {
             symtable_manager_t *manager = symtable_get_global_manager();
             if (manager) {
