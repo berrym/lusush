@@ -137,6 +137,69 @@ set -e
 # Both stay synchronized
 ```
 
+### shell.mode - Shell Mode
+
+Control which shell compatibility mode is active:
+
+```bash
+config get shell.mode           # lusush (default)
+config set shell.mode bash      # Switch to Bash mode
+config set shell.mode zsh       # Switch to Zsh mode
+config set shell.mode posix     # Switch to strict POSIX mode
+config set shell.mode lusush    # Switch to Lusush mode (default)
+```
+
+Or use traditional syntax:
+
+```bash
+set -o bash
+set -o zsh
+set -o posix
+set -o lusush
+```
+
+Both interfaces stay synchronized - changes via `set -o` are reflected in `config get`.
+
+### shell.feature.* - Feature Flags
+
+Override individual language features regardless of shell mode:
+
+```bash
+# Query feature status
+config get shell.feature.extended_glob
+config get shell.feature.process_substitution
+config get shell.feature.hook_functions
+
+# Enable/disable features
+config set shell.feature.extended_glob true
+config set shell.feature.glob_qualifiers false
+```
+
+**Available features** (use `debug features` to see all):
+
+| Feature | Description |
+|---------|-------------|
+| `indexed_arrays` | `arr=(a b c)`, `${arr[0]}` |
+| `associative_arrays` | `declare -A`, `${arr[key]}` |
+| `extended_test` | `[[ ]]` extended test |
+| `regex_match` | `=~` regex matching |
+| `process_substitution` | `<(cmd)` and `>(cmd)` |
+| `extended_glob` | `?(pat)`, `*(pat)`, `+(pat)` |
+| `glob_qualifiers` | `*(.)` for files, `*(/)` for dirs |
+| `hook_functions` | `precmd`, `preexec`, `chpwd` |
+| `case_modification` | `${var^^}`, `${var,,}` |
+| `pattern_substitution` | `${var//old/new}` |
+
+**Short aliases** for common features:
+
+```bash
+config get shell.feature.extglob    # Same as extended_glob
+config get shell.feature.arrays     # Same as indexed_arrays
+config get shell.feature.procsub    # Same as process_substitution
+```
+
+Feature defaults depend on shell mode - POSIX mode disables most extended features, while Lusush and Zsh modes enable them.
+
 ### completion - Tab Completion
 
 ```bash

@@ -761,18 +761,47 @@ set -o pipefail
 
 ### Startup Files
 
-Lusush reads configuration from `~/.lusushrc`:
+Lusush uses a two-file configuration system:
+
+1. **`~/.lusushrc`** - INI-format config file (loaded first)
+2. **`~/.lusushrc.sh`** - Shell script for advanced config (loaded second, can override INI)
+
+#### INI Configuration (~/.lusushrc)
+
+Simple key=value format, ideal for beginners:
+
+```ini
+# ~/.lusushrc - INI format configuration
+
+[shell]
+mode = lusush
+errexit = false
+emacs = true
+
+[completion]
+enabled = true
+fuzzy = true
+
+[display]
+syntax_highlighting = true
+autosuggestions = true
+
+[history]
+enabled = true
+size = 10000
+no_dups = true
+```
+
+#### Shell Script Configuration (~/.lusushrc.sh)
+
+For advanced users who prefer traditional shell configuration:
 
 ```bash
-# ~/.lusushrc
+# ~/.lusushrc.sh - Shell script configuration
 
-# Shell behavior
-config set shell.errexit false
-config set shell.emacs true
-
-# Features
-config set completion.enabled true
-config set display.syntax_highlighting true
+# Shell behavior (equivalent to INI settings)
+set -o emacs
+set -o lusush
 
 # Aliases
 alias ll='ls -la'
@@ -785,9 +814,14 @@ mkcd() {
 
 # Hooks
 precmd() {
-    # Update prompt info
+    # Runs before each prompt
 }
+
+# Feature overrides
+config set shell.feature.extended_glob true
 ```
+
+The shell script runs after the INI file, so it can override any INI settings.
 
 ### Environment Variables
 

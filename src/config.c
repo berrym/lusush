@@ -2279,6 +2279,136 @@ void config_warning(const char *format, ...) {
  */
 const char *config_get_last_error(void) { return last_error; }
 
+/* ============================================================================
+ * Type-Safe Configuration Setters and Getters
+ * ============================================================================ */
+
+/**
+ * @brief Set a boolean configuration value
+ *
+ * @param key Configuration key (e.g., "history.enabled")
+ * @param value Boolean value to set
+ * @return 0 on success, -1 if key not found or type mismatch
+ */
+int config_set_bool(const char *key, bool value) {
+    for (int i = 0; i < num_config_options; i++) {
+        if (strcmp(config_options[i].name, key) == 0) {
+            if (config_options[i].type != CONFIG_TYPE_BOOL) {
+                return -1;  // Type mismatch
+            }
+            *(bool *)config_options[i].value_ptr = value;
+            return 0;
+        }
+    }
+    return -1;  // Key not found
+}
+
+/**
+ * @brief Set an integer configuration value
+ *
+ * @param key Configuration key (e.g., "history.size")
+ * @param value Integer value to set
+ * @return 0 on success, -1 if key not found or type mismatch
+ */
+int config_set_int(const char *key, int value) {
+    for (int i = 0; i < num_config_options; i++) {
+        if (strcmp(config_options[i].name, key) == 0) {
+            if (config_options[i].type != CONFIG_TYPE_INT &&
+                config_options[i].type != CONFIG_TYPE_ENUM) {
+                return -1;  // Type mismatch
+            }
+            *(int *)config_options[i].value_ptr = value;
+            return 0;
+        }
+    }
+    return -1;  // Key not found
+}
+
+/**
+ * @brief Set a string configuration value
+ *
+ * @param key Configuration key (e.g., "history.file")
+ * @param value String value to set (will be duplicated)
+ * @return 0 on success, -1 if key not found or type mismatch
+ */
+int config_set_string(const char *key, const char *value) {
+    for (int i = 0; i < num_config_options; i++) {
+        if (strcmp(config_options[i].name, key) == 0) {
+            if (config_options[i].type != CONFIG_TYPE_STRING &&
+                config_options[i].type != CONFIG_TYPE_COLOR) {
+                return -1;  // Type mismatch
+            }
+            char **ptr = (char **)config_options[i].value_ptr;
+            if (*ptr) {
+                free(*ptr);
+            }
+            *ptr = value ? strdup(value) : NULL;
+            return 0;
+        }
+    }
+    return -1;  // Key not found
+}
+
+/**
+ * @brief Get a boolean configuration value
+ *
+ * @param key Configuration key
+ * @param default_value Value to return if key not found
+ * @return Configuration value or default
+ */
+bool config_get_bool(const char *key, bool default_value) {
+    for (int i = 0; i < num_config_options; i++) {
+        if (strcmp(config_options[i].name, key) == 0) {
+            if (config_options[i].type == CONFIG_TYPE_BOOL) {
+                return *(bool *)config_options[i].value_ptr;
+            }
+            break;
+        }
+    }
+    return default_value;
+}
+
+/**
+ * @brief Get an integer configuration value
+ *
+ * @param key Configuration key
+ * @param default_value Value to return if key not found
+ * @return Configuration value or default
+ */
+int config_get_int(const char *key, int default_value) {
+    for (int i = 0; i < num_config_options; i++) {
+        if (strcmp(config_options[i].name, key) == 0) {
+            if (config_options[i].type == CONFIG_TYPE_INT ||
+                config_options[i].type == CONFIG_TYPE_ENUM) {
+                return *(int *)config_options[i].value_ptr;
+            }
+            break;
+        }
+    }
+    return default_value;
+}
+
+/**
+ * @brief Get a string configuration value
+ *
+ * @param key Configuration key
+ * @param default_value Value to return if key not found
+ * @return Configuration value or default (do not free)
+ */
+const char *config_get_string(const char *key, const char *default_value) {
+    for (int i = 0; i < num_config_options; i++) {
+        if (strcmp(config_options[i].name, key) == 0) {
+            if (config_options[i].type == CONFIG_TYPE_STRING ||
+                config_options[i].type == CONFIG_TYPE_COLOR) {
+                const char *value = *(char **)config_options[i].value_ptr;
+                return value ? value : default_value;
+            }
+            break;
+        }
+    }
+    return default_value;
+}
+
 /**
  * @brief Built-in command for configuration management
  *
@@ -2411,12 +2541,39 @@ void builtin_config(int argc, char **argv) {
  * @param key Configuration key to look up
  */
 void config_get_value(const char *key) {
+    // Handle shell.feature.* keys dynamically (not in config_options array)
+    if (strncmp(key, "shell.feature.", 14) == 0) {
+        const char *feature_name = key + 14;  // Skip "shell.feature."
+        shell_feature_t feature;
+        
+        if (!shell_feature_parse(feature_name, &feature)) {
+            printf("Unknown feature: %s\n", feature_name);
+            printf("Use 'debug features' to see available features\n");
+            return;
+        }
+        
+        printf("%s\n", shell_mode_allows(feature) ? "true" : "false");
+        return;
+    }
+
     // First try the exact key
     for (int i = 0; i < num_config_options; i++) {
         config_option_t *opt = &config_options[i];
 
         if (strcmp(opt->name, key) == 0) {
-            // Handle shell options specially - they use integration functions
+            // Handle shell.mode specially - it's an enum
+            if (strcmp(key, "shell.mode") == 0) {
+                printf("%s\n", shell_mode_name(shell_mode_get()));
+                return;
+            }
+
+            // Handle shell.mode_strict specially
+            if (strcmp(key, "shell.mode_strict") == 0) {
+                printf("%s\n", config.shell_mode_strict ? "true" : "false");
+                return;
+            }
+
+            // Handle other shell options specially - they use integration functions
             if (strncmp(key, "shell.", 6) == 0) {
                 printf("%s\n", config_get_shell_option(key) ? "true" : "false");
                 return;
@@ -2479,12 +2636,88 @@ void config_get_value(const char *key) {
  * @param value New value to assign
  */
 void config_set_value(const char *key, const char *value) {
+    // Handle shell.feature.* keys dynamically (not in config_options array)
+    if (strncmp(key, "shell.feature.", 14) == 0) {
+        const char *feature_name = key + 14;  // Skip "shell.feature."
+        shell_feature_t feature;
+        
+        if (!shell_feature_parse(feature_name, &feature)) {
+            printf("Unknown feature: %s\n", feature_name);
+            printf("Use 'debug features' to see available features\n");
+            return;
+        }
+        
+        bool enable;
+        if (strcmp(value, "true") == 0 || strcmp(value, "1") == 0 ||
+            strcmp(value, "on") == 0) {
+            enable = true;
+        } else if (strcmp(value, "false") == 0 || strcmp(value, "0") == 0 ||
+                   strcmp(value, "off") == 0) {
+            enable = false;
+        } else {
+            printf("Invalid boolean value: %s (use true/false/on/off)\n", value);
+            return;
+        }
+        
+        if (enable) {
+            shell_feature_enable(feature);
+        } else {
+            shell_feature_disable(feature);
+        }
+        printf("Set %s = %s\n", key, value);
+        return;
+    }
+
     // First try the exact key
     for (int i = 0; i < num_config_options; i++) {
         config_option_t *opt = &config_options[i];
 
         if (strcmp(opt->name, key) == 0) {
-            // Handle shell options specially - they use integration functions
+            // Handle shell.mode specially - it's an enum that also updates shell_mode system
+            if (strcmp(key, "shell.mode") == 0) {
+                shell_mode_t new_mode;
+                if (strcmp(value, "posix") == 0 || strcmp(value, "sh") == 0) {
+                    new_mode = SHELL_MODE_POSIX;
+                } else if (strcmp(value, "bash") == 0) {
+                    new_mode = SHELL_MODE_BASH;
+                } else if (strcmp(value, "zsh") == 0) {
+                    new_mode = SHELL_MODE_ZSH;
+                } else if (strcmp(value, "lusush") == 0) {
+                    new_mode = SHELL_MODE_LUSUSH;
+                } else {
+                    printf("Invalid shell mode: %s (use posix/bash/zsh/lusush)\n", value);
+                    return;
+                }
+                if (!shell_mode_set(new_mode)) {
+                    printf("Cannot change shell mode (strict mode enabled)\n");
+                    return;
+                }
+                config.shell_mode = (int)new_mode;
+                printf("Set %s = %s\n", key, value);
+                return;
+            }
+
+            // Handle shell.mode_strict specially
+            if (strcmp(key, "shell.mode_strict") == 0) {
+                bool strict;
+                if (strcmp(value, "true") == 0 || strcmp(value, "1") == 0 ||
+                    strcmp(value, "on") == 0) {
+                    strict = true;
+                } else if (strcmp(value, "false") == 0 ||
+                           strcmp(value, "0") == 0 ||
+                           strcmp(value, "off") == 0) {
+                    strict = false;
+                } else {
+                    printf("Invalid boolean value: %s (use true/false/on/off)\n", value);
+                    return;
+                }
+                shell_mode_set_strict(strict);
+                config.shell_mode_strict = strict;
+                printf("Set %s = %s\n", key, value);
+                return;
+            }
+
+            // Handle other shell options specially - they use integration functions
             if (strncmp(key, "shell.", 6) == 0) {
                 if (strcmp(value, "true") == 0 || strcmp(value, "1") == 0 ||
                     strcmp(value, "on") == 0) {

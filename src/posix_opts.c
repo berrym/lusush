@@ -12,6 +12,7 @@
  * @copyright Copyright (C) 2021-2026 Michael Berry
  */
 
+#include "config.h"
 #include "errors.h"
 #include "lle/lle_shell_integration.h"
 #include "lusush.h"
@@ -25,6 +26,18 @@
 
 /** @brief Global shell options instance */
 shell_options_t shell_opts = {0};
+
+/**
+ * @brief Sync shell mode change with config system
+ *
+ * Updates config.shell_mode when set -o changes shell mode.
+ * This ensures config save captures the current state.
+ *
+ * @param mode The new shell mode
+ */
+static void sync_shell_mode_to_config(shell_mode_t mode) {
+    config.shell_mode = (int)mode;
+}
 
 /**
  * @brief Initialize POSIX shell options with defaults
@@ -369,24 +382,28 @@ int builtin_set(char **args) {
                         error_message("set: cannot change shell mode (strict mode enabled)");
                         return 1;
                     }
+                    sync_shell_mode_to_config(SHELL_MODE_POSIX);
                     shell_opts.posix_mode = true;
                 } else if (strcmp(args[i], "bash") == 0) {
                     if (!shell_mode_set(SHELL_MODE_BASH)) {
                         error_message("set: cannot change shell mode (strict mode enabled)");
                         return 1;
                     }
+                    sync_shell_mode_to_config(SHELL_MODE_BASH);
                     shell_opts.posix_mode = false;
                 } else if (strcmp(args[i], "zsh") == 0) {
                     if (!shell_mode_set(SHELL_MODE_ZSH)) {
                         error_message("set: cannot change shell mode (strict mode enabled)");
                         return 1;
                     }
+                    sync_shell_mode_to_config(SHELL_MODE_ZSH);
                     shell_opts.posix_mode = false;
                 } else if (strcmp(args[i], "lusush") == 0) {
                     if (!shell_mode_set(SHELL_MODE_LUSUSH)) {
                         error_message("set: cannot change shell mode (strict mode enabled)");
                         return 1;
                     }
+                    sync_shell_mode_to_config(SHELL_MODE_LUSUSH);
                     shell_opts.posix_mode = false;
                 } else {
                     option_mapping_t *opt = find_option_by_name(args[i]);
@@ -431,6 +448,7 @@ int builtin_set(char **args) {
                         error_message("set: cannot change shell mode (strict mode enabled)");
                         return 1;
                     }
+                    sync_shell_mode_to_config(SHELL_MODE_LUSUSH);
                     shell_opts.posix_mode = false;
                 } else if (strcmp(args[i], "lusush") == 0) {
                     // +o lusush is a no-op (can't disable default mode)
