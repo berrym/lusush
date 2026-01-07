@@ -79,6 +79,10 @@ typedef enum {
     TOK_APPEND_BOTH,   // &>> - append both stdout and stderr
     TOK_COPROC,        // coproc keyword
 
+    // Control flow extensions (Phase 5)
+    TOK_CASE_FALLTHROUGH, // ;& - case fall-through (execute next without test)
+    TOK_CASE_CONTINUE,    // ;;& - case continue (test next pattern)
+
     // Keywords (recognized contextually)
     TOK_IF,
     TOK_THEN,
@@ -94,6 +98,8 @@ typedef enum {
     TOK_ESAC,
     TOK_UNTIL,
     TOK_FUNCTION,
+    TOK_SELECT,           // select keyword for select loop
+    TOK_TIME,             // time keyword for timing pipelines
 
     // Special
     TOK_NEWLINE,    // \n (significant in shell)

@@ -504,6 +504,29 @@ char *debug_get_node_description(node_t *node) {
         snprintf(desc, 256, "COPROC: %s",
                  node->val.str ? node->val.str : "");
         break;
+    case NODE_CASE_ITEM: {
+        const char *term_str = ";;";
+        const char *pattern = node->val.str ? node->val.str : "";
+        // Pattern format: "<terminator_char><pattern>"
+        if (pattern[0] >= '0' && pattern[0] <= '2') {
+            if (pattern[0] == '1') {
+                term_str = ";&";
+            } else if (pattern[0] == '2') {
+                term_str = ";;&";
+            }
+            pattern++; // Skip prefix
+        }
+        snprintf(desc, 256, "CASE_ITEM: %s [%s]", pattern, term_str);
+        break;
+    }
+    case NODE_SELECT:
+        snprintf(desc, 256, "SELECT: %s",
+                 node->val.str ? node->val.str : "");
+        break;
+    case NODE_TIME:
+        snprintf(desc, 256, "TIME%s",
+                 (node->val_type == VAL_SINT && node->val.sint == 1) ? " -p" : "");
+        break;
     default:
         snprintf(desc, 256, "UNKNOWN_NODE_TYPE_%d", node->type);
         break;

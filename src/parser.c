@@ -48,6 +48,10 @@ static node_t *parse_extended_test(parser_t *parser);
 // Forward declarations for extended language features (Phase 3)
 static node_t *parse_process_substitution(parser_t *parser);
 
+// Forward declarations for extended language features (Phase 5)
+static node_t *parse_select_statement(parser_t *parser);
+static node_t *parse_time_command(parser_t *parser);
+
 // Forward declarations for POSIX compliance
 bool is_posix_mode_enabled(void);
 static char *collect_heredoc_content(parser_t *parser, const char *delimiter,
@@ -538,6 +542,10 @@ static node_t *parse_simple_command(parser_t *parser) {
             return parse_case_statement(parser);
         case TOK_FUNCTION:
             return parse_function_definition(parser);
+        case TOK_SELECT:
+            return parse_select_statement(parser);
+        case TOK_TIME:
+            return parse_time_command(parser);
         default:
             // Other keywords not implemented yet
             printf("DEBUG: Unhandled keyword type %d (%s)\n", current->type,
@@ -1939,6 +1947,173 @@ static node_t *parse_for_statement(parser_t *parser) {
 }
 
 /**
+ * @brief Parse a select statement
+ *
+ * Parses: select name [in word ...]; do commands; done
+ * Similar to for loop but creates an interactive menu.
+ *
+ * @param parser Parser instance
+ * @return Select statement AST node
+ */
+static node_t *parse_select_statement(parser_t *parser) {
+    if (!expect_token(parser, TOK_SELECT)) {
+        return NULL;
+    }
+
+    node_t *select_node = new_node(NODE_SELECT);
+    if (!select_node) {
+        return NULL;
+    }
+
+    // Parse variable name
+    if (!tokenizer_match(parser->tokenizer, TOK_WORD)) {
+        free_node_tree(select_node);
+        set_parser_error(parser, "Expected variable name after 'select'");
+        return NULL;
+    }
+
+    token_t *var_token = tokenizer_current(parser->tokenizer);
+    select_node->val.str = strdup(var_token->text);
+    select_node->val_type = VAL_STR;
+    tokenizer_advance(parser->tokenizer);
+
+    // Skip any whitespace
+    while (tokenizer_match(parser->tokenizer, TOK_WHITESPACE)) {
+        tokenizer_advance(parser->tokenizer);
+    }
+
+    // Check for optional 'in' keyword
+    if (tokenizer_match(parser->tokenizer, TOK_IN)) {
+        tokenizer_advance(parser->tokenizer);
+
+        // Parse word list
+        node_t *word_list = new_node(NODE_VAR); // Use as container
+        if (!word_list) {
+            free_node_tree(select_node);
+            return NULL;
+        }
+
+        // Collect all words until ';', newline, or 'do'
+        while (!tokenizer_match(parser->tokenizer, TOK_SEMICOLON) &&
+               !tokenizer_match(parser->tokenizer, TOK_NEWLINE) &&
+               !tokenizer_match(parser->tokenizer, TOK_DO) &&
+               !tokenizer_match(parser->tokenizer, TOK_EOF)) {
+
+            token_t *word_token = tokenizer_current(parser->tokenizer);
+
+            if (token_is_word_like(word_token->type) ||
+                word_token->type == TOK_VARIABLE ||
+                word_token->type == TOK_COMMAND_SUB ||
+                word_token->type == TOK_ARITH_EXP ||
+                word_token->type == TOK_BACKQUOTE) {
+
+                node_t *word_node = NULL;
+
+                // Create appropriate node type based on token type
+                if (word_token->type == TOK_COMMAND_SUB) {
+                    word_node = new_node(NODE_COMMAND_SUB);
+                } else if (word_token->type == TOK_ARITH_EXP) {
+                    word_node = new_node(NODE_ARITH_EXP);
+                } else if (word_token->type == TOK_EXPANDABLE_STRING) {
+                    word_node = new_node(NODE_STRING_EXPANDABLE);
+                } else if (word_token->type == TOK_STRING) {
+                    word_node = new_node(NODE_STRING_LITERAL);
+                } else {
+                    word_node = new_node(NODE_VAR);
+                }
+
+                if (!word_node) {
+                    free_node_tree(select_node);
+                    free_node_tree(word_list);
+                    return NULL;
+                }
+
+                word_node->val.str = strdup(word_token->text);
+                word_node->val_type = VAL_STR;
+                add_child_node(word_list, word_node);
+                tokenizer_advance(parser->tokenizer);
+            } else {
+                break;
+            }
+        }
+
+        add_child_node(select_node, word_list);
+    }
+
+    // Skip any separators (semicolons, newlines, whitespace)
+    skip_separators(parser);
+
+    // Now we should see 'do'
+    if (!expect_token(parser, TOK_DO)) {
+        free_node_tree(select_node);
+        return NULL;
+    }
+
+    // Skip separators after 'do' before parsing body
+    skip_separators(parser);
+
+    // Parse body
+    node_t *body = parse_command_body(parser, TOK_DONE);
+    if (!body) {
+        free_node_tree(select_node);
+        return NULL;
+    }
+    add_child_node(select_node, body);
+
+    // Skip separators before 'done'
+    skip_separators(parser);
+
+    if (!expect_token(parser, TOK_DONE)) {
+        free_node_tree(select_node);
+        return NULL;
+    }
+
+    return select_node;
+}
+
+/**
+ * @brief Parse a time command
+ *
+ * Parses: time [-p] pipeline
+ * Times the execution of the pipeline.
+ *
+ * @param parser Parser instance
+ * @return Time command AST node
+ */
+static node_t *parse_time_command(parser_t *parser) {
+    if (!expect_token(parser, TOK_TIME)) {
+        return NULL;
+    }
+
+    node_t *time_node = new_node(NODE_TIME);
+    if (!time_node) {
+        return NULL;
+    }
+
+    // Check for -p option (POSIX format)
+    token_t *current = tokenizer_current(parser->tokenizer);
+    if (current && token_is_word_like(current->type) &&
+        strcmp(current->text, "-p") == 0) {
+        time_node->val.sint = 1; // Flag for -p option
+        time_node->val_type = VAL_SINT;
+        tokenizer_advance(parser->tokenizer);
+    } else {
+        time_node->val.sint = 0;
+        time_node->val_type = VAL_SINT;
+    }
+
+    // Parse the pipeline/command to time
+    node_t *pipeline = parse_pipeline(parser);
+    if (!pipeline) {
+        free_node_tree(time_node);
+        return NULL;
+    }
+    add_child_node(time_node, pipeline);
+
+    return time_node;
+}
+
+/**
  * @brief Parse a case statement
  *
  * Parses: case word in pattern) commands ;; [pattern) commands ;;]* esac
@@ -1992,12 +2167,14 @@ static node_t *parse_case_statement(parser_t *parser) {
            !tokenizer_match(parser->tokenizer, TOK_EOF)) {
 
         // Parse pattern(s)
-        node_t *case_item =
-            new_node(NODE_COMMAND); // Reuse NODE_COMMAND for case items
+        node_t *case_item = new_node(NODE_CASE_ITEM);
         if (!case_item) {
             free_node_tree(case_node);
             return NULL;
         }
+
+        // Terminator will be stored in pattern string prefix (0=break, 1=fall, 2=cont)
+        case_terminator_t terminator = CASE_TERM_BREAK;
 
         // Build pattern string (can be multiple patterns separated by |)
         char *pattern = NULL;
@@ -2101,7 +2278,7 @@ static node_t *parse_case_statement(parser_t *parser) {
         // Skip separators
         skip_separators(parser);
 
-        // Parse commands until ;; or esac
+        // Parse commands until case terminator (;;, ;&, ;;&) or esac
         node_t *commands = NULL;
         while (!tokenizer_match(parser->tokenizer, TOK_ESAC) &&
                !tokenizer_match(parser->tokenizer, TOK_EOF)) {
@@ -2112,18 +2289,35 @@ static node_t *parse_case_statement(parser_t *parser) {
                 break;
             }
 
-            // Skip only newlines and whitespace, NOT semicolons (preserve ;;
-            // for detection)
+            // Skip only newlines and whitespace, NOT semicolons (preserve
+            // terminators for detection)
             while (tokenizer_match(parser->tokenizer, TOK_NEWLINE) ||
                    tokenizer_match(parser->tokenizer, TOK_WHITESPACE)) {
                 tokenizer_advance(parser->tokenizer);
             }
 
-            // Check for ;; pattern AFTER skipping separators
+            // Check for case terminators AFTER skipping separators
+            // Order matters: check ;;& before ;& before ;;
+            if (tokenizer_match(parser->tokenizer, TOK_CASE_CONTINUE)) {
+                // ;;& - continue testing next patterns
+                terminator = CASE_TERM_CONTINUE;
+                tokenizer_advance(parser->tokenizer);
+                break;
+            }
+            if (tokenizer_match(parser->tokenizer, TOK_CASE_FALLTHROUGH)) {
+                // ;& - fall through to next item without testing
+                terminator = CASE_TERM_FALLTHROUGH;
+                tokenizer_advance(parser->tokenizer);
+                break;
+            }
             if (tokenizer_match(parser->tokenizer, TOK_SEMICOLON)) {
                 token_t *next = tokenizer_peek(parser->tokenizer);
                 if (next && next->type == TOK_SEMICOLON) {
-                    break; // Found ;; - end this case item
+                    // ;; - break (default)
+                    terminator = CASE_TERM_BREAK;
+                    tokenizer_advance(parser->tokenizer); // First ;
+                    tokenizer_advance(parser->tokenizer); // Second ;
+                    break;
                 }
                 // Single semicolon - consume it and continue parsing commands
                 tokenizer_advance(parser->tokenizer);
@@ -2145,7 +2339,8 @@ static node_t *parse_case_statement(parser_t *parser) {
                 last->next_sibling = command;
             }
 
-            // Don't skip separators here - we need to detect ;; explicitly
+            // Don't skip separators here - we need to detect terminators
+            // explicitly
         }
 
         // Add commands as child of case item
@@ -2153,11 +2348,19 @@ static node_t *parse_case_statement(parser_t *parser) {
             add_child_node(case_item, commands);
         }
 
-        // Expect ;;
-        if (tokenizer_match(parser->tokenizer, TOK_SEMICOLON)) {
-            tokenizer_advance(parser->tokenizer); // Consume first ;
-            if (tokenizer_match(parser->tokenizer, TOK_SEMICOLON)) {
-                tokenizer_advance(parser->tokenizer); // Consume second ;
+        // Encode terminator in pattern string with prefix byte
+        // Format: "<terminator_char><pattern>" where terminator_char is:
+        // '0' = CASE_TERM_BREAK (;;)
+        // '1' = CASE_TERM_FALLTHROUGH (;&)
+        // '2' = CASE_TERM_CONTINUE (;;&)
+        if (case_item->val.str) {
+            size_t old_len = strlen(case_item->val.str);
+            char *new_pattern = malloc(old_len + 2);
+            if (new_pattern) {
+                new_pattern[0] = '0' + (char)terminator;
+                strcpy(new_pattern + 1, case_item->val.str);
+                free(case_item->val.str);
+                case_item->val.str = new_pattern;
             }
         }
 

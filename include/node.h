@@ -68,7 +68,19 @@ typedef enum {
     NODE_PROC_SUB_IN,   // <(cmd) - process substitution input
     NODE_PROC_SUB_OUT,  // >(cmd) - process substitution output
     NODE_COPROC,        // coproc name cmd - coprocess
+
+    // Extended language features (Phase 5: Control Flow)
+    NODE_CASE_ITEM,     // Case item with terminator type
+    NODE_SELECT,        // select var in list; do body; done
+    NODE_TIME,          // time [-p] pipeline
 } node_type_t;
+
+// Case item terminator types for fall-through behavior
+typedef enum {
+    CASE_TERM_BREAK,        // ;; - stop processing (default)
+    CASE_TERM_FALLTHROUGH,  // ;& - execute next item without pattern test
+    CASE_TERM_CONTINUE,     // ;;& - continue testing next patterns
+} case_terminator_t;
 
 typedef enum {
     VAL_SINT = 1,

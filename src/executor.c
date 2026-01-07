@@ -40,7 +40,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -72,6 +75,8 @@ static int execute_if(executor_t *executor, node_t *if_node);
 static int execute_while(executor_t *executor, node_t *while_node);
 static int execute_until(executor_t *executor, node_t *until_node);
 static int execute_for(executor_t *executor, node_t *for_node);
+static int execute_select(executor_t *executor, node_t *select_node);
+static int execute_time(executor_t *executor, node_t *time_node);
 static int execute_case(executor_t *executor, node_t *case_node);
 static int execute_logical_and(executor_t *executor, node_t *and_node);
 static int execute_logical_or(executor_t *executor, node_t *or_node);
@@ -600,6 +605,10 @@ static int execute_node(executor_t *executor, node_t *node) {
         return execute_until(executor, node);
     case NODE_FOR:
         return execute_for(executor, node);
+    case NODE_SELECT:
+        return execute_select(executor, node);
+    case NODE_TIME:
+        return execute_time(executor, node);
     case NODE_CASE:
         return execute_case(executor, node);
     case NODE_LOGICAL_AND:
@@ -1752,6 +1761,243 @@ static int execute_for(executor_t *executor, node_t *for_node) {
     symtable_pop_scope(executor->symtable);
 
     return last_result;
+}
+
+/**
+ * @brief Execute select loop
+ *
+ * Displays a numbered menu of choices and reads user selection.
+ * Sets the loop variable to the selected word and REPLY to user input.
+ * Continues until break or EOF.
+ *
+ * @param executor Executor context
+ * @param select_node Select loop node with variable name in val.str
+ * @return Exit status of last executed body command
+ */
+static int execute_select(executor_t *executor, node_t *select_node) {
+    if (!select_node || select_node->type != NODE_SELECT) {
+        return 1;
+    }
+
+    const char *var_name = select_node->val.str;
+    if (!var_name) {
+        set_executor_error(executor, "Select loop missing variable name");
+        return 1;
+    }
+
+    node_t *word_list = select_node->first_child;
+    node_t *body = word_list ? word_list->next_sibling : NULL;
+
+    if (!body) {
+        set_executor_error(executor, "Select loop missing body");
+        return 1;
+    }
+
+    // Build expanded word list for menu
+    char **menu_items = NULL;
+    int item_count = 0;
+
+    if (word_list && word_list->first_child) {
+        node_t *word = word_list->first_child;
+        while (word) {
+            if (word->val.str) {
+                char *expanded = expand_if_needed(executor, word->val.str);
+                if (expanded) {
+                    // Split by IFS
+                    const char *ifs = symtable_get(executor->symtable, "IFS");
+                    if (!ifs) {
+                        ifs = " \t\n";
+                    }
+
+                    char *expanded_copy = strdup(expanded);
+                    char *token = strtok(expanded_copy, ifs);
+
+                    while (token) {
+                        menu_items = realloc(menu_items,
+                                             (item_count + 1) * sizeof(char *));
+                        if (!menu_items) {
+                            free(expanded);
+                            free(expanded_copy);
+                            return 1;
+                        }
+                        menu_items[item_count] = strdup(token);
+                        item_count++;
+                        token = strtok(NULL, ifs);
+                    }
+
+                    free(expanded_copy);
+                    free(expanded);
+                }
+            }
+            word = word->next_sibling;
+        }
+    }
+
+    if (item_count == 0) {
+        return 0; // No items, nothing to do
+    }
+
+    // Push loop scope
+    if (symtable_push_scope(executor->symtable, SCOPE_LOOP, "select-loop") !=
+        0) {
+        for (int i = 0; i < item_count; i++) {
+            free(menu_items[i]);
+        }
+        free(menu_items);
+        return 1;
+    }
+
+    executor->loop_depth++;
+
+    int last_result = 0;
+    char input_buf[256];
+
+    // Get PS3 prompt (default is "#? ")
+    const char *ps3 = symtable_get(executor->symtable, "PS3");
+    if (!ps3 || !*ps3) {
+        ps3 = "#? ";
+    }
+
+    while (1) {
+        // Display menu
+        for (int i = 0; i < item_count; i++) {
+            fprintf(stderr, "%d) %s\n", i + 1, menu_items[i]);
+        }
+
+        // Display prompt and read input
+        fprintf(stderr, "%s", ps3);
+        fflush(stderr);
+
+        if (!fgets(input_buf, sizeof(input_buf), stdin)) {
+            // EOF - exit loop
+            break;
+        }
+
+        // Remove trailing newline
+        size_t len = strlen(input_buf);
+        if (len > 0 && input_buf[len - 1] == '\n') {
+            input_buf[len - 1] = '\0';
+        }
+
+        // Set REPLY to the raw input
+        symtable_set(executor->symtable, "REPLY", input_buf);
+
+        // Parse selection number
+        char *endptr;
+        long selection = strtol(input_buf, &endptr, 10);
+
+        // Set loop variable
+        if (*input_buf != '\0' && *endptr == '\0' && selection >= 1 &&
+            selection <= item_count) {
+            // Valid selection
+            symtable_set_global_var(executor->symtable, var_name,
+                                    menu_items[selection - 1]);
+        } else {
+            // Invalid or empty input - set variable to empty
+            symtable_set_global_var(executor->symtable, var_name, "");
+        }
+
+        // Execute body
+        node_t *cmd = body;
+        while (cmd) {
+            last_result = execute_node(executor, cmd);
+
+            // Check for break/continue
+            if (executor->loop_control != LOOP_NORMAL) {
+                break;
+            }
+
+            cmd = cmd->next_sibling;
+        }
+
+        // Handle break from body
+        if (executor->loop_control == LOOP_BREAK) {
+            executor->loop_control = LOOP_NORMAL;
+            break;
+        } else if (executor->loop_control == LOOP_CONTINUE) {
+            executor->loop_control = LOOP_NORMAL;
+            continue;
+        }
+    }
+
+    // Cleanup
+    executor->loop_depth--;
+    symtable_pop_scope(executor->symtable);
+
+    for (int i = 0; i < item_count; i++) {
+        free(menu_items[i]);
+    }
+    free(menu_items);
+
+    return last_result;
+}
+
+/**
+ * @brief Execute time command
+ *
+ * Times the execution of a pipeline and reports real, user, and sys time.
+ * With -p option, uses POSIX format.
+ *
+ * @param executor Executor context
+ * @param time_node Time command node
+ * @return Exit status of the timed pipeline
+ */
+static int execute_time(executor_t *executor, node_t *time_node) {
+    if (!time_node || time_node->type != NODE_TIME) {
+        return 1;
+    }
+
+    bool posix_format = (time_node->val_type == VAL_SINT && time_node->val.sint == 1);
+    node_t *pipeline = time_node->first_child;
+
+    if (!pipeline) {
+        return 0; // Nothing to time
+    }
+
+    // Get start time
+    struct timeval start_time, end_time;
+    struct rusage start_usage, end_usage;
+
+    gettimeofday(&start_time, NULL);
+    getrusage(RUSAGE_CHILDREN, &start_usage);
+
+    // Execute the pipeline
+    int result = execute_node(executor, pipeline);
+
+    // Get end time
+    gettimeofday(&end_time, NULL);
+    getrusage(RUSAGE_CHILDREN, &end_usage);
+
+    // Calculate elapsed times
+    double real_time = (end_time.tv_sec - start_time.tv_sec) +
+                       (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
+
+    double user_time = (end_usage.ru_utime.tv_sec - start_usage.ru_utime.tv_sec) +
+                       (end_usage.ru_utime.tv_usec - start_usage.ru_utime.tv_usec) / 1000000.0;
+
+    double sys_time = (end_usage.ru_stime.tv_sec - start_usage.ru_stime.tv_sec) +
+                      (end_usage.ru_stime.tv_usec - start_usage.ru_stime.tv_usec) / 1000000.0;
+
+    // Check for TIMEFORMAT variable (Bash extension)
+    const char *timeformat = symtable_get(executor->symtable, "TIMEFORMAT");
+
+    if (posix_format) {
+        // POSIX format: real, user, sys in seconds
+        fprintf(stderr, "real %.2f\nuser %.2f\nsys %.2f\n",
+                real_time, user_time, sys_time);
+    } else if (timeformat && *timeformat) {
+        // Custom format (simplified - just show the times)
+        fprintf(stderr, "\nreal\t%.3fs\nuser\t%.3fs\nsys\t%.3fs\n",
+                real_time, user_time, sys_time);
+    } else {
+        // Default Bash-like format
+        fprintf(stderr, "\nreal\t%dm%.3fs\nuser\t%dm%.3fs\nsys\t%dm%.3fs\n",
+                (int)(real_time / 60), fmod(real_time, 60.0),
+                (int)(user_time / 60), fmod(user_time, 60.0),
+                (int)(sys_time / 60), fmod(sys_time, 60.0));
+    }
+
+    return result;
 }
 
 /**
@@ -3368,49 +3614,85 @@ static int execute_case(executor_t *executor, node_t *node) {
     }
 
     int result = 0;
-    bool matched = false;
+    bool done = false;
+    bool execute_next = false; // For ;& fall-through
 
     // Iterate through case items (children)
     node_t *case_item = node->first_child;
-    while (case_item && !matched) {
-        // The pattern is stored in case_item->val.str
+    while (case_item && !done) {
+        // The pattern is stored in case_item->val.str with terminator prefix
+        // Format: "<terminator_char><pattern>" where terminator_char is '0', '1', or '2'
         char *patterns = case_item->val.str;
-        if (!patterns) {
+        if (!patterns || !*patterns) {
             case_item = case_item->next_sibling;
             continue;
         }
 
-        // Split patterns by | and test each one
-        char *pattern_copy = strdup(patterns);
-        if (!pattern_copy) {
-            free(test_word);
-            return 1;
+        // Extract terminator type from pattern prefix (for NODE_CASE_ITEM)
+        case_terminator_t terminator = CASE_TERM_BREAK;
+        if (case_item->type == NODE_CASE_ITEM && patterns[0] >= '0' &&
+            patterns[0] <= '2') {
+            terminator = (case_terminator_t)(patterns[0] - '0');
+            patterns++; // Skip the prefix byte
         }
 
-        char *pattern = strtok(pattern_copy, "|");
-        while (pattern && !matched) {
-            // Expand variables in pattern
-            char *expanded_pattern = expand_if_needed(executor, pattern);
-            if (expanded_pattern) {
-                if (match_pattern(test_word, expanded_pattern)) {
-                    matched = true;
+        bool matched = execute_next; // If fall-through, execute without testing
 
-                    // Execute commands for this case item
-                    node_t *commands = case_item->first_child;
-                    while (commands) {
-                        result = execute_node(executor, commands);
-                        if (result != 0) {
-                            break;
-                        }
-                        commands = commands->next_sibling;
-                    }
-                }
-                free(expanded_pattern);
+        if (!matched) {
+            // Split patterns by | and test each one
+            char *pattern_copy = strdup(patterns);
+            if (!pattern_copy) {
+                free(test_word);
+                return 1;
             }
-            pattern = strtok(NULL, "|");
+
+            char *pattern = strtok(pattern_copy, "|");
+            while (pattern && !matched) {
+                // Expand variables in pattern
+                char *expanded_pattern = expand_if_needed(executor, pattern);
+                if (expanded_pattern) {
+                    if (match_pattern(test_word, expanded_pattern)) {
+                        matched = true;
+                    }
+                    free(expanded_pattern);
+                }
+                pattern = strtok(NULL, "|");
+            }
+
+            free(pattern_copy);
         }
 
-        free(pattern_copy);
+        if (matched) {
+            // Execute commands for this case item
+            node_t *commands = case_item->first_child;
+            while (commands) {
+                result = execute_node(executor, commands);
+                if (result != 0) {
+                    break;
+                }
+                commands = commands->next_sibling;
+            }
+
+            // Handle terminator behavior
+            switch (terminator) {
+            case CASE_TERM_BREAK:
+                // ;; - stop processing case items
+                done = true;
+                execute_next = false;
+                break;
+            case CASE_TERM_FALLTHROUGH:
+                // ;& - execute next case item without testing pattern
+                execute_next = true;
+                break;
+            case CASE_TERM_CONTINUE:
+                // ;;& - continue testing next patterns
+                execute_next = false;
+                break;
+            }
+        } else {
+            execute_next = false;
+        }
+
         case_item = case_item->next_sibling;
     }
 

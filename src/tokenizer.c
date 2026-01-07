@@ -30,6 +30,7 @@ static const struct {
     {"for", TOK_FOR},     {"in", TOK_IN},
     {"case", TOK_CASE},   {"esac", TOK_ESAC},
     {"until", TOK_UNTIL}, {"function", TOK_FUNCTION},
+    {"select", TOK_SELECT}, {"time", TOK_TIME},
     {NULL, TOK_WORD} // Sentinel
 };
 
@@ -291,6 +292,14 @@ const char *token_type_name(token_type_t type) {
         return "APPEND_BOTH";
     case TOK_COPROC:
         return "COPROC";
+    case TOK_CASE_FALLTHROUGH:
+        return "CASE_FALLTHROUGH";
+    case TOK_CASE_CONTINUE:
+        return "CASE_CONTINUE";
+    case TOK_SELECT:
+        return "SELECT";
+    case TOK_TIME:
+        return "TIME";
     case TOK_IF:
         return "IF";
     case TOK_THEN:
@@ -342,7 +351,7 @@ const char *token_type_name(token_type_t type) {
  * @return true if token is a keyword
  */
 bool token_is_keyword(token_type_t type) {
-    return type >= TOK_IF && type <= TOK_FUNCTION;
+    return type >= TOK_IF && type <= TOK_TIME;
 }
 
 /**
@@ -936,6 +945,24 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
     if (is_operator_char(c)) {
         switch (c) {
         case ';':
+            // Check for ;;& (case continue - test next pattern)
+            if (tokenizer->position + 2 < tokenizer->input_length &&
+                tokenizer->input[tokenizer->position + 1] == ';' &&
+                tokenizer->input[tokenizer->position + 2] == '&') {
+                tokenizer->position += 3;
+                tokenizer->column += 3;
+                return token_new(TOK_CASE_CONTINUE, ";;&", 3, start_line,
+                                 start_column, start_pos);
+            }
+            // Check for ;& (case fall-through - execute next without test)
+            if (tokenizer->position + 1 < tokenizer->input_length &&
+                tokenizer->input[tokenizer->position + 1] == '&') {
+                tokenizer->position += 2;
+                tokenizer->column += 2;
+                return token_new(TOK_CASE_FALLTHROUGH, ";&", 2, start_line,
+                                 start_column, start_pos);
+            }
+            // Regular semicolon
             tokenizer->position++;
             tokenizer->column++;
             return token_new(TOK_SEMICOLON, ";", 1, start_line, start_column,
