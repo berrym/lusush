@@ -16,9 +16,11 @@
 #include "executor.h"
 #include "lusush.h"
 #include "shell_mode.h"
+#include "symtable.h"
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 
 /* ============================================================================
@@ -39,6 +41,13 @@ static const char *g_hook_names[LLE_HOOK_COUNT] = {
     [LLE_HOOK_PRECMD] = "precmd",
     [LLE_HOOK_PREEXEC] = "preexec",
     [LLE_HOOK_CHPWD] = "chpwd",
+};
+
+/** Hook array names (Zsh compatibility: precmd_functions, etc.) */
+static const char *g_hook_array_names[LLE_HOOK_COUNT] = {
+    [LLE_HOOK_PRECMD] = "precmd_functions",
+    [LLE_HOOK_PREEXEC] = "preexec_functions",
+    [LLE_HOOK_CHPWD] = "chpwd_functions",
 };
 
 /* ============================================================================
@@ -77,6 +86,66 @@ static int call_hook_function(lle_hook_type_t hook_type, const char *arg) {
     return result;
 }
 
+/**
+ * @brief Call all functions in a hook array (Zsh compatibility)
+ *
+ * Zsh supports hook arrays like precmd_functions, preexec_functions, etc.
+ * Each element in the array is a function name to be called.
+ *
+ * @param hook_type Type of hook (determines which array to check)
+ * @param arg Optional argument (command string for preexec)
+ * @return Number of functions called, or 0 if array doesn't exist
+ */
+static int call_hook_array(lle_hook_type_t hook_type, const char *arg) {
+    if (hook_type >= LLE_HOOK_COUNT) {
+        return 0;
+    }
+
+    const char *array_name = g_hook_array_names[hook_type];
+    if (!array_name) {
+        return 0;
+    }
+
+    // Check if the hook array exists
+    array_value_t *hook_array = symtable_get_array(array_name);
+    if (!hook_array) {
+        return 0;
+    }
+
+    // Get the global executor
+    executor_t *executor = get_global_executor();
+    if (!executor) {
+        return 0;
+    }
+
+    // Get all function names from the array
+    size_t count = 0;
+    char **func_names = symtable_array_get_values(hook_array, &count);
+    if (!func_names || count == 0) {
+        return 0;
+    }
+
+    int called = 0;
+
+    // Call each function in order
+    for (size_t i = 0; i < count; i++) {
+        const char *func_name = func_names[i];
+        if (func_name && func_name[0] != '\0') {
+            // Call the function via executor
+            executor_call_hook(executor, func_name, arg);
+            called++;
+        }
+    }
+
+    // Free the function names array
+    for (size_t i = 0; i < count; i++) {
+        free(func_names[i]);
+    }
+    free(func_names);
+
+    return called;
+}
+
 /* ============================================================================
  * EVENT HANDLERS
  * ============================================================================ */
@@ -102,6 +171,7 @@ static void hook_precmd_handler(void *event_data, void *user_data) {
 
     g_current_hook = LLE_HOOK_PRECMD;
     call_hook_function(LLE_HOOK_PRECMD, NULL);
+    call_hook_array(LLE_HOOK_PRECMD, NULL);
     g_current_hook = LLE_HOOK_COUNT;
 }
 
@@ -128,6 +198,7 @@ static void hook_preexec_handler(void *event_data, void *user_data) {
 
     g_current_hook = LLE_HOOK_PREEXEC;
     call_hook_function(LLE_HOOK_PREEXEC, command);
+    call_hook_array(LLE_HOOK_PREEXEC, command);
     g_current_hook = LLE_HOOK_COUNT;
 }
 
@@ -153,6 +224,7 @@ static void hook_chpwd_handler(void *event_data, void *user_data) {
 
     g_current_hook = LLE_HOOK_CHPWD;
     call_hook_function(LLE_HOOK_CHPWD, NULL);
+    call_hook_array(LLE_HOOK_CHPWD, NULL);
     g_current_hook = LLE_HOOK_COUNT;
 }
 

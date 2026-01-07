@@ -13,6 +13,17 @@
  * - preexec() - Called before command execution, receives command as $1
  * - chpwd()   - Called after directory change (cd), PWD/OLDPWD are set
  *
+ * Hook Arrays (Zsh Compatibility):
+ * In addition to single hook functions, users can define arrays of function
+ * names that will all be called for each hook event:
+ * - precmd_functions  - Array of function names called after precmd()
+ * - preexec_functions - Array of function names called after preexec()
+ * - chpwd_functions   - Array of function names called after chpwd()
+ *
+ * Example:
+ *   my_hook() { echo "from array hook"; }
+ *   precmd_functions=(my_hook)  # or precmd_functions+=(my_hook)
+ *
  * This module registers handlers with the Shell Event Hub that look up and
  * call user-defined shell functions when events fire.
  *

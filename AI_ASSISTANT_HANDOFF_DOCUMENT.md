@@ -103,30 +103,107 @@ chpwd() {
 | `preexec` | `LLE_SHELL_EVENT_PRE_COMMAND` | Before command execution |
 | `chpwd` | `LLE_SHELL_EVENT_DIRECTORY_CHANGED` | After cd |
 
+#### 4. Hook Arrays (Zsh Compatibility)
+
+In addition to single hook functions, users can define arrays of function names that are all called for each hook event:
+
+```bash
+# Define multiple hook handlers
+my_timer() { echo "Command took ${SECONDS}s"; }
+my_prompt_update() { update_prompt_info; }
+
+# Add functions to hook array
+precmd_functions=(my_timer my_prompt_update)
+# or append: precmd_functions+=(another_hook)
+```
+
+**Hook Arrays:**
+| Array Name | Called After |
+|------------|--------------|
+| `precmd_functions` | `precmd()` |
+| `preexec_functions` | `preexec()` |
+| `chpwd_functions` | `chpwd()` |
+
+**Implementation:**
+- `g_hook_array_names[]` maps hook types to array names
+- `call_hook_array()` iterates array and calls each function by name
+- Uses `symtable_get_array()` and `symtable_array_get_values()` for array access
+- Functions are called in array order after the main hook function
+
+#### 5. Plugin System Foundation
+
+The plugin system provides a framework for dynamically loaded extensions:
+
+```c
+// Plugin structure (include/lusush_plugin.h)
+typedef struct lusush_plugin {
+    const char *name;
+    const char *version;
+    lusush_plugin_init_fn init;
+    lusush_plugin_cleanup_fn cleanup;
+    uint32_t permissions;
+} lusush_plugin_t;
+
+// Plugin permissions
+LUSUSH_PLUGIN_PERM_READ_ENV
+LUSUSH_PLUGIN_PERM_WRITE_ENV
+LUSUSH_PLUGIN_PERM_EXEC_COMMANDS
+LUSUSH_PLUGIN_PERM_FILESYSTEM
+LUSUSH_PLUGIN_PERM_NETWORK
+
+// Plugin definition macro
+LUSUSH_PLUGIN_DEFINE(name, version, init, cleanup, perms)
+```
+
+**Implementation:**
+- `include/lusush_plugin.h`: Plugin API header with permission system
+- `src/lusush_plugin.c`: Plugin manager with dlopen/dlsym loading
+- `FEATURE_PLUGIN_SYSTEM` in shell_mode.h (enabled in Lusush mode)
+
 ### Files Modified
 
 | File | Changes |
 |------|---------|
 | `include/node.h` | Added `NODE_ANON_FUNCTION` |
 | `include/executor.h` | Added hook function declarations |
-| `include/lle/lle_shell_hooks.h` | NEW: Hook bridge API |
+| `include/lle/lle_shell_hooks.h` | Hook bridge API with array documentation |
+| `include/lusush_plugin.h` | NEW: Plugin system API |
 | `src/parser.c` | Anonymous function parsing, glob qualifier detection |
 | `src/tokenizer.c` | Glob qualifier as part of word token |
 | `src/executor.c` | Anonymous function execution, glob filtering, hook calls |
-| `src/lle/lle_shell_hooks.c` | NEW: Event handlers for hooks |
+| `src/lle/lle_shell_hooks.c` | Event handlers for hooks and hook arrays |
 | `src/lle/lle_shell_integration.c` | Register hooks at init, cleanup at shutdown |
 | `src/lle/meson.build` | Added `lle_shell_hooks.c` |
+| `src/lusush_plugin.c` | NEW: Plugin manager implementation |
 | `src/debug/debug_core.c` | Node description for `NODE_ANON_FUNCTION` |
+| `include/shell_mode.h` | Added `FEATURE_PLUGIN_SYSTEM` |
+| `src/shell_mode.c` | Plugin system in feature matrix |
+
+### Memory Leak Fixes
+
+Fixed three categories of memory leaks identified with macOS `leaks` tool:
+
+1. **AST sibling node leak** (`src/node.c`):
+   - `free_node_tree()` now frees siblings of root node before children
+   - Fixed leaks from semicolon-separated commands
+
+2. **Variable expansion double-strdup** (`src/executor.c`):
+   - Removed redundant strdup when `symtable_get_var()` already returns owned memory
+
+3. **Arithmetic stack item leak** (`src/arithmetic.c`):
+   - Added `stack_item_cleanup()` to free strdup'd `var_name` after consuming popped items
 
 ### Tests
 
-- `tests/phase7_hook_functions_test.sh`: 10/12 tests pass (2 skipped for implementation-specific behavior)
+- `tests/phase7_complete_test.sh`: 27/28 tests pass (1 skipped)
 - All 55 existing tests continue to pass
+- Zero memory leaks verified with `leaks --atExit`
 
 ### Remaining Work
 
-- Plugin system foundation (`lusush_plugin_t` structure)
-- Comprehensive Phase 7 test suite
+- `periodic` hook (timer-based, lower priority)
+- Autocorrect.c updates for new syntax recognition
+- LLE syntax highlighting for new features
 
 ---
 
