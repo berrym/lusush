@@ -6048,6 +6048,7 @@ static char *parse_parameter_expansion(executor_t *executor,
     }
 
     // Fall back to symbol table lookup for regular variables
+    // Note: symtable_get_var returns a strdup'd value, caller must free
     char *value = symtable_get_var(executor->symtable, expansion);
 
     // Check for unset variable error (set -u) for ${var} syntax
@@ -6064,7 +6065,8 @@ static char *parse_parameter_expansion(executor_t *executor,
         }
     }
 
-    return value ? strdup(value) : strdup("");
+    // value is already strdup'd by symtable_get_var, don't strdup again
+    return value ? value : strdup("");
 }
 
 /**
@@ -6411,7 +6413,8 @@ static char *expand_variable(executor_t *executor, const char *var_text) {
                 }
 
                 free(name);
-                return value ? strdup(value) : strdup("");
+                // value is already strdup'd by symtable_get_var
+                return value ? value : strdup("");
             }
         }
     }

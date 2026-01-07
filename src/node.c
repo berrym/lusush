@@ -104,26 +104,32 @@ void set_node_val_str(node_t *node, char *val) {
  * @param node Root of the tree to free (may be NULL)
  */
 void free_node_tree(node_t *node) {
-    node_t *child = NULL, *next = NULL;
-
     if (!node) {
         return;
     }
 
-    child = node->first_child;
-
-    while (child) {
-        next = child->next_sibling;
-        free_node_tree(child);
-        child = next;
+    // Free siblings of this node first (iteratively to avoid deep recursion)
+    node_t *sibling = node->next_sibling;
+    while (sibling) {
+        node_t *next_sib = sibling->next_sibling;
+        sibling->next_sibling = NULL; // Prevent double-free
+        free_node_tree(sibling);
+        sibling = next_sib;
     }
 
-    if (node->val_type == VAL_STR) {
-        if (node->val.str) {
-            free(node->val.str);
-        }
+    // Free all children
+    node_t *child = node->first_child;
+    while (child) {
+        node_t *next_child = child->next_sibling;
+        child->next_sibling = NULL; // Prevent double-free from sibling loop
+        free_node_tree(child);
+        child = next_child;
+    }
+
+    // Free string value if present
+    if (node->val_type == VAL_STR && node->val.str) {
+        free(node->val.str);
     }
 
     free(node);
-    node = NULL;
 }

@@ -104,6 +104,21 @@ static void arithm_context_cleanup(arithm_context_t *ctx) {
     }
 }
 
+/**
+ * @brief Free any allocated memory in a stack item
+ *
+ * This should be called after a popped stack item has been consumed
+ * to prevent memory leaks from strdup'd var_name fields.
+ *
+ * @param item The stack item to clean up
+ */
+static void stack_item_cleanup(stack_item_t *item) {
+    if (item && item->var_name) {
+        free(item->var_name);
+        item->var_name = NULL;
+    }
+}
+
 // Global error state
 bool arithm_error_flag = false;
 char *arithm_error_message = NULL;
@@ -583,7 +598,9 @@ static ssize_t long_value(stack_item_t *item) {
                     char *value =
                         symtable_get_var(exec->symtable, item->var_name);
                     if (value) {
-                        return atol(value);
+                        long result = atol(value);
+                        free(value);
+                        return result;
                     }
                 }
             }
@@ -593,7 +610,9 @@ static ssize_t long_value(stack_item_t *item) {
             if (manager) {
                 char *value = symtable_get_var(manager, item->var_name);
                 if (value) {
-                    return atol(value);
+                    long result = atol(value);
+                    free(value);
+                    return result;
                 }
             }
         }
@@ -878,6 +897,7 @@ static void shunt_op(arithm_context_t *ctx, op_t *op) {
 
             if (pop_op->unary) {
                 push_numstackl(ctx, pop_op->eval(&a1, NULL));
+                stack_item_cleanup(&a1);
                 if (arithm_error_flag) {
                     ctx->errflag = true;
                     return;
@@ -885,9 +905,12 @@ static void shunt_op(arithm_context_t *ctx, op_t *op) {
             } else {
                 stack_item_t a2 = pop_numstack(ctx);
                 if (ctx->errflag) {
+                    stack_item_cleanup(&a1);
                     return;
                 }
                 push_numstackl(ctx, pop_op->eval(&a2, &a1));
+                stack_item_cleanup(&a1);
+                stack_item_cleanup(&a2);
                 if (arithm_error_flag) {
                     ctx->errflag = true;
                     return;
@@ -924,6 +947,7 @@ static void shunt_op(arithm_context_t *ctx, op_t *op) {
 
             if (pop_op->unary) {
                 push_numstackl(ctx, pop_op->eval(&a1, NULL));
+                stack_item_cleanup(&a1);
                 if (arithm_error_flag) {
                     ctx->errflag = true;
                     return;
@@ -931,9 +955,12 @@ static void shunt_op(arithm_context_t *ctx, op_t *op) {
             } else {
                 stack_item_t a2 = pop_numstack(ctx);
                 if (ctx->errflag) {
+                    stack_item_cleanup(&a1);
                     return;
                 }
                 push_numstackl(ctx, pop_op->eval(&a2, &a1));
+                stack_item_cleanup(&a1);
+                stack_item_cleanup(&a2);
                 if (arithm_error_flag) {
                     ctx->errflag = true;
                     return;
@@ -1201,6 +1228,7 @@ static char *arithm_expand_internal(void *executor, const char *orig_expr) {
 
         if (op->unary) {
             push_numstackl(&ctx, op->eval(&a1, NULL));
+            stack_item_cleanup(&a1);
             if (arithm_error_flag) {
                 ctx.errflag = true;
                 break;
@@ -1208,9 +1236,12 @@ static char *arithm_expand_internal(void *executor, const char *orig_expr) {
         } else {
             stack_item_t a2 = pop_numstack(&ctx);
             if (ctx.errflag) {
+                stack_item_cleanup(&a1);
                 break;
             }
             push_numstackl(&ctx, op->eval(&a2, &a1));
+            stack_item_cleanup(&a1);
+            stack_item_cleanup(&a2);
             if (arithm_error_flag) {
                 ctx.errflag = true;
                 break;
