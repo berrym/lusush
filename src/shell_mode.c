@@ -92,6 +92,7 @@ static const bool feature_matrix[SHELL_MODE_COUNT][FEATURE_COUNT] = {
         [FEATURE_GLOB_QUALIFIERS]     = false,
         [FEATURE_HOOK_FUNCTIONS]      = false,
         [FEATURE_ZSH_PARAM_FLAGS]     = false,
+        [FEATURE_PLUGIN_SYSTEM]       = false,
     },
 
     /* SHELL_MODE_BASH - Bash 5.x compatibility */
@@ -149,6 +150,7 @@ static const bool feature_matrix[SHELL_MODE_COUNT][FEATURE_COUNT] = {
         [FEATURE_GLOB_QUALIFIERS]     = false,
         [FEATURE_HOOK_FUNCTIONS]      = false, /* Bash has PROMPT_COMMAND instead */
         [FEATURE_ZSH_PARAM_FLAGS]     = false,
+        [FEATURE_PLUGIN_SYSTEM]       = false, /* Not a Bash feature */
     },
 
     /* SHELL_MODE_ZSH - Zsh compatibility */
@@ -206,6 +208,7 @@ static const bool feature_matrix[SHELL_MODE_COUNT][FEATURE_COUNT] = {
         [FEATURE_GLOB_QUALIFIERS]     = true,
         [FEATURE_HOOK_FUNCTIONS]      = true,
         [FEATURE_ZSH_PARAM_FLAGS]     = true,
+        [FEATURE_PLUGIN_SYSTEM]       = false, /* Not a Zsh feature */
     },
 
     /* SHELL_MODE_LUSUSH - Curated best of both (DEFAULT) */
@@ -263,6 +266,7 @@ static const bool feature_matrix[SHELL_MODE_COUNT][FEATURE_COUNT] = {
         [FEATURE_GLOB_QUALIFIERS]     = true,  /* Powerful feature */
         [FEATURE_HOOK_FUNCTIONS]      = true,  /* Essential for prompts */
         [FEATURE_ZSH_PARAM_FLAGS]     = false, /* Less common, opt-in */
+        [FEATURE_PLUGIN_SYSTEM]       = true,  /* Lusush extension */
     },
 };
 
@@ -335,6 +339,7 @@ static const char *feature_names[FEATURE_COUNT] = {
     [FEATURE_GLOB_QUALIFIERS]      = "glob_qualifiers",
     [FEATURE_HOOK_FUNCTIONS]       = "hook_functions",
     [FEATURE_ZSH_PARAM_FLAGS]      = "zsh_param_flags",
+    [FEATURE_PLUGIN_SYSTEM]        = "plugin_system",
 };
 
 /* Feature short names for common features (for config convenience) */
@@ -352,6 +357,7 @@ static const struct {
     {"dotglob",     FEATURE_DOT_GLOB},
     {"autocd",      FEATURE_AUTO_CD},
     {"wordsplit",   FEATURE_WORD_SPLIT_DEFAULT},
+    {"plugins",     FEATURE_PLUGIN_SYSTEM},
     {NULL, 0}
 };
 
