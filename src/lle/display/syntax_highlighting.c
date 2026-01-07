@@ -64,11 +64,13 @@ static const lle_syntax_colors_t default_colors = {
     .assignment = 0x006C71C4, /* Violet (same as variable) */
 
     /* Other */
-    .comment = 0x00586E75,  /* Base01 (dim) */
-    .number = 0x002AA198,   /* Cyan */
-    .option = 0x00839496,   /* Base0 */
-    .glob = 0x00CB4B16,     /* Orange */
-    .argument = 0x00839496, /* Base0 */
+    .comment = 0x00586E75,   /* Base01 (dim) */
+    .number = 0x002AA198,    /* Cyan */
+    .option = 0x00839496,    /* Base0 */
+    .glob = 0x00CB4B16,      /* Orange */
+    .extglob = 0x00CB4B16,   /* Orange (same as glob) */
+    .glob_qual = 0x00D33682, /* Magenta */
+    .argument = 0x00839496,  /* Base0 */
 
     /* Here-documents and here-strings */
     .heredoc_op = 0x00D33682,      /* Magenta (same as redirect) */
@@ -233,6 +235,52 @@ static bool is_variable_start(char c) {
  * @return true if the character is *, ?, or [
  */
 static bool is_glob_char(char c) { return c == '*' || c == '?' || c == '['; }
+
+/**
+ * @brief Check if a character introduces an extended glob pattern
+ * @param c Character to check
+ * @return true if the character is ?, *, +, @, or !
+ *
+ * Extended globs: ?(pat), *(pat), +(pat), @(pat), !(pat)
+ */
+static bool is_extglob_prefix(char c) {
+    return c == '?' || c == '*' || c == '+' || c == '@' || c == '!';
+}
+
+/**
+ * @brief Check if position starts an extended glob pattern
+ * @param input Input string
+ * @param pos Current position
+ * @param len Total length
+ * @return true if this is an extended glob like ?(, *(, +(, @(, !(
+ */
+static bool is_extglob_start(const char *input, size_t pos, size_t len) {
+    if (pos + 1 >= len) return false;
+    return is_extglob_prefix(input[pos]) && input[pos + 1] == '(';
+}
+
+/**
+ * @brief Check if position starts a glob qualifier
+ * @param input Input string
+ * @param pos Current position
+ * @param len Total length
+ * @return true if this is a glob qualifier like *(.) or *(/)
+ *
+ * Zsh-style glob qualifiers: *(.) for files, *(/) for dirs, *(@) for symlinks
+ */
+static bool is_glob_qualifier(const char *input, size_t pos, size_t len) {
+    /* Must have *( followed by single char and ) */
+    if (pos + 3 >= len) return false;
+    if (input[pos] != '*' || input[pos + 1] != '(') return false;
+    /* Check for single-char qualifier: ., /, @, *, etc. */
+    char qual = input[pos + 2];
+    if (input[pos + 3] == ')' && 
+        (qual == '.' || qual == '/' || qual == '@' || qual == '*' ||
+         qual == 'r' || qual == 'w' || qual == 'x')) {
+        return true;
+    }
+    return false;
+}
 
 /**
  * @brief Check if a word is a variable assignment (VAR=value pattern)
@@ -779,6 +827,27 @@ int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
         }
 
         if (c == '(') {
+            /* Arithmetic command: (( expr )) */
+            if (pos + 1 < input_len && input[pos + 1] == '(') {
+                pos += 2; /* Skip (( */
+                int depth = 1;
+                while (pos < input_len && depth > 0) {
+                    if (pos + 1 < input_len && input[pos] == '(' &&
+                        input[pos + 1] == '(') {
+                        depth++;
+                        pos++;
+                    } else if (pos + 1 < input_len && input[pos] == ')' &&
+                               input[pos + 1] == ')') {
+                        depth--;
+                        pos++;
+                    }
+                    pos++;
+                }
+                add_token(highlighter, LLE_TOKEN_ARITHMETIC, token_start, pos);
+                expect_command = false;
+                continue;
+            }
+            /* Regular subshell */
             pos++;
             add_token(highlighter, LLE_TOKEN_SUBSHELL_START, token_start, pos);
             expect_command = true;
@@ -802,6 +871,28 @@ int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
         if (c == '}') {
             pos++;
             add_token(highlighter, LLE_TOKEN_BRACE_END, token_start, pos);
+            expect_command = false;
+            continue;
+        }
+
+        /* Glob qualifier: *(.) *(/) *(@) - must check before extglob */
+        if (is_glob_qualifier(input, pos, input_len)) {
+            pos += 4; /* Skip *(X) */
+            add_token(highlighter, LLE_TOKEN_GLOB_QUAL, token_start, pos);
+            expect_command = false;
+            continue;
+        }
+
+        /* Extended glob: ?(pat), *(pat), +(pat), @(pat), !(pat) */
+        if (is_extglob_start(input, pos, input_len)) {
+            pos += 2; /* Skip ?( or *( etc. */
+            int depth = 1;
+            while (pos < input_len && depth > 0) {
+                if (input[pos] == '(') depth++;
+                else if (input[pos] == ')') depth--;
+                pos++;
+            }
+            add_token(highlighter, LLE_TOKEN_EXTGLOB, token_start, pos);
             expect_command = false;
             continue;
         }
@@ -1002,6 +1093,12 @@ int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
             break;
         case LLE_TOKEN_GLOB:
             tok->color = c->glob;
+            break;
+        case LLE_TOKEN_EXTGLOB:
+            tok->color = c->extglob;
+            break;
+        case LLE_TOKEN_GLOB_QUAL:
+            tok->color = c->glob_qual;
             break;
         case LLE_TOKEN_ARGUMENT:
             tok->color = c->argument;

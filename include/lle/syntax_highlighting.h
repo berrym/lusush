@@ -79,11 +79,13 @@ typedef enum lle_syntax_token_type {
     LLE_TOKEN_BRACE_END,      /**< Brace group end } */
 
     /* Other */
-    LLE_TOKEN_COMMENT,  /**< Comment (# ...) */
-    LLE_TOKEN_OPTION,   /**< Command option (-v, --verbose) */
-    LLE_TOKEN_ARGUMENT, /**< Generic argument */
-    LLE_TOKEN_GLOB,     /**< Glob pattern (*, ?, [...]) */
-    LLE_TOKEN_ESCAPE,   /**< Escape sequence (\x) */
+    LLE_TOKEN_COMMENT,      /**< Comment (# ...) */
+    LLE_TOKEN_OPTION,       /**< Command option (-v, --verbose) */
+    LLE_TOKEN_ARGUMENT,     /**< Generic argument */
+    LLE_TOKEN_GLOB,         /**< Glob pattern (*, ?, [...]) */
+    LLE_TOKEN_EXTGLOB,      /**< Extended glob ?(pat), *(pat), +(pat), @(pat), !(pat) */
+    LLE_TOKEN_GLOB_QUAL,    /**< Glob qualifier *(.), *(/) */
+    LLE_TOKEN_ESCAPE,       /**< Escape sequence (\x) */
 
     /* Here-documents and here-strings */
     LLE_TOKEN_HEREDOC_OP,      /**< Heredoc operator (<<, <<-, <<') */
@@ -151,11 +153,13 @@ typedef struct lle_syntax_colors {
     uint32_t assignment; /**< Variable assignment (VAR=value) */
 
     /* Other */
-    uint32_t comment;  /**< Comments (typically dim/gray) */
-    uint32_t number;   /**< Numbers (typically cyan) */
-    uint32_t option;   /**< Options (typically white/default) */
-    uint32_t glob;     /**< Glob patterns */
-    uint32_t argument; /**< Generic arguments (default) */
+    uint32_t comment;   /**< Comments (typically dim/gray) */
+    uint32_t number;    /**< Numbers (typically cyan) */
+    uint32_t option;    /**< Options (typically white/default) */
+    uint32_t glob;      /**< Glob patterns */
+    uint32_t extglob;   /**< Extended glob patterns ?(pat), *(pat), etc. */
+    uint32_t glob_qual; /**< Glob qualifiers *(.), *(/) */
+    uint32_t argument;  /**< Generic arguments (default) */
 
     /* Here-documents and here-strings */
     uint32_t heredoc_op;      /**< Heredoc operator (<<) */
