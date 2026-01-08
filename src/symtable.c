@@ -2004,10 +2004,21 @@ static int array_ensure_capacity(array_value_t *array) {
 
 /**
  * @brief Set an element in an indexed array
+ * 
+ * Supports negative indices: -1 is last element, -2 is second-to-last, etc.
+ * Negative indices are converted relative to (max_index + 1).
  */
 int symtable_array_set_index(array_value_t *array, int index, const char *value) {
-    if (!array || array->is_associative || index < 0) {
+    if (!array || array->is_associative) {
         return -1;
+    }
+    
+    // Handle negative indices (Bash-style: -1 = last element)
+    if (index < 0) {
+        index = (int)(array->max_index + 1) + index;
+        if (index < 0) {
+            return -1;  // Still negative = out of bounds
+        }
     }
 
     bool found;
@@ -2043,10 +2054,21 @@ int symtable_array_set_index(array_value_t *array, int index, const char *value)
 
 /**
  * @brief Get an element from an indexed array
+ * 
+ * Supports negative indices: -1 is last element, -2 is second-to-last, etc.
+ * Negative indices are converted relative to (max_index + 1).
  */
 const char *symtable_array_get_index(array_value_t *array, int index) {
-    if (!array || array->is_associative || index < 0) {
+    if (!array || array->is_associative) {
         return NULL;
+    }
+    
+    // Handle negative indices (Bash-style: -1 = last element)
+    if (index < 0) {
+        index = (int)(array->max_index + 1) + index;
+        if (index < 0) {
+            return NULL;  // Still negative = out of bounds
+        }
     }
 
     bool found;
@@ -2120,10 +2142,21 @@ size_t symtable_array_length(array_value_t *array) {
 
 /**
  * @brief Unset an element in an indexed array
+ * 
+ * Supports negative indices: -1 is last element, -2 is second-to-last, etc.
+ * Negative indices are converted relative to (max_index + 1).
  */
 int symtable_array_unset_index(array_value_t *array, int index) {
-    if (!array || array->is_associative || index < 0) {
+    if (!array || array->is_associative) {
         return -1;
+    }
+    
+    // Handle negative indices (Bash-style: -1 = last element)
+    if (index < 0) {
+        index = (int)(array->max_index + 1) + index;
+        if (index < 0) {
+            return -1;  // Still negative = out of bounds
+        }
     }
 
     bool found;

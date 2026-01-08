@@ -6030,6 +6030,206 @@ static char *transform_assignment(const char *name, const char *value) {
 }
 
 /**
+ * @brief Expand prompt escape sequences
+ *
+ * Used for ${var@P} transformation. Expands Bash-style prompt escapes:
+ *   \u - username
+ *   \h - hostname (short)
+ *   \H - hostname (full)
+ *   \w - current working directory
+ *   \W - basename of current working directory
+ *   \$ - $ for regular users, # for root
+ *   \n - newline
+ *   \t - tab
+ *   \\ - literal backslash
+ *
+ * @param str String containing prompt escapes
+ * @return Expanded string (caller must free)
+ */
+static char *transform_prompt(const char *str) {
+    if (!str) {
+        return strdup("");
+    }
+
+    size_t len = strlen(str);
+    size_t result_size = len * 4 + 256;  // Allow for expansion
+    char *result = malloc(result_size);
+    if (!result) {
+        return strdup("");
+    }
+
+    size_t j = 0;
+    for (size_t i = 0; i < len && j < result_size - 1; i++) {
+        if (str[i] == '\\' && i + 1 < len) {
+            char next = str[i + 1];
+            switch (next) {
+            case 'u': {
+                // Username
+                struct passwd *pw = getpwuid(getuid());
+                const char *user = pw ? pw->pw_name : "user";
+                size_t ulen = strlen(user);
+                if (j + ulen < result_size - 1) {
+                    strcpy(result + j, user);
+                    j += ulen;
+                }
+                i++;
+                break;
+            }
+            case 'h': {
+                // Hostname (short - up to first dot)
+                char hostname[256];
+                if (gethostname(hostname, sizeof(hostname)) == 0) {
+                    char *dot = strchr(hostname, '.');
+                    if (dot) *dot = '\0';
+                    size_t hlen = strlen(hostname);
+                    if (j + hlen < result_size - 1) {
+                        strcpy(result + j, hostname);
+                        j += hlen;
+                    }
+                }
+                i++;
+                break;
+            }
+            case 'H': {
+                // Hostname (full)
+                char hostname[256];
+                if (gethostname(hostname, sizeof(hostname)) == 0) {
+                    size_t hlen = strlen(hostname);
+                    if (j + hlen < result_size - 1) {
+                        strcpy(result + j, hostname);
+                        j += hlen;
+                    }
+                }
+                i++;
+                break;
+            }
+            case 'w': {
+                // Current working directory
+                char cwd[PATH_MAX];
+                if (getcwd(cwd, sizeof(cwd))) {
+                    // Replace home dir with ~
+                    struct passwd *pw = getpwuid(getuid());
+                    const char *home = pw ? pw->pw_dir : getenv("HOME");
+                    if (home && strncmp(cwd, home, strlen(home)) == 0) {
+                        result[j++] = '~';
+                        size_t rest_len = strlen(cwd + strlen(home));
+                        if (j + rest_len < result_size - 1) {
+                            strcpy(result + j, cwd + strlen(home));
+                            j += rest_len;
+                        }
+                    } else {
+                        size_t clen = strlen(cwd);
+                        if (j + clen < result_size - 1) {
+                            strcpy(result + j, cwd);
+                            j += clen;
+                        }
+                    }
+                }
+                i++;
+                break;
+            }
+            case 'W': {
+                // Basename of current working directory
+                char cwd[PATH_MAX];
+                if (getcwd(cwd, sizeof(cwd))) {
+                    const char *base = strrchr(cwd, '/');
+                    base = base ? base + 1 : cwd;
+                    if (*base == '\0') base = "/";
+                    size_t blen = strlen(base);
+                    if (j + blen < result_size - 1) {
+                        strcpy(result + j, base);
+                        j += blen;
+                    }
+                }
+                i++;
+                break;
+            }
+            case '$':
+                // $ or # based on UID
+                result[j++] = (getuid() == 0) ? '#' : '$';
+                i++;
+                break;
+            case 'n':
+                result[j++] = '\n';
+                i++;
+                break;
+            case 't':
+                result[j++] = '\t';
+                i++;
+                break;
+            case '\\':
+                result[j++] = '\\';
+                i++;
+                break;
+            default:
+                // Unknown escape, keep as-is
+                result[j++] = str[i];
+                break;
+            }
+        } else {
+            result[j++] = str[i];
+        }
+    }
+
+    result[j] = '\0';
+    return result;
+}
+
+/**
+ * @brief Get variable attribute flags
+ *
+ * Used for ${var@a} transformation. Returns attribute flags:
+ *   r - readonly
+ *   x - exported
+ *   a - indexed array
+ *   A - associative array
+ *   n - nameref
+ *
+ * @param name Variable name
+ * @return Attribute string (caller must free)
+ */
+static char *get_variable_attributes(const char *name) {
+    if (!name) {
+        return strdup("");
+    }
+
+    char attrs[16] = {0};
+    size_t idx = 0;
+
+    symtable_manager_t *mgr = symtable_get_global_manager();
+    if (!mgr) {
+        return strdup("");
+    }
+
+    // Get variable flags
+    symvar_flags_t flags = symtable_get_flags(mgr, name);
+
+    if (flags & SYMVAR_READONLY) {
+        attrs[idx++] = 'r';
+    }
+    if (flags & SYMVAR_EXPORTED) {
+        attrs[idx++] = 'x';
+    }
+    
+    // Check if it's an array
+    if (symtable_is_array(name)) {
+        array_value_t *arr = symtable_get_array(name);
+        if (arr && arr->is_associative) {
+            attrs[idx++] = 'A';
+        } else {
+            attrs[idx++] = 'a';
+        }
+    }
+    
+    // Check for nameref
+    if (symtable_is_nameref(mgr, name)) {
+        attrs[idx++] = 'n';
+    }
+
+    return strdup(attrs);
+}
+
+/**
  * @brief Recursively expand variables within a string
  *
  * Expands all variable references, arithmetic expressions, and
@@ -6854,13 +7054,13 @@ static char *parse_parameter_expansion(executor_t *executor,
                     result = transform_escape(var_value);
                     break;
                 case 'P': // Expand as prompt string
-                    result = strdup(var_value); // TODO: prompt expansion
+                    result = transform_prompt(var_value);
                     break;
                 case 'A': // Assignment statement form
                     result = transform_assignment(var_name, var_value);
                     break;
                 case 'a': // Attribute flags
-                    result = strdup(""); // TODO: return variable attributes
+                    result = get_variable_attributes(var_name);
                     break;
                 case 'U': // Uppercase all
                     result = convert_case_all_upper(var_value);
@@ -9125,6 +9325,18 @@ static bool evaluate_simple_test(executor_t *executor, const char *expr) {
                         op_start = scan;
                         strcpy(op_type, "-ge");
                         break;
+                    } else if (strncmp(scan, "-nt", 3) == 0 && (isspace(scan[3]) || scan[3] == '\0')) {
+                        op_start = scan;
+                        strcpy(op_type, "-nt");
+                        break;
+                    } else if (strncmp(scan, "-ot", 3) == 0 && (isspace(scan[3]) || scan[3] == '\0')) {
+                        op_start = scan;
+                        strcpy(op_type, "-ot");
+                        break;
+                    } else if (strncmp(scan, "-ef", 3) == 0 && (isspace(scan[3]) || scan[3] == '\0')) {
+                        op_start = scan;
+                        strcpy(op_type, "-ef");
+                        break;
                     }
                 }
             }
@@ -9174,6 +9386,30 @@ static bool evaluate_simple_test(executor_t *executor, const char *expr) {
                 result = (atoll(lhs ? lhs : "0") > atoll(rhs ? rhs : "0"));
             } else if (strcmp(op_type, "-ge") == 0) {
                 result = (atoll(lhs ? lhs : "0") >= atoll(rhs ? rhs : "0"));
+            } else if (strcmp(op_type, "-nt") == 0) {
+                // File1 newer than file2
+                struct stat st1, st2;
+                if (lhs && rhs && stat(lhs, &st1) == 0 && stat(rhs, &st2) == 0) {
+                    result = (st1.st_mtime > st2.st_mtime);
+                } else {
+                    result = false;
+                }
+            } else if (strcmp(op_type, "-ot") == 0) {
+                // File1 older than file2
+                struct stat st1, st2;
+                if (lhs && rhs && stat(lhs, &st1) == 0 && stat(rhs, &st2) == 0) {
+                    result = (st1.st_mtime < st2.st_mtime);
+                } else {
+                    result = false;
+                }
+            } else if (strcmp(op_type, "-ef") == 0) {
+                // File1 and file2 are same file (same device and inode)
+                struct stat st1, st2;
+                if (lhs && rhs && stat(lhs, &st1) == 0 && stat(rhs, &st2) == 0) {
+                    result = (st1.st_dev == st2.st_dev && st1.st_ino == st2.st_ino);
+                } else {
+                    result = false;
+                }
             }
             
             free(lhs);
@@ -9411,12 +9647,8 @@ static int execute_array_assignment(executor_t *executor,
         long long idx = strtoll(idx_result, NULL, 10);
         free(idx_result);
 
-        if (idx < 0) {
-            if (expanded_value)
-                free(expanded_value);
-            set_executor_error(executor, "Invalid array index");
-            return 1;
-        }
+        // Note: negative indices are now handled by symtable_array_*_index()
+        // which converts them to positive indices relative to max_index
 
         if (is_append) {
             // Append to existing element

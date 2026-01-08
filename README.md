@@ -78,11 +78,11 @@ The `setopt`/`unsetopt` commands provide Zsh-style option control. A central con
 Lusush implements extended shell features beyond POSIX:
 
 - **Brace expansion** - `{a,b,c}` and `{1..10}` sequence expansion
-- **Arrays** - Indexed and associative: `declare -A map`
-- **Extended tests** - `[[ ]]` with pattern matching and regex
+- **Arrays** - Indexed arrays with negative index support (`${arr[-1]}`)
+- **Extended tests** - `[[ ]]` with pattern matching, regex, and file comparison (`-nt`, `-ot`, `-ef`)
 - **Process substitution** - `<(cmd)` and `>(cmd)`
-- **Parameter expansion** - Case modification, substitution, slicing
-- **Glob qualifiers** - `*(.)` for files, `*(/)` for directories
+- **Parameter expansion** - Case modification, substitution, slicing, transformations (`@Q`, `@E`, `@P`, `@a`)
+- **Extended globbing** - `?(pat)`, `*(pat)`, `+(pat)`, `@(pat)`, `!(pat)`
 - **Hook functions** - `precmd`, `preexec`, `chpwd`, `periodic`
 
 ### Context-Aware Error System (v1.5.0)
@@ -148,15 +148,20 @@ Linux (primary), macOS, BSD.
 | Core shell / POSIX builtins | Working |
 | LLE - Emacs mode | Complete |
 | LLE - Vi mode | Framework only |
-| Extended syntax (arrays, `[[]]`, process sub) | Mostly complete |
+| Extended tests `[[ ]]` | Complete |
 | Brace expansion `{a,b}` `{1..10}` | Complete |
+| Extended globbing `?(pat)` `*(pat)` | Complete |
+| Parameter transformations `@Q` `@P` `@a` | Complete |
+| Negative array indices `${arr[-1]}` | Complete |
 | Shell modes | Working |
 | Debugger | Working |
 | Configuration system | Complete |
 | Context-aware error system | Complete |
+| Associative arrays | Partial |
+| Arithmetic with operators | Known issues |
 | User extensibility / plugins | Not yet implemented |
 
-The shell is functional for many use cases but has gaps. Some common constructs don't work yet. Thorough testing is ongoing.
+The shell is functional for many use cases. 82 extended syntax tests pass. Some edge cases remain.
 
 ---
 
