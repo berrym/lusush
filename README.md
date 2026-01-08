@@ -163,7 +163,7 @@ Linux (primary), macOS, BSD.
 | Context-aware error system | Complete |
 | Associative arrays | Complete |
 | Advanced redirections | Complete |
-| Arithmetic expansion | Working |
+| Arithmetic expansion | Complete |
 | User extensibility / plugins | Not yet implemented |
 
 The shell is functional for many use cases. 82 extended syntax tests pass. Some edge cases remain.
