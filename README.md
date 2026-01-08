@@ -2,9 +2,11 @@
 
 **An interactive shell under active development.**
 
-[![Version](https://img.shields.io/badge/version-1.5.0--prerelease-blue)](https://github.com/lusush/lusush/releases)
+[![CI](https://github.com/berrym/lusush/actions/workflows/ci.yml/badge.svg)](https://github.com/berrym/lusush/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/berrym/lusush/graph/badge.svg)](https://codecov.io/gh/berrym/lusush)
+[![Version](https://img.shields.io/badge/version-1.5.0--prerelease-blue)](https://github.com/berrym/lusush/releases)
 [![License](https://img.shields.io/badge/license-GPL--3.0+-blue)](LICENSE)
-[![C11](https://img.shields.io/badge/standard-C11-blue)](https://github.com/lusush/lusush)
+[![C11](https://img.shields.io/badge/standard-C11-blue)](https://github.com/berrym/lusush)
 
 ---
 
