@@ -81,6 +81,7 @@ Lusush implements extended shell features beyond POSIX:
 
 - **Brace expansion** - `{a,b,c}` and `{1..10}` sequence expansion
 - **Arrays** - Indexed arrays with negative index support (`${arr[-1]}`)
+- **Associative arrays** - `declare -A map; map[key]=value`
 - **Extended tests** - `[[ ]]` with pattern matching, regex, and file comparison (`-nt`, `-ot`, `-ef`)
 - **Process substitution** - `<(cmd)` and `>(cmd)`
 - **Parameter expansion** - Case modification, substitution, slicing, transformations (`@Q`, `@E`, `@P`, `@a`)
@@ -159,8 +160,8 @@ Linux (primary), macOS, BSD.
 | Debugger | Working |
 | Configuration system | Complete |
 | Context-aware error system | Complete |
-| Associative arrays | Partial |
-| Arithmetic with operators | Known issues |
+| Associative arrays | Working (literal syntax incomplete) |
+| Arithmetic expansion | Working |
 | User extensibility / plugins | Not yet implemented |
 
 The shell is functional for many use cases. 82 extended syntax tests pass. Some edge cases remain.
