@@ -137,7 +137,7 @@ ninja -C build
 meson test -C build
 ```
 
-57 tests. Zero memory leaks (verified with valgrind/leaks on each release).
+57 tests. Note: This prerelease has minor memory leaks in array operations that will be fixed before final release.
 
 ### Platforms
 
