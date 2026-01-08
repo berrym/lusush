@@ -37,6 +37,8 @@ static node_t *parse_function_definition(parser_t *parser);
 static bool is_function_definition(parser_t *parser);
 static node_t *parse_logical_expression(parser_t *parser);
 static node_t *parse_redirection(parser_t *parser);
+static bool is_redirection_token(token_type_t type);
+static bool parse_trailing_redirections(parser_t *parser, node_t *compound_node);
 
 // Forward declarations for extended language features (Phase 1)
 static node_t *parse_arithmetic_command(parser_t *parser);
@@ -827,7 +829,9 @@ static node_t *parse_simple_command(parser_t *parser) {
             }
         }
 
-        if (next && next->type == TOK_ASSIGN) {
+        if (next && (next->type == TOK_ASSIGN || next->type == TOK_PLUS_ASSIGN)) {
+            bool is_append = (next->type == TOK_PLUS_ASSIGN);
+
             // Save variable name BEFORE advancing tokenizer
             char *var_name = strdup(current->text);
             if (!var_name) {
@@ -835,11 +839,11 @@ static node_t *parse_simple_command(parser_t *parser) {
             }
 
             tokenizer_advance(parser->tokenizer); // consume variable name
-            tokenizer_advance(parser->tokenizer); // consume '='
+            tokenizer_advance(parser->tokenizer); // consume '=' or '+='
 
             token_t *value = tokenizer_current(parser->tokenizer);
 
-            // Check for array literal assignment: arr=(a b c)
+            // Check for array literal assignment: arr=(a b c) or arr+=(a b c)
             if (value && value->type == TOK_LPAREN &&
                 shell_mode_allows(FEATURE_INDEXED_ARRAYS)) {
                 node_t *array_node = parse_array_literal(parser);
@@ -847,8 +851,8 @@ static node_t *parse_simple_command(parser_t *parser) {
                     free(var_name);
                     return NULL;
                 }
-                // Create array assignment node
-                node_t *assign_node = new_node(NODE_ARRAY_ASSIGN);
+                // Create array assignment or append node
+                node_t *assign_node = new_node(is_append ? NODE_ARRAY_APPEND : NODE_ARRAY_ASSIGN);
                 if (!assign_node) {
                     free(var_name);
                     free_node_tree(array_node);
@@ -960,6 +964,7 @@ static node_t *parse_simple_command(parser_t *parser) {
             }
 
             add_child_node(command, redir_node);
+            continue;  // Continue to check for more redirections/arguments
         }
         // Handle process substitution <(cmd) and >(cmd)
         else if (arg_token->type == TOK_PROC_SUB_IN ||
@@ -970,9 +975,92 @@ static node_t *parse_simple_command(parser_t *parser) {
                 return NULL;
             }
             add_child_node(command, proc_sub_node);
+            continue;  // Continue to check for more arguments
+        }
+        // Handle array literal arguments: name=(...) or name+=(...)
+        // This allows declare -A map=([key]=value) to work
+        else if (token_is_word_like(arg_token->type) &&
+                 shell_mode_allows(FEATURE_INDEXED_ARRAYS)) {
+            // Peek ahead to see if this is word followed by = or += 
+            // Check if next token (lookahead) is = or +=, and the one after is (
+            token_t *peek1 = tokenizer_peek(parser->tokenizer);
+            
+            if (peek1 && (peek1->type == TOK_ASSIGN || peek1->type == TOK_PLUS_ASSIGN)) {
+                // Check if = or += is immediately adjacent (no whitespace)
+                size_t word_end = arg_token->position + strlen(arg_token->text);
+                if (peek1->position == word_end) {
+                    // They're adjacent. Now check if ( follows the =
+                    // To check this, we need to look at what comes after peek1
+                    size_t assign_end = peek1->position + strlen(peek1->text);
+                    // Peek at the input directly to see if ( follows
+                    if (assign_end < parser->tokenizer->input_length &&
+                        parser->tokenizer->input[assign_end] == '(') {
+                        // This is an array literal argument: name=(...) or name+=(...)
+                        char *var_name = strdup(arg_token->text);
+                        bool is_append = (peek1->type == TOK_PLUS_ASSIGN);
+                        
+                        tokenizer_advance(parser->tokenizer); // consume var name
+                        tokenizer_advance(parser->tokenizer); // consume = or +=
+                        
+                        // Now parse the array literal
+                        node_t *array_node = parse_array_literal(parser);
+                        if (!array_node) {
+                            free(var_name);
+                            free_node_tree(command);
+                            return NULL;
+                        }
+                        
+                        // Build a string representation for the argument: name=(...) 
+                        // The builtin will parse this
+                        size_t total_len = strlen(var_name) + (is_append ? 2 : 1) + 2; // name + = or += + ()
+                        
+                        // Count total length of elements
+                        node_t *elem = array_node->first_child;
+                        while (elem) {
+                            if (elem->val.str) {
+                                total_len += strlen(elem->val.str) + 1; // element + space
+                            }
+                            elem = elem->next_sibling;
+                        }
+                        
+                        char *arg_str = malloc(total_len + 1);
+                        if (arg_str) {
+                            strcpy(arg_str, var_name);
+                            strcat(arg_str, is_append ? "+=(" : "=(");
+                            elem = array_node->first_child;
+                            bool first = true;
+                            while (elem) {
+                                if (elem->val.str) {
+                                    if (!first) strcat(arg_str, " ");
+                                    strcat(arg_str, elem->val.str);
+                                    first = false;
+                                }
+                                elem = elem->next_sibling;
+                            }
+                            strcat(arg_str, ")");
+                            
+                            // Use NODE_STRING_LITERAL to prevent glob/brace expansion
+                            // The array literal syntax [key]=value should be passed literally
+                            node_t *arg_node = new_node(NODE_STRING_LITERAL);
+                            if (arg_node) {
+                                arg_node->val.str = arg_str;
+                                arg_node->val_type = VAL_STR;
+                                add_child_node(command, arg_node);
+                            } else {
+                                free(arg_str);
+                            }
+                        }
+                        
+                        free(var_name);
+                        free_node_tree(array_node);
+                        continue; // Skip to next argument
+                    }
+                }
+            }
+            // Not an array literal, fall through to regular argument handling
         }
         // Handle all argument tokens with unified concatenation logic
-        else if (arg_token->type == TOK_STRING ||
+        if (arg_token->type == TOK_STRING ||
                  arg_token->type == TOK_EXPANDABLE_STRING ||
                  arg_token->type == TOK_ARITH_EXP ||
                  arg_token->type == TOK_COMMAND_SUB ||
@@ -1161,6 +1249,12 @@ static node_t *parse_brace_group(parser_t *parser) {
         return NULL;
     }
 
+    // Parse any trailing redirections: { cmd; } >/dev/null 2>&1
+    if (!parse_trailing_redirections(parser, group_node)) {
+        free_node_tree(group_node);
+        return NULL;
+    }
+
     return group_node;
 }
 
@@ -1219,7 +1313,64 @@ static node_t *parse_subshell(parser_t *parser) {
         return NULL;
     }
 
+    // Parse any trailing redirections: (cmd) >/dev/null 2>&1
+    if (!parse_trailing_redirections(parser, subshell_node)) {
+        free_node_tree(subshell_node);
+        return NULL;
+    }
+
     return subshell_node;
+}
+
+/**
+ * @brief Check if token is a redirection operator
+ *
+ * @param type Token type to check
+ * @return true if token is a redirection operator
+ */
+static bool is_redirection_token(token_type_t type) {
+    return type == TOK_REDIRECT_OUT ||
+           type == TOK_REDIRECT_IN ||
+           type == TOK_APPEND ||
+           type == TOK_HEREDOC ||
+           type == TOK_HEREDOC_STRIP ||
+           type == TOK_HERESTRING ||
+           type == TOK_REDIRECT_ERR ||
+           type == TOK_REDIRECT_BOTH ||
+           type == TOK_APPEND_ERR ||
+           type == TOK_REDIRECT_FD ||
+           type == TOK_REDIRECT_CLOBBER ||
+           type == TOK_APPEND_BOTH;
+}
+
+/**
+ * @brief Parse trailing redirections after a compound command
+ *
+ * Checks for and parses any redirection operators following a compound
+ * command (brace group, subshell, if, while, for, etc.) and attaches
+ * them as children of the compound command node.
+ *
+ * @param parser Parser instance
+ * @param compound_node The compound command node to attach redirections to
+ * @return true on success, false on error
+ */
+static bool parse_trailing_redirections(parser_t *parser, node_t *compound_node) {
+    if (!parser || !compound_node) {
+        return true;  // Nothing to do
+    }
+
+    token_t *current = tokenizer_current(parser->tokenizer);
+    
+    while (current && is_redirection_token(current->type)) {
+        node_t *redir_node = parse_redirection(parser);
+        if (!redir_node) {
+            return false;  // Error parsing redirection
+        }
+        add_child_node(compound_node, redir_node);
+        current = tokenizer_current(parser->tokenizer);
+    }
+    
+    return true;
 }
 
 /**
@@ -1778,6 +1929,12 @@ static node_t *parse_if_statement(parser_t *parser) {
         return NULL;
     }
 
+    // Parse any trailing redirections: if ...; then ...; fi >/dev/null 2>&1
+    if (!parse_trailing_redirections(parser, if_node)) {
+        free_node_tree(if_node);
+        return NULL;
+    }
+
     return if_node;
 }
 
@@ -1852,6 +2009,12 @@ static node_t *parse_while_statement(parser_t *parser) {
         return NULL;
     }
 
+    // Parse any trailing redirections: while ...; do ...; done </input 2>&1
+    if (!parse_trailing_redirections(parser, while_node)) {
+        free_node_tree(while_node);
+        return NULL;
+    }
+
     return while_node;
 }
 
@@ -1917,6 +2080,12 @@ static node_t *parse_until_statement(parser_t *parser) {
     skip_separators(parser);
 
     if (!expect_token(parser, TOK_DONE)) {
+        free_node_tree(until_node);
+        return NULL;
+    }
+
+    // Parse any trailing redirections: until ...; do ...; done </input 2>&1
+    if (!parse_trailing_redirections(parser, until_node)) {
         free_node_tree(until_node);
         return NULL;
     }
@@ -2133,6 +2302,12 @@ static node_t *parse_for_statement(parser_t *parser) {
         return NULL;
     }
 
+    // Parse any trailing redirections: for ...; do ...; done >/dev/null 2>&1
+    if (!parse_trailing_redirections(parser, for_node)) {
+        free_node_tree(for_node);
+        return NULL;
+    }
+
     return for_node;
 }
 
@@ -2255,6 +2430,12 @@ static node_t *parse_select_statement(parser_t *parser) {
     skip_separators(parser);
 
     if (!expect_token(parser, TOK_DONE)) {
+        free_node_tree(select_node);
+        return NULL;
+    }
+
+    // Parse any trailing redirections: select ... done >/dev/null 2>&1
+    if (!parse_trailing_redirections(parser, select_node)) {
         free_node_tree(select_node);
         return NULL;
     }
@@ -2604,6 +2785,13 @@ static node_t *parse_case_statement(parser_t *parser) {
         free_node_tree(case_node);
         return NULL;
     }
+
+    // Parse any trailing redirections: case ... esac >/dev/null 2>&1
+    if (!parse_trailing_redirections(parser, case_node)) {
+        free_node_tree(case_node);
+        return NULL;
+    }
+
     return case_node;
 }
 

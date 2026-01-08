@@ -1389,21 +1389,41 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
             if (curr_char_len > 0) {
                 // Valid UTF-8 character - check if it's a word character
                 if (is_word_codepoint(curr_codepoint)) {
-                    // Special case: stop at ] if followed by = or +=
-                    // This allows arr[n]=value and arr[n]+=value to be parsed correctly
+                    // Special case: stop at ] - it should be tokenized separately
+                    // This allows [idx]=value syntax in array literals to work
+                    // Note: We don't consume the ] here, it becomes its own TOK_RBRACKET
                     if (curr_codepoint == ']' && 
                         shell_mode_allows(FEATURE_INDEXED_ARRAYS)) {
+                        // Check if we're in a context where ] should end the word
+                        // If followed by = or +=, definitely stop (for arr[n]=value)
+                        // Also stop if we started after a [ (for [idx]=value in literals)
                         size_t next_pos = tokenizer->position + 1;
                         if (next_pos < tokenizer->input_length) {
                             char next_char = tokenizer->input[next_pos];
                             if (next_char == '=' || 
                                 (next_char == '+' && next_pos + 1 < tokenizer->input_length &&
                                  tokenizer->input[next_pos + 1] == '=')) {
-                                // Include the ] but stop here
-                                tokenizer->position++;
-                                tokenizer->column++;
+                                // Stop here, don't include the ]
                                 break;
                             }
+                        }
+                        // Also stop if we're right after a [ (detected by checking 
+                        // if the char before 'start' was '[')
+                        if (start > 0 && tokenizer->input[start - 1] == '[') {
+                            // Don't consume ], let it be tokenized separately
+                            break;
+                        }
+                    }
+
+                    // Special case: stop at + if followed by = (for += operator)
+                    // This allows arr+=(c d) to be parsed as arr followed by +=
+                    if (curr_codepoint == '+' &&
+                        shell_mode_allows(FEATURE_INDEXED_ARRAYS)) {
+                        size_t next_pos = tokenizer->position + 1;
+                        if (next_pos < tokenizer->input_length &&
+                            tokenizer->input[next_pos] == '=') {
+                            // Stop here, don't include the +
+                            break;
                         }
                     }
                     
@@ -1417,46 +1437,76 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                     // Advance by the UTF-8 character length
                     tokenizer->position += curr_char_len;
                     tokenizer->column++; // One visual column per character
-                } else if (curr_codepoint == '(' &&
-                           shell_mode_allows(FEATURE_EXTENDED_GLOB)) {
-                    // Check if previous char is extglob operator: @ ? * + !
-                    // e.g., @(foo|bar), ?(opt), *(zero-more), +(one-more), !(not)
-                    if (tokenizer->position > start) {
-                        char prev = tokenizer->input[tokenizer->position - 1];
-                        if (prev == '@' || prev == '?' || prev == '*' ||
-                            prev == '+' || prev == '!') {
-                            // Scan to find matching closing paren
-                            size_t scan_pos = tokenizer->position + 1;
-                            int paren_depth = 1;
-                            bool found_close = false;
-                            
-                            while (scan_pos < tokenizer->input_length && paren_depth > 0) {
-                                char sc = tokenizer->input[scan_pos];
-                                if (sc == '(') {
-                                    paren_depth++;
-                                } else if (sc == ')') {
-                                    paren_depth--;
-                                    if (paren_depth == 0) {
-                                        found_close = true;
-                                    }
-                                } else if (sc == '\\' && scan_pos + 1 < tokenizer->input_length) {
-                                    scan_pos++; // Skip escaped char
+                } else if (curr_codepoint == '(' && tokenizer->position > start) {
+                    char prev = tokenizer->input[tokenizer->position - 1];
+                    
+                    // Check for array literal: var=(...) 
+                    if (prev == '=' && shell_mode_allows(FEATURE_INDEXED_ARRAYS)) {
+                        // Scan to find matching closing paren
+                        size_t scan_pos = tokenizer->position + 1;
+                        int paren_depth = 1;
+                        bool found_close = false;
+                        
+                        while (scan_pos < tokenizer->input_length && paren_depth > 0) {
+                            char sc = tokenizer->input[scan_pos];
+                            if (sc == '(') {
+                                paren_depth++;
+                            } else if (sc == ')') {
+                                paren_depth--;
+                                if (paren_depth == 0) {
+                                    found_close = true;
                                 }
-                                scan_pos++;
+                            } else if (sc == '\\' && scan_pos + 1 < tokenizer->input_length) {
+                                scan_pos++; // Skip escaped char
                             }
-                            
-                            if (found_close) {
-                                // Include the extglob pattern in the word
-                                is_numeric = false;
-                                size_t old_pos = tokenizer->position;
-                                tokenizer->position = scan_pos;
-                                tokenizer->column += (scan_pos - old_pos);
-                                // Continue scanning for more word chars
-                                continue;
-                            }
+                            scan_pos++;
+                        }
+                        
+                        if (found_close) {
+                            // Include the array literal in the word
+                            is_numeric = false;
+                            size_t old_pos = tokenizer->position;
+                            tokenizer->position = scan_pos;
+                            tokenizer->column += (scan_pos - old_pos);
+                            // Continue scanning for more word chars
+                            continue;
                         }
                     }
-                    // Not an extglob pattern - end the word here
+                    // Check for extglob pattern: @(...), ?(...), *(...), +(...), !(...)
+                    else if (shell_mode_allows(FEATURE_EXTENDED_GLOB) &&
+                             (prev == '@' || prev == '?' || prev == '*' ||
+                              prev == '+' || prev == '!')) {
+                        // Scan to find matching closing paren
+                        size_t scan_pos = tokenizer->position + 1;
+                        int paren_depth = 1;
+                        bool found_close = false;
+                        
+                        while (scan_pos < tokenizer->input_length && paren_depth > 0) {
+                            char sc = tokenizer->input[scan_pos];
+                            if (sc == '(') {
+                                paren_depth++;
+                            } else if (sc == ')') {
+                                paren_depth--;
+                                if (paren_depth == 0) {
+                                    found_close = true;
+                                }
+                            } else if (sc == '\\' && scan_pos + 1 < tokenizer->input_length) {
+                                scan_pos++; // Skip escaped char
+                            }
+                            scan_pos++;
+                        }
+                        
+                        if (found_close) {
+                            // Include the extglob pattern in the word
+                            is_numeric = false;
+                            size_t old_pos = tokenizer->position;
+                            tokenizer->position = scan_pos;
+                            tokenizer->column += (scan_pos - old_pos);
+                            // Continue scanning for more word chars
+                            continue;
+                        }
+                    }
+                    // Not an extglob pattern or array literal - end the word here
                     break;
                 } else if (curr_codepoint == '$' &&
                            shell_mode_allows(FEATURE_INDEXED_ARRAYS)) {

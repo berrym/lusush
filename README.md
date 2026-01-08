@@ -80,12 +80,13 @@ The `setopt`/`unsetopt` commands provide Zsh-style option control. A central con
 Lusush implements extended shell features beyond POSIX:
 
 - **Brace expansion** - `{a,b,c}` and `{1..10}` sequence expansion
-- **Arrays** - Indexed arrays with negative index support (`${arr[-1]}`)
-- **Associative arrays** - `declare -A map; map[key]=value`
+- **Arrays** - Indexed arrays with negative index support (`${arr[-1]}`) and append syntax (`arr+=(x y)`)
+- **Associative arrays** - Full support including literal syntax `declare -A map=([key]=value)`
 - **Extended tests** - `[[ ]]` with pattern matching, regex, and file comparison (`-nt`, `-ot`, `-ef`)
 - **Process substitution** - `<(cmd)` and `>(cmd)`
 - **Parameter expansion** - Case modification, substitution, slicing, transformations (`@Q`, `@E`, `@P`, `@a`)
 - **Extended globbing** - `?(pat)`, `*(pat)`, `+(pat)`, `@(pat)`, `!(pat)`
+- **Advanced redirections** - Compound command redirections (`{ cmd; } > file`, `while ...; done < input`)
 - **Hook functions** - `precmd`, `preexec`, `chpwd`, `periodic`
 
 ### Context-Aware Error System (v1.5.0)
@@ -160,7 +161,8 @@ Linux (primary), macOS, BSD.
 | Debugger | Working |
 | Configuration system | Complete |
 | Context-aware error system | Complete |
-| Associative arrays | Working (literal syntax incomplete) |
+| Associative arrays | Complete |
+| Advanced redirections | Complete |
 | Arithmetic expansion | Working |
 | User extensibility / plugins | Not yet implemented |
 

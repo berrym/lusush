@@ -112,6 +112,7 @@ static int execute_subshell(executor_t *executor, node_t *subshell);
 /// Forward declarations for Phase 1: Arrays and Arithmetic
 static int execute_arithmetic_command(executor_t *executor, node_t *arith_node);
 static int execute_array_assignment(executor_t *executor, node_t *assign_node);
+static int execute_array_append(executor_t *executor, node_t *append_node);
 
 // Forward declarations for Phase 2: Extended Tests
 static int execute_extended_test(executor_t *executor, node_t *test_node);
@@ -880,6 +881,8 @@ static int execute_node(executor_t *executor, node_t *node) {
         return execute_extended_test(executor, node);
     case NODE_ARRAY_ASSIGN:
         return execute_array_assignment(executor, node);
+    case NODE_ARRAY_APPEND:
+        return execute_array_append(executor, node);
     case NODE_ARRAY_LITERAL:
         // Array literals are typically handled by NODE_ARRAY_ASSIGN
         return 0;
@@ -1642,22 +1645,44 @@ static int execute_if(executor_t *executor, node_t *if_node) {
         return 1;
     }
 
+    // Check for trailing redirections on the if statement
+    bool has_redirections = count_redirections(if_node) > 0;
+    redirection_state_t redir_state;
+    
+    if (has_redirections) {
+        save_file_descriptors(&redir_state);
+        int redir_result = setup_redirections(executor, if_node);
+        if (redir_result != 0) {
+            restore_file_descriptors(&redir_state);
+            return redir_result;
+        }
+    }
+
+    int result = 0;
+
     // Traverse through all children of the if statement
     node_t *current = if_node->first_child;
-    if (!current) {
+    if (!current || is_redirection_node(current)) {
         executor_error_add(executor, SHELL_ERR_MALFORMED_CONSTRUCT,
                            if_node->loc, "malformed if statement");
-        return 1;
+        result = 1;
+        goto cleanup;
     }
 
     // First child is always the if condition
     node_t *condition = current;
     current = current->next_sibling;
+    
+    // Skip any redirection nodes to find then body
+    while (current && is_redirection_node(current)) {
+        current = current->next_sibling;
+    }
 
     if (!current) {
         executor_error_add(executor, SHELL_ERR_MALFORMED_CONSTRUCT,
                            if_node->loc, "malformed if statement - missing then body");
-        return 1;
+        result = 1;
+        goto cleanup;
     }
 
     // Execute the initial if condition
@@ -1665,32 +1690,57 @@ static int execute_if(executor_t *executor, node_t *if_node) {
 
     if (condition_result == 0) { // Success in shell terms
         // Execute the then body (second child)
-        return execute_node(executor, current);
+        result = execute_node(executor, current);
+        goto cleanup;
     }
 
     // Move to next child (elif condition or else body)
     current = current->next_sibling;
+    
+    // Skip any redirection nodes
+    while (current && is_redirection_node(current)) {
+        current = current->next_sibling;
+    }
 
     // Process elif clauses - they come in pairs (condition, body)
     while (current && current->next_sibling) {
+        // Skip redirection nodes
+        node_t *next = current->next_sibling;
+        while (next && is_redirection_node(next)) {
+            next = next->next_sibling;
+        }
+        if (!next) break;
+
         // Execute elif condition
         condition_result = execute_node(executor, current);
 
         if (condition_result == 0) { // Success in shell terms
             // Execute elif body (next sibling)
-            return execute_node(executor, current->next_sibling);
+            result = execute_node(executor, next);
+            goto cleanup;
         }
 
         // Move past the elif body to the next elif condition or else body
-        current = current->next_sibling->next_sibling;
+        current = next->next_sibling;
+        while (current && is_redirection_node(current)) {
+            current = current->next_sibling;
+        }
     }
 
     // Handle final else clause if present (no condition, just body)
-    if (current) {
-        return execute_node(executor, current);
+    if (current && !is_redirection_node(current)) {
+        result = execute_node(executor, current);
+        goto cleanup;
     }
 
-    return 0;
+    result = 0;
+
+cleanup:
+    // Restore file descriptors if we set up redirections
+    if (has_redirections) {
+        restore_file_descriptors(&redir_state);
+    }
+    return result;
 }
 
 /**
@@ -1710,6 +1760,15 @@ static int execute_while(executor_t *executor, node_t *while_node) {
 
     node_t *condition = while_node->first_child;
     node_t *body = condition ? condition->next_sibling : NULL;
+    
+    // Skip past body to find any non-redirection node issues
+    // Body might be followed by redirection nodes
+    if (body && is_redirection_node(body)) {
+        // If what we think is body is a redirection, we have malformed structure
+        executor_error_add(executor, SHELL_ERR_MALFORMED_CONSTRUCT,
+                           while_node->loc, "malformed while loop");
+        return 1;
+    }
 
     if (!condition || !body) {
         executor_error_add(executor, SHELL_ERR_MALFORMED_CONSTRUCT,
@@ -1723,6 +1782,20 @@ static int execute_while(executor_t *executor, node_t *while_node) {
 
     /* Push loop context for error reporting (Phase 3) */
     executor_push_context(executor, while_node->loc, "in while loop");
+
+    // Check for trailing redirections on the while loop
+    bool has_redirections = count_redirections(while_node) > 0;
+    redirection_state_t redir_state;
+    
+    if (has_redirections) {
+        save_file_descriptors(&redir_state);
+        int redir_result = setup_redirections(executor, while_node);
+        if (redir_result != 0) {
+            restore_file_descriptors(&redir_state);
+            executor_pop_context(executor);
+            return redir_result;
+        }
+    }
 
     // Increment loop depth - enables break/continue builtins
     executor->loop_depth++;
@@ -1759,6 +1832,11 @@ static int execute_while(executor_t *executor, node_t *while_node) {
     // Decrement loop depth before returning
     executor->loop_depth--;
 
+    // Restore file descriptors if we set up redirections
+    if (has_redirections) {
+        restore_file_descriptors(&redir_state);
+    }
+
     /* Pop loop context */
     executor_pop_context(executor);
 
@@ -1790,7 +1868,7 @@ static int execute_until(executor_t *executor, node_t *until_node) {
     node_t *condition = until_node->first_child;
     node_t *body = condition ? condition->next_sibling : NULL;
 
-    if (!condition || !body) {
+    if (!condition || !body || is_redirection_node(body)) {
         executor_error_add(executor, SHELL_ERR_MALFORMED_CONSTRUCT,
                            until_node->loc, "malformed until loop");
         return 1;
@@ -1799,6 +1877,19 @@ static int execute_until(executor_t *executor, node_t *until_node) {
     int last_result = 0;
     int iteration = 0;
     const int max_iterations = 10000; // Safety limit
+
+    // Check for trailing redirections on the until loop
+    bool has_redirections = count_redirections(until_node) > 0;
+    redirection_state_t redir_state;
+    
+    if (has_redirections) {
+        save_file_descriptors(&redir_state);
+        int redir_result = setup_redirections(executor, until_node);
+        if (redir_result != 0) {
+            restore_file_descriptors(&redir_state);
+            return redir_result;
+        }
+    }
 
     // Increment loop depth - enables break/continue builtins
     executor->loop_depth++;
@@ -1835,6 +1926,11 @@ static int execute_until(executor_t *executor, node_t *until_node) {
 
     // Decrement loop depth before returning
     executor->loop_depth--;
+
+    // Restore file descriptors if we set up redirections
+    if (has_redirections) {
+        restore_file_descriptors(&redir_state);
+    }
 
     // Pop error context
     executor_pop_context(executor);
@@ -1874,10 +1970,23 @@ static int execute_for(executor_t *executor, node_t *for_node) {
     node_t *word_list = for_node->first_child;
     node_t *body = word_list ? word_list->next_sibling : NULL;
 
-    if (!body) {
+    if (!body || is_redirection_node(body)) {
         executor_error_add(executor, SHELL_ERR_MALFORMED_CONSTRUCT,
                            for_node->loc, "for loop missing body");
         return 1;
+    }
+
+    // Check for trailing redirections on the for loop
+    bool has_redirections = count_redirections(for_node) > 0;
+    redirection_state_t redir_state;
+    
+    if (has_redirections) {
+        save_file_descriptors(&redir_state);
+        int redir_result = setup_redirections(executor, for_node);
+        if (redir_result != 0) {
+            restore_file_descriptors(&redir_state);
+            return redir_result;
+        }
     }
 
     // Push loop scope
@@ -2086,6 +2195,11 @@ static int execute_for(executor_t *executor, node_t *for_node) {
     // Pop loop scope
     symtable_pop_scope(executor->symtable);
 
+    // Restore file descriptors if we set up redirections
+    if (has_redirections) {
+        restore_file_descriptors(&redir_state);
+    }
+
     // Pop error context
     executor_pop_context(executor);
 
@@ -2118,10 +2232,23 @@ static int execute_select(executor_t *executor, node_t *select_node) {
     node_t *word_list = select_node->first_child;
     node_t *body = word_list ? word_list->next_sibling : NULL;
 
-    if (!body) {
+    if (!body || is_redirection_node(body)) {
         executor_error_add(executor, SHELL_ERR_MALFORMED_CONSTRUCT,
                            select_node->loc, "select loop missing body");
         return 1;
+    }
+
+    // Check for trailing redirections on the select loop
+    bool has_redirections = count_redirections(select_node) > 0;
+    redirection_state_t redir_state;
+    
+    if (has_redirections) {
+        save_file_descriptors(&redir_state);
+        int redir_result = setup_redirections(executor, select_node);
+        if (redir_result != 0) {
+            restore_file_descriptors(&redir_state);
+            return redir_result;
+        }
     }
 
     // Build expanded word list for menu
@@ -2165,6 +2292,9 @@ static int execute_select(executor_t *executor, node_t *select_node) {
     }
 
     if (item_count == 0) {
+        if (has_redirections) {
+            restore_file_descriptors(&redir_state);
+        }
         return 0; // No items, nothing to do
     }
 
@@ -2175,6 +2305,9 @@ static int execute_select(executor_t *executor, node_t *select_node) {
             free(menu_items[i]);
         }
         free(menu_items);
+        if (has_redirections) {
+            restore_file_descriptors(&redir_state);
+        }
         return 1;
     }
 
@@ -2259,6 +2392,11 @@ static int execute_select(executor_t *executor, node_t *select_node) {
         free(menu_items[i]);
     }
     free(menu_items);
+
+    // Restore file descriptors if we set up redirections
+    if (has_redirections) {
+        restore_file_descriptors(&redir_state);
+    }
 
     return last_result;
 }
@@ -2663,7 +2801,10 @@ static char **build_argv_from_ast(executor_t *executor, node_t *command,
                     }
 
                     // Check if argument needs brace expansion first
-                    if (needs_brace_expansion(expanded_arg)) {
+                    // Skip brace/glob expansion for quoted strings
+                    if (child->type != NODE_STRING_LITERAL &&
+                        child->type != NODE_STRING_EXPANDABLE &&
+                        needs_brace_expansion(expanded_arg)) {
                         int brace_count;
                         char **brace_results =
                             expand_brace_pattern(expanded_arg, &brace_count);
@@ -2783,8 +2924,11 @@ static char **build_argv_from_ast(executor_t *executor, node_t *command,
                         if (expanded_arg) {
                             free(expanded_arg);
                         }
-                    } else if (needs_glob_expansion(expanded_arg)) {
+                    } else if (child->type != NODE_STRING_LITERAL &&
+                               child->type != NODE_STRING_EXPANDABLE &&
+                               needs_glob_expansion(expanded_arg)) {
                         // No brace expansion, check for glob expansion
+                        // Skip glob expansion for quoted strings
                         int glob_count;
                         char **glob_results =
                             expand_glob_pattern(expanded_arg, &glob_count);
@@ -3201,10 +3345,30 @@ static int execute_brace_group(executor_t *executor, node_t *group) {
     // Push error context for structured error reporting
     executor_push_context(executor, group->loc, "in brace group");
 
+    // Check for trailing redirections on the brace group
+    bool has_redirections = count_redirections(group) > 0;
+    redirection_state_t redir_state;
+    
+    if (has_redirections) {
+        save_file_descriptors(&redir_state);
+        int redir_result = setup_redirections(executor, group);
+        if (redir_result != 0) {
+            restore_file_descriptors(&redir_state);
+            executor_pop_context(executor);
+            return redir_result;
+        }
+    }
+
     int last_result = 0;
     node_t *command = group->first_child;
 
     while (command) {
+        // Skip redirection nodes - they've already been processed
+        if (is_redirection_node(command)) {
+            command = command->next_sibling;
+            continue;
+        }
+
         last_result = execute_node(executor, command);
 
         if (executor->debug) {
@@ -3213,6 +3377,9 @@ static int execute_brace_group(executor_t *executor, node_t *group) {
 
         // Check for function return (special code 200-455) - propagate it
         if (last_result >= 200 && last_result <= 455) {
+            if (has_redirections) {
+                restore_file_descriptors(&redir_state);
+            }
             executor_pop_context(executor);
             return last_result;
         }
@@ -3223,6 +3390,11 @@ static int execute_brace_group(executor_t *executor, node_t *group) {
         }
 
         command = command->next_sibling;
+    }
+
+    // Restore file descriptors if we set up redirections
+    if (has_redirections) {
+        restore_file_descriptors(&redir_state);
     }
 
     // Pop error context
@@ -3260,10 +3432,24 @@ static int execute_subshell(executor_t *executor, node_t *subshell) {
 
     if (pid == 0) {
         // Child process - execute commands in subshell environment
+        
+        // Set up any redirections attached to the subshell
+        if (count_redirections(subshell) > 0) {
+            int redir_result = setup_redirections(executor, subshell);
+            if (redir_result != 0) {
+                exit(redir_result);
+            }
+        }
+        
         int last_result = 0;
         node_t *command = subshell->first_child;
 
         while (command) {
+            // Skip redirection nodes - they've already been applied
+            if (is_redirection_node(command)) {
+                command = command->next_sibling;
+                continue;
+            }
             last_result = execute_node(executor, command);
             command = command->next_sibling;
         }
@@ -4764,6 +4950,21 @@ static int execute_case(executor_t *executor, node_t *node) {
     // Push error context for structured error reporting
     executor_push_context(executor, node->loc, "in case statement");
 
+    // Check for trailing redirections on the case statement
+    bool has_redirections = count_redirections(node) > 0;
+    redirection_state_t redir_state;
+
+    if (has_redirections) {
+        save_file_descriptors(&redir_state);
+        int redir_result = setup_redirections(executor, node);
+        if (redir_result != 0) {
+            restore_file_descriptors(&redir_state);
+            free(test_word);
+            executor_pop_context(executor);
+            return redir_result;
+        }
+    }
+
     int result = 0;
     bool done = false;
     bool execute_next = false; // For ;& fall-through
@@ -4848,6 +5049,11 @@ static int execute_case(executor_t *executor, node_t *node) {
     }
 
     free(test_word);
+
+    // Restore file descriptors if we set up redirections
+    if (has_redirections) {
+        restore_file_descriptors(&redir_state);
+    }
 
     // Pop error context
     executor_pop_context(executor);
@@ -9712,6 +9918,84 @@ static int execute_array_assignment(executor_t *executor,
 
     if (executor->debug) {
         printf("DEBUG: Set %s[%s] = %s\n", var_name, subscript, final_value);
+    }
+
+    return 0;
+}
+
+/**
+ * @brief Execute array append: arr+=(a b c)
+ *
+ * Appends elements from the array literal to an existing array.
+ * If the array doesn't exist, creates a new one.
+ *
+ * @param executor Executor context
+ * @param append_node NODE_ARRAY_APPEND node with var name and literal
+ * @return 0 on success, non-zero on error
+ */
+static int execute_array_append(executor_t *executor, node_t *append_node) {
+    if (!append_node || !append_node->val.str) {
+        return 1;
+    }
+
+    const char *var_name = append_node->val.str;
+    node_t *first_child = append_node->first_child;
+
+    if (!first_child || first_child->type != NODE_ARRAY_LITERAL) {
+        return 1;
+    }
+
+    if (executor->debug) {
+        printf("DEBUG: Executing array append for: %s\n", var_name);
+    }
+
+    // Get existing array or create new one
+    array_value_t *array = symtable_get_array(var_name);
+    bool new_array = false;
+
+    if (!array) {
+        // Create new array if it doesn't exist
+        array = symtable_array_create(false);
+        if (!array) {
+            set_executor_error(executor, "Failed to create array");
+            return 1;
+        }
+        new_array = true;
+    }
+
+    // Process each element in the literal and append
+    node_t *elem = first_child->first_child;
+
+    while (elem) {
+        if (elem->val.str) {
+            const char *elem_str = elem->val.str;
+
+            // Expand value if needed
+            char *expanded = expand_variable(executor, elem_str);
+            const char *final_value = expanded ? expanded : elem_str;
+
+            // Append to array using symtable_array_append
+            symtable_array_append(array, final_value);
+
+            if (expanded) {
+                free(expanded);
+            }
+        }
+        elem = elem->next_sibling;
+    }
+
+    // Store the array if newly created
+    if (new_array) {
+        if (symtable_set_array(var_name, array) != 0) {
+            symtable_array_free(array);
+            set_executor_error(executor, "Failed to store array");
+            return 1;
+        }
+    }
+
+    if (executor->debug) {
+        printf("DEBUG: Appended to array %s, now has %zu elements\n", var_name,
+               symtable_array_length(array));
     }
 
     return 0;
