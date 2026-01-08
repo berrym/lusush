@@ -538,7 +538,7 @@ static bool is_operator_char(char c) {
  * @return true if character can be part of a word
  */
 static bool is_word_char(char c) {
-    return isalnum(c) || strchr("_.-/~:@*?[]+%", c) != NULL;
+    return isalnum(c) || strchr("_.-/~:@*?[]+%!", c) != NULL;
 }
 
 /**
@@ -555,7 +555,7 @@ static bool is_word_codepoint(uint32_t codepoint) {
     // ASCII range: Use traditional shell word character logic
     if (codepoint < 0x80) {
         char c = (char)codepoint;
-        return isalnum(c) || strchr("_.-/~:@*?[]+%", c) != NULL;
+        return isalnum(c) || strchr("_.-/~:@*?[]+%!", c) != NULL;
     }
 
     // Non-ASCII UTF-8: All non-ASCII codepoints are valid word characters
@@ -1120,6 +1120,13 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                 return token_new(TOK_NOT_EQUAL, "!=", 2, start_line,
                                  start_column, start_pos);
             }
+            // Check for extglob !(pattern)
+            if (shell_mode_allows(FEATURE_EXTENDED_GLOB) &&
+                tokenizer->position + 1 < tokenizer->input_length &&
+                tokenizer->input[tokenizer->position + 1] == '(') {
+                // Fall through to word tokenization which handles extglob
+                break;
+            }
             // Standalone ! character (for test negation)
             tokenizer->position++;
             tokenizer->column++;
@@ -1392,6 +1399,47 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                     // Advance by the UTF-8 character length
                     tokenizer->position += curr_char_len;
                     tokenizer->column++; // One visual column per character
+                } else if (curr_codepoint == '(' &&
+                           shell_mode_allows(FEATURE_EXTENDED_GLOB)) {
+                    // Check if previous char is extglob operator: @ ? * + !
+                    // e.g., @(foo|bar), ?(opt), *(zero-more), +(one-more), !(not)
+                    if (tokenizer->position > start) {
+                        char prev = tokenizer->input[tokenizer->position - 1];
+                        if (prev == '@' || prev == '?' || prev == '*' ||
+                            prev == '+' || prev == '!') {
+                            // Scan to find matching closing paren
+                            size_t scan_pos = tokenizer->position + 1;
+                            int paren_depth = 1;
+                            bool found_close = false;
+                            
+                            while (scan_pos < tokenizer->input_length && paren_depth > 0) {
+                                char sc = tokenizer->input[scan_pos];
+                                if (sc == '(') {
+                                    paren_depth++;
+                                } else if (sc == ')') {
+                                    paren_depth--;
+                                    if (paren_depth == 0) {
+                                        found_close = true;
+                                    }
+                                } else if (sc == '\\' && scan_pos + 1 < tokenizer->input_length) {
+                                    scan_pos++; // Skip escaped char
+                                }
+                                scan_pos++;
+                            }
+                            
+                            if (found_close) {
+                                // Include the extglob pattern in the word
+                                is_numeric = false;
+                                size_t old_pos = tokenizer->position;
+                                tokenizer->position = scan_pos;
+                                tokenizer->column += (scan_pos - old_pos);
+                                // Continue scanning for more word chars
+                                continue;
+                            }
+                        }
+                    }
+                    // Not an extglob pattern - end the word here
+                    break;
                 } else if (curr_codepoint == '{' && 
                            shell_mode_allows(FEATURE_BRACE_EXPANSION)) {
                     // Check if this is a brace expansion pattern embedded in a word

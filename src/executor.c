@@ -31,6 +31,7 @@
 #include "symtable.h"
 
 #include <ctype.h>
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
@@ -3087,6 +3088,295 @@ static bool matches_glob_qualifier(const char *path, glob_qualifier_t qualifier)
     }
 }
 
+/**
+ * @brief Check if pattern contains extglob syntax
+ * 
+ * Detects ?(pat), *(pat), +(pat), @(pat), !(pat) patterns.
+ */
+static bool has_extglob_pattern(const char *pattern) {
+    if (!pattern || !shell_mode_allows(FEATURE_EXTENDED_GLOB)) {
+        return false;
+    }
+    
+    while (*pattern) {
+        if ((*pattern == '?' || *pattern == '*' || *pattern == '+' ||
+             *pattern == '@' || *pattern == '!') && *(pattern + 1) == '(') {
+            return true;
+        }
+        pattern++;
+    }
+    return false;
+}
+
+/**
+ * @brief Convert extglob pattern to regex pattern
+ * 
+ * Converts bash extglob syntax to POSIX extended regex:
+ *   ?(pat)  -> (pat)?
+ *   *(pat)  -> (pat)*
+ *   +(pat)  -> (pat)+
+ *   @(pat)  -> (pat)
+ *   !(pat)  -> handled specially (negative match)
+ *   *       -> .*
+ *   ?       -> .
+ *   .       -> \.
+ * 
+ * @param pattern Extglob pattern
+ * @param is_negated Output: true if pattern uses !(...)
+ * @return Regex pattern (caller must free), or NULL on error
+ */
+static char *extglob_to_regex(const char *pattern, bool *is_negated) {
+    if (!pattern) return NULL;
+    
+    *is_negated = false;
+    
+    // Allocate generous buffer (pattern can expand significantly)
+    size_t max_len = strlen(pattern) * 4 + 10;
+    char *regex = malloc(max_len);
+    if (!regex) return NULL;
+    
+    char *out = regex;
+    *out++ = '^';  // Anchor at start
+    
+    const char *p = pattern;
+    while (*p) {
+        // Check for extglob operators
+        if ((*p == '?' || *p == '*' || *p == '+' || *p == '@' || *p == '!') 
+            && *(p + 1) == '(') {
+            char op = *p;
+            p += 2;  // Skip operator and (
+            
+            // Find matching closing paren
+            int depth = 1;
+            const char *start = p;
+            while (*p && depth > 0) {
+                if (*p == '(') depth++;
+                else if (*p == ')') depth--;
+                if (depth > 0) p++;
+            }
+            
+            if (depth != 0) {
+                // Unmatched paren - treat literally
+                free(regex);
+                return NULL;
+            }
+            
+            // Copy the inner pattern
+            *out++ = '(';
+            size_t inner_len = p - start;
+            
+            // Convert inner pattern (replace | with |, escape regex chars)
+            for (size_t i = 0; i < inner_len; i++) {
+                char c = start[i];
+                if (c == '*') {
+                    *out++ = '.';
+                    *out++ = '*';
+                } else if (c == '?') {
+                    *out++ = '.';
+                } else if (c == '.') {
+                    *out++ = '\\';
+                    *out++ = '.';
+                } else if (c == '|') {
+                    *out++ = '|';
+                } else {
+                    *out++ = c;
+                }
+            }
+            *out++ = ')';
+            
+            // Add quantifier based on operator
+            switch (op) {
+                case '?': *out++ = '?'; break;
+                case '*': *out++ = '*'; break;
+                case '+': *out++ = '+'; break;
+                case '@': /* exactly one, no quantifier */ break;
+                case '!': *is_negated = true; break;
+            }
+            
+            p++;  // Skip closing paren
+        } else if (*p == '*') {
+            // Glob * -> regex .*
+            *out++ = '.';
+            *out++ = '*';
+            p++;
+        } else if (*p == '?') {
+            // Glob ? -> regex .
+            *out++ = '.';
+            p++;
+        } else if (*p == '.') {
+            // Escape literal dot
+            *out++ = '\\';
+            *out++ = '.';
+            p++;
+        } else if (*p == '[') {
+            // Character class - copy as-is until ]
+            *out++ = *p++;
+            while (*p && *p != ']') {
+                *out++ = *p++;
+            }
+            if (*p == ']') {
+                *out++ = *p++;
+            }
+        } else {
+            // Regular character - might need escaping
+            if (strchr("^$+{}\\", *p)) {
+                *out++ = '\\';
+            }
+            *out++ = *p++;
+        }
+    }
+    
+    *out++ = '$';  // Anchor at end
+    *out = '\0';
+    
+    return regex;
+}
+
+/**
+ * @brief Match filename against extglob pattern
+ * 
+ * @param filename Filename to match
+ * @param pattern Extglob pattern
+ * @return true if matches
+ */
+static bool match_extglob(const char *filename, const char *pattern) {
+    bool is_negated = false;
+    char *regex_pattern = extglob_to_regex(pattern, &is_negated);
+    if (!regex_pattern) {
+        return false;
+    }
+    
+    regex_t regex;
+    int ret = regcomp(&regex, regex_pattern, REG_EXTENDED | REG_NOSUB);
+    free(regex_pattern);
+    
+    if (ret != 0) {
+        return false;
+    }
+    
+    ret = regexec(&regex, filename, 0, NULL, 0);
+    regfree(&regex);
+    
+    bool matches = (ret == 0);
+    
+    // For !(pattern), invert the result
+    if (is_negated) {
+        matches = !matches;
+    }
+    
+    return matches;
+}
+
+/**
+ * @brief Expand extglob pattern by reading directory and matching
+ * 
+ * @param pattern Pattern with extglob syntax
+ * @param expanded_count Output: number of matches
+ * @return Array of matching filenames, or NULL
+ */
+static char **expand_extglob_pattern(const char *pattern, int *expanded_count) {
+    *expanded_count = 0;
+    
+    if (!pattern || !has_extglob_pattern(pattern)) {
+        return NULL;
+    }
+    
+    // Split pattern into directory and filename parts
+    char *pattern_copy = strdup(pattern);
+    if (!pattern_copy) return NULL;
+    
+    char *last_slash = strrchr(pattern_copy, '/');
+    char *dir_path = NULL;
+    char *file_pattern = NULL;
+    
+    if (last_slash) {
+        *last_slash = '\0';
+        dir_path = pattern_copy;
+        file_pattern = last_slash + 1;
+    } else {
+        dir_path = ".";
+        file_pattern = pattern_copy;
+    }
+    
+    // Open directory
+    DIR *dir = opendir(dir_path);
+    if (!dir) {
+        free(pattern_copy);
+        return NULL;
+    }
+    
+    // Collect matching entries
+    char **results = NULL;
+    int count = 0;
+    int capacity = 0;
+    
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        // Skip . and .. unless pattern explicitly starts with .
+        if (entry->d_name[0] == '.' && file_pattern[0] != '.') {
+            if (!shell_mode_allows(FEATURE_DOT_GLOB)) {
+                continue;
+            }
+        }
+        
+        if (match_extglob(entry->d_name, file_pattern)) {
+            // Resize array if needed
+            if (count >= capacity) {
+                capacity = capacity ? capacity * 2 : 16;
+                char **new_results = realloc(results, capacity * sizeof(char *));
+                if (!new_results) {
+                    for (int i = 0; i < count; i++) free(results[i]);
+                    free(results);
+                    closedir(dir);
+                    free(pattern_copy);
+                    return NULL;
+                }
+                results = new_results;
+            }
+            
+            // Build full path
+            char *full_path;
+            if (last_slash) {
+                size_t len = strlen(dir_path) + strlen(entry->d_name) + 2;
+                full_path = malloc(len);
+                if (full_path) {
+                    snprintf(full_path, len, "%s/%s", dir_path, entry->d_name);
+                }
+            } else {
+                full_path = strdup(entry->d_name);
+            }
+            
+            if (!full_path) {
+                for (int i = 0; i < count; i++) free(results[i]);
+                free(results);
+                closedir(dir);
+                free(pattern_copy);
+                return NULL;
+            }
+            
+            results[count++] = full_path;
+        }
+    }
+    
+    closedir(dir);
+    free(pattern_copy);
+    
+    if (count == 0) {
+        free(results);
+        return NULL;
+    }
+    
+    // Add NULL terminator
+    char **final = realloc(results, (count + 1) * sizeof(char *));
+    if (final) {
+        final[count] = NULL;
+        results = final;
+    }
+    
+    *expanded_count = count;
+    return results;
+}
+
 static char **expand_glob_pattern(const char *pattern, int *expanded_count) {
     if (!pattern || !expanded_count) {
         *expanded_count = 0;
@@ -3104,6 +3394,37 @@ static char **expand_glob_pattern(const char *pattern, int *expanded_count) {
         }
         *expanded_count = 0;
         return NULL;
+    }
+
+    // Try extglob expansion first if pattern contains extglob syntax
+    if (has_extglob_pattern(pattern)) {
+        char **extglob_results = expand_extglob_pattern(pattern, expanded_count);
+        if (extglob_results && *expanded_count > 0) {
+            return extglob_results;
+        }
+        // Extglob expansion failed or no matches - fall through to handle
+        // according to nullglob setting
+        if (shell_mode_allows(FEATURE_NULL_GLOB)) {
+            // Return empty array
+            char **result = malloc(sizeof(char *));
+            if (result) {
+                result[0] = NULL;
+                *expanded_count = 0;
+                return result;
+            }
+            *expanded_count = 0;
+            return NULL;
+        }
+        // Return original pattern
+        char **result = malloc(2 * sizeof(char *));
+        if (result) {
+            result[0] = strdup(pattern);
+            result[1] = NULL;
+            *expanded_count = 1;
+        } else {
+            *expanded_count = 0;
+        }
+        return result;
     }
 
     // Parse glob qualifier (Zsh-style)
@@ -3126,7 +3447,20 @@ static char **expand_glob_pattern(const char *pattern, int *expanded_count) {
     free(base_pattern);
 
     if (glob_result == GLOB_NOMATCH) {
-        // No matches - return original pattern (POSIX behavior)
+        // No matches - check nullglob setting
+        if (shell_mode_allows(FEATURE_NULL_GLOB)) {
+            // Nullglob: unmatched patterns expand to nothing
+            // Return empty array (not NULL, to distinguish from error)
+            char **result = malloc(sizeof(char *));
+            if (result) {
+                result[0] = NULL;
+                *expanded_count = 0;
+                return result;
+            }
+            *expanded_count = 0;
+            return NULL;
+        }
+        // Default POSIX behavior: return original pattern
         char **result = malloc(2 * sizeof(char *));
         if (result) {
             result[0] = strdup(pattern);
@@ -3202,8 +3536,21 @@ static char **expand_glob_pattern(const char *pattern, int *expanded_count) {
         globfree(&globbuf);
         
         if (match_count == 0) {
-            // No matches after filtering - return original pattern
+            // No matches after filtering - check nullglob
             free(result);
+            if (shell_mode_allows(FEATURE_NULL_GLOB)) {
+                // Nullglob: expand to nothing
+                // Return empty array (not NULL, to distinguish from error)
+                result = malloc(sizeof(char *));
+                if (result) {
+                    result[0] = NULL;
+                    *expanded_count = 0;
+                    return result;
+                }
+                *expanded_count = 0;
+                return NULL;
+            }
+            // Default: return original pattern
             result = malloc(2 * sizeof(char *));
             if (result) {
                 result[0] = strdup(pattern);
@@ -3237,6 +3584,13 @@ static bool needs_glob_expansion(const char *str) {
     while (*str) {
         if (*str == '*' || *str == '?' || *str == '[') {
             return true;
+        }
+        // Check for extglob patterns: ?(pat), *(pat), +(pat), @(pat), !(pat)
+        if (shell_mode_allows(FEATURE_EXTENDED_GLOB)) {
+            if ((*str == '?' || *str == '*' || *str == '+' || 
+                 *str == '@' || *str == '!') && *(str + 1) == '(') {
+                return true;
+            }
         }
         str++;
     }
