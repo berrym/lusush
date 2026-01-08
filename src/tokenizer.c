@@ -1389,6 +1389,24 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
             if (curr_char_len > 0) {
                 // Valid UTF-8 character - check if it's a word character
                 if (is_word_codepoint(curr_codepoint)) {
+                    // Special case: stop at ] if followed by = or +=
+                    // This allows arr[n]=value and arr[n]+=value to be parsed correctly
+                    if (curr_codepoint == ']' && 
+                        shell_mode_allows(FEATURE_INDEXED_ARRAYS)) {
+                        size_t next_pos = tokenizer->position + 1;
+                        if (next_pos < tokenizer->input_length) {
+                            char next_char = tokenizer->input[next_pos];
+                            if (next_char == '=' || 
+                                (next_char == '+' && next_pos + 1 < tokenizer->input_length &&
+                                 tokenizer->input[next_pos + 1] == '=')) {
+                                // Include the ] but stop here
+                                tokenizer->position++;
+                                tokenizer->column++;
+                                break;
+                            }
+                        }
+                    }
+                    
                     // Check if still numeric (only single-byte ASCII digits
                     // count)
                     if (curr_char_len > 1 ||
@@ -1498,7 +1516,7 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                             }
                         }
 
-                        // Now look for the closing ] and =
+                        // Now look for the closing ]
                         if (scan_pos < tokenizer->input_length &&
                             tokenizer->input[scan_pos] == ']') {
                             // Include everything up to and including ]
@@ -1507,8 +1525,9 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                             size_t old_pos = tokenizer->position;
                             tokenizer->position = scan_pos;
                             tokenizer->column += (scan_pos - old_pos);
-                            // Continue scanning for = or other word chars
-                            continue;
+                            // Stop here - don't continue scanning
+                            // This allows = or += to be tokenized separately
+                            break;
                         }
                     }
                     // Not in array subscript context - end word here

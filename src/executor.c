@@ -6694,8 +6694,15 @@ static char *parse_parameter_expansion(executor_t *executor,
                         strcmp(subscript, "*") == 0) {
                         // ${arr[@]} or ${arr[*]} - all elements
                         result = symtable_array_expand(array, " ");
+                    } else if (array->is_associative) {
+                        // Associative array - use subscript as string key
+                        char *expanded_subscript = expand_variable(executor, subscript);
+                        const char *key = expanded_subscript ? expanded_subscript : subscript;
+                        const char *elem = symtable_array_get_assoc(array, key);
+                        result = strdup(elem ? elem : "");
+                        if (expanded_subscript) free(expanded_subscript);
                     } else {
-                        // ${arr[n]} - specific element
+                        // Indexed array - ${arr[n]} - specific element
                         arithm_clear_error();
                         char *idx_result = arithm_expand(subscript);
                         if (idx_result && !arithm_error_flag) {
@@ -9626,12 +9633,40 @@ static int execute_array_assignment(executor_t *executor,
         }
     }
 
-    // Handle subscript - could be "@", "*", or numeric index
+    // Handle subscript - could be "@", "*", string key, or numeric index
     if (strcmp(subscript, "@") == 0 || strcmp(subscript, "*") == 0) {
         // Append to array
         symtable_array_append(array, final_value);
+    } else if (array->is_associative) {
+        // Associative array - use subscript as string key
+        // First expand any variables in the subscript
+        char *expanded_subscript = expand_variable(executor, subscript);
+        const char *key = expanded_subscript ? expanded_subscript : subscript;
+        
+        if (is_append) {
+            // Append to existing element
+            const char *existing = symtable_array_get_assoc(array, key);
+            if (existing) {
+                size_t new_len = strlen(existing) + strlen(final_value) + 1;
+                char *combined = malloc(new_len);
+                if (combined) {
+                    strcpy(combined, existing);
+                    strcat(combined, final_value);
+                    symtable_array_set_assoc(array, key, combined);
+                    free(combined);
+                }
+            } else {
+                symtable_array_set_assoc(array, key, final_value);
+            }
+        } else {
+            symtable_array_set_assoc(array, key, final_value);
+        }
+        
+        if (expanded_subscript) {
+            free(expanded_subscript);
+        }
     } else {
-        // Numeric index - evaluate as arithmetic expression
+        // Indexed array - evaluate subscript as arithmetic expression
         arithm_clear_error();
         char *idx_result = arithm_expand(subscript);
 
