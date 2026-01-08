@@ -54,6 +54,7 @@ inc = include_directories('include',
 src = ['src/builtins/alias.c',
        'src/builtins/builtins.c',
        'src/builtins/fc.c',
+       'src/config_registry.c',
        'src/posix_history.c',
        'src/arithmetic.c',
        'src/autocorrect.c',
@@ -1000,6 +1001,33 @@ if fs.exists('tests/unit/test_shell_mode.c')
                                'src/shell_mode.c',
                                include_directories: inc)
   test('Shell Mode System', test_shell_mode,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# ============================================================================
+# TOML Parser Unit Tests
+# Tests the generic TOML parser used by config and theme systems
+if fs.exists('tests/unit/test_toml_parser.c')
+  test_toml_parser = executable('test_toml_parser',
+                                'tests/unit/test_toml_parser.c',
+                                include_directories: inc,
+                                dependencies: [lle_dep])
+  test('TOML Parser', test_toml_parser,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# ============================================================================
+# Config Registry Unit Tests
+# Tests the unified configuration registry
+if fs.exists('tests/unit/test_config_registry.c')
+  test_config_registry = executable('test_config_registry',
+                                    'tests/unit/test_config_registry.c',
+                                    'src/config_registry.c',
+                                    include_directories: inc,
+                                    dependencies: [lle_dep])
+  test('Config Registry', test_config_registry,
        suite: 'unit',
        timeout: 30)
 endif

@@ -49,6 +49,7 @@ typedef enum {
     LLE_BUILTIN_ARG_SIGNAL,    /**< Signal names */
     LLE_BUILTIN_ARG_JOB,       /**< Job IDs */
     LLE_BUILTIN_ARG_THEME,     /**< Theme names */
+    LLE_BUILTIN_ARG_FEATURE,   /**< Shell features (for setopt/unsetopt) */
 } lle_builtin_arg_type_t;
 
 // ============================================================================

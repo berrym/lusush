@@ -1,16 +1,20 @@
 /**
  * @file theme_parser.c
- * @brief LLE Theme File Parser - TOML-subset Parser Implementation
+ * @brief LLE Theme File Parser - Theme-specific TOML Parser Implementation
  *
  * Specification: Issue #21 - Theme File Loading System
- * Version: 1.0.0
+ * Version: 2.0.0
  *
- * Custom TOML-subset parser for parsing theme configuration files.
- * Designed to be dependency-free and focused on the subset of TOML
- * needed for theme files.
+ * This module provides theme-specific parsing on top of the generic
+ * TOML parser (toml_parser.c). It handles:
+ * - Conversion from generic toml_value_t to theme-specific lle_theme_value_t
+ * - Color parsing (hex, RGB, ANSI names, 256-color palette)
+ * - Theme structure population from parsed values
+ * - Theme validation
  */
 
 #include "lle/prompt/theme_parser.h"
+#include "toml_parser.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -22,56 +26,129 @@
 int strcasecmp(const char *s1, const char *s2);
 
 /* ============================================================================
- * Internal Helper Macros
- * ============================================================================
- */
-
-#define PARSER_EOF(p) ((p)->pos >= (p)->input_len)
-#define PARSER_PEEK(p) (PARSER_EOF(p) ? '\0' : (p)->input[(p)->pos])
-#define PARSER_ADVANCE(p)                                                      \
-    do {                                                                       \
-        if (!PARSER_EOF(p)) {                                                  \
-            if ((p)->input[(p)->pos] == '\n') {                                \
-                (p)->line++;                                                   \
-                (p)->column = 1;                                               \
-            } else {                                                           \
-                (p)->column++;                                                 \
-            }                                                                  \
-            (p)->pos++;                                                        \
-        }                                                                      \
-    } while (0)
-
-/* ============================================================================
  * Forward Declarations
  * ============================================================================
  */
-
-static void parser_skip_whitespace(lle_theme_parser_t *parser);
-static void parser_skip_whitespace_and_newlines(lle_theme_parser_t *parser);
-static void parser_skip_comment(lle_theme_parser_t *parser);
-static void parser_skip_line(lle_theme_parser_t *parser);
-static lle_result_t parser_set_error(lle_theme_parser_t *parser,
-                                     const char *message);
-
-static lle_result_t parser_parse_section(lle_theme_parser_t *parser);
-static lle_result_t parser_parse_key(lle_theme_parser_t *parser, char *key,
-                                     size_t key_size);
-static lle_result_t parser_parse_value(lle_theme_parser_t *parser,
-                                       lle_theme_value_t *value);
-static lle_result_t parser_parse_string(lle_theme_parser_t *parser, char *out,
-                                        size_t out_size);
-static lle_result_t parser_parse_integer(lle_theme_parser_t *parser,
-                                         int64_t *out);
-static lle_result_t parser_parse_boolean(lle_theme_parser_t *parser, bool *out);
-static lle_result_t parser_parse_array(lle_theme_parser_t *parser,
-                                       lle_theme_value_t *value);
-static lle_result_t parser_parse_inline_table(lle_theme_parser_t *parser,
-                                              lle_theme_value_t *value);
 
 /* Theme construction callback */
 static lle_result_t theme_builder_callback(const char *section, const char *key,
                                            const lle_theme_value_t *value,
                                            void *user_data);
+
+/* Value conversion from generic TOML to theme-specific */
+static void convert_toml_value_to_theme_value(const toml_value_t *src,
+                                              lle_theme_value_t *dst);
+
+/* ============================================================================
+ * Adapter Context for Generic Parser
+ * ============================================================================
+ */
+
+/**
+ * @brief Adapter context for bridging generic TOML parser to theme parser
+ */
+typedef struct {
+    lle_theme_parser_callback_t user_callback;
+    void *user_data;
+    lle_theme_parser_t *theme_parser; /* For syncing state */
+} theme_parser_adapter_t;
+
+/**
+ * @brief Adapter callback that converts toml_value_t to lle_theme_value_t
+ */
+static toml_result_t theme_parser_adapter_callback(const char *section,
+                                                   const char *key,
+                                                   const toml_value_t *value,
+                                                   void *user_data) {
+    theme_parser_adapter_t *adapter = (theme_parser_adapter_t *)user_data;
+
+    /* Convert toml_value_t to lle_theme_value_t */
+    lle_theme_value_t theme_value;
+    memset(&theme_value, 0, sizeof(theme_value));
+    convert_toml_value_to_theme_value(value, &theme_value);
+
+    /* Call user's callback with converted value */
+    lle_result_t result =
+        adapter->user_callback(section, key, &theme_value, adapter->user_data);
+
+    /* Free any allocated resources in converted value */
+    lle_theme_value_free(&theme_value);
+
+    /* Convert result code */
+    if (result != LLE_SUCCESS) {
+        return TOML_ERROR_CALLBACK_ABORT;
+    }
+    return TOML_SUCCESS;
+}
+
+/* ============================================================================
+ * Value Conversion
+ * ============================================================================
+ */
+
+/**
+ * @brief Recursively convert toml_value_t to lle_theme_value_t
+ */
+static void convert_toml_value_to_theme_value(const toml_value_t *src,
+                                              lle_theme_value_t *dst) {
+    if (!src || !dst) {
+        return;
+    }
+
+    switch (src->type) {
+    case TOML_VALUE_STRING:
+        dst->type = LLE_THEME_VALUE_STRING;
+        snprintf(dst->data.string, sizeof(dst->data.string), "%s",
+                 src->data.string);
+        break;
+
+    case TOML_VALUE_INTEGER:
+        dst->type = LLE_THEME_VALUE_INTEGER;
+        dst->data.integer = src->data.integer;
+        break;
+
+    case TOML_VALUE_BOOLEAN:
+        dst->type = LLE_THEME_VALUE_BOOLEAN;
+        dst->data.boolean = src->data.boolean;
+        break;
+
+    case TOML_VALUE_ARRAY:
+        dst->type = LLE_THEME_VALUE_ARRAY;
+        dst->data.array.count = src->data.array.count;
+        if (src->data.array.count > 0) {
+            dst->data.array.items =
+                calloc(src->data.array.count, sizeof(lle_theme_value_t));
+            if (dst->data.array.items) {
+                for (size_t i = 0; i < src->data.array.count; i++) {
+                    convert_toml_value_to_theme_value(&src->data.array.items[i],
+                                                      &dst->data.array.items[i]);
+                }
+            }
+        } else {
+            dst->data.array.items = NULL;
+        }
+        break;
+
+    case TOML_VALUE_TABLE:
+        dst->type = LLE_THEME_VALUE_TABLE;
+        dst->data.table.count = src->data.table.count;
+        for (size_t i = 0; i < src->data.table.count; i++) {
+            snprintf(dst->data.table.entries[i].key,
+                     sizeof(dst->data.table.entries[i].key), "%s",
+                     src->data.table.entries[i].key);
+
+            dst->data.table.entries[i].value =
+                calloc(1, sizeof(lle_theme_value_t));
+            if (dst->data.table.entries[i].value &&
+                src->data.table.entries[i].value) {
+                convert_toml_value_to_theme_value(
+                    src->data.table.entries[i].value,
+                    dst->data.table.entries[i].value);
+            }
+        }
+        break;
+    }
+}
 
 /* ============================================================================
  * Parser Core API
@@ -135,8 +212,8 @@ void lle_theme_parser_reset(lle_theme_parser_t *parser) {
  * @brief Parse input and call callback for each key-value pair
  *
  * Parses the TOML-subset input, calling the provided callback function
- * for each key-value pair encountered. Handles section headers, comments,
- * and various value types (strings, integers, booleans, arrays, tables).
+ * for each key-value pair encountered. Uses the generic TOML parser
+ * internally and converts values to theme-specific types.
  *
  * @param parser    Pointer to initialized parser
  * @param callback  Function to call for each parsed key-value pair
@@ -151,74 +228,57 @@ lle_result_t lle_theme_parser_parse(lle_theme_parser_t *parser,
         return LLE_ERROR_INVALID_PARAMETER;
     }
 
-    while (!PARSER_EOF(parser)) {
-        parser_skip_whitespace_and_newlines(parser);
-
-        if (PARSER_EOF(parser)) {
-            break;
-        }
-
-        char c = PARSER_PEEK(parser);
-
-        /* Skip comments */
-        if (c == '#') {
-            parser_skip_line(parser);
-            continue;
-        }
-
-        /* Parse section header */
-        if (c == '[') {
-            lle_result_t result = parser_parse_section(parser);
-            if (result != LLE_SUCCESS) {
-                return result;
-            }
-            parser->sections_parsed++;
-            continue;
-        }
-
-        /* Parse key-value pair */
-        if (isalpha((unsigned char)c) || c == '_') {
-            char key[LLE_THEME_PARSER_KEY_MAX];
-            lle_result_t result = parser_parse_key(parser, key, sizeof(key));
-            if (result != LLE_SUCCESS) {
-                return result;
-            }
-
-            parser_skip_whitespace(parser);
-
-            /* Expect '=' */
-            if (PARSER_PEEK(parser) != '=') {
-                return parser_set_error(parser, "Expected '=' after key");
-            }
-            PARSER_ADVANCE(parser); /* Skip '=' */
-
-            parser_skip_whitespace(parser);
-
-            /* Parse value */
-            lle_theme_value_t value;
-            memset(&value, 0, sizeof(value));
-            result = parser_parse_value(parser, &value);
-            if (result != LLE_SUCCESS) {
-                lle_theme_value_free(&value);
-                return result;
-            }
-
-            /* Call callback */
-            result = callback(parser->current_section, key, &value, user_data);
-            lle_theme_value_free(&value);
-
-            if (result != LLE_SUCCESS) {
-                return result;
-            }
-
-            parser->keys_parsed++;
-            continue;
-        }
-
-        /* Unknown character */
-        return parser_set_error(parser, "Unexpected character");
+    /* Initialize generic TOML parser */
+    toml_parser_t toml_parser;
+    toml_result_t result =
+        toml_parser_init_with_length(&toml_parser, parser->input, parser->input_len);
+    if (result != TOML_SUCCESS) {
+        snprintf(parser->error_msg, sizeof(parser->error_msg),
+                 "Failed to initialize TOML parser");
+        return LLE_ERROR_INVALID_FORMAT;
     }
 
+    /* Set up adapter context */
+    theme_parser_adapter_t adapter = {
+        .user_callback = callback,
+        .user_data = user_data,
+        .theme_parser = parser
+    };
+
+    /* Parse using generic parser with adapter */
+    result = toml_parser_parse(&toml_parser, theme_parser_adapter_callback, &adapter);
+
+    /* Sync state from generic parser to theme parser */
+    parser->pos = toml_parser.pos;
+    parser->line = toml_parser.line;
+    parser->column = toml_parser.column;
+    parser->keys_parsed = toml_parser.keys_parsed;
+    parser->sections_parsed = toml_parser.sections_parsed;
+    snprintf(parser->current_section, sizeof(parser->current_section), "%s",
+             toml_parser.current_section);
+
+    /* Handle errors */
+    if (result != TOML_SUCCESS) {
+        parser->error_line = toml_parser.error_line;
+        parser->error_column = toml_parser.error_column;
+        snprintf(parser->error_msg, sizeof(parser->error_msg), "%s",
+                 toml_parser.error_msg);
+
+        /* Map TOML result to LLE result */
+        switch (result) {
+        case TOML_ERROR_INVALID_PARAMETER:
+            return LLE_ERROR_INVALID_PARAMETER;
+        case TOML_ERROR_OUT_OF_MEMORY:
+            return LLE_ERROR_OUT_OF_MEMORY;
+        case TOML_ERROR_CALLBACK_ABORT:
+            /* Callback aborted - preserve error from callback */
+            return LLE_ERROR_INVALID_FORMAT;
+        default:
+            return LLE_ERROR_INVALID_FORMAT;
+        }
+    }
+
+    toml_parser_cleanup(&toml_parser);
     return LLE_SUCCESS;
 }
 
@@ -266,560 +326,6 @@ size_t lle_theme_parser_error_column(const lle_theme_parser_t *parser) {
         return 0;
     }
     return parser->error_column;
-}
-
-/* ============================================================================
- * Internal Parsing Helpers
- * ============================================================================
- */
-
-/**
- * @brief Skip whitespace (space and tab only)
- *
- * Advances the parser position past any horizontal whitespace characters
- * (spaces and tabs). Does not skip newlines.
- *
- * @param parser Pointer to parser
- */
-static void parser_skip_whitespace(lle_theme_parser_t *parser) {
-    while (!PARSER_EOF(parser)) {
-        char c = PARSER_PEEK(parser);
-        if (c == ' ' || c == '\t') {
-            PARSER_ADVANCE(parser);
-        } else {
-            break;
-        }
-    }
-}
-
-/**
- * @brief Skip whitespace and newlines
- *
- * Advances the parser position past any whitespace including newlines.
- * Also skips comment lines encountered during the process.
- *
- * @param parser Pointer to parser
- */
-static void parser_skip_whitespace_and_newlines(lle_theme_parser_t *parser) {
-    while (!PARSER_EOF(parser)) {
-        char c = PARSER_PEEK(parser);
-        if (c == ' ' || c == '\t' || c == '\n' || c == '\r') {
-            PARSER_ADVANCE(parser);
-        } else if (c == '#') {
-            /* Skip comment lines */
-            parser_skip_line(parser);
-        } else {
-            break;
-        }
-    }
-}
-
-/**
- * @brief Skip a comment (from # to end of line)
- *
- * If the current character is a hash (#), advances the parser
- * to the end of the line, effectively skipping the comment.
- *
- * @param parser Pointer to parser
- */
-static void parser_skip_comment(lle_theme_parser_t *parser) {
-    if (PARSER_PEEK(parser) == '#') {
-        parser_skip_line(parser);
-    }
-}
-
-/**
- * @brief Skip to end of line
- *
- * Advances the parser position to the end of the current line,
- * consuming the newline character if present.
- *
- * @param parser Pointer to parser
- */
-static void parser_skip_line(lle_theme_parser_t *parser) {
-    while (!PARSER_EOF(parser) && PARSER_PEEK(parser) != '\n') {
-        PARSER_ADVANCE(parser);
-    }
-    if (PARSER_PEEK(parser) == '\n') {
-        PARSER_ADVANCE(parser);
-    }
-}
-
-/**
- * @brief Set parser error with message
- *
- * Records an error in the parser with the current line and column
- * position, and formats a human-readable error message.
- *
- * @param parser  Pointer to parser
- * @param message Error description message
- * @return LLE_ERROR_INVALID_FORMAT always (for chained returns)
- */
-static lle_result_t parser_set_error(lle_theme_parser_t *parser,
-                                     const char *message) {
-    parser->error_line = parser->line;
-    parser->error_column = parser->column;
-    snprintf(parser->error_msg, sizeof(parser->error_msg),
-             "Line %zu, column %zu: %s", parser->line, parser->column, message);
-    return LLE_ERROR_INVALID_FORMAT;
-}
-
-/**
- * @brief Parse section header [section] or [section.subsection]
- *
- * Parses a TOML section header and stores the section name in the
- * parser's current_section field for use by subsequent key-value pairs.
- *
- * @param parser Pointer to parser positioned at '['
- * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_FORMAT on parse error
- */
-static lle_result_t parser_parse_section(lle_theme_parser_t *parser) {
-    if (PARSER_PEEK(parser) != '[') {
-        return parser_set_error(parser, "Expected '['");
-    }
-    PARSER_ADVANCE(parser); /* Skip '[' */
-
-    /* Read section name */
-    char section[LLE_THEME_PARSER_KEY_MAX * LLE_THEME_PARSER_SECTION_DEPTH_MAX];
-    size_t len = 0;
-
-    while (!PARSER_EOF(parser) && PARSER_PEEK(parser) != ']') {
-        char c = PARSER_PEEK(parser);
-
-        if (isalnum((unsigned char)c) || c == '_' || c == '-' || c == '.') {
-            if (len >= sizeof(section) - 1) {
-                return parser_set_error(parser, "Section name too long");
-            }
-            section[len++] = c;
-            PARSER_ADVANCE(parser);
-        } else if (c == ' ' || c == '\t') {
-            /* Skip whitespace in section name */
-            PARSER_ADVANCE(parser);
-        } else {
-            return parser_set_error(parser,
-                                    "Invalid character in section name");
-        }
-    }
-
-    if (PARSER_PEEK(parser) != ']') {
-        return parser_set_error(parser, "Expected ']'");
-    }
-    PARSER_ADVANCE(parser); /* Skip ']' */
-
-    section[len] = '\0';
-    snprintf(parser->current_section, sizeof(parser->current_section), "%s",
-             section);
-
-    /* Skip rest of line */
-    parser_skip_whitespace(parser);
-    if (PARSER_PEEK(parser) == '#') {
-        parser_skip_comment(parser);
-    } else if (PARSER_PEEK(parser) != '\n' && !PARSER_EOF(parser)) {
-        return parser_set_error(parser, "Unexpected content after section");
-    }
-
-    return LLE_SUCCESS;
-}
-
-/**
- * @brief Parse a key name (identifier)
- *
- * Parses a TOML key identifier consisting of alphanumeric characters,
- * underscores, and hyphens.
- *
- * @param parser   Pointer to parser positioned at start of key
- * @param key      Output buffer for parsed key name
- * @param key_size Size of output buffer
- * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_FORMAT if key is empty or too long
- */
-static lle_result_t parser_parse_key(lle_theme_parser_t *parser, char *key,
-                                     size_t key_size) {
-    size_t len = 0;
-
-    while (!PARSER_EOF(parser)) {
-        char c = PARSER_PEEK(parser);
-
-        if (isalnum((unsigned char)c) || c == '_' || c == '-') {
-            if (len >= key_size - 1) {
-                return parser_set_error(parser, "Key name too long");
-            }
-            key[len++] = c;
-            PARSER_ADVANCE(parser);
-        } else {
-            break;
-        }
-    }
-
-    if (len == 0) {
-        return parser_set_error(parser, "Empty key name");
-    }
-
-    key[len] = '\0';
-    return LLE_SUCCESS;
-}
-
-/**
- * @brief Parse a value (string, integer, boolean, array, or inline table)
- *
- * Parses a TOML value based on the initial character. Supports strings
- * (quoted), integers, booleans (true/false), arrays, and inline tables.
- *
- * @param parser Pointer to parser positioned at start of value
- * @param value  Output structure to receive parsed value
- * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_FORMAT on parse error
- */
-static lle_result_t parser_parse_value(lle_theme_parser_t *parser,
-                                       lle_theme_value_t *value) {
-    memset(value, 0, sizeof(*value));
-
-    char c = PARSER_PEEK(parser);
-
-    /* String */
-    if (c == '"') {
-        value->type = LLE_THEME_VALUE_STRING;
-        return parser_parse_string(parser, value->data.string,
-                                   sizeof(value->data.string));
-    }
-
-    /* Array */
-    if (c == '[') {
-        return parser_parse_array(parser, value);
-    }
-
-    /* Inline table */
-    if (c == '{') {
-        return parser_parse_inline_table(parser, value);
-    }
-
-    /* Boolean: true or false */
-    if (c == 't' || c == 'f') {
-        value->type = LLE_THEME_VALUE_BOOLEAN;
-        return parser_parse_boolean(parser, &value->data.boolean);
-    }
-
-    /* Integer (including negative) */
-    if (isdigit((unsigned char)c) || c == '-' || c == '+') {
-        value->type = LLE_THEME_VALUE_INTEGER;
-        return parser_parse_integer(parser, &value->data.integer);
-    }
-
-    return parser_set_error(parser, "Invalid value");
-}
-
-/**
- * @brief Parse a quoted string with escape sequences
- *
- * Parses a double-quoted string, processing escape sequences for
- * newlines (\\n), tabs (\\t), carriage returns (\\r), backslashes, and quotes.
- *
- * @param parser   Pointer to parser positioned at opening quote
- * @param out      Output buffer for parsed string content
- * @param out_size Size of output buffer
- * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_FORMAT on parse error
- */
-static lle_result_t parser_parse_string(lle_theme_parser_t *parser, char *out,
-                                        size_t out_size) {
-    if (PARSER_PEEK(parser) != '"') {
-        return parser_set_error(parser, "Expected '\"'");
-    }
-    PARSER_ADVANCE(parser); /* Skip opening quote */
-
-    size_t len = 0;
-
-    while (!PARSER_EOF(parser)) {
-        char c = PARSER_PEEK(parser);
-
-        if (c == '"') {
-            PARSER_ADVANCE(parser); /* Skip closing quote */
-            out[len] = '\0';
-            return LLE_SUCCESS;
-        }
-
-        if (c == '\n') {
-            return parser_set_error(parser, "Unterminated string");
-        }
-
-        if (c == '\\') {
-            /* Escape sequence */
-            PARSER_ADVANCE(parser);
-            if (PARSER_EOF(parser)) {
-                return parser_set_error(parser, "Unterminated escape sequence");
-            }
-
-            char escaped = PARSER_PEEK(parser);
-            PARSER_ADVANCE(parser);
-
-            switch (escaped) {
-            case 'n':
-                c = '\n';
-                break;
-            case 't':
-                c = '\t';
-                break;
-            case 'r':
-                c = '\r';
-                break;
-            case '\\':
-                c = '\\';
-                break;
-            case '"':
-                c = '"';
-                break;
-            default:
-                return parser_set_error(parser, "Invalid escape sequence");
-            }
-        } else {
-            PARSER_ADVANCE(parser);
-        }
-
-        if (len >= out_size - 1) {
-            return parser_set_error(parser, "String too long");
-        }
-        out[len++] = c;
-    }
-
-    return parser_set_error(parser, "Unterminated string");
-}
-
-/**
- * @brief Parse an integer value
- *
- * Parses a decimal integer with optional sign prefix (+ or -).
- *
- * @param parser Pointer to parser positioned at start of integer
- * @param out    Output pointer for parsed integer value
- * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_FORMAT on parse error
- */
-static lle_result_t parser_parse_integer(lle_theme_parser_t *parser,
-                                         int64_t *out) {
-    char buffer[32];
-    size_t len = 0;
-
-    /* Sign */
-    char c = PARSER_PEEK(parser);
-    if (c == '-' || c == '+') {
-        buffer[len++] = c;
-        PARSER_ADVANCE(parser);
-    }
-
-    /* Digits */
-    while (!PARSER_EOF(parser)) {
-        c = PARSER_PEEK(parser);
-        if (isdigit((unsigned char)c)) {
-            if (len >= sizeof(buffer) - 1) {
-                return parser_set_error(parser, "Integer too long");
-            }
-            buffer[len++] = c;
-            PARSER_ADVANCE(parser);
-        } else {
-            break;
-        }
-    }
-
-    if (len == 0 || (len == 1 && (buffer[0] == '-' || buffer[0] == '+'))) {
-        return parser_set_error(parser, "Invalid integer");
-    }
-
-    buffer[len] = '\0';
-    *out = strtoll(buffer, NULL, 10);
-    return LLE_SUCCESS;
-}
-
-/**
- * @brief Parse a boolean value (true or false)
- *
- * Parses the literal keywords "true" or "false" (case-insensitive).
- *
- * @param parser Pointer to parser positioned at start of boolean
- * @param out    Output pointer for parsed boolean value
- * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_FORMAT if not a valid boolean
- */
-static lle_result_t parser_parse_boolean(lle_theme_parser_t *parser,
-                                         bool *out) {
-    char word[6] = {0};
-    size_t i = 0;
-
-    while (!PARSER_EOF(parser) && i < 5) {
-        char c = PARSER_PEEK(parser);
-        if (isalpha((unsigned char)c)) {
-            word[i++] = (char)tolower((unsigned char)c);
-            PARSER_ADVANCE(parser);
-        } else {
-            break;
-        }
-    }
-    word[i] = '\0';
-
-    if (strcmp(word, "true") == 0) {
-        *out = true;
-        return LLE_SUCCESS;
-    } else if (strcmp(word, "false") == 0) {
-        *out = false;
-        return LLE_SUCCESS;
-    }
-
-    return parser_set_error(parser,
-                            "Invalid boolean (expected 'true' or 'false')");
-}
-
-/**
- * @brief Parse an array value ["a", "b", ...]
- *
- * Parses a TOML array with comma-separated elements. Supports nested
- * values of any type and handles whitespace/newlines between elements.
- *
- * @param parser Pointer to parser positioned at opening '['
- * @param value  Output structure to receive parsed array
- * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_FORMAT on parse error,
- *         LLE_ERROR_OUT_OF_MEMORY on allocation failure
- */
-static lle_result_t parser_parse_array(lle_theme_parser_t *parser,
-                                       lle_theme_value_t *value) {
-    if (PARSER_PEEK(parser) != '[') {
-        return parser_set_error(parser, "Expected '['");
-    }
-    PARSER_ADVANCE(parser); /* Skip '[' */
-
-    value->type = LLE_THEME_VALUE_ARRAY;
-    value->data.array.items = NULL;
-    value->data.array.count = 0;
-
-    /* Allocate array storage */
-    lle_theme_value_t *items =
-        calloc(LLE_THEME_PARSER_ARRAY_MAX, sizeof(lle_theme_value_t));
-    if (!items) {
-        return LLE_ERROR_OUT_OF_MEMORY;
-    }
-
-    parser_skip_whitespace_and_newlines(parser);
-
-    while (!PARSER_EOF(parser) && PARSER_PEEK(parser) != ']') {
-        if (value->data.array.count >= LLE_THEME_PARSER_ARRAY_MAX) {
-            free(items);
-            return parser_set_error(parser, "Array too large");
-        }
-
-        /* Parse array element */
-        lle_result_t result =
-            parser_parse_value(parser, &items[value->data.array.count]);
-        if (result != LLE_SUCCESS) {
-            /* Free already parsed items */
-            for (size_t i = 0; i < value->data.array.count; i++) {
-                lle_theme_value_free(&items[i]);
-            }
-            free(items);
-            return result;
-        }
-        value->data.array.count++;
-
-        parser_skip_whitespace_and_newlines(parser);
-
-        /* Check for comma or end */
-        if (PARSER_PEEK(parser) == ',') {
-            PARSER_ADVANCE(parser);
-            parser_skip_whitespace_and_newlines(parser);
-        } else if (PARSER_PEEK(parser) != ']') {
-            for (size_t i = 0; i < value->data.array.count; i++) {
-                lle_theme_value_free(&items[i]);
-            }
-            free(items);
-            return parser_set_error(parser, "Expected ',' or ']' in array");
-        }
-    }
-
-    if (PARSER_PEEK(parser) != ']') {
-        for (size_t i = 0; i < value->data.array.count; i++) {
-            lle_theme_value_free(&items[i]);
-        }
-        free(items);
-        return parser_set_error(parser, "Unterminated array");
-    }
-    PARSER_ADVANCE(parser); /* Skip ']' */
-
-    value->data.array.items = items;
-    return LLE_SUCCESS;
-}
-
-/**
- * @brief Parse an inline table { key = value, ... }
- *
- * Parses a TOML inline table with comma-separated key-value pairs.
- * Inline tables must be on a single line in TOML, but this parser
- * is more lenient.
- *
- * @param parser Pointer to parser positioned at opening '{'
- * @param value  Output structure to receive parsed table
- * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_FORMAT on parse error,
- *         LLE_ERROR_OUT_OF_MEMORY on allocation failure
- */
-static lle_result_t parser_parse_inline_table(lle_theme_parser_t *parser,
-                                              lle_theme_value_t *value) {
-    if (PARSER_PEEK(parser) != '{') {
-        return parser_set_error(parser, "Expected '{'");
-    }
-    PARSER_ADVANCE(parser); /* Skip '{' */
-
-    value->type = LLE_THEME_VALUE_TABLE;
-    value->data.table.count = 0;
-
-    parser_skip_whitespace(parser);
-
-    while (!PARSER_EOF(parser) && PARSER_PEEK(parser) != '}') {
-        if (value->data.table.count >= LLE_THEME_PARSER_TABLE_ENTRIES_MAX) {
-            return parser_set_error(parser, "Inline table too large");
-        }
-
-        /* Parse key */
-        lle_theme_table_entry_t *entry =
-            &value->data.table.entries[value->data.table.count];
-        lle_result_t result =
-            parser_parse_key(parser, entry->key, sizeof(entry->key));
-        if (result != LLE_SUCCESS) {
-            return result;
-        }
-
-        parser_skip_whitespace(parser);
-
-        /* Expect '=' */
-        if (PARSER_PEEK(parser) != '=') {
-            return parser_set_error(parser, "Expected '=' in inline table");
-        }
-        PARSER_ADVANCE(parser);
-
-        parser_skip_whitespace(parser);
-
-        /* Parse value */
-        entry->value = calloc(1, sizeof(lle_theme_value_t));
-        if (!entry->value) {
-            return LLE_ERROR_OUT_OF_MEMORY;
-        }
-
-        result = parser_parse_value(parser, entry->value);
-        if (result != LLE_SUCCESS) {
-            free(entry->value);
-            entry->value = NULL;
-            return result;
-        }
-
-        value->data.table.count++;
-        parser_skip_whitespace(parser);
-
-        /* Check for comma or end */
-        if (PARSER_PEEK(parser) == ',') {
-            PARSER_ADVANCE(parser);
-            parser_skip_whitespace(parser);
-        } else if (PARSER_PEEK(parser) != '}') {
-            return parser_set_error(parser,
-                                    "Expected ',' or '}' in inline table");
-        }
-    }
-
-    if (PARSER_PEEK(parser) != '}') {
-        return parser_set_error(parser, "Unterminated inline table");
-    }
-    PARSER_ADVANCE(parser); /* Skip '}' */
-
-    return LLE_SUCCESS;
 }
 
 /* ============================================================================

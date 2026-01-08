@@ -1,201 +1,151 @@
 # Lusush
 
-**The shell that does what you mean.**
+**An interactive shell under active development.**
 
-[![Version](https://img.shields.io/badge/version-1.4.0-blue)](https://github.com/lusush/lusush/releases)
+[![Version](https://img.shields.io/badge/version-1.5.0--dev-blue)](https://github.com/lusush/lusush/releases)
 [![License](https://img.shields.io/badge/license-GPL--3.0+-blue)](LICENSE)
-[![Build](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/lusush/lusush)
+[![C11](https://img.shields.io/badge/standard-C11-blue)](https://github.com/lusush/lusush)
 
 ---
 
 ## What is Lusush?
 
-Lusush is an advanced interactive shell that combines the best of Bash and Zsh with capabilities no other shell offers:
+Lusush is a Unix shell built from scratch in C11. It combines POSIX compliance with extended features from Bash and Zsh, and introduces capabilities not found in other shells - most notably an integrated debugger for shell scripts.
 
-- **Native Line Editor (LLE)** - Built from scratch, not a readline wrapper. Syntax highlighting, context-aware completions, and the editing experience we always wanted.
-- **Integrated Debugger** - The only shell with GDB-like debugging built in. Set breakpoints, step through code, inspect variables.
-- **Multi-Mode Architecture** - Run in POSIX, Bash, Zsh, or Lusush mode. One shell, full compatibility.
-- **Extended Syntax** - Arrays, `[[ ]]`, process substitution, extended globbing, and parameter expansion done right.
+The project draws heavy inspiration from Zsh and Fish, both of which proved that shells can have sophisticated line editing without relying on GNU Readline. Lusush's line editor, **LLE**, follows in their footsteps with its own implementation featuring syntax highlighting and context-aware completions.
 
-## What's New in v1.4.0
+**Current status:** Under heavy development. Not yet suitable for daily use or production environments. Many features work well; others remain incomplete.
 
-This release is a major evolution. Lusush now includes:
+---
 
-| Feature | Description |
-|---------|-------------|
-| **LLE** | Complete line editor with Emacs keybindings, syntax highlighting, and 45 context-aware builtin completions |
-| **Shell Modes** | POSIX, Bash, Zsh, or Lusush mode - switch with `set -o` |
-| **Arrays** | Indexed and associative arrays with full expansion support |
-| **Extended Tests** | `[[ ]]` with pattern matching and regex `=~` |
-| **Process Substitution** | `<(cmd)` and `>(cmd)` |
-| **Hook System** | `precmd`, `preexec`, `chpwd`, `periodic` hooks |
-| **Glob Qualifiers** | `*(.)` for files, `*(/)` for directories |
+## Core Components
 
-See the [Changelog](CHANGELOG.md) for the complete list.
+### LLE (Lusush Line Editor)
 
-## Quick Start
+A native line editor built specifically for lusush:
 
-```bash
-# Build (no readline required)
-git clone https://github.com/lusush/lusush.git
-cd lusush
-meson setup build
-ninja -C build
+- Real-time syntax highlighting with 45 token types
+- Context-aware tab completions for all 50 shell builtins
+- Emacs keybindings (44 actions) with kill ring and undo
+- Multi-line editing with automatic continuation
 
-# Run
-./build/lusush
-```
+Inspired by the line editors in Zsh (ZLE) and Fish.
 
-## Features at a Glance
+### Multi-Mode Architecture
 
-### LLE - Lusush Line Editor
-
-Real-time syntax highlighting as you type. Context-aware completions for commands, files, and 45 shell builtins. History search with Ctrl-R. Multi-line editing that just works.
+Run scripts with different compatibility levels:
 
 ```bash
-# Syntax highlighting shows:
-# - Valid commands in green
-# - Invalid commands in red
-# - Strings, variables, paths in distinct colors
-# - Errors before you press Enter
-```
-
-### Shell Modes
-
-Choose your compatibility level:
-
-```bash
-set -o posix   # Strict POSIX sh
-set -o bash    # Bash 5.x compatibility
-set -o zsh     # Zsh compatibility
-set -o lusush  # Default: curated best of both
-```
-
-### Extended Syntax
-
-Arrays, arithmetic, extended tests, process substitution - all the features you expect from a modern shell:
-
-```bash
-# Arrays
-files=(*.txt)
-declare -A config
-config[host]="localhost"
-
-# Extended tests
-[[ $response =~ ^[Yy] ]] && echo "Yes"
-
-# Process substitution
-diff <(sort file1) <(sort file2)
-
-# Parameter expansion
-echo "${name^^}"           # Uppercase
-echo "${path##*/}"         # Basename
-echo "${var:-default}"     # Default value
-```
-
-### Hook System
-
-Run code at key moments in the shell lifecycle:
-
-```bash
-precmd() {
-    # Runs before each prompt
-    update_terminal_title
-}
-
-preexec() {
-    # Runs before each command, receives command as $1
-    echo "Running: $1"
-}
-
-chpwd() {
-    # Runs after directory changes
-    ls
-}
+set -o posix   # Strict POSIX sh compliance
+set -o bash    # Bash compatibility features
+set -o zsh     # Zsh compatibility features  
+set -o lusush  # Default mode - curated feature set
 ```
 
 ### Integrated Debugger
 
-The only shell where you can debug scripts interactively:
+Debug shell scripts interactively - breakpoints, stepping, variable inspection. Not just `set -x` tracing.
 
 ```bash
-debug on
-debug break add script.sh 15
-source script.sh
-
-# At breakpoint:
-debug vars      # Show all variables
-debug step      # Step to next line
-debug continue  # Resume execution
+debug on                         # Enable debugging
+debug break add script.sh 15     # Set breakpoint
+debug vars                       # Inspect variables
+debug step                       # Step to next line
 ```
 
-## Documentation
+### Unified Configuration (v1.5.0)
 
-| Document | Description |
-|----------|-------------|
-| [Getting Started](docs/GETTING_STARTED.md) | First-time user guide |
-| [User Guide](docs/USER_GUIDE.md) | Complete feature reference |
-| [LLE Guide](docs/LLE_GUIDE.md) | Line editor reference |
-| [Extended Syntax](docs/EXTENDED_SYNTAX.md) | Arrays, `[[]]`, process sub |
-| [Shell Modes](docs/SHELL_MODES.md) | POSIX/Bash/Zsh/Lusush modes |
-| [Debugger Guide](docs/DEBUGGER_GUIDE.md) | Interactive debugging |
-| [Builtins Reference](docs/BUILTIN_COMMANDS.md) | All 48 builtin commands |
+TOML-based configuration with XDG Base Directory compliance:
+
+```toml
+# ~/.config/lusush/config.toml
+[shell]
+mode = "lusush"
+
+[display]
+syntax_highlighting = true
+
+[history]
+size = 10000
+```
+
+The `setopt`/`unsetopt` commands provide Zsh-style option control. A central config registry keeps runtime state and configuration files synchronized.
+
+---
+
+## Extended Syntax
+
+Lusush implements extended shell features beyond POSIX:
+
+- **Arrays** - Indexed and associative: `declare -A map`
+- **Extended tests** - `[[ ]]` with pattern matching and regex
+- **Process substitution** - `<(cmd)` and `>(cmd)`
+- **Parameter expansion** - Case modification, substitution, slicing
+- **Glob qualifiers** - `*(.)` for files, `*(/)` for directories
+- **Hook functions** - `precmd`, `preexec`, `chpwd`, `periodic`
+
+---
 
 ## Building
 
 ### Requirements
 
-- C11 compiler (GCC or Clang)
+- C11 compiler (GCC 7+ or Clang 5+)
 - Meson build system
 - Ninja
 
-No readline dependency. LLE provides all line editing functionality.
-
-### Build Options
+### Build
 
 ```bash
-# Standard build
+git clone https://github.com/lusush/lusush.git
+cd lusush
 meson setup build
 ninja -C build
-
-# Debug build
-meson setup build --buildtype=debug
-ninja -C build
-
-# Install system-wide
-sudo ninja -C build install
+./build/lusush
 ```
+
+### Test
+
+```bash
+meson test -C build
+```
+
+57 tests. Zero memory leaks (verified with valgrind/leaks on each release).
 
 ### Platforms
 
-- Linux (primary development platform)
-- macOS (fully supported)
-- BSD (supported)
+Linux (primary), macOS, BSD.
+
+---
 
 ## Development Status
 
-Lusush is under active development. Current status:
-
 | Component | Status |
 |-----------|--------|
-| Core Shell | Production Ready |
-| LLE (Emacs mode) | Complete |
-| LLE (Vi mode) | In Development |
-| Extended Syntax | Complete |
-| Shell Modes | Complete |
-| Debugger | Production Ready |
-| Plugin System | Foundation Complete |
+| Core shell / POSIX builtins | Working |
+| LLE - Emacs mode | Complete |
+| LLE - Vi mode | Framework only |
+| Extended syntax (arrays, `[[]]`, process sub) | Mostly complete |
+| Shell modes | Working |
+| Debugger | Working |
+| Configuration system | Complete |
+| Brace expansion `{1..10}` | Not yet implemented |
+| User extensibility / plugins | Not yet implemented |
 
-## Contributing
+The shell is functional for many use cases but has gaps. Some common constructs don't work yet. Thorough testing is ongoing.
 
-Lusush maintains high standards:
+---
 
-- Clean, professional code (C11, no warnings)
-- Zero memory leaks (verified with valgrind/leaks)
-- Comprehensive tests
-- Clear commit messages
+## Documentation
 
-See the development guidelines for details.
+- [User Guide](docs/USER_GUIDE.md) - Feature reference
+- [LLE Guide](docs/LLE_GUIDE.md) - Line editor
+- [Config System](docs/CONFIG_SYSTEM.md) - Configuration
+- [Debugger Guide](docs/DEBUGGER_GUIDE.md) - Debugging
+- [Builtin Commands](docs/BUILTIN_COMMANDS.md) - All 50 builtins
+- [Changelog](docs/CHANGELOG.md) - Version history
+
+---
 
 ## License
 
@@ -203,4 +153,8 @@ GNU General Public License v3.0 or later. See [LICENSE](LICENSE).
 
 ---
 
-**Lusush** - Advanced interactive shell with LLE, multi-mode compatibility, and integrated debugging.
+**Lusush** is a real shell, built from scratch, doing things differently.
+
+It's not finished. But it's not vaporware either - it's 50 builtins, 57 tests, zero leaks, and years of development.
+
+If you're curious about what a shell could be, lusush is worth watching.

@@ -13,9 +13,9 @@
 
 #define LUSUSH_NAME "lusush"
 #define LUSUSH_VERSION_MAJOR 1
-#define LUSUSH_VERSION_MINOR 4
+#define LUSUSH_VERSION_MINOR 5
 #define LUSUSH_VERSION_PATCH 0
-#define LUSUSH_VERSION_STRING "1.4.0"
+#define LUSUSH_VERSION_STRING "1.5.0"
 #define LUSUSH_DESCRIPTION                                                     \
     "Advanced interactive shell with LLE (Lusush Line Editor), multi-mode "    \
     "Bash/Zsh compatibility, extended syntax, and integrated debugging"

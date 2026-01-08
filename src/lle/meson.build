@@ -25,6 +25,9 @@ lle_sources = []
 # Lusush memory pool system
 lle_sources += files('../lusush_memory_pool.c')
 
+# TOML parser (shared with main config system)
+lle_sources += files('../toml_parser.c')
+
 # libhashtable (Spec 05)
 libhashtable_root = '../libhashtable'
 lle_sources += files(

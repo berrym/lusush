@@ -142,6 +142,12 @@ static const lle_builtin_option_t jobs_options[] = {
     {"-p", "Show only process IDs"},
 };
 
+/* setopt options */
+static const lle_builtin_option_t setopt_options[] = {
+    {"-p", "Print in re-usable format"},
+    {"-q", "Query silently (exit status only)"},
+};
+
 /* getopts - no options, just takes optstring and varname */
 
 // ============================================================================
@@ -299,6 +305,10 @@ static const lle_builtin_completion_spec_t builtin_specs[] = {
      LLE_BUILTIN_ARG_NONE},
     {"jobs", jobs_options, sizeof(jobs_options) / sizeof(jobs_options[0]), NULL,
      0, LLE_BUILTIN_ARG_NONE},
+    {"setopt", setopt_options,
+     sizeof(setopt_options) / sizeof(setopt_options[0]), NULL, 0,
+     LLE_BUILTIN_ARG_FEATURE},
+    {"unsetopt", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_FEATURE},
 
     /* Builtins with subcommands */
     {"display", NULL, 0, display_subcmds,
@@ -509,6 +519,86 @@ static lle_result_t generate_alias_completions(lle_memory_pool_t *pool,
 }
 
 /**
+ * @brief Shell feature names for completion
+ *
+ * Static list of shell feature names matching shell_mode.h.
+ * This avoids linking dependency on shell_mode for test binaries.
+ */
+static const char *shell_feature_names[] = {
+    /* Arrays */
+    "indexed_arrays",
+    "associative_arrays",
+    "array_zero_indexed",
+    "array_append",
+    /* Arithmetic */
+    "arith_command",
+    "let_builtin",
+    /* Tests */
+    "extended_test",
+    "regex_match",
+    "pattern_match",
+    /* Redirection */
+    "process_substitution",
+    "pipe_stderr",
+    "append_both",
+    "coproc",
+    /* Parameter expansion */
+    "case_modification",
+    "substring_expansion",
+    "pattern_substitution",
+    "indirect_expansion",
+    "param_transformation",
+    /* Globbing */
+    "extended_glob",
+    "null_glob",
+    "dot_glob",
+    /* Control flow */
+    "case_fallthrough",
+    "select_loop",
+    "time_keyword",
+    /* Behavior */
+    "word_split_default",
+    "auto_cd",
+    "auto_pushd",
+    "cdable_vars",
+    /* Advanced */
+    "nameref",
+    "anonymous_functions",
+    "return_anywhere",
+    /* Zsh-specific */
+    "glob_qualifiers",
+    "hook_functions",
+    "zsh_param_flags",
+    "plugin_system",
+    NULL
+};
+
+/**
+ * @brief Generate shell feature completions for setopt/unsetopt
+ *
+ * Provides completion for shell feature names.
+ */
+static lle_result_t generate_feature_completions(lle_memory_pool_t *pool,
+                                                 const char *prefix,
+                                                 lle_completion_result_t *result) {
+    (void)pool; /* Completions allocated via result's pool */
+    size_t prefix_len = prefix ? strlen(prefix) : 0;
+
+    /* Iterate through all shell feature names */
+    for (const char **name = shell_feature_names; *name != NULL; name++) {
+        if (prefix_len == 0 || strncmp(*name, prefix, prefix_len) == 0) {
+            lle_result_t res = lle_completion_result_add(
+                result, *name, " ", LLE_COMPLETION_TYPE_CUSTOM, 600);
+            if (res != LLE_SUCCESS) {
+                return res;
+            }
+        }
+    }
+
+    return LLE_SUCCESS;
+}
+
+/**
  * @brief Generate completions based on argument type
  */
 static lle_result_t
@@ -544,6 +634,9 @@ generate_dynamic_completions(lle_memory_pool_t *pool,
 
     case LLE_BUILTIN_ARG_THEME:
         return generate_theme_completions(pool, prefix, result);
+
+    case LLE_BUILTIN_ARG_FEATURE:
+        return generate_feature_completions(pool, prefix, result);
     }
 
     return LLE_SUCCESS;

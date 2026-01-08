@@ -306,7 +306,7 @@ display_controller_t *display_controller_create(void);
  */
 display_controller_error_t
 display_controller_init(display_controller_t *controller,
-                        const display_controller_config_t *config,
+                        const display_controller_config_t *init_config,
                         layer_event_system_t *event_system);
 
 /**

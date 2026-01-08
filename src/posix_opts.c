@@ -13,6 +13,7 @@
  */
 
 #include "config.h"
+#include "config_registry.h"
 #include "errors.h"
 #include "lle/lle_shell_integration.h"
 #include "lusush.h"
@@ -37,6 +38,42 @@ shell_options_t shell_opts = {0};
  */
 static void sync_shell_mode_to_config(shell_mode_t mode) {
     config.shell_mode = (int)mode;
+
+    /* Also update registry if initialized */
+    if (config_registry_is_initialized()) {
+        const char *mode_str = "lusush";
+        switch (mode) {
+        case SHELL_MODE_POSIX: mode_str = "posix"; break;
+        case SHELL_MODE_BASH: mode_str = "bash"; break;
+        case SHELL_MODE_ZSH: mode_str = "zsh"; break;
+        case SHELL_MODE_LUSUSH: mode_str = "lusush"; break;
+        case SHELL_MODE_COUNT: break; /* Not a real mode */
+        }
+        config_registry_set_string("shell.mode", mode_str);
+    }
+}
+
+/**
+ * @brief Sync a shell option to the config registry
+ *
+ * Updates both config system and registry when a shell option changes.
+ * Called after each option is set/unset via set -o / +o commands.
+ *
+ * @param name The option name (e.g., "errexit")
+ * @param value The new boolean value
+ */
+static void sync_shell_option_to_registry(const char *name, bool value) {
+    /* Build the full key: shell.<name> */
+    char key[CREG_KEY_MAX];
+    snprintf(key, sizeof(key), "shell.%s", name);
+
+    /* Update config system's shell option */
+    config_set_shell_option(key, value);
+
+    /* Update registry if initialized */
+    if (config_registry_is_initialized()) {
+        config_registry_set_boolean(key, value);
+    }
 }
 
 /**
@@ -409,14 +446,17 @@ int builtin_set(char **args) {
                     option_mapping_t *opt = find_option_by_name(args[i]);
                     if (opt) {
                         *(opt->flag) = true;
+                        sync_shell_option_to_registry(opt->name, true);
                         // Handle mutually exclusive editing modes
                         if (strcmp(args[i], "emacs") == 0) {
                             shell_opts.vi_mode =
                                 false; // Disable vi when enabling emacs
+                            sync_shell_option_to_registry("vi", false);
                             lusush_update_editing_mode();
                         } else if (strcmp(args[i], "vi") == 0) {
                             shell_opts.emacs_mode =
                                 false; // Disable emacs when enabling vi
+                            sync_shell_option_to_registry("emacs", false);
                             lusush_update_editing_mode();
                         }
                     } else {
@@ -457,14 +497,17 @@ int builtin_set(char **args) {
                     option_mapping_t *opt = find_option_by_name(args[i]);
                     if (opt) {
                         *(opt->flag) = false;
+                        sync_shell_option_to_registry(opt->name, false);
                         // Handle mutually exclusive editing modes
                         if (strcmp(args[i], "emacs") == 0) {
                             shell_opts.vi_mode =
                                 true; // Enable vi when disabling emacs
+                            sync_shell_option_to_registry("vi", true);
                             lusush_update_editing_mode();
                         } else if (strcmp(args[i], "vi") == 0) {
                             shell_opts.emacs_mode =
                                 true; // Enable emacs when disabling vi
+                            sync_shell_option_to_registry("emacs", true);
                             lusush_update_editing_mode();
                         }
                     } else {
@@ -549,6 +592,7 @@ int builtin_set(char **args) {
                 option_mapping_t *opt = find_option_by_short(arg[j]);
                 if (opt) {
                     *(opt->flag) = true;
+                    sync_shell_option_to_registry(opt->name, true);
                 } else {
                     error_message("set: invalid option: -%c", arg[j]);
                     return 1;
@@ -560,6 +604,7 @@ int builtin_set(char **args) {
                 option_mapping_t *opt = find_option_by_short(arg[j]);
                 if (opt) {
                     *(opt->flag) = false;
+                    sync_shell_option_to_registry(opt->name, false);
                 } else {
                     error_message("set: invalid option: +%c", arg[j]);
                     return 1;

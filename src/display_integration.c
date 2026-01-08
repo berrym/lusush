@@ -48,6 +48,8 @@
 #include "display_integration.h"
 #include "config.h"
 #include "display/autosuggestions_layer.h"
+#include "display/command_layer.h"
+#include "display/composition_engine.h"
 #include "display/display_controller.h"
 #include "display/layer_events.h"
 #include "executor.h"
@@ -225,14 +227,14 @@ static char display_output_buffer[DISPLAY_INTEGRATION_MAX_OUTPUT_SIZE];
  * @param config Configuration for display integration
  * @return true on success, false on failure
  */
-bool display_integration_init(const display_integration_config_t *config) {
+bool display_integration_init(const display_integration_config_t *init_config) {
     if (integration_initialized) {
         return true; // Already initialized
     }
 
     // Copy configuration
-    if (config) {
-        current_config = *config;
+    if (init_config) {
+        current_config = *init_config;
     } else {
         // Use default configuration with layered display (always enabled)
         display_integration_create_default_config(&current_config);
@@ -300,6 +302,14 @@ bool display_integration_init(const display_integration_config_t *config) {
             display_controller_destroy(global_display_controller);
             global_display_controller = NULL;
             return false;
+        }
+
+        // Sync command layer syntax highlighting with shell config
+        if (global_display_controller->compositor &&
+            global_display_controller->compositor->command_layer) {
+            command_layer_set_syntax_enabled(
+                global_display_controller->compositor->command_layer,
+                config.display_syntax_highlighting);
         }
 
         // Configure display controller

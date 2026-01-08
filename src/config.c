@@ -14,7 +14,9 @@
 
 #include "alias.h"
 #include "autocorrect.h"
+#include "config_registry.h"
 #include "lle/lle_shell_integration.h"
+#include "lle/unicode_compare.h"
 #include "lusush.h"
 #include "shell_mode.h"
 #include "symtable.h"
@@ -491,6 +493,359 @@ static config_option_t config_options[] = {
 
 static const int num_config_options =
     sizeof(config_options) / sizeof(config_option_t);
+
+/* ============================================================================
+ * CONFIG REGISTRY INTEGRATION
+ *
+ * These sections register the existing config options with the unified
+ * config registry system, enabling:
+ * - TOML-based configuration files
+ * - Change notifications for reactive updates
+ * - Bidirectional sync between config struct and registry
+ * ============================================================================
+ */
+
+/* Forward declarations for sync hooks */
+static void history_sync_to_runtime(void);
+static void history_sync_from_runtime(void);
+static void shell_sync_to_runtime(void);
+static void shell_sync_from_runtime(void);
+static void display_sync_to_runtime(void);
+static void display_sync_from_runtime(void);
+static void completion_sync_to_runtime(void);
+static void completion_sync_from_runtime(void);
+static void behavior_sync_to_runtime(void);
+static void behavior_sync_from_runtime(void);
+
+/* ----------------------------------------------------------------------------
+ * History Section Options
+ * -------------------------------------------------------------------------- */
+static const creg_option_t history_options[] = {
+    {"enabled", CREG_VALUE_BOOLEAN,
+     {.type = CREG_VALUE_BOOLEAN, .data.boolean = true},
+     "Enable command history", true},
+    {"size", CREG_VALUE_INTEGER,
+     {.type = CREG_VALUE_INTEGER, .data.integer = 1000},
+     "Maximum history entries", true},
+    {"no_dups", CREG_VALUE_BOOLEAN,
+     {.type = CREG_VALUE_BOOLEAN, .data.boolean = true},
+     "Remove duplicate entries", true},
+    {"timestamps", CREG_VALUE_BOOLEAN,
+     {.type = CREG_VALUE_BOOLEAN, .data.boolean = false},
+     "Record timestamps", true},
+};
+
+static const creg_section_t history_section = {
+    .name = "history",
+    .options = history_options,
+    .option_count = sizeof(history_options) / sizeof(creg_option_t),
+    .on_load = NULL,
+    .on_save = NULL,
+    .sync_to_runtime = history_sync_to_runtime,
+    .sync_from_runtime = history_sync_from_runtime,
+};
+
+/* ----------------------------------------------------------------------------
+ * Shell Section Options (POSIX options + mode)
+ * -------------------------------------------------------------------------- */
+static const creg_option_t shell_options[] = {
+    {"mode", CREG_VALUE_STRING,
+     {.type = CREG_VALUE_STRING, .data.string = "lusush"},
+     "Shell compatibility mode", true},
+    {"errexit", CREG_VALUE_BOOLEAN,
+     {.type = CREG_VALUE_BOOLEAN, .data.boolean = false},
+     "Exit on command failure (set -e)", true},
+    {"nounset", CREG_VALUE_BOOLEAN,
+     {.type = CREG_VALUE_BOOLEAN, .data.boolean = false},
+     "Error on unset variables (set -u)", true},
+    {"xtrace", CREG_VALUE_BOOLEAN,
+     {.type = CREG_VALUE_BOOLEAN, .data.boolean = false},
+     "Trace execution (set -x)", true},
+    {"pipefail", CREG_VALUE_BOOLEAN,
+     {.type = CREG_VALUE_BOOLEAN, .data.boolean = false},
+     "Pipeline failure detection", true},
+};
+
+static const creg_section_t shell_section = {
+    .name = "shell",
+    .options = shell_options,
+    .option_count = sizeof(shell_options) / sizeof(creg_option_t),
+    .on_load = NULL,
+    .on_save = NULL,
+    .sync_to_runtime = shell_sync_to_runtime,
+    .sync_from_runtime = shell_sync_from_runtime,
+};
+
+/* ----------------------------------------------------------------------------
+ * Display Section Options
+ * -------------------------------------------------------------------------- */
+static const creg_option_t display_options[] = {
+    {"syntax_highlighting", CREG_VALUE_BOOLEAN,
+     {.type = CREG_VALUE_BOOLEAN, .data.boolean = true},
+     "Enable syntax highlighting", true},
+    {"autosuggestions", CREG_VALUE_BOOLEAN,
+     {.type = CREG_VALUE_BOOLEAN, .data.boolean = true},
+     "Enable Fish-style autosuggestions", true},
+    {"transient_prompt", CREG_VALUE_BOOLEAN,
+     {.type = CREG_VALUE_BOOLEAN, .data.boolean = false},
+     "Enable transient prompts", true},
+    {"optimization_level", CREG_VALUE_INTEGER,
+     {.type = CREG_VALUE_INTEGER, .data.integer = 2},
+     "Display optimization level (0-4)", true},
+};
+
+static const creg_section_t display_section = {
+    .name = "display",
+    .options = display_options,
+    .option_count = sizeof(display_options) / sizeof(creg_option_t),
+    .on_load = NULL,
+    .on_save = NULL,
+    .sync_to_runtime = display_sync_to_runtime,
+    .sync_from_runtime = display_sync_from_runtime,
+};
+
+/* ----------------------------------------------------------------------------
+ * Completion Section Options
+ * -------------------------------------------------------------------------- */
+static const creg_option_t completion_options[] = {
+    {"enabled", CREG_VALUE_BOOLEAN,
+     {.type = CREG_VALUE_BOOLEAN, .data.boolean = true},
+     "Enable tab completion", true},
+    {"fuzzy", CREG_VALUE_BOOLEAN,
+     {.type = CREG_VALUE_BOOLEAN, .data.boolean = true},
+     "Enable fuzzy matching", true},
+    {"case_sensitive", CREG_VALUE_BOOLEAN,
+     {.type = CREG_VALUE_BOOLEAN, .data.boolean = false},
+     "Case-sensitive completion", true},
+};
+
+static const creg_section_t completion_section = {
+    .name = "completion",
+    .options = completion_options,
+    .option_count = sizeof(completion_options) / sizeof(creg_option_t),
+    .on_load = NULL,
+    .on_save = NULL,
+    .sync_to_runtime = completion_sync_to_runtime,
+    .sync_from_runtime = completion_sync_from_runtime,
+};
+
+/* ----------------------------------------------------------------------------
+ * Behavior Section Options
+ * -------------------------------------------------------------------------- */
+static const creg_option_t behavior_options[] = {
+    {"auto_cd", CREG_VALUE_BOOLEAN,
+     {.type = CREG_VALUE_BOOLEAN, .data.boolean = false},
+     "Auto-cd to directories", true},
+    {"spell_correction", CREG_VALUE_BOOLEAN,
+     {.type = CREG_VALUE_BOOLEAN, .data.boolean = true},
+     "Enable spell correction", true},
+    {"confirm_exit", CREG_VALUE_BOOLEAN,
+     {.type = CREG_VALUE_BOOLEAN, .data.boolean = false},
+     "Confirm before exit", true},
+};
+
+static const creg_section_t behavior_section = {
+    .name = "behavior",
+    .options = behavior_options,
+    .option_count = sizeof(behavior_options) / sizeof(creg_option_t),
+    .on_load = NULL,
+    .on_save = NULL,
+    .sync_to_runtime = behavior_sync_to_runtime,
+    .sync_from_runtime = behavior_sync_from_runtime,
+};
+
+/* ----------------------------------------------------------------------------
+ * Sync Hook Implementations
+ * -------------------------------------------------------------------------- */
+
+/**
+ * @brief Sync history config from registry to runtime
+ */
+static void history_sync_to_runtime(void) {
+    bool bval;
+    int64_t ival;
+
+    if (config_registry_get_boolean("history.enabled", &bval) == CREG_SUCCESS) {
+        config.history_enabled = bval;
+    }
+    if (config_registry_get_integer("history.size", &ival) == CREG_SUCCESS) {
+        config.history_size = (int)ival;
+    }
+    if (config_registry_get_boolean("history.no_dups", &bval) == CREG_SUCCESS) {
+        config.history_no_dups = bval;
+    }
+    if (config_registry_get_boolean("history.timestamps", &bval) == CREG_SUCCESS) {
+        config.history_timestamps = bval;
+    }
+}
+
+/**
+ * @brief Sync history config from runtime to registry
+ */
+static void history_sync_from_runtime(void) {
+    config_registry_set_boolean("history.enabled", config.history_enabled);
+    config_registry_set_integer("history.size", config.history_size);
+    config_registry_set_boolean("history.no_dups", config.history_no_dups);
+    config_registry_set_boolean("history.timestamps", config.history_timestamps);
+}
+
+/**
+ * @brief Sync shell options from registry to runtime
+ */
+static void shell_sync_to_runtime(void) {
+    bool bval;
+    char sval[CREG_VALUE_STRING_MAX];
+
+    if (config_registry_get_string("shell.mode", sval, sizeof(sval)) == CREG_SUCCESS) {
+        /* Map mode string to enum - use Unicode comparison */
+        if (lle_unicode_strings_equal(sval, "posix", &LLE_UNICODE_COMPARE_DEFAULT)) {
+            config.shell_mode = SHELL_MODE_POSIX;
+        } else if (lle_unicode_strings_equal(sval, "bash", &LLE_UNICODE_COMPARE_DEFAULT)) {
+            config.shell_mode = SHELL_MODE_BASH;
+        } else if (lle_unicode_strings_equal(sval, "zsh", &LLE_UNICODE_COMPARE_DEFAULT)) {
+            config.shell_mode = SHELL_MODE_ZSH;
+        } else {
+            config.shell_mode = SHELL_MODE_LUSUSH;
+        }
+    }
+
+    /* POSIX options - sync to shell_opts via config_set_shell_option */
+    if (config_registry_get_boolean("shell.errexit", &bval) == CREG_SUCCESS) {
+        config_set_shell_option("errexit", bval);
+    }
+    if (config_registry_get_boolean("shell.nounset", &bval) == CREG_SUCCESS) {
+        config_set_shell_option("nounset", bval);
+    }
+    if (config_registry_get_boolean("shell.xtrace", &bval) == CREG_SUCCESS) {
+        config_set_shell_option("xtrace", bval);
+    }
+    if (config_registry_get_boolean("shell.pipefail", &bval) == CREG_SUCCESS) {
+        config_set_shell_option("pipefail", bval);
+    }
+}
+
+/**
+ * @brief Sync shell options from runtime to registry
+ */
+static void shell_sync_from_runtime(void) {
+    /* Map mode enum to string */
+    const char *mode_str = "lusush";
+    switch (config.shell_mode) {
+    case SHELL_MODE_POSIX: mode_str = "posix"; break;
+    case SHELL_MODE_BASH: mode_str = "bash"; break;
+    case SHELL_MODE_ZSH: mode_str = "zsh"; break;
+    case SHELL_MODE_LUSUSH: mode_str = "lusush"; break;
+    }
+    config_registry_set_string("shell.mode", mode_str);
+
+    /* POSIX options - read from shell_opts via config_get_shell_option */
+    config_registry_set_boolean("shell.errexit", config_get_shell_option("errexit"));
+    config_registry_set_boolean("shell.nounset", config_get_shell_option("nounset"));
+    config_registry_set_boolean("shell.xtrace", config_get_shell_option("xtrace"));
+    config_registry_set_boolean("shell.pipefail", config_get_shell_option("pipefail"));
+}
+
+/**
+ * @brief Sync display config from registry to runtime
+ */
+static void display_sync_to_runtime(void) {
+    bool bval;
+    int64_t ival;
+
+    if (config_registry_get_boolean("display.syntax_highlighting", &bval) == CREG_SUCCESS) {
+        config.display_syntax_highlighting = bval;
+    }
+    if (config_registry_get_boolean("display.autosuggestions", &bval) == CREG_SUCCESS) {
+        config.display_autosuggestions = bval;
+    }
+    if (config_registry_get_boolean("display.transient_prompt", &bval) == CREG_SUCCESS) {
+        config.display_transient_prompt = bval;
+    }
+    if (config_registry_get_integer("display.optimization_level", &ival) == CREG_SUCCESS) {
+        config.display_optimization_level = (int)ival;
+    }
+}
+
+/**
+ * @brief Sync display config from runtime to registry
+ */
+static void display_sync_from_runtime(void) {
+    config_registry_set_boolean("display.syntax_highlighting", config.display_syntax_highlighting);
+    config_registry_set_boolean("display.autosuggestions", config.display_autosuggestions);
+    config_registry_set_boolean("display.transient_prompt", config.display_transient_prompt);
+    config_registry_set_integer("display.optimization_level", config.display_optimization_level);
+}
+
+/**
+ * @brief Sync completion config from registry to runtime
+ */
+static void completion_sync_to_runtime(void) {
+    bool bval;
+
+    if (config_registry_get_boolean("completion.enabled", &bval) == CREG_SUCCESS) {
+        config.completion_enabled = bval;
+    }
+    if (config_registry_get_boolean("completion.fuzzy", &bval) == CREG_SUCCESS) {
+        config.fuzzy_completion = bval;
+    }
+    if (config_registry_get_boolean("completion.case_sensitive", &bval) == CREG_SUCCESS) {
+        config.completion_case_sensitive = bval;
+    }
+}
+
+/**
+ * @brief Sync completion config from runtime to registry
+ */
+static void completion_sync_from_runtime(void) {
+    config_registry_set_boolean("completion.enabled", config.completion_enabled);
+    config_registry_set_boolean("completion.fuzzy", config.fuzzy_completion);
+    config_registry_set_boolean("completion.case_sensitive", config.completion_case_sensitive);
+}
+
+/**
+ * @brief Sync behavior config from registry to runtime
+ */
+static void behavior_sync_to_runtime(void) {
+    bool bval;
+
+    if (config_registry_get_boolean("behavior.auto_cd", &bval) == CREG_SUCCESS) {
+        config.auto_cd = bval;
+    }
+    if (config_registry_get_boolean("behavior.spell_correction", &bval) == CREG_SUCCESS) {
+        config.spell_correction = bval;
+    }
+    if (config_registry_get_boolean("behavior.confirm_exit", &bval) == CREG_SUCCESS) {
+        config.confirm_exit = bval;
+    }
+}
+
+/**
+ * @brief Sync behavior config from runtime to registry
+ */
+static void behavior_sync_from_runtime(void) {
+    config_registry_set_boolean("behavior.auto_cd", config.auto_cd);
+    config_registry_set_boolean("behavior.spell_correction", config.spell_correction);
+    config_registry_set_boolean("behavior.confirm_exit", config.confirm_exit);
+}
+
+/**
+ * @brief Register all config sections with the registry
+ *
+ * Called during config_init to set up the registry with all known sections.
+ */
+static void config_register_sections(void) {
+    if (!config_registry_is_initialized()) {
+        if (config_registry_init() != CREG_SUCCESS) {
+            return;
+        }
+    }
+
+    config_registry_register_section(&history_section);
+    config_registry_register_section(&shell_section);
+    config_registry_register_section(&display_section);
+    config_registry_register_section(&completion_section);
+    config_registry_register_section(&behavior_section);
+}
 
 /**
  * @brief Handle legacy configuration keys that were removed or renamed
@@ -1448,26 +1803,77 @@ int config_init(void) {
     // Initialize context
     memset(&config_ctx, 0, sizeof(config_ctx));
 
-    // Try to get config paths, but don't fail if we can't
-    config_ctx.user_config_path = config_get_user_config_path();
+    // Initialize config registry and register all sections
+    config_register_sections();
+
+    // Get XDG directory path
+    char xdg_dir[CONFIG_PATH_MAX];
+    if (config_get_xdg_dir(xdg_dir, sizeof(xdg_dir)) == 0) {
+        config_ctx.xdg_config_dir = strdup(xdg_dir);
+    }
+
+    // Check for XDG config file
+    char xdg_path[CONFIG_PATH_MAX];
+    char legacy_path[CONFIG_PATH_MAX];
+    struct stat st;
+    bool xdg_exists = false;
+    bool legacy_exists = false;
+
+    if (config_get_xdg_config_path(xdg_path, sizeof(xdg_path)) == 0) {
+        xdg_exists = (stat(xdg_path, &st) == 0 && S_ISREG(st.st_mode));
+    }
+
+    if (config_get_legacy_config_path(legacy_path, sizeof(legacy_path)) == 0) {
+        legacy_exists = (stat(legacy_path, &st) == 0 && S_ISREG(st.st_mode));
+        if (legacy_exists) {
+            config_ctx.legacy_config_path = strdup(legacy_path);
+        }
+    }
+
+    // Determine which config to load and set format
+    if (xdg_exists) {
+        // Prefer XDG config
+        config_ctx.user_config_path = strdup(xdg_path);
+        config_ctx.format = CONFIG_FORMAT_TOML;
+        config_ctx.needs_migration = false;
+    } else if (legacy_exists) {
+        // Use legacy config, mark for migration
+        config_ctx.user_config_path = strdup(legacy_path);
+        config_ctx.format = CONFIG_FORMAT_LEGACY;
+        config_ctx.needs_migration = true;
+    } else {
+        // No config exists - use XDG path for new config
+        config_ctx.user_config_path = strdup(xdg_path);
+        config_ctx.format = CONFIG_FORMAT_TOML;
+        config_ctx.needs_migration = false;
+    }
+
     config_ctx.system_config_path = config_get_system_config_path();
 
-    // Only proceed if we have valid paths
-    if (config_ctx.user_config_path && config_ctx.system_config_path) {
-        // Check if config files exist
-        struct stat st;
-        config_ctx.user_config_exists =
-            (stat(config_ctx.user_config_path, &st) == 0);
-        config_ctx.system_config_exists =
-            (stat(config_ctx.system_config_path, &st) == 0);
+    // Check if config files exist
+    config_ctx.user_config_exists =
+        (config_ctx.user_config_path &&
+         stat(config_ctx.user_config_path, &st) == 0);
+    config_ctx.system_config_exists =
+        (config_ctx.system_config_path &&
+         stat(config_ctx.system_config_path, &st) == 0);
 
-        // Load system config first, then user config (ignore errors)
-        if (config_ctx.system_config_exists) {
-            config_load_system();
-        }
+    // Load system config first, then user config (ignore errors)
+    if (config_ctx.system_config_exists) {
+        config_load_system();
+    }
 
-        if (config_ctx.user_config_exists) {
-            config_load_user();
+    if (config_ctx.user_config_exists) {
+        config_load_user();
+
+        // Print migration notice if loading legacy config
+        if (config_ctx.needs_migration) {
+            fprintf(stderr,
+                    "lusush: Loading configuration from %s (legacy location)\n",
+                    config_ctx.user_config_path);
+            fprintf(stderr,
+                    "lusush: Run 'config save' to migrate to %s\n",
+                    xdg_path);
         }
     }
 
@@ -1609,38 +2015,278 @@ void config_set_defaults(void) {
     // LLE is the only line editor - no config option needed
 }
 
+/* ============================================================================
+ * XDG Path Resolution Helpers
+ * ============================================================================ */
+
+/**
+ * @brief Get the user's home directory
+ *
+ * Checks HOME environment variable first, then falls back to passwd entry.
+ *
+ * @return Home directory path, or NULL if not found
+ */
+static const char *get_home_directory(void) {
+    const char *home = getenv("HOME");
+    if (home && home[0] != '\0') {
+        return home;
+    }
+
+    struct passwd *pw = getpwuid(getuid());
+    if (pw && pw->pw_dir) {
+        return pw->pw_dir;
+    }
+
+    return NULL;
+}
+
+/**
+ * @brief Create a directory and all parent directories recursively
+ *
+ * @param path Directory path to create
+ * @return 0 on success, -1 on failure
+ */
+static int mkdir_recursive(const char *path) {
+    char tmp[CONFIG_PATH_MAX];
+    char *p = NULL;
+    size_t len;
+
+    snprintf(tmp, sizeof(tmp), "%s", path);
+    len = strlen(tmp);
+
+    if (len > 0 && tmp[len - 1] == '/') {
+        tmp[len - 1] = '\0';
+    }
+
+    for (p = tmp + 1; *p; p++) {
+        if (*p == '/') {
+            *p = '\0';
+            if (mkdir(tmp, 0755) != 0 && errno != EEXIST) {
+                return -1;
+            }
+            *p = '/';
+        }
+    }
+
+    if (mkdir(tmp, 0755) != 0 && errno != EEXIST) {
+        return -1;
+    }
+
+    return 0;
+}
+
+/**
+ * @brief Get the XDG config directory path
+ *
+ * Returns ~/.config/lusush or $XDG_CONFIG_HOME/lusush.
+ *
+ * @param buffer Buffer to receive the path
+ * @param size Size of the buffer
+ * @return 0 on success, -1 on error
+ */
+int config_get_xdg_dir(char *buffer, size_t size) {
+    if (!buffer || size == 0) {
+        return -1;
+    }
+
+    /* Check XDG_CONFIG_HOME first */
+    const char *xdg_config = getenv("XDG_CONFIG_HOME");
+    if (xdg_config && xdg_config[0] != '\0') {
+        snprintf(buffer, size, "%s/%s", xdg_config, CONFIG_XDG_DIR);
+        return 0;
+    }
+
+    /* Fall back to ~/.config */
+    const char *home = get_home_directory();
+    if (!home) {
+        return -1;
+    }
+
+    snprintf(buffer, size, "%s/.config/%s", home, CONFIG_XDG_DIR);
+    return 0;
+}
+
+/**
+ * @brief Get the XDG config file path
+ *
+ * Returns the path to config.toml in the XDG directory.
+ *
+ * @param buffer Buffer to receive the path
+ * @param size Size of the buffer
+ * @return 0 on success, -1 on error
+ */
+int config_get_xdg_config_path(char *buffer, size_t size) {
+    char xdg_dir[CONFIG_PATH_MAX];
+    if (config_get_xdg_dir(xdg_dir, sizeof(xdg_dir)) != 0) {
+        return -1;
+    }
+
+    snprintf(buffer, size, "%s/%s", xdg_dir, CONFIG_XDG_FILE);
+    return 0;
+}
+
+/**
+ * @brief Get the legacy config file path
+ *
+ * Returns the path to ~/.lusushrc.
+ *
+ * @param buffer Buffer to receive the path
+ * @param size Size of the buffer
+ * @return 0 on success, -1 on error
+ */
+int config_get_legacy_config_path(char *buffer, size_t size) {
+    if (!buffer || size == 0) {
+        return -1;
+    }
+
+    const char *home = get_home_directory();
+    if (!home) {
+        return -1;
+    }
+
+    snprintf(buffer, size, "%s/%s", home, USER_CONFIG_FILE);
+    return 0;
+}
+
+/**
+ * @brief Get the path to the shell script config file
+ *
+ * Returns the path to config.sh (sourced after config.toml).
+ *
+ * @param buffer Buffer to receive the path
+ * @param size Size of the buffer
+ * @return 0 on success, -1 on error
+ */
+int config_get_script_config_path(char *buffer, size_t size) {
+    char xdg_dir[CONFIG_PATH_MAX];
+    if (config_get_xdg_dir(xdg_dir, sizeof(xdg_dir)) != 0) {
+        return -1;
+    }
+
+    snprintf(buffer, size, "%s/%s", xdg_dir, CONFIG_XDG_SCRIPT);
+    return 0;
+}
+
+/**
+ * @brief Check if legacy config needs migration
+ *
+ * @return true if legacy config exists and XDG config does not
+ */
+bool config_needs_migration(void) {
+    return config_ctx.needs_migration;
+}
+
+/**
+ * @brief Ensure XDG config directory exists
+ *
+ * Creates ~/.config/lusush if it doesn't exist.
+ *
+ * @return 0 on success, -1 on error
+ */
+static int ensure_xdg_dir_exists(void) {
+    char xdg_dir[CONFIG_PATH_MAX];
+    if (config_get_xdg_dir(xdg_dir, sizeof(xdg_dir)) != 0) {
+        return -1;
+    }
+
+    struct stat st;
+    if (stat(xdg_dir, &st) == 0) {
+        return S_ISDIR(st.st_mode) ? 0 : -1;
+    }
+
+    return mkdir_recursive(xdg_dir);
+}
+
+/**
+ * @brief Migrate legacy config to XDG location
+ *
+ * Converts ~/.lusushrc to ~/.config/lusush/config.toml format.
+ * This is a placeholder - full implementation requires the registry.
+ *
+ * @return 0 on success, -1 on error
+ */
+int config_migrate_to_xdg(void) {
+    if (!config_ctx.needs_migration) {
+        return 0; /* Nothing to migrate */
+    }
+
+    /* Ensure XDG directory exists */
+    if (ensure_xdg_dir_exists() != 0) {
+        config_error("Failed to create config directory");
+        return -1;
+    }
+
+    /* Get XDG config path */
+    char xdg_path[CONFIG_PATH_MAX];
+    if (config_get_xdg_config_path(xdg_path, sizeof(xdg_path)) != 0) {
+        return -1;
+    }
+
+    /* Save current config to XDG location in TOML format */
+    /* Note: This will be enhanced once registry is wired up */
+    if (config_save_file(xdg_path) != 0) {
+        config_error("Failed to save config to %s", xdg_path);
+        return -1;
+    }
+
+    /* Update context */
+    free(config_ctx.user_config_path);
+    config_ctx.user_config_path = strdup(xdg_path);
+    config_ctx.format = CONFIG_FORMAT_TOML;
+    config_ctx.needs_migration = false;
+
+    fprintf(stderr, "lusush: Configuration saved to %s\n", xdg_path);
+    fprintf(stderr, "lusush: You may remove the old %s file\n",
+            config_ctx.legacy_config_path ? config_ctx.legacy_config_path
+                                          : "~/.lusushrc");
+
+    return 0;
+}
+
 /**
  * @brief Get the path to the user's configuration file
  *
- * Returns the full path to ~/.lusushrc.
+ * Returns the XDG config path if it exists, otherwise the legacy path
+ * if it exists. If neither exists, returns the XDG path for new config.
  *
  * @return Allocated path string (caller must free), or NULL on failure
  */
 char *config_get_user_config_path(void) {
-    const char *home = getenv("HOME");
-    if (!home) {
-        struct passwd *pw = getpwuid(getuid());
-        if (pw) {
-            home = pw->pw_dir;
-        } else {
-            home = "/tmp";
+    char xdg_path[CONFIG_PATH_MAX];
+    char legacy_path[CONFIG_PATH_MAX];
+    struct stat st;
+
+    /* Try XDG path first */
+    if (config_get_xdg_config_path(xdg_path, sizeof(xdg_path)) == 0) {
+        if (stat(xdg_path, &st) == 0 && S_ISREG(st.st_mode)) {
+            return strdup(xdg_path);
         }
     }
 
-    size_t path_len = strlen(home) + strlen(USER_CONFIG_FILE) + 2;
-    char *path = malloc(path_len);
-    if (!path) {
-        return NULL;
+    /* Try legacy path */
+    if (config_get_legacy_config_path(legacy_path, sizeof(legacy_path)) == 0) {
+        if (stat(legacy_path, &st) == 0 && S_ISREG(st.st_mode)) {
+            return strdup(legacy_path);
+        }
     }
 
-    snprintf(path, path_len, "%s/%s", home, USER_CONFIG_FILE);
-    return path;
+    /* Neither exists - return XDG path for new config creation */
+    if (xdg_path[0] != '\0') {
+        return strdup(xdg_path);
+    }
+
+    /* Fallback to legacy if we couldn't determine XDG path */
+    if (legacy_path[0] != '\0') {
+        return strdup(legacy_path);
+    }
+
+    return NULL;
 }
 
 /**
  * @brief Get the path to the system configuration file
  *
- * Returns the path to /etc/lusushrc.
+ * Returns the path to /etc/lusush/lusushrc.
  *
  * @return Allocated path string (caller must free)
  */
@@ -1667,9 +2313,60 @@ int config_load_system(void) {
 /**
  * @brief Save user configuration to file
  *
+ * When saving, always uses the XDG TOML location for new saves.
+ * This enables automatic migration from legacy ~/.lusushrc to
+ * ~/.config/lusush/config.toml format.
+ *
  * @return 0 on success, -1 on failure
  */
 int config_save_user(void) {
+    char xdg_path[CONFIG_PATH_MAX];
+
+    /* Always save to XDG location in TOML format */
+    if (config_get_xdg_config_path(xdg_path, sizeof(xdg_path)) == 0) {
+        /* Ensure XDG directory exists */
+        char xdg_dir[CONFIG_PATH_MAX];
+        if (config_get_xdg_dir(xdg_dir, sizeof(xdg_dir)) == 0) {
+            struct stat st;
+            if (stat(xdg_dir, &st) != 0) {
+                /* Directory doesn't exist, create it */
+                if (mkdir(xdg_dir, 0755) != 0 && errno != EEXIST) {
+                    config_error("Failed to create config directory: %s",
+                                 xdg_dir);
+                    /* Fall back to current path */
+                    if (config_ctx.user_config_path) {
+                        return config_save_file(config_ctx.user_config_path);
+                    }
+                    return -1;
+                }
+            }
+        }
+
+        int result = config_save_file(xdg_path);
+
+        if (result == 0) {
+            /* Update context to point to new location */
+            if (config_ctx.needs_migration) {
+                fprintf(stderr, "lusush: Configuration saved to %s\n",
+                        xdg_path);
+                fprintf(stderr,
+                        "lusush: You may remove the old %s file\n",
+                        config_ctx.legacy_config_path
+                            ? config_ctx.legacy_config_path
+                            : "~/.lusushrc");
+                config_ctx.needs_migration = false;
+            }
+
+            /* Update user_config_path to the new TOML location */
+            free(config_ctx.user_config_path);
+            config_ctx.user_config_path = strdup(xdg_path);
+            config_ctx.format = CONFIG_FORMAT_TOML;
+        }
+
+        return result;
+    }
+
+    /* Fallback to existing path if XDG resolution failed */
     if (!config_ctx.user_config_path) {
         return -1;
     }
@@ -1677,15 +2374,36 @@ int config_save_user(void) {
 }
 
 /**
- * @brief Save configuration to a file in INI format
+ * @brief Save configuration to a file
  *
- * Writes all configuration options to the specified file
- * using dotted notation (e.g., history.enabled = true).
+ * Writes configuration to the specified file. Format is auto-detected:
+ * - Files ending in .toml use TOML format via config registry
+ * - Other files use legacy INI-style format
  *
  * @param path Path to the configuration file
  * @return 0 on success, -1 on failure
  */
 int config_save_file(const char *path) {
+    if (!path) {
+        return -1;
+    }
+
+    /* Detect file format based on extension */
+    size_t path_len = strlen(path);
+    bool is_toml = (path_len > 5 &&
+                    lle_unicode_strings_equal(path + path_len - 5, ".toml",
+                                              &LLE_UNICODE_COMPARE_DEFAULT));
+
+    if (is_toml) {
+        /* Sync current runtime config to registry before saving */
+        config_registry_sync_from_runtime();
+
+        /* Use registry's TOML save */
+        creg_result_t result = config_registry_save(path);
+        return (result == CREG_SUCCESS) ? 0 : -1;
+    }
+
+    /* Legacy INI-style format */
     FILE *file = fopen(path, "w");
     if (!file) {
         return -1;
@@ -1752,12 +2470,40 @@ int config_save_file(const char *path) {
 /**
  * @brief Load configuration from a file
  *
- * Reads and parses a configuration file line by line.
+ * Reads and parses a configuration file. Automatically detects format:
+ * - Files ending in .toml use the TOML parser via config registry
+ * - Other files use the legacy INI-style parser
  *
  * @param path Path to the configuration file
  * @return 0 on success, -1 if file cannot be opened
  */
 int config_load_file(const char *path) {
+    if (!path) {
+        return -1;
+    }
+
+    /* Detect file format based on extension */
+    size_t path_len = strlen(path);
+    bool is_toml = (path_len > 5 &&
+                    lle_unicode_strings_equal(path + path_len - 5, ".toml",
+                                              &LLE_UNICODE_COMPARE_DEFAULT));
+
+    if (is_toml) {
+        /* Use TOML parser via config registry */
+        creg_result_t result = config_registry_load(path);
+        if (result == CREG_SUCCESS) {
+            /* Sync registry values to runtime config struct */
+            config_registry_sync_to_runtime();
+            config_ctx.format = CONFIG_FORMAT_TOML;
+            return 0;
+        }
+        /* Fall through to legacy parser on failure */
+        config_warning("TOML parsing failed, trying legacy format");
+    }
+
+    /* Legacy INI-style parser */
+    config_ctx.format = CONFIG_FORMAT_LEGACY;
+
     FILE *file = fopen(path, "r");
     if (!file) {
         return -1;
@@ -1784,6 +2530,10 @@ int config_load_file(const char *path) {
     }
 
     fclose(file);
+
+    /* After loading legacy config, sync values to registry */
+    config_registry_sync_from_runtime();
+
     return 0;
 }
 
@@ -2420,15 +3170,16 @@ const char *config_get_string(const char *key, const char *default_value) {
  */
 void builtin_config(int argc, char **argv) {
     if (argc < 2) {
-        printf("Usage: config [show|set|get|reload|save|reset-defaults] "
-               "[options]\n");
+        printf("Usage: config <command> [options]\n\n");
+        printf("Commands:\n");
         printf("  show [section]     - Show configuration values\n");
         printf("  set key value      - Set configuration value\n");
         printf("  get key            - Get configuration value\n");
         printf("  reload             - Reload configuration files\n");
         printf("  save               - Save current configuration\n");
-        printf("  reset-defaults     - Write default configuration to "
-               "~/.lusushrc\n");
+        printf("  migrate            - Migrate legacy ~/.lusushrc to XDG location\n");
+        printf("  path               - Show configuration file paths\n");
+        printf("  reset-defaults     - Write default configuration\n");
         return;
     }
 
@@ -2527,6 +3278,48 @@ void builtin_config(int argc, char **argv) {
                                                : "~/.lusushrc");
         } else {
             printf("Error: Failed to save configuration\n");
+        }
+    } else if (strcmp(argv[1], "migrate") == 0) {
+        if (!config_ctx.needs_migration) {
+            char xdg_path[CONFIG_PATH_MAX];
+            if (config_get_xdg_config_path(xdg_path, sizeof(xdg_path)) == 0) {
+                struct stat st;
+                if (stat(xdg_path, &st) == 0) {
+                    printf("Configuration already at XDG location: %s\n", xdg_path);
+                } else {
+                    printf("No legacy configuration to migrate.\n");
+                    printf("Use 'config save' to create a new configuration.\n");
+                }
+            }
+            return;
+        }
+        if (config_migrate_to_xdg() == 0) {
+            printf("Migration complete.\n");
+        } else {
+            printf("Error: Migration failed\n");
+        }
+    } else if (strcmp(argv[1], "path") == 0) {
+        /* Show current config file paths */
+        printf("Configuration paths:\n");
+        if (config_ctx.user_config_path) {
+            printf("  User config:   %s%s\n", config_ctx.user_config_path,
+                   config_ctx.user_config_exists ? "" : " (not found)");
+        }
+        if (config_ctx.system_config_path) {
+            printf("  System config: %s%s\n", config_ctx.system_config_path,
+                   config_ctx.system_config_exists ? "" : " (not found)");
+        }
+        if (config_ctx.xdg_config_dir) {
+            printf("  XDG config dir: %s\n", config_ctx.xdg_config_dir);
+        }
+        if (config_ctx.legacy_config_path) {
+            printf("  Legacy config: %s\n", config_ctx.legacy_config_path);
+        }
+        printf("  Format: %s\n",
+               config_ctx.format == CONFIG_FORMAT_TOML ? "TOML" :
+               config_ctx.format == CONFIG_FORMAT_LEGACY ? "Legacy INI" : "Unknown");
+        if (config_ctx.needs_migration) {
+            printf("  Status: Migration pending (run 'config migrate' or 'config save')\n");
         }
     } else {
         printf("Unknown config command: %s\n", argv[1]);
@@ -2915,11 +3708,20 @@ void config_show_section(config_section_t section) {
  * Should be called during shell shutdown.
  */
 void config_cleanup(void) {
+    // Clean up config registry
+    config_registry_cleanup();
+
     if (config_ctx.user_config_path) {
         free(config_ctx.user_config_path);
     }
     if (config_ctx.system_config_path) {
         free(config_ctx.system_config_path);
+    }
+    if (config_ctx.xdg_config_dir) {
+        free(config_ctx.xdg_config_dir);
+    }
+    if (config_ctx.legacy_config_path) {
+        free(config_ctx.legacy_config_path);
     }
     if (config.prompt_theme) {
         free(config.prompt_theme);

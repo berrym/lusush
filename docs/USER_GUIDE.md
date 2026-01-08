@@ -1,6 +1,6 @@
 # Lusush User Guide
 
-**Version**: 1.4.0  
+**Version**: 1.5.0  
 **Complete feature reference for the Lusush shell**
 
 ---
@@ -24,7 +24,7 @@
 
 ## Overview
 
-Lusush v1.4.0 is an advanced interactive shell with three distinguishing capabilities:
+Lusush v1.5.0 is an advanced interactive shell with three distinguishing capabilities:
 
 1. **LLE (Lusush Line Editor)**: A native line editor with Emacs keybindings, context-aware completions, and syntax highlighting - not a readline wrapper
 2. **Multi-Mode Architecture**: Run in POSIX, Bash, Zsh, or Lusush mode depending on your needs
@@ -508,7 +508,7 @@ LLE provides context-aware completions.
 ### Completion Types
 
 - **Command completion**: Executables in `$PATH`
-- **Builtin completion**: All 48 shell builtins
+- **Builtin completion**: All 50 shell builtins
 - **File completion**: Paths and filenames
 - **Variable completion**: `$VAR` names
 - **Option completion**: Command-specific options
@@ -719,7 +719,20 @@ theme symbols auto      # Auto-detect (default)
 
 ### Config System
 
-Lusush uses a modern configuration interface:
+Lusush v1.5.0 uses a unified TOML-based configuration system with XDG Base Directory compliance.
+
+#### Config File Location
+
+```
+~/.config/lusush/
+├── config.toml          # Main configuration (TOML format)
+├── config.sh            # Optional shell script (sourced after config.toml)
+└── themes/              # Theme files
+```
+
+The shell respects `$XDG_CONFIG_HOME` if set, otherwise uses `~/.config`.
+
+#### Config Commands
 
 ```bash
 # View configuration
@@ -741,67 +754,74 @@ config save
 
 # Reset defaults
 config reset
+
+# Migrate from legacy format
+config migrate
 ```
 
 ### Shell Options
 
-Both modern and traditional syntax work:
+Multiple syntax options for setting shell options:
 
 ```bash
-# Modern (self-documenting)
+# setopt/unsetopt (recommended, user-friendly)
+setopt errexit            # Enable exit-on-error
+setopt extglob            # Enable extended globbing
+unsetopt xtrace           # Disable tracing
+
+# config command
 config set shell.errexit true
-config set shell.nounset true
-config set shell.pipefail true
 
 # Traditional POSIX
 set -e
-set -u
-set -o pipefail
+set -o errexit
 ```
 
-### Startup Files
+Changes persist when you run `config save`.
 
-Lusush uses a two-file configuration system:
+### TOML Configuration (~/.config/lusush/config.toml)
 
-1. **`~/.lusushrc`** - INI-format config file (loaded first)
-2. **`~/.lusushrc.sh`** - Shell script for advanced config (loaded second, can override INI)
+Human-readable TOML format:
 
-#### INI Configuration (~/.lusushrc)
-
-Simple key=value format, ideal for beginners:
-
-```ini
-# ~/.lusushrc - INI format configuration
+```toml
+# ~/.config/lusush/config.toml
 
 [shell]
-mode = lusush
+mode = "lusush"
 errexit = false
-emacs = true
+nounset = false
+xtrace = false
 
-[completion]
-enabled = true
-fuzzy = true
-
-[display]
-syntax_highlighting = true
-autosuggestions = true
+# Feature overrides (only non-default values needed)
+[shell.features]
+extended_glob = true
 
 [history]
 enabled = true
 size = 10000
+file = "~/.local/share/lusush/history"
 no_dups = true
+
+[display]
+syntax_highlighting = true
+autosuggestions = true
+transient_prompt = false
+
+[prompt]
+theme = "default"
+
+[completion]
+enabled = true
+fuzzy = true
+case_sensitive = false
 ```
 
-#### Shell Script Configuration (~/.lusushrc.sh)
+### Shell Script Configuration (~/.config/lusush/config.sh)
 
-For advanced users who prefer traditional shell configuration:
+Optional power-user escape hatch, sourced after config.toml:
 
 ```bash
-# ~/.lusushrc.sh - Shell script configuration
-
-# Shell behavior (equivalent to INI settings)
-set -o emacs
-set -o lusush
+# ~/.config/lusush/config.sh
 
 # Aliases
 alias ll='ls -la'
@@ -817,15 +837,25 @@ precmd() {
     # Runs before each prompt
 }
 
-# Feature overrides
-config set shell.feature.extended_glob true
+# Override TOML settings if needed
+setopt extglob
 ```
 
-The shell script runs after the INI file, so it can override any INI settings.
+### Legacy Format Migration
+
+If you have an existing `~/.lusushrc` file, Lusush will load it and display a migration notice:
+
+```
+lusush: Loading configuration from ~/.lusushrc (legacy location)
+lusush: Run 'config save' to migrate to ~/.config/lusush/config.toml
+```
+
+After running `config save`, your settings are migrated to the new location.
 
 ### Environment Variables
 
 ```bash
+export XDG_CONFIG_HOME=~/.config    # Config directory (default)
 export LUSUSH_THEME=dark
 export LUSUSH_DEBUG=1
 export LUSUSH_DISPLAY_OPTIMIZATION=2
@@ -835,7 +865,7 @@ export LUSUSH_DISPLAY_OPTIMIZATION=2
 
 ## Builtin Commands
 
-Lusush provides 48 builtin commands.
+Lusush provides 50 builtin commands.
 
 ### POSIX Standard Builtins
 
@@ -859,8 +889,8 @@ test       [          [[
 ### Lusush-Specific Builtins
 
 ```
-config     display    debug      network    theme
-help
+config     display    debug      network    setopt
+theme      unsetopt   help
 ```
 
 ### Notable Builtins
@@ -894,6 +924,16 @@ display lle diagnostics
 display features
 display themes
 display stats
+```
+
+**setopt / unsetopt** - Enable/disable shell options
+
+```bash
+setopt                    # List all options
+setopt errexit            # Enable option
+setopt extglob            # Enable extended globbing
+setopt -q extglob         # Query silently
+unsetopt xtrace           # Disable option
 ```
 
 For complete builtin documentation, see [BUILTIN_COMMANDS.md](BUILTIN_COMMANDS.md).
@@ -1044,7 +1084,7 @@ debug profile off
 | [EXTENDED_SYNTAX.md](EXTENDED_SYNTAX.md) | Detailed syntax reference |
 | [SHELL_MODES.md](SHELL_MODES.md) | Mode documentation |
 | [DEBUGGER_GUIDE.md](DEBUGGER_GUIDE.md) | Debugging reference |
-| [BUILTIN_COMMANDS.md](BUILTIN_COMMANDS.md) | All 48 builtins |
+| [BUILTIN_COMMANDS.md](BUILTIN_COMMANDS.md) | All 50 builtins |
 | [HOOKS_AND_PLUGINS.md](HOOKS_AND_PLUGINS.md) | Hook system |
 | [CONFIG_SYSTEM.md](CONFIG_SYSTEM.md) | Configuration reference |
 | [SHELL_OPTIONS.md](SHELL_OPTIONS.md) | All shell options |

@@ -1,6 +1,6 @@
 # Builtin Commands Reference
 
-**All 48 shell builtin commands in Lusush v1.4.0**
+**All 50 shell builtin commands in Lusush v1.5.0**
 
 ---
 
@@ -25,7 +25,7 @@ Lusush provides 48 builtin commands. These execute within the shell process with
 | POSIX Standard | `:`, `.`, `break`, `continue`, `eval`, `exec`, `exit`, `export`, `readonly`, `return`, `set`, `shift`, `trap`, `unset` |
 | POSIX Utilities | `alias`, `bg`, `cd`, `command`, `fc`, `fg`, `getopts`, `hash`, `jobs`, `pwd`, `read`, `test`, `times`, `type`, `ulimit`, `umask`, `unalias`, `wait` |
 | Extended | `declare`, `echo`, `false`, `help`, `history`, `local`, `printf`, `source`, `true`, `typeset`, `[` |
-| Lusush-Specific | `clear`, `config`, `debug`, `display`, `network`, `terminal` |
+| Lusush-Specific | `clear`, `config`, `debug`, `display`, `network`, `setopt`, `terminal`, `unsetopt` |
 
 ---
 
@@ -623,6 +623,86 @@ network hosts remove hostname  # Remove host
 network hosts refresh # Refresh from files
 ```
 
+### `setopt`
+
+Enable shell options and features.
+
+```bash
+# List all options with current state
+setopt                # Show all options and their values
+
+# Enable options
+setopt errexit        # Exit on error (like set -e)
+setopt nounset        # Error on unset variables (like set -u)
+setopt xtrace         # Trace execution (like set -x)
+
+# Enable extended features
+setopt extglob        # Extended globbing patterns
+setopt extended_glob  # Same as extglob (canonical name)
+setopt arrays         # Array support
+setopt assoc_arrays   # Associative array support
+setopt command_sub    # Command substitution
+setopt process_sub    # Process substitution
+setopt brace_expand   # Brace expansion
+setopt extended_test  # [[ ]] test syntax
+
+# Query options
+setopt -q extglob     # Silent query (exit status only)
+                      # Returns 0 if enabled, 1 if disabled
+
+# Print in re-usable format
+setopt -p             # Output suitable for config file
+```
+
+**Available Options:**
+
+| Option | Aliases | Description |
+|--------|---------|-------------|
+| `errexit` | `-e` | Exit immediately on error |
+| `nounset` | `-u` | Error on unset variable use |
+| `xtrace` | `-x` | Trace command execution |
+| `verbose` | `-v` | Print input lines |
+| `noclobber` | `-C` | Don't overwrite files with `>` |
+| `allexport` | `-a` | Export all variables |
+| `notify` | `-b` | Report job status immediately |
+| `noglob` | `-f` | Disable pathname expansion |
+| `noexec` | `-n` | Read but don't execute |
+| `extended_glob` | `extglob` | Extended globbing patterns |
+| `arrays` | | Indexed array support |
+| `assoc_arrays` | | Associative array support |
+| `command_sub` | | `$(...)` command substitution |
+| `process_sub` | | `<(...)` and `>(...)` |
+| `brace_expand` | `braceexpand` | `{a,b,c}` expansion |
+| `extended_test` | | `[[ ]]` conditional syntax |
+| `arith_expansion` | | `$((...))` arithmetic |
+| `local_vars` | | `local` variable declarations |
+| `nameref` | | Name reference variables |
+
+Changes made with `setopt` are persisted when you run `config save`.
+
+See also: `unsetopt`, `set -o`
+
+### `unsetopt`
+
+Disable shell options and features.
+
+```bash
+# Disable options
+unsetopt errexit      # Don't exit on error
+unsetopt xtrace       # Stop tracing
+
+# Disable extended features
+unsetopt extglob      # Disable extended globbing
+unsetopt brace_expand # Disable brace expansion
+
+# Query before disabling
+setopt -q extglob && unsetopt extglob
+```
+
+Changes made with `unsetopt` are persisted when you run `config save`.
+
+See also: `setopt`, `set +o`
+
 ### `terminal`
 
 Display terminal information.
@@ -637,7 +717,7 @@ terminal capabilities # Capability detection
 
 ## Quick Reference
 
-### All 48 Builtins
+### All 50 Builtins
 
 ```
 :           .           [           alias       bg
@@ -647,9 +727,10 @@ eval        exec        exit        export      false
 fc          fg          getopts     hash        help
 history     jobs        local       network     printf
 pwd         read        readonly    return      set
-shift       source      terminal    test        times
-trap        true        type        typeset     ulimit
-umask       unalias     unset       wait
+setopt      shift       source      terminal    test
+times       trap        true        type        typeset
+ulimit      umask       unalias     unset       unsetopt
+wait
 ```
 
 ### By Purpose
@@ -667,7 +748,7 @@ umask       unalias     unset       wait
 | Directory | `cd`, `pwd` |
 | History | `fc`, `history` |
 | Aliases | `alias`, `unalias` |
-| Shell config | `set`, `config` |
+| Shell config | `set`, `setopt`, `unsetopt`, `config` |
 | Commands | `command`, `type`, `hash`, `eval`, `exec`, `.`, `source` |
 | Debugging | `debug` |
 | Display | `display`, `clear`, `terminal` |

@@ -7,6 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.0] - 2026-01-07
+
+### Major Features
+
+#### Unified Configuration System
+Complete architectural overhaul of the configuration system with a single source of truth for all shell configuration:
+
+- **TOML Configuration Format** - Human-readable configuration files replacing legacy INI format
+- **XDG Base Directory Compliance** - Configuration at `~/.config/lusush/config.toml`
+- **Config Registry** - Centralized configuration storage with change notification system
+- **Bidirectional Sync** - All runtime commands sync automatically with config registry
+- **Legacy Migration** - Automatic detection and migration from `~/.lusushrc`
+
+#### New Builtins: setopt/unsetopt
+User-friendly shell option control (Zsh-style):
+
+```bash
+setopt                    # List all options with current state
+setopt errexit            # Enable exit-on-error
+setopt extglob            # Enable extended globbing
+setopt -q extglob         # Query silently (exit status only)
+setopt -p                 # Print in re-usable format
+unsetopt xtrace           # Disable tracing
+```
+
+### Added
+- **TOML Parser** (`src/toml_parser.c`) - Generic TOML parser extracted from theme system
+- **Config Registry** (`src/config_registry.c`) - Unified configuration with change notifications
+- **setopt builtin** - Enable shell options and features with user-friendly syntax
+- **unsetopt builtin** - Disable shell options and features
+- **config migrate command** - Explicit migration from legacy format
+- **XDG path resolution** - Respects `$XDG_CONFIG_HOME` environment variable
+- **Two-file config pattern** - `config.toml` (declarative) + `config.sh` (power-user escape hatch)
+- **50 shell builtins** - Up from 48 with addition of setopt/unsetopt
+
+### Changed
+- **Configuration file location** - Now at `~/.config/lusush/config.toml` (XDG-compliant)
+- **Configuration format** - TOML replaces INI as primary format
+- **Runtime sync** - All `set -o`, `display`, and feature commands sync to config registry
+- **Syntax highlighting toggle** - `display lle syntax on/off` now works at runtime
+- **Documentation** - Complete rewrite of CONFIG_SYSTEM.md, USER_GUIDE.md, BUILTIN_COMMANDS.md
+
+### Fixed
+- **Feature persistence gap** - Feature flag overrides now persist via config registry
+- **Partial sync issues** - All subsystems now use unified registry API
+- **Display syntax toggle** - Fixed runtime toggle not affecting command layer
+- **Parameter shadowing** - Renamed `config` parameters to `init_config` in display APIs
+
+### Technical Improvements
+- **Single source of truth** - Config registry eliminates fragmented state storage
+- **Change notification bus** - Subsystems subscribe to config changes
+- **Sparse feature storage** - Only non-default feature overrides are saved
+- **Zero memory leaks** - Verified with macOS leaks tool
+- **57 tests passing** - Full test suite maintained
+
+---
+
 ## [1.4.0] - 2026-01-06
 
 ### Major Features

@@ -225,10 +225,10 @@ typedef struct {
  * operations. It initializes the layered display controller if enabled
  * and prepares the integration wrapper system.
  *
- * @param config Configuration for display integration (NULL for defaults)
+ * @param init_config Configuration for display integration (NULL for defaults)
  * @return true on success, false on failure
  */
-bool display_integration_init(const display_integration_config_t *config);
+bool display_integration_init(const display_integration_config_t *init_config);
 
 /**
  * Cleanup the display integration system.

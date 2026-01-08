@@ -14,8 +14,12 @@
 
 #include "alias.h"
 #include "config.h"
+#include "config_registry.h"
 #include "debug.h"
+#include "shell_mode.h"
 #include "display_integration.h"
+#include "display/command_layer.h"
+#include "display/composition_engine.h"
 #include "errors.h"
 #include "executor.h"
 #include "ht.h"
@@ -55,6 +59,8 @@ int bin_bg(int argc, char **argv);
 int bin_colon(int argc, char **argv);
 int bin_readonly(int argc, char **argv);
 int bin_config(int argc, char **argv);
+int bin_setopt(int argc, char **argv);
+int bin_unsetopt(int argc, char **argv);
 int bin_hash(int argc, char **argv);
 int bin_display(int argc, char **argv);
 int bin_network(int argc, char **argv);
@@ -125,6 +131,8 @@ builtin builtins[] = {
     {":", "null command (no-op)", bin_colon},
     {"readonly", "create read-only variables", bin_readonly},
     {"config", "manage shell configuration", bin_config},
+    {"setopt", "enable shell options/features", bin_setopt},
+    {"unsetopt", "disable shell options/features", bin_unsetopt},
     {"hash", "remember utility locations", bin_hash},
     {"display", "manage layered display system", bin_display},
     {"network", "manage network and SSH hosts", bin_network},
@@ -3777,6 +3785,162 @@ int bin_config(int argc, char **argv) {
 }
 
 /**
+ * @brief Set shell options (enable features)
+ *
+ * Zsh-style setopt command for enabling shell features.
+ * Usage:
+ *   setopt              - List all options with current state
+ *   setopt -p           - Print in re-usable format
+ *   setopt -q <opt>     - Query silently (exit status only)
+ *   setopt <opt> [...]  - Enable one or more options
+ *
+ * Options can be specified using:
+ *   - Canonical name: extended_glob
+ *   - Short alias: extglob
+ *   - Underscore or no underscore: extended_glob / extendedglob
+ *
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, 1 on error
+ */
+int bin_setopt(int argc, char **argv) {
+    bool print_format = false;
+    bool query_mode = false;
+    int start_idx = 1;
+
+    /* Parse flags */
+    for (int i = 1; i < argc; i++) {
+        if (argv[i][0] == '-') {
+            if (strcmp(argv[i], "-p") == 0) {
+                print_format = true;
+                start_idx = i + 1;
+            } else if (strcmp(argv[i], "-q") == 0) {
+                query_mode = true;
+                start_idx = i + 1;
+            } else if (strcmp(argv[i], "--") == 0) {
+                start_idx = i + 1;
+                break;
+            } else {
+                fprintf(stderr, "setopt: invalid option: %s\n", argv[i]);
+                return 1;
+            }
+        } else {
+            break;
+        }
+    }
+
+    /* No option specified - list all options */
+    if (start_idx >= argc) {
+        if (query_mode) {
+            fprintf(stderr, "setopt: -q requires an option name\n");
+            return 1;
+        }
+
+        printf("Shell options:\n");
+        for (int i = 0; i < (int)FEATURE_COUNT; i++) {
+            shell_feature_t feature = (shell_feature_t)i;
+            const char *name = shell_feature_name(feature);
+            bool enabled = shell_mode_allows(feature);
+
+            if (print_format) {
+                printf("%s %s\n", enabled ? "setopt" : "unsetopt", name);
+            } else {
+                printf("  %-30s %s\n", name, enabled ? "on" : "off");
+            }
+        }
+        return 0;
+    }
+
+    /* Process each option */
+    for (int i = start_idx; i < argc; i++) {
+        shell_feature_t feature;
+
+        if (!shell_feature_parse(argv[i], &feature)) {
+            if (!query_mode) {
+                fprintf(stderr, "setopt: unknown option: %s\n", argv[i]);
+            }
+            return 1;
+        }
+
+        if (query_mode) {
+            /* Return status based on current state */
+            return shell_mode_allows(feature) ? 0 : 1;
+        }
+
+        /* Enable the feature */
+        shell_feature_enable(feature);
+
+        /* Sync to registry if initialized */
+        if (config_registry_is_initialized()) {
+            char key[CREG_KEY_MAX];
+            snprintf(key, sizeof(key), "shell.features.%s",
+                     shell_feature_name(feature));
+            config_registry_set_boolean(key, true);
+        }
+    }
+
+    return 0;
+}
+
+/**
+ * @brief Unset shell options (disable features)
+ *
+ * Zsh-style unsetopt command for disabling shell features.
+ * Usage:
+ *   unsetopt              - List all disabled options
+ *   unsetopt <opt> [...]  - Disable one or more options
+ *
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, 1 on error
+ */
+int bin_unsetopt(int argc, char **argv) {
+    /* No option specified - list disabled options */
+    if (argc < 2) {
+        printf("Disabled options:\n");
+        for (int i = 0; i < (int)FEATURE_COUNT; i++) {
+            shell_feature_t feature = (shell_feature_t)i;
+            if (!shell_mode_allows(feature)) {
+                printf("  %s\n", shell_feature_name(feature));
+            }
+        }
+        return 0;
+    }
+
+    /* Process each option */
+    for (int i = 1; i < argc; i++) {
+        /* Skip flags */
+        if (argv[i][0] == '-') {
+            if (strcmp(argv[i], "--") == 0) {
+                continue;
+            }
+            fprintf(stderr, "unsetopt: invalid option: %s\n", argv[i]);
+            return 1;
+        }
+
+        shell_feature_t feature;
+
+        if (!shell_feature_parse(argv[i], &feature)) {
+            fprintf(stderr, "unsetopt: unknown option: %s\n", argv[i]);
+            return 1;
+        }
+
+        /* Disable the feature */
+        shell_feature_disable(feature);
+
+        /* Sync to registry if initialized */
+        if (config_registry_is_initialized()) {
+            char key[CREG_KEY_MAX];
+            snprintf(key, sizeof(key), "shell.features.%s",
+                     shell_feature_name(feature));
+            config_registry_set_boolean(key, false);
+        }
+    }
+
+    return 0;
+}
+
+/**
  * @brief Initialize the command hash table
  *
  * Creates the hash table used by the hash builtin for remembering
@@ -5065,11 +5229,17 @@ int bin_display(int argc, char **argv) {
             const char *state = argv[3];
             if (strcmp(state, "on") == 0) {
                 config.display_autosuggestions = true;
-                printf("✓ Autosuggestions enabled\n");
+                if (config_registry_is_initialized()) {
+                    config_registry_set_boolean("display.autosuggestions", true);
+                }
+                printf("Autosuggestions enabled\n");
                 return 0;
             } else if (strcmp(state, "off") == 0) {
                 config.display_autosuggestions = false;
-                printf("✓ Autosuggestions disabled\n");
+                if (config_registry_is_initialized()) {
+                    config_registry_set_boolean("display.autosuggestions", false);
+                }
+                printf("Autosuggestions disabled\n");
                 return 0;
             } else {
                 fprintf(stderr,
@@ -5092,11 +5262,27 @@ int bin_display(int argc, char **argv) {
             const char *state = argv[3];
             if (strcmp(state, "on") == 0) {
                 config.display_syntax_highlighting = true;
-                printf("✓ Syntax highlighting enabled\n");
+                if (config_registry_is_initialized()) {
+                    config_registry_set_boolean("display.syntax_highlighting", true);
+                }
+                /* Apply to runtime: update the command layer */
+                display_controller_t *dc = display_integration_get_controller();
+                if (dc && dc->compositor && dc->compositor->command_layer) {
+                    command_layer_set_syntax_enabled(dc->compositor->command_layer, true);
+                }
+                printf("Syntax highlighting enabled\n");
                 return 0;
             } else if (strcmp(state, "off") == 0) {
                 config.display_syntax_highlighting = false;
-                printf("✓ Syntax highlighting disabled\n");
+                if (config_registry_is_initialized()) {
+                    config_registry_set_boolean("display.syntax_highlighting", false);
+                }
+                /* Apply to runtime: update the command layer */
+                display_controller_t *dc = display_integration_get_controller();
+                if (dc && dc->compositor && dc->compositor->command_layer) {
+                    command_layer_set_syntax_enabled(dc->compositor->command_layer, false);
+                }
+                printf("Syntax highlighting disabled\n");
                 return 0;
             } else {
                 fprintf(stderr,
@@ -5123,6 +5309,9 @@ int bin_display(int argc, char **argv) {
             const char *state = argv[3];
             if (strcmp(state, "on") == 0) {
                 config.display_transient_prompt = true;
+                if (config_registry_is_initialized()) {
+                    config_registry_set_boolean("display.transient_prompt", true);
+                }
                 /* Also update composer config if available */
                 if (g_lle_integration && g_lle_integration->prompt_composer) {
                     g_lle_integration->prompt_composer->config
@@ -5132,6 +5321,9 @@ int bin_display(int argc, char **argv) {
                 return 0;
             } else if (strcmp(state, "off") == 0) {
                 config.display_transient_prompt = false;
+                if (config_registry_is_initialized()) {
+                    config_registry_set_boolean("display.transient_prompt", false);
+                }
                 /* Also update composer config if available */
                 if (g_lle_integration && g_lle_integration->prompt_composer) {
                     g_lle_integration->prompt_composer->config

@@ -1,13 +1,159 @@
-# AI Assistant Handoff Document - Session 112
+# AI Assistant Handoff Document - Session 114
 
 **Date**: 2026-01-07
-**Session Type**: Extended Language Support - Phase 7: Zsh-Specific Features
-**Status**: IN PROGRESS
+**Session Type**: v1.5.0 Unified Configuration System
+**Status**: COMPLETE
 **Branch**: `feature/lle`
 
 ---
 
-## Session 112: Zsh-Specific Features (Phase 7)
+## Session 114: Unified Configuration System (v1.5.0)
+
+Complete architectural overhaul of the configuration system. Implemented a 6-phase plan to create a single source of truth for all shell configuration with TOML format, XDG compliance, and new setopt/unsetopt builtins.
+
+### Components Implemented
+
+#### 1. TOML Parser (`src/toml_parser.c`)
+
+Generic TOML parser extracted from theme_parser:
+
+```c
+// Callback-based API
+typedef int (*toml_callback_t)(
+    const char *section,      // e.g., "shell.features"
+    const char *key,          // e.g., "extended_glob"
+    const toml_value_t *value,
+    void *user_data
+);
+
+int toml_parser_parse(toml_parser_t *parser, toml_callback_t cb, void *ctx);
+```
+
+- Supports strings, integers, booleans, arrays, nested tables
+- Proper error reporting with line/column numbers
+- Unit tests in `tests/unit/test_toml_parser.c`
+
+#### 2. Config Registry (`src/config_registry.c`)
+
+Centralized configuration storage:
+
+```c
+// Register and access config values
+int config_registry_set_boolean(const char *key, bool value);
+int config_registry_get_boolean(const char *key, bool *value);
+int config_registry_set_string(const char *key, const char *value);
+int config_registry_get_string(const char *key, char *buf, size_t len);
+
+// Change notifications
+typedef void (*config_change_callback_t)(const char *key, void *ctx);
+int config_registry_subscribe(const char *pattern, config_change_callback_t cb, void *ctx);
+```
+
+- All subsystems register their options
+- Change notification system for runtime sync
+- Unit tests in `tests/unit/test_config_registry.c`
+
+#### 3. New Builtins: setopt/unsetopt
+
+Zsh-style option control:
+
+```bash
+setopt                    # List all options
+setopt errexit            # Enable option
+setopt extglob            # Enable extended globbing
+setopt -q extglob         # Query silently (exit status)
+setopt -p                 # Print in re-usable format
+unsetopt xtrace           # Disable option
+```
+
+- Added to `src/builtins/builtins.c`
+- Tab completions in `src/lle/completion/builtin_completions.c`
+- Total builtins: 50 (up from 48)
+
+#### 4. XDG Configuration
+
+New config location: `~/.config/lusush/config.toml`
+
+```toml
+[shell]
+mode = "lusush"
+errexit = false
+
+[shell.features]
+extended_glob = true
+
+[display]
+syntax_highlighting = true
+
+[history]
+size = 10000
+```
+
+- Respects `$XDG_CONFIG_HOME`
+- Optional `config.sh` for power users
+- Legacy `~/.lusushrc` detected and migrated
+
+#### 5. Runtime Sync Fixes
+
+- `display lle syntax on/off` now updates command layer at runtime
+- Fixed parameter shadowing in display APIs (`config` → `init_config`)
+- All `set -o` commands sync to config registry
+- Feature overrides persist via sparse storage
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `src/toml_parser.c` | Generic TOML parser |
+| `include/toml_parser.h` | TOML parser API |
+| `src/config_registry.c` | Unified config registry |
+| `include/config_registry.h` | Registry API |
+| `tests/unit/test_toml_parser.c` | TOML parser tests |
+| `tests/unit/test_config_registry.c` | Registry tests |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `include/version.h` | Version 1.5.0 |
+| `src/builtins/builtins.c` | setopt/unsetopt builtins, display syntax runtime toggle |
+| `src/lle/completion/builtin_completions.c` | Completions for setopt/unsetopt |
+| `include/lle/completion/builtin_completions.h` | Completion declarations |
+| `src/config.c` | Registry integration |
+| `include/config.h` | Registry function declarations |
+| `src/posix_opts.c` | Registry sync for set -o |
+| `src/lle/prompt/theme_parser.c` | Uses generic toml_parser |
+| `src/display_integration.c` | Parameter rename, startup sync |
+| `include/display_integration.h` | Parameter rename |
+| `src/display/display_controller.c` | Parameter rename |
+| `include/display/display_controller.h` | Parameter rename |
+| `meson.build` | New source files |
+| `src/lle/meson.build` | Build updates |
+
+### Documentation Updated
+
+| File | Changes |
+|------|---------|
+| `docs/CONFIG_SYSTEM.md` | Complete rewrite for TOML/XDG |
+| `docs/USER_GUIDE.md` | v1.5.0, new config section |
+| `docs/BUILTIN_COMMANDS.md` | setopt/unsetopt, 50 builtins |
+| `docs/CHANGELOG.md` | v1.5.0 entry |
+| `README.md` | Honest rewrite for dev status |
+
+### Test Results
+
+- **All Tests**: 57/57 passing (100%)
+- **Memory Leaks**: 0 (verified with `leaks --atExit`)
+
+### Known Gaps (Not Part of This Work)
+
+- Brace expansion `{1..10}` not implemented
+- User extensibility/plugins not implemented
+- Vi mode framework only
+
+---
+
+## Session 112-113: Zsh-Specific Features (Phase 7)
 
 Implementing Zsh-specific features including anonymous functions, glob qualifiers, and hook functions.
 

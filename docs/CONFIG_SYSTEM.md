@@ -1,28 +1,32 @@
 # Configuration System
 
-**Configuring Lusush v1.4.0**
+**Configuring Lusush v1.5.0**
 
 ---
 
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Config Command](#config-command)
-3. [Configuration Sections](#configuration-sections)
-4. [Startup Files](#startup-files)
-5. [Environment Variables](#environment-variables)
-6. [Best Practices](#best-practices)
+2. [Configuration Files](#configuration-files)
+3. [Config Command](#config-command)
+4. [setopt/unsetopt Commands](#setoptunsetopt-commands)
+5. [Configuration Sections](#configuration-sections)
+6. [Shell Mode and Features](#shell-mode-and-features)
+7. [Migrating from Legacy Format](#migrating-from-legacy-format)
+8. [Environment Variables](#environment-variables)
+9. [Best Practices](#best-practices)
 
 ---
 
 ## Overview
 
-Lusush provides a modern configuration system with:
+Lusush v1.5.0 introduces a unified configuration system with:
 
-- **Runtime changes**: Modify settings without restart
-- **Dual interface**: Modern `config` command + traditional syntax
-- **Structured sections**: Logical organization of settings
-- **Discoverability**: `config show` reveals all options
+- **TOML format**: Human-readable, structured configuration
+- **XDG compliance**: Config stored in `~/.config/lusush/`
+- **Unified registry**: Single source of truth for all settings
+- **Bidirectional sync**: Changes via commands sync to config files
+- **setopt/unsetopt**: Zsh-style feature control
 
 ### Quick Start
 
@@ -32,17 +36,115 @@ config show
 
 # View specific section
 config show shell
-config show completion
 
-# Get a value
-config get shell.errexit
+# Get/set a value
+config get display.syntax_highlighting
+config set display.syntax_highlighting false
 
-# Set a value (immediate effect)
-config set shell.errexit true
+# Enable/disable features
+setopt extended_glob
+unsetopt extended_glob
 
-# Save to file
+# Save configuration
 config save
+
+# Show config file location
+config path
 ```
+
+---
+
+## Configuration Files
+
+### XDG-Compliant Location (v1.5.0+)
+
+Lusush uses the XDG Base Directory specification:
+
+```
+~/.config/lusush/
+├── config.toml          # Main configuration (TOML format)
+└── config.sh            # Optional shell script (sourced after config.toml)
+```
+
+The path respects `$XDG_CONFIG_HOME` if set.
+
+### TOML Configuration Format
+
+The primary configuration file uses TOML format:
+
+```toml
+# ~/.config/lusush/config.toml
+# Lusush Shell Configuration
+
+[shell]
+mode = "lusush"
+errexit = false
+nounset = false
+xtrace = false
+pipefail = false
+
+[shell.features]
+# Only non-default feature overrides appear here
+extended_glob = true
+
+[history]
+enabled = true
+size = 10000
+no_dups = true
+timestamps = true
+
+[display]
+syntax_highlighting = true
+autosuggestions = true
+transient_prompt = true
+
+[completion]
+enabled = true
+fuzzy = true
+case_sensitive = false
+
+[prompt]
+theme = "default"
+```
+
+### Optional Shell Script
+
+For advanced configuration that requires shell commands, create `config.sh`:
+
+```bash
+# ~/.config/lusush/config.sh
+# Sourced after config.toml - for aliases, functions, and complex setup
+
+# Aliases
+alias ll='ls -la'
+alias gs='git status'
+
+# Functions
+mkcd() {
+    mkdir -p "$1" && cd "$1"
+}
+
+# Hook functions
+precmd() {
+    echo -ne "\033]0;${PWD}\007"
+}
+```
+
+### Legacy Format (~/.lusushrc)
+
+For backward compatibility, Lusush still reads the legacy format:
+
+```bash
+# ~/.lusushrc (legacy - will be migrated)
+config set shell.errexit true
+config set completion.enabled true
+alias ll='ls -la'
+```
+
+If `~/.lusushrc` exists but no XDG config, Lusush will:
+1. Load the legacy config
+2. Print a migration notice
+3. On `config save`, write to the new XDG location
 
 ---
 
@@ -55,39 +157,58 @@ Display configuration:
 ```bash
 config show              # All sections
 config show shell        # Shell options only
-config show completion   # Completion settings
 config show display      # Display settings
 config show history      # History settings
+config show completion   # Completion settings
 ```
 
-### config get
+### config get / config set
 
-Get a specific value:
-
-```bash
-config get shell.errexit      # true or false
-config get completion.enabled # true or false
-config get history.size       # number
-```
-
-### config set
-
-Set a value (takes effect immediately):
+Get or set specific values:
 
 ```bash
+config get shell.errexit
 config set shell.errexit true
-config set completion.enabled false
-config set history.size 5000
+
+config get display.syntax_highlighting
+config set display.syntax_highlighting false
 ```
 
 Boolean values: `true`, `false`, `on`, `off`, `1`, `0`
 
 ### config save
 
-Save current configuration:
+Save current configuration to TOML file:
 
 ```bash
-config save              # Save to default file
+config save              # Save to ~/.config/lusush/config.toml
+```
+
+### config path
+
+Show configuration file paths and status:
+
+```bash
+config path
+```
+
+Output:
+```
+Configuration paths:
+  User config: /home/user/.config/lusush/config.toml
+  System config: /etc/lusush/lusushrc
+  XDG directory: /home/user/.config/lusush
+  Legacy path: /home/user/.lusushrc
+  Format: TOML
+  Status: XDG config active
+```
+
+### config migrate
+
+Explicitly migrate legacy config to XDG location:
+
+```bash
+config migrate           # Convert ~/.lusushrc to ~/.config/lusush/config.toml
 ```
 
 ### config reset
@@ -100,56 +221,152 @@ config reset             # Reset all settings
 
 ---
 
+## setopt/unsetopt Commands
+
+Lusush v1.5.0 introduces Zsh-style `setopt` and `unsetopt` commands for controlling shell features:
+
+### setopt
+
+Enable options or list current settings:
+
+```bash
+setopt                   # List all options with current state
+setopt extended_glob     # Enable extended globbing
+setopt extglob           # Short alias also works
+setopt -p                # Print in re-usable format
+setopt -q extended_glob  # Query silently (exit status only)
+```
+
+### unsetopt
+
+Disable options:
+
+```bash
+unsetopt extended_glob   # Disable extended globbing
+unsetopt extglob         # Short alias also works
+```
+
+### Available Options
+
+| Option | Aliases | Description |
+|--------|---------|-------------|
+| `indexed_arrays` | `arrays` | Enable indexed arrays |
+| `associative_arrays` | `assoc` | Enable associative arrays |
+| `extended_glob` | `extglob` | Extended glob patterns |
+| `null_glob` | `nullglob` | No match = empty result |
+| `dot_glob` | `dotglob` | Include dotfiles in globs |
+| `glob_qualifiers` | `globqual` | Zsh-style qualifiers |
+| `process_substitution` | `procsub` | `<(cmd)` and `>(cmd)` |
+| `brace_expansion` | `braces` | `{a,b,c}` expansion |
+| `extended_test` | `exttest` | `[[ ]]` extended test |
+| `regex_match` | `regex` | `=~` regex matching |
+| `case_modification` | `casemod` | `${var^^}`, `${var,,}` |
+| `hook_functions` | `hooks` | precmd, preexec, chpwd |
+
+Tab completion is available for option names.
+
+### Persistence
+
+Options set via `setopt`/`unsetopt` are saved when you run `config save`:
+
+```bash
+setopt extended_glob
+config save              # Saves to [shell.features] in config.toml
+```
+
+---
+
 ## Configuration Sections
 
-### shell - Shell Options
+### [shell] - Shell Options
 
-All 24 POSIX shell options plus mode options:
+All 24 POSIX shell options:
 
-```bash
-config show shell
-```
+| Option | Description | set -o equivalent |
+|--------|-------------|-------------------|
+| `errexit` | Exit on error | `set -e` |
+| `nounset` | Error on unset variables | `set -u` |
+| `xtrace` | Trace execution | `set -x` |
+| `verbose` | Print input lines | `set -v` |
+| `pipefail` | Pipeline failure detection | `set -o pipefail` |
+| `noclobber` | Prevent file overwrite | `set -C` |
+| `noglob` | Disable pathname expansion | `set -f` |
+| `emacs` | Emacs editing mode | `set -o emacs` |
+| `vi` | Vi editing mode | `set -o vi` |
+| `posix` | POSIX compliance mode | `set -o posix` |
 
-| Option | Description |
-|--------|-------------|
-| `shell.errexit` | Exit on error (`set -e`) |
-| `shell.nounset` | Error on unset variables (`set -u`) |
-| `shell.xtrace` | Trace execution (`set -x`) |
-| `shell.verbose` | Show input (`set -v`) |
-| `shell.pipefail` | Pipeline failure detection |
-| `shell.noclobber` | File overwrite protection (`set -C`) |
-| `shell.noglob` | Disable globbing (`set -f`) |
-| `shell.emacs` | Emacs editing mode |
-| `shell.vi` | Vi editing mode |
-| `shell.posix` | POSIX compliance mode |
-| `shell.monitor` | Job control |
-| `shell.hashall` | Hash command paths |
-
-**Dual interface:**
+**Dual interface** - these stay synchronized:
 
 ```bash
-# Modern syntax
 config set shell.errexit true
-
-# Traditional syntax
 set -e
-
-# Both stay synchronized
+# Both methods update the same setting
 ```
 
-### shell.mode - Shell Mode
+### [shell.features] - Feature Flags
+
+Override individual features regardless of shell mode:
+
+```toml
+[shell.features]
+extended_glob = true
+process_substitution = false
+```
+
+Or use `setopt`/`unsetopt`:
+
+```bash
+setopt extended_glob
+unsetopt process_substitution
+```
+
+### [display] - Display Settings
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `syntax_highlighting` | true | Syntax highlighting for commands |
+| `autosuggestions` | true | Fish-style autosuggestions |
+| `transient_prompt` | true | Simplify prompts in scrollback |
+
+### [history] - Command History
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `enabled` | true | Enable command history |
+| `size` | 10000 | Maximum history entries |
+| `no_dups` | true | Ignore duplicate entries |
+| `timestamps` | true | Record command timestamps |
+
+### [completion] - Tab Completion
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `enabled` | true | Enable tab completion |
+| `fuzzy` | true | Fuzzy matching |
+| `case_sensitive` | false | Case-sensitive matching |
+
+### [prompt] - Prompt Configuration
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `theme` | "default" | Active prompt theme |
+
+---
+
+## Shell Mode and Features
+
+### Shell Mode
 
 Control which shell compatibility mode is active:
 
 ```bash
 config get shell.mode           # lusush (default)
-config set shell.mode bash      # Switch to Bash mode
-config set shell.mode zsh       # Switch to Zsh mode
-config set shell.mode posix     # Switch to strict POSIX mode
-config set shell.mode lusush    # Switch to Lusush mode (default)
+config set shell.mode bash      # Bash compatibility
+config set shell.mode zsh       # Zsh compatibility
+config set shell.mode posix     # Strict POSIX
 ```
 
-Or use traditional syntax:
+Or use `set -o`:
 
 ```bash
 set -o bash
@@ -158,165 +375,68 @@ set -o posix
 set -o lusush
 ```
 
-Both interfaces stay synchronized - changes via `set -o` are reflected in `config get`.
+### Feature Defaults by Mode
 
-### shell.feature.* - Feature Flags
+| Feature | POSIX | Bash | Zsh | Lusush |
+|---------|-------|------|-----|--------|
+| `extended_glob` | off | on | on | on |
+| `process_substitution` | off | on | on | on |
+| `brace_expansion` | off | on | on | on |
+| `glob_qualifiers` | off | off | on | on |
+| `hook_functions` | off | off | on | on |
 
-Override individual language features regardless of shell mode:
+### Overriding Features
 
-```bash
-# Query feature status
-config get shell.feature.extended_glob
-config get shell.feature.process_substitution
-config get shell.feature.hook_functions
-
-# Enable/disable features
-config set shell.feature.extended_glob true
-config set shell.feature.glob_qualifiers false
-```
-
-**Available features** (use `debug features` to see all):
-
-| Feature | Description |
-|---------|-------------|
-| `indexed_arrays` | `arr=(a b c)`, `${arr[0]}` |
-| `associative_arrays` | `declare -A`, `${arr[key]}` |
-| `extended_test` | `[[ ]]` extended test |
-| `regex_match` | `=~` regex matching |
-| `process_substitution` | `<(cmd)` and `>(cmd)` |
-| `extended_glob` | `?(pat)`, `*(pat)`, `+(pat)` |
-| `glob_qualifiers` | `*(.)` for files, `*(/)` for dirs |
-| `hook_functions` | `precmd`, `preexec`, `chpwd` |
-| `case_modification` | `${var^^}`, `${var,,}` |
-| `pattern_substitution` | `${var//old/new}` |
-
-**Short aliases** for common features:
+Use `setopt`/`unsetopt` or `config set shell.features.*` to override defaults:
 
 ```bash
-config get shell.feature.extglob    # Same as extended_glob
-config get shell.feature.arrays     # Same as indexed_arrays
-config get shell.feature.procsub    # Same as process_substitution
+# In POSIX mode but want extended globs
+set -o posix
+setopt extended_glob
 ```
-
-Feature defaults depend on shell mode - POSIX mode disables most extended features, while Lusush and Zsh modes enable them.
-
-### completion - Tab Completion
-
-```bash
-config show completion
-```
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `completion.enabled` | true | Enable tab completion |
-| `completion.case_sensitive` | false | Case-sensitive matching |
-| `completion.menu_complete` | true | Show menu on first tab |
-| `completion.show_types` | true | Show completion type indicators |
-| `completion.show_descriptions` | true | Show descriptions |
-| `completion.max_menu_height` | 10 | Maximum menu rows |
-
-### display - Display Settings
-
-```bash
-config show display
-```
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `display.syntax_highlighting` | true | Enable syntax highlighting |
-| `display.validate_commands` | true | Check if commands exist |
-| `display.validate_paths` | true | Check if paths exist |
-
-### history - Command History
-
-```bash
-config show history
-```
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `history.enabled` | true | Enable history |
-| `history.size` | 10000 | Maximum entries |
-| `history.file` | ~/.lusush_history | History file |
-| `history.dedup_navigation` | false | Skip duplicates when navigating |
-| `history.ignore_space` | true | Ignore lines starting with space |
-
-### prompt - Prompt Configuration
-
-```bash
-config show prompt
-```
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `prompt.theme` | default | Active theme |
-| `prompt.git_enabled` | true | Show git info |
-| `prompt.show_user` | true | Show username |
-| `prompt.show_host` | true | Show hostname |
-
-### keybindings - Key Configuration
-
-```bash
-config show keybindings
-```
-
-Keybindings for LLE actions. See [LLE_GUIDE.md](LLE_GUIDE.md) for the full list of actions.
 
 ---
 
-## Startup Files
+## Migrating from Legacy Format
 
-Lusush reads configuration from these locations:
+### Automatic Migration
 
-### Load Order
+If you have an existing `~/.lusushrc`:
 
-1. `/etc/lusush/lusushrc` - System-wide
-2. `~/.lusushrc` - User configuration
-3. `~/.config/lusush/config` - XDG user config
+1. Lusush loads it on startup
+2. Displays: `Loading configuration from ~/.lusushrc (legacy location)`
+3. Displays: `Run 'config save' to migrate to ~/.config/lusush/config.toml`
 
-### File Format
+Run `config save` to migrate:
 
 ```bash
-# ~/.lusushrc
-
-# Shell options
-config set shell.emacs true
-set -o pipefail
-
-# Completion
-config set completion.enabled true
-config set completion.case_sensitive false
-
-# Display
-config set display.syntax_highlighting true
-
-# Aliases
-alias ll='ls -la'
-alias gs='git status'
-alias gd='git diff'
-
-# Functions
-mkcd() {
-    mkdir -p "$1" && cd "$1"
-}
-
-# Hooks
-precmd() {
-    echo -ne "\033]0;${PWD}\007"
-}
-
-preexec() {
-    echo "Running: $1"
-}
+config save
+# Output: Configuration saved to /home/user/.config/lusush/config.toml
+# Output: You may remove the old ~/.lusushrc file
 ```
 
-### Login vs Non-Login
+### Manual Migration
 
-| Shell Type | Files Read |
-|------------|------------|
-| Login | `/etc/profile`, `~/.profile`, `~/.lusushrc` |
-| Interactive | `~/.lusushrc` |
-| Script | None (use explicit source) |
+Use `config migrate` for explicit migration:
+
+```bash
+config migrate
+```
+
+### What Gets Migrated
+
+- All `config set` values → TOML sections
+- Shell options → `[shell]` section
+- Feature flags → `[shell.features]` section
+
+### What Stays in config.sh
+
+Move these to `~/.config/lusush/config.sh`:
+
+- Aliases
+- Functions
+- Hook functions (precmd, preexec)
+- Complex shell logic
 
 ---
 
@@ -326,12 +446,10 @@ preexec() {
 
 | Variable | Description |
 |----------|-------------|
+| `XDG_CONFIG_HOME` | Base config directory (default: ~/.config) |
 | `HOME` | User home directory |
 | `PATH` | Command search path |
-| `PWD` | Current directory |
-| `OLDPWD` | Previous directory |
 | `SHELL` | Current shell path |
-| `USER` | Current username |
 | `TERM` | Terminal type |
 
 ### Lusush Variables
@@ -340,75 +458,46 @@ preexec() {
 |----------|-------------|
 | `LUSUSH_VERSION` | Version string |
 | `LUSUSH_DEBUG` | Enable debug output |
-| `LUSUSH_THEME` | Default theme |
-
-### History Variables
-
-| Variable | Description |
-|----------|-------------|
-| `HISTFILE` | History file path |
-| `HISTSIZE` | History size |
-| `HISTCONTROL` | History control flags |
-
-### Hook Variables
-
-| Variable | Description |
-|----------|-------------|
-| `PERIOD` | Periodic hook interval (seconds) |
 
 ---
 
 ## Best Practices
 
-### Script Configuration
+### Recommended config.toml
 
-For scripts, set options explicitly:
+```toml
+# ~/.config/lusush/config.toml
 
-```bash
-#!/usr/bin/env lusush
-set -euo pipefail
+[shell]
+mode = "lusush"
+pipefail = true
 
-# Script body
+[shell.features]
+extended_glob = true
+
+[display]
+syntax_highlighting = true
+autosuggestions = true
+transient_prompt = true
+
+[history]
+size = 10000
+no_dups = true
+
+[completion]
+enabled = true
+fuzzy = true
 ```
 
-Or with modern syntax:
+### Recommended config.sh
 
 ```bash
-#!/usr/bin/env lusush
-config set shell.errexit true
-config set shell.nounset true
-config set shell.pipefail true
+# ~/.config/lusush/config.sh
 
-# Script body
-```
-
-### User Configuration
-
-Recommended `~/.lusushrc`:
-
-```bash
-# Shell options
-config set shell.emacs true
-
-# Completion
-config set completion.enabled true
-
-# Display
-config set display.syntax_highlighting true
-
-# History
-config set history.size 10000
-
-# Useful aliases
+# Aliases
 alias ll='ls -la'
 alias la='ls -A'
-alias l='ls -CF'
-
-# Git shortcuts
 alias gs='git status'
-alias ga='git add'
-alias gc='git commit'
-alias gp='git push'
 alias gd='git diff'
 
 # Navigation
@@ -420,25 +509,27 @@ alias rm='rm -i'
 alias cp='cp -i'
 alias mv='mv -i'
 
-# Custom functions
+# Functions
 mkcd() {
     mkdir -p "$1" && cd "$1"
 }
+
+# Hooks
+precmd() {
+    # Update terminal title
+    echo -ne "\033]0;${PWD##*/}\007"
+}
 ```
 
-### Debugging Configuration
+### For Scripts
 
-Check current settings:
+Set options explicitly at the start:
 
 ```bash
-# All settings
-config show
+#!/usr/bin/env lusush
+set -euo pipefail
 
-# Specific section
-config show shell
-
-# Specific value
-config get shell.errexit
+# Script body
 ```
 
 ---
@@ -446,6 +537,6 @@ config get shell.errexit
 ## See Also
 
 - [SHELL_OPTIONS.md](SHELL_OPTIONS.md) - Complete shell options reference
+- [SHELL_MODES.md](SHELL_MODES.md) - Shell compatibility modes
 - [LLE_GUIDE.md](LLE_GUIDE.md) - Line editor configuration
-- [HOOKS_AND_PLUGINS.md](HOOKS_AND_PLUGINS.md) - Hook system
-- [USER_GUIDE.md](USER_GUIDE.md) - Complete reference
+- [BUILTIN_COMMANDS.md](BUILTIN_COMMANDS.md) - All builtin commands

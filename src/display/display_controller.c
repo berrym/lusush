@@ -1400,7 +1400,7 @@ display_controller_t *display_controller_create(void) {
 
 display_controller_error_t
 display_controller_init(display_controller_t *controller,
-                        const display_controller_config_t *config,
+                        const display_controller_config_t *init_config,
                         layer_event_system_t *event_system) {
 
     if (!controller) {
@@ -1410,8 +1410,8 @@ display_controller_init(display_controller_t *controller,
     DC_DEBUG("Initializing display controller");
 
     // Apply configuration
-    if (config) {
-        controller->config = *config;
+    if (init_config) {
+        controller->config = *init_config;
     } else {
         dc_init_default_config(&controller->config);
     }
