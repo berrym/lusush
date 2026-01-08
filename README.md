@@ -2,7 +2,7 @@
 
 **An interactive shell under active development.**
 
-[![Version](https://img.shields.io/badge/version-1.5.0--dev-blue)](https://github.com/lusush/lusush/releases)
+[![Version](https://img.shields.io/badge/version-1.5.0--prerelease-blue)](https://github.com/lusush/lusush/releases)
 [![License](https://img.shields.io/badge/license-GPL--3.0+-blue)](LICENSE)
 [![C11](https://img.shields.io/badge/standard-C11-blue)](https://github.com/lusush/lusush)
 
@@ -77,12 +77,35 @@ The `setopt`/`unsetopt` commands provide Zsh-style option control. A central con
 
 Lusush implements extended shell features beyond POSIX:
 
+- **Brace expansion** - `{a,b,c}` and `{1..10}` sequence expansion
 - **Arrays** - Indexed and associative: `declare -A map`
 - **Extended tests** - `[[ ]]` with pattern matching and regex
 - **Process substitution** - `<(cmd)` and `>(cmd)`
 - **Parameter expansion** - Case modification, substitution, slicing
 - **Glob qualifiers** - `*(.)` for files, `*(/)` for directories
 - **Hook functions** - `precmd`, `preexec`, `chpwd`, `periodic`
+
+### Context-Aware Error System (v1.5.0)
+
+Rust-style error reporting with source locations and suggestions:
+
+```
+error[E1001]: expected 'THEN', got 'FI'
+  --> script.sh:5:10
+   |
+ 5 | if true; fi
+   |          ^~
+   = while: parsing if statement
+   = help: 'if' requires 'then' before 'fi'
+```
+
+Command-not-found errors include "did you mean?" suggestions using Unicode-aware fuzzy matching:
+
+```
+error[E1101]: gti: command not found
+  --> <stdin>:1:1
+   = help: did you mean 'git', 'gtail', or 'gtr'?
+```
 
 ---
 
@@ -126,10 +149,11 @@ Linux (primary), macOS, BSD.
 | LLE - Emacs mode | Complete |
 | LLE - Vi mode | Framework only |
 | Extended syntax (arrays, `[[]]`, process sub) | Mostly complete |
+| Brace expansion `{a,b}` `{1..10}` | Complete |
 | Shell modes | Working |
 | Debugger | Working |
 | Configuration system | Complete |
-| Brace expansion `{1..10}` | Not yet implemented |
+| Context-aware error system | Complete |
 | User extensibility / plugins | Not yet implemented |
 
 The shell is functional for many use cases but has gaps. Some common constructs don't work yet. Thorough testing is ongoing.
