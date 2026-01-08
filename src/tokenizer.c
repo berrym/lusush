@@ -1440,6 +1440,79 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                     }
                     // Not an extglob pattern - end the word here
                     break;
+                } else if (curr_codepoint == '$' &&
+                           shell_mode_allows(FEATURE_INDEXED_ARRAYS)) {
+                    // Check if we're inside brackets (array subscript like arr[$i])
+                    // Scan backwards to see if there's an unmatched '['
+                    bool in_brackets = false;
+                    for (size_t i = tokenizer->position; i > start; i--) {
+                        if (tokenizer->input[i - 1] == '[') {
+                            in_brackets = true;
+                            break;
+                        } else if (tokenizer->input[i - 1] == ']') {
+                            break; // Found a closing bracket first, not in brackets
+                        }
+                    }
+
+                    if (in_brackets) {
+                        // Scan forward to find the closing bracket, including the $ variable
+                        size_t scan_pos = tokenizer->position + 1;
+                        
+                        // Skip past the variable name after $
+                        // Handle ${...}, $(...), $((...)), or simple $var
+                        if (scan_pos < tokenizer->input_length) {
+                            char nc = tokenizer->input[scan_pos];
+                            if (nc == '{') {
+                                // ${...} - find matching }
+                                int brace_depth = 1;
+                                scan_pos++;
+                                while (scan_pos < tokenizer->input_length && brace_depth > 0) {
+                                    if (tokenizer->input[scan_pos] == '{') brace_depth++;
+                                    else if (tokenizer->input[scan_pos] == '}') brace_depth--;
+                                    scan_pos++;
+                                }
+                            } else if (nc == '(') {
+                                // $(...) or $((...)) - find matching )
+                                int paren_depth = 1;
+                                scan_pos++;
+                                while (scan_pos < tokenizer->input_length && paren_depth > 0) {
+                                    if (tokenizer->input[scan_pos] == '(') paren_depth++;
+                                    else if (tokenizer->input[scan_pos] == ')') paren_depth--;
+                                    scan_pos++;
+                                }
+                            } else if (isalnum(nc) || nc == '_' || nc == '?' || 
+                                       nc == '$' || nc == '!' || nc == '@' ||
+                                       nc == '*' || nc == '#') {
+                                // Simple variable $var or special $?, $$, etc.
+                                if (nc == '?' || nc == '$' || nc == '!' || 
+                                    nc == '@' || nc == '*' || nc == '#') {
+                                    scan_pos++; // Single char special var
+                                } else {
+                                    // Regular var - scan alphanumeric and _
+                                    while (scan_pos < tokenizer->input_length &&
+                                           (isalnum(tokenizer->input[scan_pos]) ||
+                                            tokenizer->input[scan_pos] == '_')) {
+                                        scan_pos++;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Now look for the closing ] and =
+                        if (scan_pos < tokenizer->input_length &&
+                            tokenizer->input[scan_pos] == ']') {
+                            // Include everything up to and including ]
+                            scan_pos++;
+                            is_numeric = false;
+                            size_t old_pos = tokenizer->position;
+                            tokenizer->position = scan_pos;
+                            tokenizer->column += (scan_pos - old_pos);
+                            // Continue scanning for = or other word chars
+                            continue;
+                        }
+                    }
+                    // Not in array subscript context - end word here
+                    break;
                 } else if (curr_codepoint == '{' && 
                            shell_mode_allows(FEATURE_BRACE_EXPANSION)) {
                     // Check if this is a brace expansion pattern embedded in a word

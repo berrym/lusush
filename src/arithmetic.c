@@ -90,6 +90,9 @@ static void arithm_context_cleanup(arithm_context_t *ctx) {
     }
 
     // Free any variable names stored in the number stack
+    // IMPORTANT: Only free var_name if type is ITEM_VAR_PTR, since
+    // val and var_name share the same memory (union) and we must not
+    // free numeric values as pointers
     for (int i = 0; i < ctx->nnumstack; i++) {
         if (ctx->numstack[i].type == ITEM_VAR_PTR &&
             ctx->numstack[i].var_name) {
@@ -113,7 +116,7 @@ static void arithm_context_cleanup(arithm_context_t *ctx) {
  * @param item The stack item to clean up
  */
 static void stack_item_cleanup(stack_item_t *item) {
-    if (item && item->var_name) {
+    if (item && item->type == ITEM_VAR_PTR && item->var_name) {
         free(item->var_name);
         item->var_name = NULL;
     }
