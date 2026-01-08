@@ -128,6 +128,11 @@ ncurses_dep = dependency('ncurses', required: true)
 ncurses_compile_dep = ncurses_dep.partial_dependency(includes: true)
 ncurses_link_dep = ncurses_dep.partial_dependency(includes: true, link_args: true)
 
+# Math library (required for fmod in arithmetic/time operations)
+# On Linux, libm is separate; on macOS/BSD it's part of libc
+cc = meson.get_compiler('c')
+libm = cc.find_library('m', required: false)
+
 # ============================================================================
 # Fuzzy Matching Library
 # ============================================================================
@@ -213,7 +218,7 @@ display_dep = declare_dependency(link_with: display_lib,
 lusush_exe = executable('lusush',
                         src + lle_shell_sources,
                         include_directories: inc,
-                        dependencies: [lle_dep])
+                        dependencies: [lle_dep, libm])
 
 # ============================================================================
 # TEST INFRASTRUCTURE
