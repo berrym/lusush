@@ -1180,6 +1180,46 @@ static char *arithm_expand_internal(void *executor, const char *orig_expr) {
                 break;
             }
             last_op = NULL;
+        } else if (*current == '$' && *(current + 1) == '{') {
+            // Handle ${variable} syntax in arithmetic expressions
+            const char *start = current + 2; // Skip ${
+            const char *end = strchr(start, '}');
+            
+            if (end) {
+                // Extract variable name (handle simple ${var} for now)
+                // More complex forms like ${var:-default} would need executor
+                
+                // Find the end of the variable name (before any operator)
+                const char *name_end = start;
+                while (name_end < end && (isalnum(*name_end) || *name_end == '_')) {
+                    name_end++;
+                }
+                
+                if (name_end > start) {
+                    size_t var_len = name_end - start;
+                    char *var_name = malloc(var_len + 1);
+                    if (var_name) {
+                        strncpy(var_name, start, var_len);
+                        var_name[var_len] = '\0';
+                        push_numstackv_with_context(&ctx, var_name);
+                        free(var_name);
+                    } else {
+                        push_numstackl(&ctx, 0);
+                    }
+                } else {
+                    push_numstackl(&ctx, 0);
+                }
+                
+                current = end + 1; // Skip past }
+            } else {
+                arithm_set_error("unmatched ${ in arithmetic expression");
+                break;
+            }
+            
+            if (ctx.errflag) {
+                break;
+            }
+            last_op = NULL;
         } else if (*current == '$' && valid_name_char(*(current + 1))) {
             // Handle $variable syntax in arithmetic expressions
             current++; // Skip the '$'
