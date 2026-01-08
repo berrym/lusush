@@ -13,10 +13,14 @@
 #define EXECUTOR_H
 
 #include "node.h"
+#include "shell_error.h"
 #include "symtable.h"
 
 #include <stdbool.h>
 #include <sys/types.h>
+
+/** Maximum depth of error context stack */
+#define EXECUTOR_CONTEXT_STACK_MAX 16
 
 // Function parameter definition
 typedef struct function_param {
@@ -91,6 +95,11 @@ typedef struct executor {
     // Expansion error tracking
     bool expansion_error;      // True if error occurred during expansion
     int expansion_exit_status; // Exit status from expansion errors
+
+    // Error context stack (Phase 3: context-aware error management)
+    char *context_stack[EXECUTOR_CONTEXT_STACK_MAX];  // "while executing X"
+    source_location_t context_locations[EXECUTOR_CONTEXT_STACK_MAX];
+    size_t context_depth;      // Current depth of context stack
 
 } executor_t;
 
@@ -192,6 +201,52 @@ bool executor_has_error(executor_t *executor);
  * @return Error message string or NULL
  */
 const char *executor_error(executor_t *executor);
+
+/* ============================================================================
+ * Error Context Stack (Phase 3)
+ * ============================================================================ */
+
+/**
+ * @brief Push a context frame onto the error context stack
+ *
+ * Used to build "while doing X, in Y" context chains for runtime errors.
+ *
+ * @param executor Executor context
+ * @param loc Source location of this context
+ * @param fmt Printf-style format string
+ * @param ... Format arguments
+ */
+void executor_push_context(executor_t *executor, source_location_t loc,
+                           const char *fmt, ...);
+
+/**
+ * @brief Pop a context frame from the error context stack
+ *
+ * @param executor Executor context
+ */
+void executor_pop_context(executor_t *executor);
+
+/**
+ * @brief Clear all context frames
+ *
+ * @param executor Executor context
+ */
+void executor_clear_context(executor_t *executor);
+
+/**
+ * @brief Report a structured runtime error with context chain
+ *
+ * Creates and displays a structured error including the current
+ * context stack for "while doing X" information.
+ *
+ * @param executor Executor context
+ * @param code Error code
+ * @param loc Source location of error
+ * @param fmt Printf-style format string
+ * @param ... Format arguments
+ */
+void executor_error_report(executor_t *executor, shell_error_code_t code,
+                           source_location_t loc, const char *fmt, ...);
 
 /* ============================================================================
  * Variable Expansion

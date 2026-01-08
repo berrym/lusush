@@ -255,6 +255,14 @@ executor_t *executor_new(void) {
     executor->expansion_exit_status = 0;
     executor->loop_control = LOOP_NORMAL;
     executor->loop_depth = 0;
+
+    /* Initialize error context stack (Phase 3) */
+    executor->context_depth = 0;
+    for (size_t i = 0; i < EXECUTOR_CONTEXT_STACK_MAX; i++) {
+        executor->context_stack[i] = NULL;
+        executor->context_locations[i] = SOURCE_LOC_UNKNOWN;
+    }
+
     initialize_job_control(executor);
 
     return executor;
@@ -318,6 +326,9 @@ void executor_free(executor_t *executor) {
 
         // Free script context
         free(executor->current_script_file);
+
+        /* Free error context stack (Phase 3) */
+        executor_clear_context(executor);
 
         free(executor);
     }
@@ -452,6 +463,101 @@ static void set_executor_error(executor_t *executor, const char *message) {
         executor->error_message = message;
         executor->has_error = true;
     }
+}
+
+/* ============================================================================
+ * Error Context Stack (Phase 3)
+ * ============================================================================ */
+
+/**
+ * @brief Push a context frame onto the error context stack
+ */
+void executor_push_context(executor_t *executor, source_location_t loc,
+                           const char *fmt, ...) {
+    if (!executor || executor->context_depth >= EXECUTOR_CONTEXT_STACK_MAX) {
+        return;
+    }
+
+    va_list args;
+    va_start(args, fmt);
+
+    char *context = NULL;
+    if (vasprintf(&context, fmt, args) < 0) {
+        context = NULL;
+    }
+    va_end(args);
+
+    if (context) {
+        executor->context_stack[executor->context_depth] = context;
+        executor->context_locations[executor->context_depth] = loc;
+        executor->context_depth++;
+    }
+}
+
+/**
+ * @brief Pop a context frame from the error context stack
+ */
+void executor_pop_context(executor_t *executor) {
+    if (!executor || executor->context_depth == 0) {
+        return;
+    }
+
+    executor->context_depth--;
+    free(executor->context_stack[executor->context_depth]);
+    executor->context_stack[executor->context_depth] = NULL;
+    executor->context_locations[executor->context_depth] = SOURCE_LOC_UNKNOWN;
+}
+
+/**
+ * @brief Clear all context frames
+ */
+void executor_clear_context(executor_t *executor) {
+    if (!executor) {
+        return;
+    }
+
+    while (executor->context_depth > 0) {
+        executor_pop_context(executor);
+    }
+}
+
+/**
+ * @brief Report a structured runtime error with context chain
+ */
+void executor_error_report(executor_t *executor, shell_error_code_t code,
+                           source_location_t loc, const char *fmt, ...) {
+    if (!executor) {
+        return;
+    }
+
+    /* Create the error */
+    va_list args;
+    va_start(args, fmt);
+    shell_error_t *error = shell_error_createv(code, SHELL_SEVERITY_ERROR,
+                                                loc, fmt, args);
+    va_end(args);
+
+    if (!error) {
+        /* Fallback to legacy error system */
+        set_executor_error(executor, "runtime error");
+        return;
+    }
+
+    /* Add context stack to error */
+    for (size_t i = 0; i < executor->context_depth && i < SHELL_ERROR_CONTEXT_MAX; i++) {
+        if (executor->context_stack[i]) {
+            shell_error_push_context(error, "%s", executor->context_stack[i]);
+        }
+    }
+
+    /* Display the error immediately */
+    shell_error_display(error, stderr, isatty(STDERR_FILENO));
+
+    /* Set legacy error state for compatibility */
+    executor->has_error = true;
+    executor->error_message = error->message ? error->message : "runtime error";
+
+    shell_error_free(error);
 }
 
 /**
@@ -1468,6 +1574,9 @@ static int execute_while(executor_t *executor, node_t *while_node) {
     int iteration = 0;
     const int max_iterations = 10000; // Safety limit
 
+    /* Push loop context for error reporting (Phase 3) */
+    executor_push_context(executor, while_node->loc, "in while loop");
+
     // Increment loop depth - enables break/continue builtins
     executor->loop_depth++;
 
@@ -1503,9 +1612,11 @@ static int execute_while(executor_t *executor, node_t *while_node) {
     // Decrement loop depth before returning
     executor->loop_depth--;
 
+    /* Pop loop context */
+    executor_pop_context(executor);
+
     if (iteration >= max_iterations) {
         set_executor_error(executor, "While loop exceeded maximum iterations");
-
         return 1;
     }
 
@@ -4748,6 +4859,10 @@ static int execute_function_call(executor_t *executor,
 
     // No need to clear environment variables with new approach
 
+    /* Push function context for error reporting (Phase 3) */
+    source_location_t func_loc = func->body ? func->body->loc : SOURCE_LOC_UNKNOWN;
+    executor_push_context(executor, func_loc, "in function '%s'", function_name);
+
     // Execute function body (handle multiple commands)
     int result = 0;
     node_t *command = func->body;
@@ -4758,6 +4873,9 @@ static int execute_function_call(executor_t *executor,
         if (result >= 200 && result <= 255) {
             // Extract the actual return value from the special code
             int actual_return = result - 200;
+
+            /* Pop function context before returning */
+            executor_pop_context(executor);
 
             // Restore previous scope before returning
             symtable_pop_scope(executor->symtable);
@@ -4770,6 +4888,9 @@ static int execute_function_call(executor_t *executor,
         }
         command = command->next_sibling;
     }
+
+    /* Pop function context */
+    executor_pop_context(executor);
 
     // Restore previous scope
     symtable_pop_scope(executor->symtable);
