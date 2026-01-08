@@ -272,9 +272,96 @@ static ssize_t eval_logor(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) || long_value(a2);
 }
 
+/** @brief Comma operator - evaluates both, returns second */
+static ssize_t eval_comma(stack_item_t *a1, stack_item_t *a2) {
+    (void)a1; // First expression is evaluated but result discarded
+    return long_value(a2);
+}
+
+/** @brief Ternary colon - placeholder, actual logic in shunt_op */
+static ssize_t eval_ternary_colon(stack_item_t *a1, stack_item_t *a2) {
+    (void)a1;
+    (void)a2;
+    // This should never be called directly - handled in shunt_op
+    return 0;
+}
+
+/** @brief Ternary question - placeholder, actual logic in shunt_op */
+static ssize_t eval_ternary_question(stack_item_t *a1, stack_item_t *a2) {
+    (void)a1;
+    (void)a2;
+    // This should never be called directly - handled in shunt_op
+    return 0;
+}
+
 // ============================================================================
 // ASSIGNMENT OPERATORS
 // ============================================================================
+
+/**
+ * @brief Get variable value using executor context if available
+ * 
+ * Uses the executor's symbol table for scoped variable resolution,
+ * falling back to global symbol table if no executor context.
+ *
+ * @param item Stack item containing variable name and executor context
+ * @return Current value of the variable, or 0 if not found
+ */
+static ssize_t get_var_value_scoped(stack_item_t *item) {
+    if (!item || !item->var_name) {
+        return 0;
+    }
+    
+    // Use executor context if available for scoped variable resolution
+    if (item->executor_context) {
+        executor_t *exec = (executor_t *)item->executor_context;
+        if (exec && exec->symtable) {
+            char *value = symtable_get_var(exec->symtable, item->var_name);
+            if (value) {
+                ssize_t result = strtol(value, NULL, 10);
+                free(value);
+                return result;
+            }
+        }
+    }
+    
+    // Fallback to global
+    char *value = symtable_get_global(item->var_name);
+    if (value) {
+        return strtol(value, NULL, 10);
+    }
+    return 0;
+}
+
+/**
+ * @brief Set variable value using executor context if available
+ * 
+ * Uses the executor's symbol table for scoped variable assignment,
+ * falling back to global symbol table if no executor context.
+ *
+ * @param item Stack item containing variable name and executor context
+ * @param value Value to set
+ */
+static void set_var_value_scoped(stack_item_t *item, ssize_t value) {
+    if (!item || !item->var_name) {
+        return;
+    }
+    
+    char value_str[32];
+    snprintf(value_str, sizeof(value_str), "%zd", value);
+    
+    // Use executor context if available for scoped variable assignment
+    if (item->executor_context) {
+        executor_t *exec = (executor_t *)item->executor_context;
+        if (exec && exec->symtable) {
+            symtable_set_var(exec->symtable, item->var_name, value_str, SYMVAR_NONE);
+            return;
+        }
+    }
+    
+    // Fallback to global
+    symtable_set_global(item->var_name, value_str);
+}
 
 /** @brief Simple assignment operator */
 static ssize_t eval_assign(stack_item_t *a1, stack_item_t *a2) {
@@ -284,9 +371,7 @@ static ssize_t eval_assign(stack_item_t *a1, stack_item_t *a2) {
     }
 
     ssize_t value = long_value(a2);
-    char value_str[32];
-    snprintf(value_str, sizeof(value_str), "%zd", value);
-    symtable_set_global(a1->var_name, value_str);
+    set_var_value_scoped(a1, value);
     return value;
 }
 
@@ -297,18 +382,11 @@ static ssize_t eval_addeq(stack_item_t *a1, stack_item_t *a2) {
         return 0;
     }
 
-    ssize_t current_value = 0;
-    char *current_str = symtable_get_global(a1->var_name);
-    if (current_str) {
-        current_value = strtol(current_str, NULL, 10);
-    }
-
+    ssize_t current_value = get_var_value_scoped(a1);
     ssize_t add_value = long_value(a2);
     ssize_t result = current_value + add_value;
 
-    char value_str[32];
-    snprintf(value_str, sizeof(value_str), "%zd", result);
-    symtable_set_global(a1->var_name, value_str);
+    set_var_value_scoped(a1, result);
     return result;
 }
 
@@ -319,18 +397,11 @@ static ssize_t eval_subeq(stack_item_t *a1, stack_item_t *a2) {
         return 0;
     }
 
-    ssize_t current_value = 0;
-    char *current_str = symtable_get_global(a1->var_name);
-    if (current_str) {
-        current_value = strtol(current_str, NULL, 10);
-    }
-
+    ssize_t current_value = get_var_value_scoped(a1);
     ssize_t sub_value = long_value(a2);
     ssize_t result = current_value - sub_value;
 
-    char value_str[32];
-    snprintf(value_str, sizeof(value_str), "%zd", result);
-    symtable_set_global(a1->var_name, value_str);
+    set_var_value_scoped(a1, result);
     return result;
 }
 
@@ -341,18 +412,11 @@ static ssize_t eval_muleq(stack_item_t *a1, stack_item_t *a2) {
         return 0;
     }
 
-    ssize_t current_value = 0;
-    char *current_str = symtable_get_global(a1->var_name);
-    if (current_str) {
-        current_value = strtol(current_str, NULL, 10);
-    }
-
+    ssize_t current_value = get_var_value_scoped(a1);
     ssize_t mul_value = long_value(a2);
     ssize_t result = current_value * mul_value;
 
-    char value_str[32];
-    snprintf(value_str, sizeof(value_str), "%zd", result);
-    symtable_set_global(a1->var_name, value_str);
+    set_var_value_scoped(a1, result);
     return result;
 }
 
@@ -363,23 +427,16 @@ static ssize_t eval_diveq(stack_item_t *a1, stack_item_t *a2) {
         return 0;
     }
 
-    ssize_t current_value = 0;
-    char *current_str = symtable_get_global(a1->var_name);
-    if (current_str) {
-        current_value = strtol(current_str, NULL, 10);
-    }
-
     ssize_t div_value = long_value(a2);
     if (div_value == 0) {
         arithm_set_error("division by zero");
         return 0;
     }
 
+    ssize_t current_value = get_var_value_scoped(a1);
     ssize_t result = current_value / div_value;
 
-    char value_str[32];
-    snprintf(value_str, sizeof(value_str), "%zd", result);
-    symtable_set_global(a1->var_name, value_str);
+    set_var_value_scoped(a1, result);
     return result;
 }
 
@@ -390,23 +447,16 @@ static ssize_t eval_modeq(stack_item_t *a1, stack_item_t *a2) {
         return 0;
     }
 
-    ssize_t current_value = 0;
-    char *current_str = symtable_get_global(a1->var_name);
-    if (current_str) {
-        current_value = strtol(current_str, NULL, 10);
-    }
-
     ssize_t mod_value = long_value(a2);
     if (mod_value == 0) {
         arithm_set_error("modulo by zero");
         return 0;
     }
 
+    ssize_t current_value = get_var_value_scoped(a1);
     ssize_t result = current_value % mod_value;
 
-    char value_str[32];
-    snprintf(value_str, sizeof(value_str), "%zd", result);
-    symtable_set_global(a1->var_name, value_str);
+    set_var_value_scoped(a1, result);
     return result;
 }
 
@@ -423,9 +473,7 @@ static ssize_t eval_preinc(stack_item_t *a1, stack_item_t *a2) {
     }
 
     ssize_t value = long_value(a1) + 1;
-    char value_str[32];
-    snprintf(value_str, sizeof(value_str), "%zd", value);
-    symtable_set_global(a1->var_name, value_str);
+    set_var_value_scoped(a1, value);
     return value;
 }
 
@@ -438,9 +486,7 @@ static ssize_t eval_predec(stack_item_t *a1, stack_item_t *a2) {
     }
 
     ssize_t value = long_value(a1) - 1;
-    char value_str[32];
-    snprintf(value_str, sizeof(value_str), "%zd", value);
-    symtable_set_global(a1->var_name, value_str);
+    set_var_value_scoped(a1, value);
     return value;
 }
 
@@ -453,10 +499,7 @@ static ssize_t eval_postinc(stack_item_t *a1, stack_item_t *a2) {
     }
 
     ssize_t old_value = long_value(a1);
-    ssize_t new_value = old_value + 1;
-    char value_str[32];
-    snprintf(value_str, sizeof(value_str), "%zd", new_value);
-    symtable_set_global(a1->var_name, value_str);
+    set_var_value_scoped(a1, old_value + 1);
     return old_value;
 }
 
@@ -469,10 +512,7 @@ static ssize_t eval_postdec(stack_item_t *a1, stack_item_t *a2) {
     }
 
     ssize_t old_value = long_value(a1);
-    ssize_t new_value = old_value - 1;
-    char value_str[32];
-    snprintf(value_str, sizeof(value_str), "%zd", new_value);
-    symtable_set_global(a1->var_name, value_str);
+    set_var_value_scoped(a1, old_value - 1);
     return old_value;
 }
 
@@ -523,6 +563,9 @@ static ssize_t eval_exp(stack_item_t *a1, stack_item_t *a2) {
 #define CH_MULEQ 0x11
 #define CH_DIVEQ 0x12
 #define CH_MODEQ 0x13
+#define CH_TERNARY_Q 0x14  // ? part of ternary
+#define CH_TERNARY_C 0x15  // : part of ternary
+#define CH_COMMA 0x16      // comma operator
 
 // Operator definitions (only binary operators in main table)
 static op_t operators[] = {{'(', 0, ASSOC_NONE, 0, 1, NULL},
@@ -548,12 +591,15 @@ static op_t operators[] = {{'(', 0, ASSOC_NONE, 0, 1, NULL},
                            {'|', 11, ASSOC_LEFT, 0, 1, eval_bitor},
                            {CH_AND, 12, ASSOC_LEFT, 0, 2, eval_logand},
                            {CH_OR, 13, ASSOC_LEFT, 0, 2, eval_logor},
+                           {CH_TERNARY_Q, 14, ASSOC_RIGHT, 0, 1, eval_ternary_question},
+                           {CH_TERNARY_C, 14, ASSOC_RIGHT, 0, 1, eval_ternary_colon},
                            {'=', 15, ASSOC_RIGHT, 0, 1, eval_assign},
                            {CH_ADDEQ, 15, ASSOC_RIGHT, 0, 2, eval_addeq},
                            {CH_SUBEQ, 15, ASSOC_RIGHT, 0, 2, eval_subeq},
                            {CH_MULEQ, 15, ASSOC_RIGHT, 0, 2, eval_muleq},
                            {CH_DIVEQ, 15, ASSOC_RIGHT, 0, 2, eval_diveq},
                            {CH_MODEQ, 15, ASSOC_RIGHT, 0, 2, eval_modeq},
+                           {CH_COMMA, 16, ASSOC_LEFT, 0, 1, eval_comma},
                            {0, 0, 0, 0, 0, NULL}};
 
 // Unary operator definitions (separate from main table)
@@ -777,6 +823,16 @@ static op_t *get_op(const char *expr) {
         if (op->chars == 1 && *expr == op->op) {
             return op;
         }
+        // Special handling for operators with character codes
+        if (op->op == CH_TERNARY_Q && *expr == '?') {
+            return op;
+        }
+        if (op->op == CH_TERNARY_C && *expr == ':') {
+            return op;
+        }
+        if (op->op == CH_COMMA && *expr == ',') {
+            return op;
+        }
     }
 
     return NULL;
@@ -885,12 +941,88 @@ static char *get_var_name(const char *expr, int *nchars) {
 static void shunt_op(arithm_context_t *ctx, op_t *op) {
     if (op->op == '(') {
         push_opstack(ctx, op);
+    } else if (op->op == CH_TERNARY_C) {
+        // Colon in ternary - process operators until we find the matching '?'
+        while (ctx->nopstack > 0 &&
+               ctx->opstack[ctx->nopstack - 1]->op != '(' &&
+               ctx->opstack[ctx->nopstack - 1]->op != CH_TERNARY_Q) {
+            op_t *pop_op = pop_opstack(ctx);
+            if (ctx->errflag) {
+                return;
+            }
+
+            stack_item_t a1 = pop_numstack(ctx);
+            if (ctx->errflag) {
+                return;
+            }
+
+            if (pop_op->unary) {
+                push_numstackl(ctx, pop_op->eval(&a1, NULL));
+                stack_item_cleanup(&a1);
+            } else {
+                stack_item_t a2 = pop_numstack(ctx);
+                if (ctx->errflag) {
+                    stack_item_cleanup(&a1);
+                    return;
+                }
+                push_numstackl(ctx, pop_op->eval(&a2, &a1));
+                stack_item_cleanup(&a1);
+                stack_item_cleanup(&a2);
+            }
+            if (arithm_error_flag) {
+                ctx->errflag = true;
+                return;
+            }
+        }
+        // Push the colon operator to mark the separation
+        push_opstack(ctx, op);
     } else if (op->op == ')') {
         while (ctx->nopstack > 0 &&
                ctx->opstack[ctx->nopstack - 1]->op != '(') {
             op_t *pop_op = pop_opstack(ctx);
             if (ctx->errflag) {
                 return;
+            }
+
+            // Handle ternary operator specially
+            if (pop_op->op == CH_TERNARY_C) {
+                // We have the false value on the stack
+                stack_item_t false_val = pop_numstack(ctx);
+                if (ctx->errflag) {
+                    return;
+                }
+                
+                // Next operator should be '?'
+                if (ctx->nopstack > 0 && ctx->opstack[ctx->nopstack - 1]->op == CH_TERNARY_Q) {
+                    pop_opstack(ctx); // Remove the '?'
+                    
+                    // Get true value and condition
+                    stack_item_t true_val = pop_numstack(ctx);
+                    if (ctx->errflag) {
+                        stack_item_cleanup(&false_val);
+                        return;
+                    }
+                    stack_item_t condition = pop_numstack(ctx);
+                    if (ctx->errflag) {
+                        stack_item_cleanup(&false_val);
+                        stack_item_cleanup(&true_val);
+                        return;
+                    }
+                    
+                    // Evaluate: condition ? true_val : false_val
+                    ssize_t result = long_value(&condition) ? long_value(&true_val) : long_value(&false_val);
+                    push_numstackl(ctx, result);
+                    
+                    stack_item_cleanup(&condition);
+                    stack_item_cleanup(&true_val);
+                    stack_item_cleanup(&false_val);
+                } else {
+                    arithm_set_error("mismatched ternary operator");
+                    stack_item_cleanup(&false_val);
+                    ctx->errflag = true;
+                    return;
+                }
+                continue;
             }
 
             stack_item_t a1 = pop_numstack(ctx);
@@ -933,6 +1065,7 @@ static void shunt_op(arithm_context_t *ctx, op_t *op) {
     } else {
         while (ctx->nopstack > 0 &&
                ctx->opstack[ctx->nopstack - 1]->op != '(' &&
+               ctx->opstack[ctx->nopstack - 1]->op != CH_TERNARY_Q &&
                ((op->assoc == ASSOC_LEFT &&
                  op->prec >= ctx->opstack[ctx->nopstack - 1]->prec) ||
                 (op->assoc == ASSOC_RIGHT &&
@@ -941,6 +1074,47 @@ static void shunt_op(arithm_context_t *ctx, op_t *op) {
             op_t *pop_op = pop_opstack(ctx);
             if (ctx->errflag) {
                 return;
+            }
+
+            // Handle ternary operator specially
+            if (pop_op->op == CH_TERNARY_C) {
+                // We have the false value on the stack
+                stack_item_t false_val = pop_numstack(ctx);
+                if (ctx->errflag) {
+                    return;
+                }
+                
+                // Next operator should be '?'
+                if (ctx->nopstack > 0 && ctx->opstack[ctx->nopstack - 1]->op == CH_TERNARY_Q) {
+                    pop_opstack(ctx); // Remove the '?'
+                    
+                    // Get true value and condition
+                    stack_item_t true_val = pop_numstack(ctx);
+                    if (ctx->errflag) {
+                        stack_item_cleanup(&false_val);
+                        return;
+                    }
+                    stack_item_t condition = pop_numstack(ctx);
+                    if (ctx->errflag) {
+                        stack_item_cleanup(&false_val);
+                        stack_item_cleanup(&true_val);
+                        return;
+                    }
+                    
+                    // Evaluate: condition ? true_val : false_val
+                    ssize_t result = long_value(&condition) ? long_value(&true_val) : long_value(&false_val);
+                    push_numstackl(ctx, result);
+                    
+                    stack_item_cleanup(&condition);
+                    stack_item_cleanup(&true_val);
+                    stack_item_cleanup(&false_val);
+                } else {
+                    arithm_set_error("mismatched ternary operator");
+                    stack_item_cleanup(&false_val);
+                    ctx->errflag = true;
+                    return;
+                }
+                continue;
             }
 
             stack_item_t a1 = pop_numstack(ctx);
@@ -1261,6 +1435,54 @@ static char *arithm_expand_internal(void *executor, const char *orig_expr) {
     while (ctx.nopstack > 0 && !ctx.errflag) {
         op_t *op = pop_opstack(&ctx);
         if (ctx.errflag) {
+            break;
+        }
+
+        // Handle ternary operator specially
+        if (op->op == CH_TERNARY_C) {
+            // We have the false value on the stack
+            stack_item_t false_val = pop_numstack(&ctx);
+            if (ctx.errflag) {
+                break;
+            }
+            
+            // Next operator should be '?'
+            if (ctx.nopstack > 0 && ctx.opstack[ctx.nopstack - 1]->op == CH_TERNARY_Q) {
+                pop_opstack(&ctx); // Remove the '?'
+                
+                // Get true value and condition
+                stack_item_t true_val = pop_numstack(&ctx);
+                if (ctx.errflag) {
+                    stack_item_cleanup(&false_val);
+                    break;
+                }
+                stack_item_t condition = pop_numstack(&ctx);
+                if (ctx.errflag) {
+                    stack_item_cleanup(&false_val);
+                    stack_item_cleanup(&true_val);
+                    break;
+                }
+                
+                // Evaluate: condition ? true_val : false_val
+                ssize_t result = long_value(&condition) ? long_value(&true_val) : long_value(&false_val);
+                push_numstackl(&ctx, result);
+                
+                stack_item_cleanup(&condition);
+                stack_item_cleanup(&true_val);
+                stack_item_cleanup(&false_val);
+            } else {
+                arithm_set_error("mismatched ternary operator");
+                stack_item_cleanup(&false_val);
+                ctx.errflag = true;
+                break;
+            }
+            continue;
+        }
+        
+        // Skip '?' - it's handled with ':'
+        if (op->op == CH_TERNARY_Q) {
+            arithm_set_error("mismatched ternary operator");
+            ctx.errflag = true;
             break;
         }
 
