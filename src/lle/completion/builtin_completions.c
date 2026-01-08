@@ -552,6 +552,8 @@ static const char *shell_feature_names[] = {
     "extended_glob",
     "null_glob",
     "dot_glob",
+    /* Brace expansion */
+    "brace_expansion",
     /* Control flow */
     "case_fallthrough",
     "select_loop",

@@ -1196,6 +1196,66 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                              start_pos);
 
         case '{':
+            // Check if this is brace expansion: {a,b,c} or {1..10}
+            // Or a literal brace word: {solo} or {}
+            // Command groups require whitespace after {: { cmd; }
+            if (shell_mode_allows(FEATURE_BRACE_EXPANSION)) {
+                size_t scan_pos = tokenizer->position + 1;
+                bool has_comma = false;
+                bool has_dotdot = false;
+                bool found_close = false;
+                bool has_whitespace_after_open = false;
+                int brace_depth = 1;
+                
+                // Lookahead to find matching } and check for , or ..
+                while (scan_pos < tokenizer->input_length && brace_depth > 0) {
+                    char sc = tokenizer->input[scan_pos];
+                    
+                    // If we hit whitespace/newline right after {, it's a command group
+                    if (scan_pos == tokenizer->position + 1 && 
+                        (sc == ' ' || sc == '\t' || sc == '\n')) {
+                        has_whitespace_after_open = true;
+                        break;
+                    }
+                    
+                    if (sc == '{') {
+                        brace_depth++;
+                    } else if (sc == '}') {
+                        brace_depth--;
+                        if (brace_depth == 0) {
+                            found_close = true;
+                        }
+                    } else if (sc == ',' && brace_depth == 1) {
+                        has_comma = true;
+                    } else if (sc == '.' && scan_pos + 1 < tokenizer->input_length &&
+                               tokenizer->input[scan_pos + 1] == '.' && brace_depth == 1) {
+                        has_dotdot = true;
+                        scan_pos++; // skip second dot
+                    }
+                    scan_pos++;
+                }
+                
+                // If no whitespace after { and we found matching }, treat as word
+                // This covers: {a,b,c}, {1..10}, {solo}, {}
+                if (!has_whitespace_after_open && found_close) {
+                    size_t brace_len = scan_pos - tokenizer->position;
+                    
+                    // Check if there's a prefix (word chars before the {)
+                    // We need to back up and include them - but we're already
+                    // past them. For now, just return the brace part as a word.
+                    // The prefix case like file{1,2}.txt is handled when { appears
+                    // mid-word in the word scanning section.
+                    
+                    token_t *tok = token_new(TOK_WORD, 
+                                             &tokenizer->input[tokenizer->position],
+                                             brace_len, start_line, start_column, 
+                                             start_pos);
+                    tokenizer->position = scan_pos;
+                    tokenizer->column += brace_len;
+                    return tok;
+                }
+            }
+            // Not a brace expansion - return as command group brace
             tokenizer->position++;
             tokenizer->column++;
             return token_new(TOK_LBRACE, "{", 1, start_line, start_column,
@@ -1332,6 +1392,54 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                     // Advance by the UTF-8 character length
                     tokenizer->position += curr_char_len;
                     tokenizer->column++; // One visual column per character
+                } else if (curr_codepoint == '{' && 
+                           shell_mode_allows(FEATURE_BRACE_EXPANSION)) {
+                    // Check if this is a brace expansion pattern embedded in a word
+                    // e.g., file{1..3}.txt or name{a,b,c}.log
+                    size_t brace_start = tokenizer->position;
+                    size_t scan_pos = brace_start + 1;
+                    bool has_comma = false;
+                    bool has_dotdot = false;
+                    bool found_close = false;
+                    int brace_depth = 1;
+                    
+                    while (scan_pos < tokenizer->input_length && brace_depth > 0) {
+                        char sc = tokenizer->input[scan_pos];
+                        
+                        // If whitespace right after {, not a brace expansion
+                        if (scan_pos == brace_start + 1 && 
+                            (sc == ' ' || sc == '\t' || sc == '\n')) {
+                            break;
+                        }
+                        
+                        if (sc == '{') {
+                            brace_depth++;
+                        } else if (sc == '}') {
+                            brace_depth--;
+                            if (brace_depth == 0) {
+                                found_close = true;
+                            }
+                        } else if (sc == ',' && brace_depth == 1) {
+                            has_comma = true;
+                        } else if (sc == '.' && scan_pos + 1 < tokenizer->input_length &&
+                                   tokenizer->input[scan_pos + 1] == '.' && brace_depth == 1) {
+                            has_dotdot = true;
+                            scan_pos++; // skip second dot
+                        }
+                        scan_pos++;
+                    }
+                    
+                    if (found_close && (has_comma || has_dotdot)) {
+                        // Valid brace expansion - include it in the word
+                        is_numeric = false;
+                        size_t brace_len = scan_pos - brace_start;
+                        tokenizer->position = scan_pos;
+                        tokenizer->column += brace_len;
+                        // Continue scanning for suffix (e.g., .txt after })
+                    } else {
+                        // Not a brace expansion - end the word here
+                        break;
+                    }
                 } else {
                     // Not a word character - end of word
                     break;

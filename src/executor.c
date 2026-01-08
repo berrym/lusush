@@ -1653,40 +1653,79 @@ static int execute_for(executor_t *executor, node_t *for_node) {
                     // Normal expansion and splitting for other words
                     char *expanded = expand_if_needed(executor, word->val.str);
                     if (expanded) {
-                        // Get IFS for field splitting (default to
-                        // space/tab/newline)
-                        const char *ifs =
-                            symtable_get(executor->symtable, "IFS");
-                        if (!ifs) {
-                            ifs = " \t\n"; // Default IFS
-                        }
-
-                        // Split the expanded string into individual words
-                        char *expanded_copy = strdup(expanded);
-                        char *token = strtok(expanded_copy, ifs);
-
-                        while (token) {
-                            // Resize array if needed
-                            expanded_words =
-                                realloc(expanded_words,
-                                        (word_count + 1) * sizeof(char *));
-                            if (!expanded_words) {
-                                set_executor_error(
-                                    executor,
-                                    "Memory allocation failed in for loop");
+                        // Check for brace expansion first
+                        if (needs_brace_expansion(expanded)) {
+                            int brace_count;
+                            char **brace_results = expand_brace_pattern(expanded, &brace_count);
+                            if (brace_results) {
+                                // Add each brace expansion result
+                                for (int b = 0; b < brace_count; b++) {
+                                    expanded_words = realloc(expanded_words,
+                                                             (word_count + 1) * sizeof(char *));
+                                    if (!expanded_words) {
+                                        set_executor_error(executor,
+                                            "Memory allocation failed in for loop");
+                                        for (int k = 0; k < brace_count; k++) {
+                                            free(brace_results[k]);
+                                        }
+                                        free(brace_results);
+                                        free(expanded);
+                                        symtable_pop_scope(executor->symtable);
+                                        return 1;
+                                    }
+                                    expanded_words[word_count] = brace_results[b];
+                                    word_count++;
+                                }
+                                free(brace_results); // Free array, not strings (moved to expanded_words)
                                 free(expanded);
-                                free(expanded_copy);
-                                symtable_pop_scope(executor->symtable);
-                                return 1;
+                            } else {
+                                // Brace expansion failed, use original
+                                expanded_words = realloc(expanded_words,
+                                                         (word_count + 1) * sizeof(char *));
+                                if (expanded_words) {
+                                    expanded_words[word_count] = expanded;
+                                    word_count++;
+                                } else {
+                                    free(expanded);
+                                }
+                            }
+                        } else {
+                            // No brace expansion needed - do IFS splitting
+                            // Get IFS for field splitting (default to
+                            // space/tab/newline)
+                            const char *ifs =
+                                symtable_get(executor->symtable, "IFS");
+                            if (!ifs) {
+                                ifs = " \t\n"; // Default IFS
                             }
 
-                            expanded_words[word_count] = strdup(token);
-                            word_count++;
-                            token = strtok(NULL, ifs);
-                        }
+                            // Split the expanded string into individual words
+                            char *expanded_copy = strdup(expanded);
+                            char *token = strtok(expanded_copy, ifs);
 
-                        free(expanded_copy);
-                        free(expanded);
+                            while (token) {
+                                // Resize array if needed
+                                expanded_words =
+                                    realloc(expanded_words,
+                                            (word_count + 1) * sizeof(char *));
+                                if (!expanded_words) {
+                                    set_executor_error(
+                                        executor,
+                                        "Memory allocation failed in for loop");
+                                    free(expanded);
+                                    free(expanded_copy);
+                                    symtable_pop_scope(executor->symtable);
+                                    return 1;
+                                }
+
+                                expanded_words[word_count] = strdup(token);
+                                word_count++;
+                                token = strtok(NULL, ifs);
+                            }
+
+                            free(expanded_copy);
+                            free(expanded);
+                        }
                     }
                 }
             }
@@ -3213,19 +3252,26 @@ static bool needs_glob_expansion(const char *str) {
  * @return true if brace expansion is needed
  */
 static bool needs_brace_expansion(const char *str) {
-    if (!str) {
+    if (!str || !shell_mode_allows(FEATURE_BRACE_EXPANSION)) {
         return false;
     }
 
-    // Check for brace expansion patterns: {a,b,c}
+    // Check for brace expansion patterns: {a,b,c} or {1..10}
     const char *p = str;
     while (*p) {
         if (*p == '{') {
-            // Look for comma and closing brace
-            const char *comma = strchr(p + 1, ',');
             const char *close = strchr(p + 1, '}');
-            if (comma && close && comma < close) {
-                return true;
+            if (close) {
+                // Look for comma pattern: {a,b,c}
+                const char *comma = strchr(p + 1, ',');
+                if (comma && comma < close) {
+                    return true;
+                }
+                // Look for range pattern: {1..10} or {a..z}
+                const char *dotdot = strstr(p + 1, "..");
+                if (dotdot && dotdot < close) {
+                    return true;
+                }
             }
         }
         p++;
@@ -3234,9 +3280,193 @@ static bool needs_brace_expansion(const char *str) {
 }
 
 /**
- * @brief Expand brace patterns like {a,b,c}
+ * @brief Expand brace range patterns like {1..10} or {a..z}
+ *
+ * Handles numeric ranges: {1..5} -> 1 2 3 4 5
+ * Handles char ranges: {a..e} -> a b c d e  
+ * Handles step: {1..10..2} -> 1 3 5 7 9
+ * Handles reverse: {5..1} -> 5 4 3 2 1
+ * Handles zero-padding: {01..05} -> 01 02 03 04 05
+ *
+ * @param prefix String before the brace
+ * @param content Content between braces (e.g., "1..10" or "a..z..2")
+ * @param suffix String after the brace
+ * @param expanded_count Output: number of expansions
+ * @return Array of expanded strings (caller must free), or NULL on error
+ */
+static char **expand_brace_range(const char *prefix, const char *content,
+                                  const char *suffix, int *expanded_count) {
+    *expanded_count = 0;
+    
+    // Parse: start..end or start..end..step
+    const char *dotdot1 = strstr(content, "..");
+    if (!dotdot1) {
+        return NULL;
+    }
+    
+    // Extract start
+    size_t start_len = dotdot1 - content;
+    char *start_str = strndup(content, start_len);
+    if (!start_str) return NULL;
+    
+    // Find second .. for step (optional)
+    const char *after_first = dotdot1 + 2;
+    const char *dotdot2 = strstr(after_first, "..");
+    
+    char *end_str = NULL;
+    char *step_str = NULL;
+    
+    if (dotdot2) {
+        // Has step: start..end..step
+        size_t end_len = dotdot2 - after_first;
+        end_str = strndup(after_first, end_len);
+        step_str = strdup(dotdot2 + 2);
+    } else {
+        // No step: start..end
+        end_str = strdup(after_first);
+    }
+    
+    if (!end_str) {
+        free(start_str);
+        free(step_str);
+        return NULL;
+    }
+    
+    // Determine if numeric or character range
+    bool is_numeric = false;
+    bool is_char = false;
+    int pad_width = 0;
+    
+    // Check for zero-padding in numeric (e.g., "01")
+    if (start_str[0] == '0' && strlen(start_str) > 1) {
+        pad_width = strlen(start_str);
+    }
+    if (end_str[0] == '0' && strlen(end_str) > 1) {
+        int end_pad = strlen(end_str);
+        if (end_pad > pad_width) pad_width = end_pad;
+    }
+    
+    // Check if start/end are single chars
+    if (strlen(start_str) == 1 && strlen(end_str) == 1 &&
+        isalpha(start_str[0]) && isalpha(end_str[0])) {
+        is_char = true;
+    } else {
+        // Try to parse as numbers
+        char *endptr;
+        long start_val = strtol(start_str, &endptr, 10);
+        if (*endptr == '\0') {
+            long end_val = strtol(end_str, &endptr, 10);
+            if (*endptr == '\0') {
+                is_numeric = true;
+                (void)start_val; // Used below
+                (void)end_val;
+            }
+        }
+    }
+    
+    if (!is_numeric && !is_char) {
+        // Invalid range - return NULL, caller will use original
+        free(start_str);
+        free(end_str);
+        free(step_str);
+        return NULL;
+    }
+    
+    // Parse step value
+    long step = 1;
+    if (step_str && strlen(step_str) > 0) {
+        char *endptr;
+        step = strtol(step_str, &endptr, 10);
+        if (*endptr != '\0' || step == 0) {
+            step = 1; // Invalid step, use default
+        }
+        if (step < 0) step = -step; // Step is always positive, direction from start/end
+    }
+    
+    // Calculate range
+    long start_val, end_val;
+    if (is_char) {
+        start_val = start_str[0];
+        end_val = end_str[0];
+    } else {
+        start_val = strtol(start_str, NULL, 10);
+        end_val = strtol(end_str, NULL, 10);
+    }
+    
+    // Determine direction
+    bool reverse = (start_val > end_val);
+    
+    // Count items
+    long range = reverse ? (start_val - end_val) : (end_val - start_val);
+    int count = (int)(range / step) + 1;
+    
+    if (count <= 0 || count > 10000) {
+        // Sanity check - don't expand absurdly large ranges
+        free(start_str);
+        free(end_str);
+        free(step_str);
+        return NULL;
+    }
+    
+    // Allocate result array
+    char **result = malloc((count + 1) * sizeof(char *));
+    if (!result) {
+        free(start_str);
+        free(end_str);
+        free(step_str);
+        return NULL;
+    }
+    
+    // Generate expansions
+    size_t prefix_len = strlen(prefix);
+    size_t suffix_len = strlen(suffix);
+    
+    for (int i = 0; i < count; i++) {
+        long val = reverse ? (start_val - i * step) : (start_val + i * step);
+        
+        char item_buf[32];
+        if (is_char) {
+            snprintf(item_buf, sizeof(item_buf), "%c", (char)val);
+        } else if (pad_width > 0) {
+            snprintf(item_buf, sizeof(item_buf), "%0*ld", pad_width, val);
+        } else {
+            snprintf(item_buf, sizeof(item_buf), "%ld", val);
+        }
+        
+        size_t full_len = prefix_len + strlen(item_buf) + suffix_len;
+        result[i] = malloc(full_len + 1);
+        if (!result[i]) {
+            // Cleanup on failure
+            for (int j = 0; j < i; j++) {
+                free(result[j]);
+            }
+            free(result);
+            free(start_str);
+            free(end_str);
+            free(step_str);
+            return NULL;
+        }
+        
+        strcpy(result[i], prefix);
+        strcat(result[i], item_buf);
+        strcat(result[i], suffix);
+    }
+    
+    result[count] = NULL;
+    *expanded_count = count;
+    
+    free(start_str);
+    free(end_str);
+    free(step_str);
+    
+    return result;
+}
+
+/**
+ * @brief Expand brace patterns like {a,b,c} or {1..10}
  *
  * Expands patterns like file.{c,h} into [file.c, file.h].
+ * Expands ranges like {1..5} into [1, 2, 3, 4, 5].
  * Handles prefix and suffix around the braces.
  *
  * @param pattern Pattern containing braces
@@ -3296,6 +3526,24 @@ static char **expand_brace_pattern(const char *pattern, int *expanded_count) {
     prefix[prefix_len] = '\0';
     strncpy(content, open + 1, content_len);
     content[content_len] = '\0';
+
+    // Check if this is a range pattern (contains ..)
+    if (strstr(content, "..")) {
+        char **range_result = expand_brace_range(prefix, content, suffix, expanded_count);
+        free(prefix);
+        free(content);
+        if (range_result) {
+            return range_result;
+        }
+        // Range expansion failed - fall through to return original pattern
+        char **result = malloc(2 * sizeof(char *));
+        if (result) {
+            result[0] = strdup(pattern);
+            result[1] = NULL;
+            *expanded_count = 1;
+        }
+        return result;
+    }
 
     // Count comma-separated items
     int item_count = 1;

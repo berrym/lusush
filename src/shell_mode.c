@@ -72,6 +72,9 @@ static const bool feature_matrix[SHELL_MODE_COUNT][FEATURE_COUNT] = {
         [FEATURE_NULL_GLOB]           = false,
         [FEATURE_DOT_GLOB]            = false,
 
+        /* Brace Expansion */
+        [FEATURE_BRACE_EXPANSION]     = false, /* POSIX doesn't have brace expansion */
+
         /* Control Flow Extensions */
         [FEATURE_CASE_FALLTHROUGH]    = false,
         [FEATURE_SELECT_LOOP]         = false,
@@ -129,6 +132,9 @@ static const bool feature_matrix[SHELL_MODE_COUNT][FEATURE_COUNT] = {
         [FEATURE_EXTENDED_GLOB]       = false,
         [FEATURE_NULL_GLOB]           = false,
         [FEATURE_DOT_GLOB]            = false,
+
+        /* Brace Expansion */
+        [FEATURE_BRACE_EXPANSION]     = true, /* Bash has brace expansion on by default */
 
         /* Control Flow Extensions */
         [FEATURE_CASE_FALLTHROUGH]    = true,
@@ -188,6 +194,9 @@ static const bool feature_matrix[SHELL_MODE_COUNT][FEATURE_COUNT] = {
         [FEATURE_NULL_GLOB]           = true,  /* CSH_NULL_GLOB behavior */
         [FEATURE_DOT_GLOB]            = false, /* GLOB_DOTS off by default */
 
+        /* Brace Expansion */
+        [FEATURE_BRACE_EXPANSION]     = true, /* Zsh has brace expansion on by default */
+
         /* Control Flow Extensions */
         [FEATURE_CASE_FALLTHROUGH]    = true,
         [FEATURE_SELECT_LOOP]         = true,
@@ -245,6 +254,9 @@ static const bool feature_matrix[SHELL_MODE_COUNT][FEATURE_COUNT] = {
         [FEATURE_EXTENDED_GLOB]       = true,
         [FEATURE_NULL_GLOB]           = true,  /* Safer: no literal *.foo */
         [FEATURE_DOT_GLOB]            = false, /* Explicit is better */
+
+        /* Brace Expansion */
+        [FEATURE_BRACE_EXPANSION]     = true, /* Essential shell feature */
 
         /* Control Flow Extensions - full support */
         [FEATURE_CASE_FALLTHROUGH]    = true,
@@ -319,6 +331,9 @@ static const char *feature_names[FEATURE_COUNT] = {
     [FEATURE_NULL_GLOB]            = "null_glob",
     [FEATURE_DOT_GLOB]             = "dot_glob",
 
+    /* Brace Expansion */
+    [FEATURE_BRACE_EXPANSION]      = "brace_expansion",
+
     /* Control Flow Extensions */
     [FEATURE_CASE_FALLTHROUGH]     = "case_fallthrough",
     [FEATURE_SELECT_LOOP]          = "select_loop",
@@ -355,6 +370,7 @@ static const struct {
     {"extglob",     FEATURE_EXTENDED_GLOB},
     {"nullglob",    FEATURE_NULL_GLOB},
     {"dotglob",     FEATURE_DOT_GLOB},
+    {"braceexp",    FEATURE_BRACE_EXPANSION},
     {"autocd",      FEATURE_AUTO_CD},
     {"wordsplit",   FEATURE_WORD_SPLIT_DEFAULT},
     {"plugins",     FEATURE_PLUGIN_SYSTEM},

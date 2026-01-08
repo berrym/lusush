@@ -84,6 +84,9 @@ typedef enum {
     FEATURE_NULL_GLOB,     /**< Null glob: unmatched patterns expand to nothing */
     FEATURE_DOT_GLOB,      /**< Include dotfiles in glob matches */
 
+    /* Brace Expansion */
+    FEATURE_BRACE_EXPANSION, /**< {a,b,c} and {1..10} brace expansion */
+
     /* Control Flow Extensions (Phase 5) */
     FEATURE_CASE_FALLTHROUGH, /**< ;& and ;;& in case statements */
     FEATURE_SELECT_LOOP,      /**< select var in list; do ... done */
