@@ -140,7 +140,7 @@ static void debug_analyze_syntax(debug_context_t *ctx, const char *file,
     }
 
     // Try to parse the script
-    parser_t *parser = parser_new(content);
+    parser_t *parser = parser_new_with_source(content, file);
     if (!parser) {
         debug_add_analysis_issue(ctx, file, 1, "error", "syntax",
                                  "Failed to create parser",

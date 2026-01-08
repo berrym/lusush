@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.0-prerelease] - 2026-01-08
+
+### Major Features
+
+#### Context-Aware Error Management System
+Rust-style structured error reporting with source locations, context chains, and intelligent suggestions:
+
+```
+error[E1001]: expected 'THEN', got 'FI'
+  --> script.sh:5:10
+   |
+ 5 | if true; fi
+   |          ^~
+   = while: parsing if statement
+   = help: 'if' requires 'then' before 'fi'
+
+error[E1101]: echoo: command not found
+  --> ./script.sh:1:1
+   = help: did you mean 'echo', 'gecho', or 'gchroot'?
+```
+
+- **Structured Error Codes** - Hierarchical error codes (E1000-E1499) by category
+- **Source Location Tracking** - File, line, column for all errors
+- **Context Chains** - "while parsing X, in function Y" breadcrumbs
+- **"Did You Mean?" Suggestions** - Unicode-aware fuzzy matching with Damerau-Levenshtein
+- **Multi-Error Collection** - Parser collects multiple errors before stopping
+
+### Added
+- **shell_error.h/c** - Unified error management API with Rust-style display
+- **source_location_t** - Source location tracking in AST nodes
+- **Execution context stack** - Push/pop context for nested operations (loops, functions, etc.)
+- **Fast Damerau-Levenshtein pre-filter** - O(n*m) pre-filter before expensive Unicode fuzzy matching
+- **Builtin + PATH suggestions** - Command-not-found errors suggest from both sources
+- **Duplicate deduplication** - Same command from multiple sources shown only once
+
+### Changed
+- **Parser errors** - All ~30 parser errors migrated to structured system with error codes
+- **Executor errors** - Control structure errors include source location and context
+- **Builtin errors** - cd, export, and other builtins use structured error display
+- **Expansion errors** - Unbound variable and arithmetic errors have full context
+- **Autocorrect performance** - PATH scanning uses fast pre-filter (50 candidates max)
+- **Interactive autocorrect** - Only runs when stdin is TTY and prompts enabled
+
+### Technical Improvements
+- **Zero performance regression** - Fast path for successful execution unchanged
+- **16ms suggestion lookup** - Pre-filter eliminates 99% of PATH candidates quickly
+- **NFC normalization preserved** - Full Unicode-aware matching for final scoring
+- **57 tests passing** - Full test suite maintained
+
+---
+
 ## [1.5.0] - 2026-01-07
 
 ### Major Features

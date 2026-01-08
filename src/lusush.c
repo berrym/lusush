@@ -34,6 +34,7 @@
 #include "lle/lle_shell_integration.h"
 #include "posix_history.h"
 #include "signals.h"
+#include "symtable.h"
 
 #include <time.h>
 
@@ -294,6 +295,16 @@ int parse_and_execute(const char *command) {
         if (!global_executor) {
             return 1;
         }
+        
+        // Set script context if running a script (not interactive)
+        // $0 contains the script name when running a script
+        if (!is_interactive_shell()) {
+            char *script_name = symtable_get_global("0");
+            if (script_name) {
+                executor_set_script_context(global_executor, script_name, 1);
+                free(script_name);
+            }
+        }
     }
 
     int exit_status = executor_execute_command_line(global_executor, command);
@@ -304,7 +315,8 @@ int parse_and_execute(const char *command) {
     fflush(stderr);
 
     // Print error messages to stderr if there were any errors
-    if (executor_has_error(global_executor)) {
+    // (Skip if error_message is NULL - means it was already displayed via structured system)
+    if (executor_has_error(global_executor) && executor_error(global_executor)) {
         fprintf(stderr, "lusush: %s\n", executor_error(global_executor));
         fflush(stderr);
     }

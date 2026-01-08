@@ -72,6 +72,10 @@ static bool expect_token(parser_t *parser, token_type_t expected);
  * @return New parser instance, or NULL on failure
  */
 parser_t *parser_new(const char *input) {
+    return parser_new_with_source(input, "<stdin>");
+}
+
+parser_t *parser_new_with_source(const char *input, const char *source_name) {
     if (!input) {
         return NULL;
     }
@@ -91,11 +95,23 @@ parser_t *parser_new(const char *input) {
     parser->has_error = false;
 
     /* Initialize structured error collection */
-    parser->source_name = "<stdin>";
+    parser->source_name = source_name ? source_name : "<stdin>";
     parser->error_collector = shell_error_collector_new(
         input, strlen(input), parser->source_name, 0);
 
     return parser;
+}
+
+void parser_set_source_name(parser_t *parser, const char *source_name) {
+    if (!parser) {
+        return;
+    }
+    parser->source_name = source_name ? source_name : "<stdin>";
+    
+    /* Update error collector's source_name too if it exists */
+    if (parser->error_collector) {
+        parser->error_collector->source_name = parser->source_name;
+    }
 }
 
 /**
@@ -886,7 +902,8 @@ static node_t *parse_simple_command(parser_t *parser) {
 
     // Parse regular command
     if (current->type == TOK_ERROR) {
-        set_parser_error(parser, "syntax error: unterminated quoted string");
+        parser_error_add(parser, SHELL_ERR_UNCLOSED_QUOTE,
+                         "unterminated quoted string");
         return NULL;
     }
 
@@ -1100,14 +1117,16 @@ static node_t *parse_simple_command(parser_t *parser) {
 static node_t *parse_brace_group(parser_t *parser) {
     token_t *current = tokenizer_current(parser->tokenizer);
     if (!current || current->type != TOK_LBRACE) {
-        set_parser_error(parser, "Expected '{'");
+        parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN, "expected '{'");
         return NULL;
     }
 
+    /* Capture location for brace group */
+    source_location_t brace_loc = token_to_source_location(current, parser->source_name);
+
     // Create brace group node
-    node_t *group_node = new_node(NODE_BRACE_GROUP);
+    node_t *group_node = new_node_at(NODE_BRACE_GROUP, brace_loc);
     if (!group_node) {
-        set_parser_error(parser, "Failed to create brace group node");
         return NULL;
     }
 
@@ -1156,14 +1175,16 @@ static node_t *parse_brace_group(parser_t *parser) {
 static node_t *parse_subshell(parser_t *parser) {
     token_t *current = tokenizer_current(parser->tokenizer);
     if (!current || current->type != TOK_LPAREN) {
-        set_parser_error(parser, "Expected '('");
+        parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN, "expected '('");
         return NULL;
     }
 
+    /* Capture location for subshell */
+    source_location_t subshell_loc = token_to_source_location(current, parser->source_name);
+
     // Create subshell node
-    node_t *subshell_node = new_node(NODE_SUBSHELL);
+    node_t *subshell_node = new_node_at(NODE_SUBSHELL, subshell_loc);
     if (!subshell_node) {
-        set_parser_error(parser, "Failed to create subshell node");
         return NULL;
     }
 
@@ -1255,11 +1276,14 @@ static node_t *parse_redirection(parser_t *parser) {
         node_type = NODE_REDIR_BOTH_APPEND;
         break;
     default:
-        set_parser_error(parser, "Unknown redirection token");
+        parser_error_add(parser, SHELL_ERR_INVALID_REDIRECT,
+                         "unknown redirection operator");
         return NULL;
     }
 
-    node_t *redir_node = new_node(node_type);
+    /* Capture location for redirection */
+    source_location_t redir_loc = token_to_source_location(redir_token, parser->source_name);
+    node_t *redir_node = new_node_at(node_type, redir_loc);
     if (!redir_node) {
         return NULL;
     }
@@ -1287,12 +1311,14 @@ static node_t *parse_redirection(parser_t *parser) {
                                  token_is_word_like(target_token->type))) {
                 // Valid here document delimiter
             } else {
-                set_parser_error(parser, "Expected here document delimiter");
+                parser_error_add(parser, SHELL_ERR_HEREDOC_DELIMITER,
+                                 "expected here-document delimiter");
                 free_node_tree(redir_node);
                 return NULL;
             }
         } else {
-            set_parser_error(parser, "Expected redirection target");
+            parser_error_add(parser, SHELL_ERR_INVALID_REDIRECT,
+                             "expected redirection target");
             free_node_tree(redir_node);
             return NULL;
         }
@@ -1792,7 +1818,8 @@ static node_t *parse_while_statement(parser_t *parser) {
 
     if (!condition) {
         free_node_tree(while_node);
-        set_parser_error(parser, "Failed to parse while condition");
+        parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                         "invalid while loop condition");
         return NULL;
     }
     add_child_node(while_node, condition);
@@ -1860,7 +1887,8 @@ static node_t *parse_until_statement(parser_t *parser) {
 
     if (!condition) {
         free_node_tree(until_node);
-        set_parser_error(parser, "Failed to parse until condition");
+        parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                         "invalid until loop condition");
         return NULL;
     }
     add_child_node(until_node, condition);
@@ -2130,7 +2158,8 @@ static node_t *parse_select_statement(parser_t *parser) {
     // Parse variable name
     if (!tokenizer_match(parser->tokenizer, TOK_WORD)) {
         free_node_tree(select_node);
-        set_parser_error(parser, "Expected variable name after 'select'");
+        parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                         "expected variable name after 'select'");
         return NULL;
     }
 
@@ -2297,7 +2326,8 @@ static node_t *parse_anonymous_function(parser_t *parser) {
     node_t *body = parse_brace_group(parser);
     if (!body) {
         free_node_tree(anon_node);
-        set_parser_error(parser, "Expected brace group after ()");
+        parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                         "expected '{' after '()' in anonymous function");
         return NULL;
     }
 
@@ -2329,7 +2359,8 @@ static node_t *parse_case_statement(parser_t *parser) {
     if (!token_is_word_like(word_token->type) &&
         word_token->type != TOK_VARIABLE) {
         free_node_tree(case_node);
-        set_parser_error(parser, "Expected word after 'case'");
+        parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                         "expected word after 'case'");
         return NULL;
     }
 
@@ -2421,7 +2452,8 @@ static node_t *parse_case_statement(parser_t *parser) {
             if (!single_pattern) {
                 free_node_tree(case_item);
                 free_node_tree(case_node);
-                set_parser_error(parser, "Expected pattern in case statement");
+                parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                                 "expected pattern in case statement");
                 return NULL;
             }
 
@@ -2462,7 +2494,8 @@ static node_t *parse_case_statement(parser_t *parser) {
         if (!tokenizer_match(parser->tokenizer, TOK_RPAREN)) {
             free_node_tree(case_item);
             free_node_tree(case_node);
-            set_parser_error(parser, "Expected ')' after case pattern");
+            parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                             "expected ')' after case pattern");
             return NULL;
         }
         tokenizer_advance(parser->tokenizer);
@@ -2652,7 +2685,8 @@ static node_t *parse_function_definition(parser_t *parser) {
     }
 
     if (!current || !token_is_word_like(current->type)) {
-        set_parser_error(parser, "Expected ')' after function parameters");
+        parser_error_add(parser, SHELL_ERR_INVALID_FUNCTION,
+                         "expected function name");
         return NULL;
     }
 
@@ -2673,10 +2707,9 @@ static node_t *parse_function_definition(parser_t *parser) {
     // POSIX compliance: validate function name in posix mode
     if (is_posix_mode_enabled() &&
         !is_valid_posix_function_name(current->text)) {
-        set_parser_error(parser,
-                         "Invalid function name in POSIX mode: function names "
-                         "must contain only letters, digits, and underscores, "
-                         "and cannot start with a digit");
+        parser_error_add(parser, SHELL_ERR_INVALID_FUNCTION,
+                         "invalid function name in POSIX mode: '%s'",
+                         current->text);
         free_node_tree(function_node);
         return NULL;
     }
@@ -2699,7 +2732,8 @@ static node_t *parse_function_definition(parser_t *parser) {
     while (current && current->type != TOK_RPAREN && current->type != TOK_EOF) {
         // Expect parameter name (word token)
         if (!token_is_word_like(current->type)) {
-            set_parser_error(parser, "Expected parameter name");
+            parser_error_add(parser, SHELL_ERR_INVALID_FUNCTION,
+                             "expected parameter name");
             free_function_params(params);
             free_node_tree(function_node);
             return NULL;
@@ -2724,7 +2758,8 @@ static node_t *parse_function_definition(parser_t *parser) {
             if (!current || (!token_is_word_like(current->type) &&
                              current->type != TOK_STRING &&
                              current->type != TOK_EXPANDABLE_STRING)) {
-                set_parser_error(parser, "Expected default value after '='");
+                parser_error_add(parser, SHELL_ERR_INVALID_FUNCTION,
+                                 "expected default value after '='");
                 free(param_name);
                 free_function_params(params);
                 free_node_tree(function_node);
@@ -2776,7 +2811,8 @@ static node_t *parse_function_definition(parser_t *parser) {
             current = tokenizer_current(parser->tokenizer);
             // Continue to next parameter
         } else {
-            set_parser_error(parser, "Expected ',' or ')' after parameter");
+            parser_error_add(parser, SHELL_ERR_INVALID_FUNCTION,
+                             "expected ',' or ')' after parameter");
             free_function_params(params);
             free_node_tree(function_node);
             return NULL;
@@ -2895,17 +2931,19 @@ static node_t *parse_function_definition(parser_t *parser) {
 static node_t *parse_arithmetic_command(parser_t *parser) {
     token_t *current = tokenizer_current(parser->tokenizer);
     if (!current || current->type != TOK_DOUBLE_LPAREN) {
-        set_parser_error(parser, "Expected '(('");
+        parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN, "expected '(('");
         return NULL;
     }
+
+    /* Capture location for arithmetic command */
+    source_location_t arith_loc = token_to_source_location(current, parser->source_name);
 
     // Consume ((
     tokenizer_advance(parser->tokenizer);
 
     // Create arithmetic command node
-    node_t *arith_node = new_node(NODE_ARITH_CMD);
+    node_t *arith_node = new_node_at(NODE_ARITH_CMD, arith_loc);
     if (!arith_node) {
-        set_parser_error(parser, "Failed to create arithmetic command node");
         return NULL;
     }
 
@@ -2985,7 +3023,7 @@ static node_t *parse_arithmetic_command(parser_t *parser) {
 
     // Expect ))
     if (!tokenizer_match(parser->tokenizer, TOK_DOUBLE_RPAREN)) {
-        set_parser_error(parser, "Expected '))'");
+        parser_error_add(parser, SHELL_ERR_UNCLOSED_SUBST, "expected '))'");
         free(expr);
         free_node_tree(arith_node);
         return NULL;
@@ -3024,17 +3062,19 @@ static node_t *parse_arithmetic_command(parser_t *parser) {
 static node_t *parse_array_literal(parser_t *parser) {
     token_t *current = tokenizer_current(parser->tokenizer);
     if (!current || current->type != TOK_LPAREN) {
-        set_parser_error(parser, "Expected '('");
+        parser_error_add(parser, SHELL_ERR_INVALID_ARRAY, "expected '('");
         return NULL;
     }
+
+    /* Capture location for array literal */
+    source_location_t array_loc = token_to_source_location(current, parser->source_name);
 
     // Consume (
     tokenizer_advance(parser->tokenizer);
 
     // Create array literal node
-    node_t *array_node = new_node(NODE_ARRAY_LITERAL);
+    node_t *array_node = new_node_at(NODE_ARRAY_LITERAL, array_loc);
     if (!array_node) {
-        set_parser_error(parser, "Failed to create array literal node");
         return NULL;
     }
 
@@ -3083,7 +3123,8 @@ static node_t *parse_array_literal(parser_t *parser) {
             }
 
             if (!tokenizer_match(parser->tokenizer, TOK_RBRACKET)) {
-                set_parser_error(parser, "Expected ']' in array literal");
+                parser_error_add(parser, SHELL_ERR_INVALID_ARRAY,
+                                 "expected ']' in array subscript");
                 free(index_str);
                 free_node_tree(array_node);
                 return NULL;
@@ -3092,7 +3133,8 @@ static node_t *parse_array_literal(parser_t *parser) {
 
             // Expect =
             if (!tokenizer_match(parser->tokenizer, TOK_ASSIGN)) {
-                set_parser_error(parser, "Expected '=' after array index");
+                parser_error_add(parser, SHELL_ERR_INVALID_ARRAY,
+                                 "expected '=' after array index");
                 free(index_str);
                 free_node_tree(array_node);
                 return NULL;
@@ -3184,7 +3226,8 @@ static node_t *parse_array_literal(parser_t *parser) {
 
     // Expect )
     if (!tokenizer_match(parser->tokenizer, TOK_RPAREN)) {
-        set_parser_error(parser, "Expected ')' to close array literal");
+        parser_error_add(parser, SHELL_ERR_INVALID_ARRAY,
+                         "expected ')' to close array literal");
         free_node_tree(array_node);
         return NULL;
     }
@@ -3219,17 +3262,20 @@ static node_t *parse_array_literal(parser_t *parser) {
 static node_t *parse_extended_test(parser_t *parser) {
     token_t *current = tokenizer_current(parser->tokenizer);
     if (!current || current->type != TOK_DOUBLE_LBRACKET) {
-        set_parser_error(parser, "Expected '[['");
+        parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                         "expected '[['");
         return NULL;
     }
 
     // Consume [[
     tokenizer_advance(parser->tokenizer);
 
-    // Create extended test node
-    node_t *test_node = new_node(NODE_EXTENDED_TEST);
+    // Create extended test node with source location
+    source_location_t loc = token_to_source_location(current, parser->source_name);
+    node_t *test_node = new_node_at(NODE_EXTENDED_TEST, loc);
     if (!test_node) {
-        set_parser_error(parser, "Failed to create extended test node");
+        parser_error_add(parser, SHELL_ERR_OUT_OF_MEMORY,
+                         "failed to create extended test node");
         return NULL;
     }
 
@@ -3338,7 +3384,8 @@ static node_t *parse_extended_test(parser_t *parser) {
 
     // Expect ]]
     if (!tokenizer_match(parser->tokenizer, TOK_DOUBLE_RBRACKET)) {
-        set_parser_error(parser, "Expected ']]'");
+        parser_error_add(parser, SHELL_ERR_UNCLOSED_CONTROL,
+                         "expected ']]' to close extended test");
         free(expr);
         free_node_tree(test_node);
         return NULL;
@@ -3391,20 +3438,24 @@ static node_t *parse_process_substitution(parser_t *parser) {
         node_type = NODE_PROC_SUB_OUT;
         op_name = ">(";
     } else {
-        set_parser_error(parser, "Expected '<(' or '>('");
+        parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                         "expected '<(' or '>('");
         return NULL;
     }
 
     // Check if feature is enabled
     if (!shell_mode_allows(FEATURE_PROCESS_SUBSTITUTION)) {
-        set_parser_error(parser, "Process substitution not enabled");
+        parser_error_add(parser, SHELL_ERR_FEATURE_DISABLED,
+                         "process substitution not enabled");
         return NULL;
     }
 
-    // Create the process substitution node
-    node_t *proc_sub_node = new_node(node_type);
+    // Create the process substitution node with source location
+    source_location_t loc = token_to_source_location(current, parser->source_name);
+    node_t *proc_sub_node = new_node_at(node_type, loc);
     if (!proc_sub_node) {
-        set_parser_error(parser, "Failed to create process substitution node");
+        parser_error_add(parser, SHELL_ERR_OUT_OF_MEMORY,
+                         "failed to create process substitution node");
         return NULL;
     }
 

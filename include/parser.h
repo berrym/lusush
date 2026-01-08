@@ -41,6 +41,26 @@ typedef struct parser {
 parser_t *parser_new(const char *input);
 
 /**
+ * @brief Create a new parser with source name for error reporting
+ *
+ * @param input Shell command string to parse
+ * @param source_name Source filename (e.g., "script.sh" or "<stdin>")
+ * @return New parser instance or NULL on failure
+ */
+parser_t *parser_new_with_source(const char *input, const char *source_name);
+
+/**
+ * @brief Set the source name for error reporting
+ *
+ * Updates the source name used in error messages. The parser does not
+ * take ownership of the string; caller must ensure it remains valid.
+ *
+ * @param parser Parser context
+ * @param source_name Source filename (e.g., "script.sh")
+ */
+void parser_set_source_name(parser_t *parser, const char *source_name);
+
+/**
  * @brief Free a parser and associated resources
  *
  * @param parser Parser to free

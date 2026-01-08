@@ -17,6 +17,7 @@
 #include "config.h"
 #include "config_registry.h"
 #include "debug.h"
+#include "shell_error.h"
 #include "shell_mode.h"
 #include "display_integration.h"
 #include "display/command_layer.h"
@@ -82,6 +83,43 @@ bool is_posix_mode_enabled(void);
 
 // Hash table for remembered command paths
 ht_strstr_t *command_hash = NULL;
+
+/**
+ * @brief Report a structured builtin error
+ *
+ * Creates and displays a structured error for builtin commands.
+ * Since builtins don't have source locations, uses a minimal display format.
+ *
+ * @param builtin_name Name of the builtin (e.g., "cd", "export")
+ * @param code Error code from shell_error_code_t
+ * @param fmt Printf-style format string
+ * @param ... Format arguments
+ */
+static void builtin_error(const char *builtin_name, shell_error_code_t code,
+                          const char *fmt, ...) {
+    /* Create error with no source location */
+    va_list args;
+    va_start(args, fmt);
+    shell_error_t *error = shell_error_createv(code, SHELL_SEVERITY_ERROR,
+                                                SOURCE_LOC_UNKNOWN, fmt, args);
+    va_end(args);
+
+    if (error) {
+        /* Add builtin context */
+        shell_error_push_context(error, "in builtin '%s'", builtin_name);
+        
+        /* Display the error */
+        shell_error_display(error, stderr, isatty(STDERR_FILENO));
+        shell_error_free(error);
+    } else {
+        /* Fallback to simple error message */
+        va_start(args, fmt);
+        fprintf(stderr, "lusush: %s: ", builtin_name);
+        vfprintf(stderr, fmt, args);
+        fprintf(stderr, "\n");
+        va_end(args);
+    }
+}
 
 // Table of builtin commands
 builtin builtins[] = {
@@ -317,7 +355,7 @@ int bin_cd(int argc __attribute__((unused)),
         // cd with no arguments - go to HOME
         target_dir = getenv("HOME");
         if (!target_dir) {
-            error_message("cd: HOME not set");
+            builtin_error("cd", SHELL_ERR_UNBOUND_VARIABLE, "HOME not set");
             free(current_dir);
             return 1;
         }
@@ -325,7 +363,7 @@ int bin_cd(int argc __attribute__((unused)),
         if (strcmp(argv[1], "-") == 0) {
             // cd - : go to previous directory
             if (!previous_dir) {
-                error_message("cd: OLDPWD not set");
+                builtin_error("cd", SHELL_ERR_UNBOUND_VARIABLE, "OLDPWD not set");
                 free(current_dir);
                 return 1;
             }
@@ -336,7 +374,7 @@ int bin_cd(int argc __attribute__((unused)),
             target_dir = argv[1];
         }
     } else {
-        error_message("usage: cd [pathname | -]");
+        builtin_error("cd", SHELL_ERR_TOO_MANY_ARGUMENTS, "usage: cd [pathname | -]");
         free(current_dir);
         return 1;
     }

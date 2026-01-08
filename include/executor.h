@@ -467,4 +467,39 @@ int executor_call_chpwd(executor_t *executor);
  */
 bool executor_in_hook(void);
 
+/* ============================================================================
+ * Structured Error Reporting (Phase 4)
+ * ============================================================================ */
+
+/**
+ * @brief Add a structured error to the executor's error state
+ *
+ * Creates and reports a structured error with full context information
+ * including the execution context stack. Falls back to legacy error
+ * system if structured errors are not available.
+ *
+ * @param executor Executor context
+ * @param code Error code from shell_error_code_t
+ * @param loc Source location where error occurred
+ * @param fmt Printf-style format string for error message
+ * @param ... Format arguments
+ */
+void executor_error_add(executor_t *executor, shell_error_code_t code,
+                        source_location_t loc, const char *fmt, ...);
+
+/**
+ * @brief Display a structured runtime error
+ *
+ * Immediately displays an error with context stack. Used for runtime
+ * errors that should be shown as they occur.
+ *
+ * @param executor Executor context
+ * @param code Error code
+ * @param loc Source location
+ * @param fmt Printf-style format string
+ * @param ... Format arguments
+ */
+void executor_error_report(executor_t *executor, shell_error_code_t code,
+                           source_location_t loc, const char *fmt, ...);
+
 #endif // EXECUTOR_H

@@ -553,9 +553,131 @@ void executor_error_report(executor_t *executor, shell_error_code_t code,
     /* Display the error immediately */
     shell_error_display(error, stderr, isatty(STDERR_FILENO));
 
-    /* Set legacy error state for compatibility */
+    /* Set legacy error state for compatibility - use NULL since error was already displayed */
     executor->has_error = true;
-    executor->error_message = error->message ? error->message : "runtime error";
+    executor->error_message = NULL;  /* Already displayed via structured system */
+
+    shell_error_free(error);
+}
+
+/**
+ * @brief Add a structured error and display it
+ *
+ * Convenience wrapper that creates an error with current node location.
+ * For runtime errors, this is equivalent to executor_error_report but
+ * provides a simpler API when you don't have a source_location_t ready.
+ */
+void executor_error_add(executor_t *executor, shell_error_code_t code,
+                        source_location_t loc, const char *fmt, ...) {
+    if (!executor) {
+        return;
+    }
+
+    /* Create the error */
+    va_list args;
+    va_start(args, fmt);
+    shell_error_t *error = shell_error_createv(code, SHELL_SEVERITY_ERROR,
+                                                loc, fmt, args);
+    va_end(args);
+
+    if (!error) {
+        /* Fallback to legacy error system */
+        set_executor_error(executor, "runtime error");
+        return;
+    }
+
+    /* Add context stack to error */
+    for (size_t i = 0; i < executor->context_depth && i < SHELL_ERROR_CONTEXT_MAX; i++) {
+        if (executor->context_stack[i]) {
+            shell_error_push_context(error, "%s", executor->context_stack[i]);
+        }
+    }
+
+    /* Display the error immediately */
+    shell_error_display(error, stderr, isatty(STDERR_FILENO));
+
+    /* Set legacy error state for compatibility - use NULL since error was already displayed */
+    executor->has_error = true;
+    executor->error_message = NULL;  /* Already displayed via structured system */
+
+    shell_error_free(error);
+}
+
+/**
+ * @brief Report command-not-found error with autocorrect suggestions
+ *
+ * Creates a structured error for command not found, and if autocorrect
+ * is available, adds "did you mean?" suggestions from builtins.
+ *
+ * Note: For performance, we only search builtins for suggestions here.
+ * The full PATH search used by interactive autocorrect is too slow for
+ * synchronous error reporting (scans thousands of executables).
+ *
+ * @param executor Executor context
+ * @param command The command that was not found
+ * @param loc Source location of the command
+ */
+static void report_command_not_found(executor_t *executor, const char *command,
+                                     source_location_t loc) {
+    if (!executor || !command) {
+        return;
+    }
+
+    /* Create the error */
+    shell_error_t *error = shell_error_create(SHELL_ERR_COMMAND_NOT_FOUND,
+                                               SHELL_SEVERITY_ERROR,
+                                               loc,
+                                               "%s: command not found",
+                                               command);
+    if (!error) {
+        /* Fallback to simple error message */
+        fprintf(stderr, "lusush: %s: command not found\n", command);
+        return;
+    }
+
+    /* Add context stack to error */
+    for (size_t i = 0; i < executor->context_depth && i < SHELL_ERROR_CONTEXT_MAX; i++) {
+        if (executor->context_stack[i]) {
+            shell_error_push_context(error, "%s", executor->context_stack[i]);
+        }
+    }
+
+    /* Get suggestions from autocorrect (builtins + PATH with fast pre-filter) */
+    correction_results_t results;
+    int num_suggestions = autocorrect_find_suggestions(executor, command, &results);
+
+    if (num_suggestions > 0) {
+        /* Build suggestion string */
+        char suggestion[256];
+        if (num_suggestions == 1) {
+            snprintf(suggestion, sizeof(suggestion),
+                     "did you mean '%s'?", results.suggestions[0].command);
+        } else {
+            int show_count = num_suggestions > 3 ? 3 : num_suggestions;
+            int pos = snprintf(suggestion, sizeof(suggestion), "did you mean ");
+            for (int i = 0; i < show_count && pos < (int)sizeof(suggestion) - 20; i++) {
+                if (i > 0) {
+                    if (i == show_count - 1) {
+                        pos += snprintf(suggestion + pos, sizeof(suggestion) - pos, ", or ");
+                    } else {
+                        pos += snprintf(suggestion + pos, sizeof(suggestion) - pos, ", ");
+                    }
+                }
+                pos += snprintf(suggestion + pos, sizeof(suggestion) - pos,
+                               "'%s'", results.suggestions[i].command);
+            }
+            snprintf(suggestion + pos, sizeof(suggestion) - pos, "?");
+        }
+        shell_error_set_suggestion(error, suggestion);
+        autocorrect_free_results(&results);
+    }
+
+    /* Display the error */
+    shell_error_display(error, stderr, isatty(STDERR_FILENO));
+
+    /* Set legacy error state */
+    executor->has_error = true;
+    executor->error_message = NULL;
 
     shell_error_free(error);
 }
@@ -607,8 +729,11 @@ int executor_execute_command_line(executor_t *executor, const char *input) {
         return 1;
     }
 
-    // Parse the input
-    parser_t *parser = parser_new(input);
+    // Parse the input, using script filename if executing a script
+    const char *source_name = executor->current_script_file 
+                              ? executor->current_script_file 
+                              : "<stdin>";
+    parser_t *parser = parser_new_with_source(input, source_name);
     if (!parser) {
         set_executor_error(executor, "Failed to create parser");
         return 1;
@@ -1234,7 +1359,13 @@ static int execute_command(executor_t *executor, node_t *command) {
         // Auto-cd disabled, proceed with normal command execution
         normal_execution:
             // Check if command exists first, offer auto-correction if not
-            if (config.spell_correction && autocorrect_is_enabled()) {
+            // Only do interactive autocorrect if:
+            // 1. spell_correction is enabled
+            // 2. autocorrect is enabled
+            // 3. interactive prompts are enabled (otherwise no point in searching)
+            // 4. stdin is a tty (user can actually respond)
+            if (config.spell_correction && autocorrect_is_enabled() &&
+                config.autocorrect_interactive && isatty(STDIN_FILENO)) {
                 // First, check if the command actually exists
                 if (!autocorrect_command_exists(executor, filtered_argv[0])) {
                     // Command doesn't exist, try auto-correction
@@ -1242,7 +1373,7 @@ static int execute_command(executor_t *executor, node_t *command) {
                     int suggestions = autocorrect_find_suggestions(
                         executor, filtered_argv[0], &correction_results);
 
-                    if (suggestions > 0 && config.autocorrect_interactive) {
+                    if (suggestions > 0) {
                         char selected_command[MAX_COMMAND_LENGTH];
                         if (autocorrect_prompt_user(&correction_results,
                                                     selected_command)) {
@@ -1343,6 +1474,9 @@ static int execute_pipeline(executor_t *executor, node_t *pipeline) {
         return 1;
     }
 
+    // Push error context for structured error reporting
+    executor_push_context(executor, pipeline->loc, "in pipeline");
+
     // For now, implement simple two-command pipeline
     // A more complete implementation would handle N-command pipelines
 
@@ -1350,21 +1484,27 @@ static int execute_pipeline(executor_t *executor, node_t *pipeline) {
     node_t *right = left ? left->next_sibling : NULL;
 
     if (!left || !right) {
-        set_executor_error(executor, "Malformed pipeline");
+        executor_error_add(executor, SHELL_ERR_MALFORMED_CONSTRUCT,
+                           pipeline->loc, "malformed pipeline");
+        executor_pop_context(executor);
         return 1;
     }
 
     int pipe_fd[2];
     if (pipe(pipe_fd) == -1) {
-        set_executor_error(executor, "Failed to create pipe");
+        executor_error_add(executor, SHELL_ERR_PIPE_FAILED,
+                           pipeline->loc, "failed to create pipe: %s", strerror(errno));
+        executor_pop_context(executor);
         return 1;
     }
 
     pid_t left_pid = fork();
     if (left_pid == -1) {
-        set_executor_error(executor, "Failed to fork for pipeline");
+        executor_error_add(executor, SHELL_ERR_FORK_FAILED,
+                           pipeline->loc, "failed to fork for pipeline: %s", strerror(errno));
         close(pipe_fd[0]);
         close(pipe_fd[1]);
+        executor_pop_context(executor);
         return 1;
     }
 
@@ -1384,11 +1524,13 @@ static int execute_pipeline(executor_t *executor, node_t *pipeline) {
 
     pid_t right_pid = fork();
     if (right_pid == -1) {
-        set_executor_error(executor, "Failed to fork for pipeline");
+        executor_error_add(executor, SHELL_ERR_FORK_FAILED,
+                           pipeline->loc, "failed to fork for pipeline: %s", strerror(errno));
         close(pipe_fd[0]);
         close(pipe_fd[1]);
         while (waitpid(left_pid, NULL, 0) == -1 && errno == EINTR)
             ;
+        executor_pop_context(executor);
         return 1;
     }
 
@@ -1422,6 +1564,9 @@ static int execute_pipeline(executor_t *executor, node_t *pipeline) {
         WIFEXITED(right_status)
             ? WEXITSTATUS(right_status)
             : (WIFSIGNALED(right_status) ? 128 + WTERMSIG(right_status) : 1);
+
+    // Pop error context before returning
+    executor_pop_context(executor);
 
     // Pipefail behavior: return failure if ANY command in pipeline fails
     if (is_pipefail_enabled()) {
@@ -1500,7 +1645,8 @@ static int execute_if(executor_t *executor, node_t *if_node) {
     // Traverse through all children of the if statement
     node_t *current = if_node->first_child;
     if (!current) {
-        set_executor_error(executor, "Malformed if statement");
+        executor_error_add(executor, SHELL_ERR_MALFORMED_CONSTRUCT,
+                           if_node->loc, "malformed if statement");
         return 1;
     }
 
@@ -1509,8 +1655,8 @@ static int execute_if(executor_t *executor, node_t *if_node) {
     current = current->next_sibling;
 
     if (!current) {
-        set_executor_error(executor,
-                           "Malformed if statement - missing then body");
+        executor_error_add(executor, SHELL_ERR_MALFORMED_CONSTRUCT,
+                           if_node->loc, "malformed if statement - missing then body");
         return 1;
     }
 
@@ -1566,7 +1712,8 @@ static int execute_while(executor_t *executor, node_t *while_node) {
     node_t *body = condition ? condition->next_sibling : NULL;
 
     if (!condition || !body) {
-        set_executor_error(executor, "Malformed while loop");
+        executor_error_add(executor, SHELL_ERR_MALFORMED_CONSTRUCT,
+                           while_node->loc, "malformed while loop");
         return 1;
     }
 
@@ -1616,7 +1763,8 @@ static int execute_while(executor_t *executor, node_t *while_node) {
     executor_pop_context(executor);
 
     if (iteration >= max_iterations) {
-        set_executor_error(executor, "While loop exceeded maximum iterations");
+        executor_error_add(executor, SHELL_ERR_LOOP_LIMIT,
+                           while_node->loc, "while loop exceeded maximum iterations (%d)", max_iterations);
         return 1;
     }
 
@@ -1643,7 +1791,8 @@ static int execute_until(executor_t *executor, node_t *until_node) {
     node_t *body = condition ? condition->next_sibling : NULL;
 
     if (!condition || !body) {
-        set_executor_error(executor, "Malformed until loop");
+        executor_error_add(executor, SHELL_ERR_MALFORMED_CONSTRUCT,
+                           until_node->loc, "malformed until loop");
         return 1;
     }
 
@@ -1687,9 +1836,12 @@ static int execute_until(executor_t *executor, node_t *until_node) {
     // Decrement loop depth before returning
     executor->loop_depth--;
 
-    if (iteration >= max_iterations) {
-        set_executor_error(executor, "Until loop exceeded maximum iterations");
+    // Pop error context
+    executor_pop_context(executor);
 
+    if (iteration >= max_iterations) {
+        executor_error_add(executor, SHELL_ERR_LOOP_LIMIT,
+                           until_node->loc, "until loop exceeded maximum iterations (%d)", max_iterations);
         return 1;
     }
 
@@ -1714,7 +1866,8 @@ static int execute_for(executor_t *executor, node_t *for_node) {
 
     const char *var_name = for_node->val.str;
     if (!var_name) {
-        set_executor_error(executor, "For loop missing variable name");
+        executor_error_add(executor, SHELL_ERR_MALFORMED_CONSTRUCT,
+                           for_node->loc, "for loop missing variable name");
         return 1;
     }
 
@@ -1722,13 +1875,15 @@ static int execute_for(executor_t *executor, node_t *for_node) {
     node_t *body = word_list ? word_list->next_sibling : NULL;
 
     if (!body) {
-        set_executor_error(executor, "For loop missing body");
+        executor_error_add(executor, SHELL_ERR_MALFORMED_CONSTRUCT,
+                           for_node->loc, "for loop missing body");
         return 1;
     }
 
     // Push loop scope
     if (symtable_push_scope(executor->symtable, SCOPE_LOOP, "for-loop") != 0) {
-        set_executor_error(executor, "Failed to create loop scope");
+        executor_error_add(executor, SHELL_ERR_SCOPE_ERROR,
+                           for_node->loc, "failed to create loop scope");
         return 1;
     }
 
@@ -1739,6 +1894,9 @@ static int execute_for(executor_t *executor, node_t *for_node) {
 
     // Increment loop depth - enables break/continue builtins
     executor->loop_depth++;
+
+    // Push error context for structured error reporting
+    executor_push_context(executor, for_node->loc, "in for loop over '%s'", var_name);
 
     int last_result = 0;
 
@@ -1873,6 +2031,7 @@ static int execute_for(executor_t *executor, node_t *for_node) {
                 if (g_debug_context && g_debug_context->enabled) {
                     debug_exit_loop(g_debug_context);
                 }
+                executor_pop_context(executor);
                 return 1;
             }
 
@@ -1927,6 +2086,9 @@ static int execute_for(executor_t *executor, node_t *for_node) {
     // Pop loop scope
     symtable_pop_scope(executor->symtable);
 
+    // Pop error context
+    executor_pop_context(executor);
+
     return last_result;
 }
 
@@ -1948,7 +2110,8 @@ static int execute_select(executor_t *executor, node_t *select_node) {
 
     const char *var_name = select_node->val.str;
     if (!var_name) {
-        set_executor_error(executor, "Select loop missing variable name");
+        executor_error_add(executor, SHELL_ERR_MALFORMED_CONSTRUCT,
+                           select_node->loc, "select loop missing variable name");
         return 1;
     }
 
@@ -1956,7 +2119,8 @@ static int execute_select(executor_t *executor, node_t *select_node) {
     node_t *body = word_list ? word_list->next_sibling : NULL;
 
     if (!body) {
-        set_executor_error(executor, "Select loop missing body");
+        executor_error_add(executor, SHELL_ERR_MALFORMED_CONSTRUCT,
+                           select_node->loc, "select loop missing body");
         return 1;
     }
 
@@ -2908,16 +3072,25 @@ static int execute_external_command_with_redirection(executor_t *executor,
         return 1;
     }
 
-    // If hashall is enabled, remember this command's location before forking
-    if (shell_opts.hash_commands && !strchr(argv[0], '/')) {
-        char *full_path = find_command_in_path(argv[0]);
-        if (full_path) {
+    // Check if command exists before forking (for better error messages)
+    // Skip this check for path-based commands (containing '/')
+    char *full_path = NULL;
+    if (!strchr(argv[0], '/')) {
+        full_path = find_command_in_path(argv[0]);
+        if (!full_path) {
+            // Command not found - report with suggestions from parent process
+            report_command_not_found(executor, argv[0], SOURCE_LOC_UNKNOWN);
+            return 127;
+        }
+
+        // If hashall is enabled, remember this command's location
+        if (shell_opts.hash_commands) {
             init_command_hash();
             if (command_hash) {
                 ht_strstr_insert(command_hash, argv[0], full_path);
             }
-            free(full_path);
         }
+        free(full_path);
     }
 
     // Reset terminal state before forking for external commands
@@ -3025,6 +3198,9 @@ static int execute_brace_group(executor_t *executor, node_t *group) {
         return 1;
     }
 
+    // Push error context for structured error reporting
+    executor_push_context(executor, group->loc, "in brace group");
+
     int last_result = 0;
     node_t *command = group->first_child;
 
@@ -3037,6 +3213,7 @@ static int execute_brace_group(executor_t *executor, node_t *group) {
 
         // Check for function return (special code 200-455) - propagate it
         if (last_result >= 200 && last_result <= 455) {
+            executor_pop_context(executor);
             return last_result;
         }
 
@@ -3047,6 +3224,9 @@ static int execute_brace_group(executor_t *executor, node_t *group) {
 
         command = command->next_sibling;
     }
+
+    // Pop error context
+    executor_pop_context(executor);
 
     return last_result;
 }
@@ -3066,10 +3246,15 @@ static int execute_subshell(executor_t *executor, node_t *subshell) {
         return 1;
     }
 
+    // Push error context for structured error reporting
+    executor_push_context(executor, subshell->loc, "in subshell");
+
     // Fork a new process for the subshell
     pid_t pid = fork();
     if (pid == -1) {
-        set_executor_error(executor, "Failed to fork for subshell");
+        executor_error_add(executor, SHELL_ERR_FORK_FAILED,
+                           subshell->loc, "failed to fork for subshell: %s", strerror(errno));
+        executor_pop_context(executor);
         return 1;
     }
 
@@ -3102,6 +3287,9 @@ static int execute_subshell(executor_t *executor, node_t *subshell) {
         } else {
             result = 1; // Abnormal termination
         }
+
+        // Pop error context
+        executor_pop_context(executor);
 
         return result;
     }
@@ -4125,16 +4313,26 @@ static int execute_external_command_with_setup(executor_t *executor,
         return 1;
     }
 
-    // If hashall is enabled, remember this command's location before forking
-    if (shell_opts.hash_commands && !strchr(argv[0], '/')) {
-        char *full_path = find_command_in_path(argv[0]);
-        if (full_path) {
+    // Check if command exists before forking (for better error messages)
+    // Skip this check for path-based commands (containing '/')
+    char *full_path = NULL;
+    if (!strchr(argv[0], '/')) {
+        full_path = find_command_in_path(argv[0]);
+        if (!full_path) {
+            // Command not found - report with suggestions from parent process
+            source_location_t loc = command ? command->loc : SOURCE_LOC_UNKNOWN;
+            report_command_not_found(executor, argv[0], loc);
+            return 127;
+        }
+
+        // If hashall is enabled, remember this command's location
+        if (shell_opts.hash_commands) {
             init_command_hash();
             if (command_hash) {
                 ht_strstr_insert(command_hash, argv[0], full_path);
             }
-            free(full_path);
         }
+        free(full_path);
     }
 
     // Reset terminal state before forking for external commands
@@ -4563,6 +4761,9 @@ static int execute_case(executor_t *executor, node_t *node) {
         return 1;
     }
 
+    // Push error context for structured error reporting
+    executor_push_context(executor, node->loc, "in case statement");
+
     int result = 0;
     bool done = false;
     bool execute_next = false; // For ;& fall-through
@@ -4647,6 +4848,10 @@ static int execute_case(executor_t *executor, node_t *node) {
     }
 
     free(test_word);
+
+    // Pop error context
+    executor_pop_context(executor);
+
     return result;
 }
 
@@ -4667,7 +4872,8 @@ static int execute_function_definition(executor_t *executor, node_t *node) {
 
     char *function_name = node->val.str;
     if (!function_name) {
-        set_executor_error(executor, "Function definition missing name");
+        executor_error_add(executor, SHELL_ERR_FUNCTION_ERROR,
+                           node->loc, "function definition missing name");
         return 1;
     }
 
@@ -6793,6 +6999,10 @@ static char *parse_parameter_expansion(executor_t *executor,
             (expansion[0] != '?' && expansion[0] != '$' &&
              expansion[0] != '#' && expansion[0] != '0' &&
              expansion[0] != '@' && expansion[0] != '*')) {
+            // Report structured error for unbound variable
+            executor_error_report(executor, SHELL_ERR_UNBOUND_VARIABLE,
+                                  SOURCE_LOC_UNKNOWN,
+                                  "%s: unbound variable", expansion);
             // Set expansion error instead of exiting to allow || constructs
             executor->expansion_error = true;
             executor->expansion_exit_status = 1;
@@ -6908,6 +7118,10 @@ static char *expand_variable(executor_t *executor, const char *var_text) {
                     if (name_len != 1 ||
                         (name[0] != '?' && name[0] != '$' && name[0] != '#' &&
                          name[0] != '0' && name[0] != '@' && name[0] != '*')) {
+                        // Report structured error for unbound variable
+                        executor_error_report(executor, SHELL_ERR_UNBOUND_VARIABLE,
+                                              SOURCE_LOC_UNKNOWN,
+                                              "%s: unbound variable", name);
                         free(name);
                         // Set expansion error instead of exiting to allow ||
                         // constructs
@@ -7251,11 +7465,15 @@ static char *expand_arithmetic(executor_t *executor, const char *arith_text) {
     }
 
     // If arithm_expand returns NULL, there was an error (like division by zero)
-    // Print error message and set exit status to indicate error
+    // Report structured error for arithmetic failure
     if (arithm_error_flag && arithm_error_message) {
-        fprintf(stderr, "lusush: arithmetic: %s\n", arithm_error_message);
+        executor_error_report(executor, SHELL_ERR_ARITHMETIC_SYNTAX,
+                              SOURCE_LOC_UNKNOWN,
+                              "arithmetic: %s", arithm_error_message);
     } else {
-        fprintf(stderr, "lusush: arithmetic: evaluation error\n");
+        executor_error_report(executor, SHELL_ERR_ARITHMETIC_SYNTAX,
+                              SOURCE_LOC_UNKNOWN,
+                              "arithmetic: evaluation error");
     }
 
     // Set expansion error flag instead of immediate exit status
@@ -7341,7 +7559,10 @@ static char *expand_command_substitution(executor_t *executor,
 
         // Parse and execute command using lusush's own parser/executor
         // This preserves all function definitions and variables in the child
-        parser_t *parser = parser_new(command);
+        const char *src_name = executor->current_script_file 
+                               ? executor->current_script_file 
+                               : "<command substitution>";
+        parser_t *parser = parser_new_with_source(command, src_name);
         int result = 127;
 
         if (parser) {

@@ -97,6 +97,11 @@ typedef enum shell_error_code {
     SHELL_ERR_PIPE_FAILED,           /**< Failed to create pipe */
     SHELL_ERR_FORK_FAILED,           /**< Failed to fork process */
     SHELL_ERR_EXEC_FAILED,           /**< Failed to exec command */
+    SHELL_ERR_FEATURE_DISABLED,      /**< Shell feature not enabled */
+    SHELL_ERR_MALFORMED_CONSTRUCT,   /**< Malformed control structure */
+    SHELL_ERR_LOOP_LIMIT,            /**< Loop iteration limit exceeded */
+    SHELL_ERR_SCOPE_ERROR,           /**< Failed to create/pop scope */
+    SHELL_ERR_FUNCTION_ERROR,        /**< Function definition/call error */
     SHELL_ERR_RUNTIME_MAX = 1199,
 
     /* Builtin errors (1200-1299) */
