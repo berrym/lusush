@@ -513,7 +513,13 @@ int executor_execute_command_line(executor_t *executor, const char *input) {
     // Check syntax check mode (set -n) - parse but don't execute
     if (shell_opts.syntax_check) {
         if (parser_has_error(parser)) {
-            set_executor_error(executor, parser_error(parser));
+            /* Display structured errors if available */
+            parser_display_errors(parser, stderr, isatty(STDERR_FILENO));
+            /* Set executor error for legacy compatibility (may be NULL with new system) */
+            const char *legacy_err = parser_error(parser);
+            if (legacy_err) {
+                set_executor_error(executor, legacy_err);
+            }
             parser_free(parser);
             return 2; // Syntax error
         }
@@ -522,7 +528,13 @@ int executor_execute_command_line(executor_t *executor, const char *input) {
     }
 
     if (parser_has_error(parser)) {
-        set_executor_error(executor, parser_error(parser));
+        /* Display structured errors if available */
+        parser_display_errors(parser, stderr, isatty(STDERR_FILENO));
+        /* Set executor error for legacy compatibility (may be NULL with new system) */
+        const char *legacy_err = parser_error(parser);
+        if (legacy_err) {
+            set_executor_error(executor, legacy_err);
+        }
         parser_free(parser);
         return 1;
     }

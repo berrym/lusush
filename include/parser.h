@@ -14,6 +14,7 @@
 #define PARSER_H
 
 #include "node.h"
+#include "shell_error.h"
 #include "tokenizer.h"
 
 /** Parser state */
@@ -21,6 +22,10 @@ typedef struct parser {
     tokenizer_t *tokenizer;
     const char *error_message;
     bool has_error;
+
+    /* Structured error collection (Phase 2 error management) */
+    shell_error_collector_t *error_collector;
+    const char *source_name;  /* Script name for error display */
 } parser_t;
 
 /* ============================================================================
@@ -81,5 +86,53 @@ bool parser_has_error(parser_t *parser);
  * @return Error message string or NULL
  */
 const char *parser_error(parser_t *parser);
+
+/* ============================================================================
+ * Structured Error Collection (Phase 2)
+ * ============================================================================ */
+
+/**
+ * @brief Convert a token to a source location
+ *
+ * Creates a source_location_t from token position information.
+ *
+ * @param token Token to extract location from
+ * @param filename Source filename (or NULL for default)
+ * @return Source location structure
+ */
+source_location_t token_to_source_location(token_t *token, const char *filename);
+
+/**
+ * @brief Add a structured error to the parser's error collector
+ *
+ * Creates and adds a structured error with full source location information.
+ * Falls back to the legacy error system if collector is not initialized.
+ *
+ * @param parser Parser context
+ * @param code Error code from shell_error_code_t
+ * @param fmt Printf-style format string for error message
+ * @param ... Format arguments
+ */
+void parser_error_add(parser_t *parser, shell_error_code_t code,
+                      const char *fmt, ...);
+
+/**
+ * @brief Display all collected parser errors
+ *
+ * Outputs all errors from the collector with source context.
+ *
+ * @param parser Parser context
+ * @param out Output stream (typically stderr)
+ * @param use_color Whether to use ANSI color codes
+ */
+void parser_display_errors(parser_t *parser, FILE *out, bool use_color);
+
+/**
+ * @brief Get the error collector from parser
+ *
+ * @param parser Parser context
+ * @return Error collector or NULL if not initialized
+ */
+shell_error_collector_t *parser_get_error_collector(parser_t *parser);
 
 #endif // PARSER_H

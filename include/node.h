@@ -17,6 +17,8 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#include "shell_error.h"  /* For source_location_t */
+
 typedef enum {
     NODE_COMMAND,
     NODE_VAR,
@@ -114,6 +116,9 @@ typedef struct node {
     size_t children;
     struct node *first_child;
     struct node *next_sibling, *prev_sibling;
+
+    /* Source location tracking for error reporting */
+    source_location_t loc;
 } node_t;
 
 /**
@@ -126,6 +131,18 @@ typedef struct node {
  * @return New node on success, NULL on allocation failure
  */
 node_t *new_node(node_type_t type);
+
+/**
+ * @brief Create a new AST node with source location
+ *
+ * Allocates and initializes a new AST node of the specified type,
+ * capturing the source location for error reporting.
+ *
+ * @param type Node type to create
+ * @param loc Source location from token
+ * @return New node on success, NULL on allocation failure
+ */
+node_t *new_node_at(node_type_t type, source_location_t loc);
 
 /**
  * @brief Add a child node to a parent

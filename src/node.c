@@ -13,6 +13,7 @@
 #include "node.h"
 
 #include "errors.h"
+#include "shell_error.h"
 #include "strings.h"
 
 #include <stdbool.h>
@@ -37,7 +38,26 @@ node_t *new_node(node_type_t type) {
     }
 
     node->type = type;
+    node->loc = SOURCE_LOC_UNKNOWN;
 
+    return node;
+}
+
+/**
+ * @brief Create a new AST node with source location
+ *
+ * Allocates and initializes a new node of the specified type,
+ * capturing the source location for error reporting.
+ *
+ * @param type Type of node to create
+ * @param loc Source location from token
+ * @return Pointer to new node (never NULL, aborts on allocation failure)
+ */
+node_t *new_node_at(node_type_t type, source_location_t loc) {
+    node_t *node = new_node(type);
+    if (node) {
+        node->loc = loc;
+    }
     return node;
 }
 

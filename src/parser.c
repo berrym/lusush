@@ -90,6 +90,11 @@ parser_t *parser_new(const char *input) {
     parser->error_message = NULL;
     parser->has_error = false;
 
+    /* Initialize structured error collection */
+    parser->source_name = "<stdin>";
+    parser->error_collector = shell_error_collector_new(
+        input, strlen(input), parser->source_name, 0);
+
     return parser;
 }
 
@@ -106,6 +111,7 @@ void parser_free(parser_t *parser) {
     }
 
     tokenizer_free(parser->tokenizer);
+    shell_error_collector_free(parser->error_collector);
     free(parser);
 }
 
@@ -140,6 +146,116 @@ static void set_parser_error(parser_t *parser, const char *message) {
     }
 }
 
+/* ============================================================================
+ * Structured Error Collection (Phase 2)
+ * ============================================================================ */
+
+/**
+ * @brief Convert a token to a source location
+ *
+ * @param token Token to extract location from
+ * @param filename Source filename (or NULL for "<stdin>")
+ * @return Source location structure
+ */
+source_location_t token_to_source_location(token_t *token, const char *filename) {
+    if (!token) {
+        return SOURCE_LOC_UNKNOWN;
+    }
+
+    return (source_location_t){
+        .filename = filename ? filename : "<stdin>",
+        .line = token->line,
+        .column = token->column,
+        .offset = token->position,
+        .length = token->length
+    };
+}
+
+/**
+ * @brief Add a structured error to the parser's error collector
+ *
+ * @param parser Parser context
+ * @param code Error code
+ * @param fmt Printf-style format string
+ * @param ... Format arguments
+ */
+void parser_error_add(parser_t *parser, shell_error_code_t code,
+                      const char *fmt, ...) {
+    if (!parser) {
+        return;
+    }
+
+    /* Get current token for location */
+    token_t *current = tokenizer_current(parser->tokenizer);
+    source_location_t loc = token_to_source_location(current, parser->source_name);
+
+    /* Create the error */
+    va_list args;
+    va_start(args, fmt);
+    shell_error_t *error = shell_error_createv(code, SHELL_SEVERITY_ERROR,
+                                                loc, fmt, args);
+    va_end(args);
+
+    if (!error) {
+        /* Fallback to legacy error system */
+        set_parser_error(parser, "parse error");
+        return;
+    }
+
+    /* Try to get source line for context display */
+    if (parser->error_collector && loc.line > 0) {
+        char *source_line = shell_error_collector_get_line(
+            parser->error_collector, loc.line);
+        if (source_line) {
+            shell_error_set_source_line(error, source_line,
+                                        loc.column > 0 ? loc.column - 1 : 0,
+                                        loc.column > 0 ? loc.column - 1 + loc.length : loc.length);
+            free(source_line);
+        }
+    }
+
+    /* Add to collector if available */
+    if (parser->error_collector) {
+        shell_error_collector_add(parser->error_collector, error);
+    } else {
+        /* Fallback: just set legacy error and free */
+        set_parser_error(parser, error->message ? error->message : "parse error");
+        shell_error_free(error);
+    }
+
+    /* Also set legacy error flag for compatibility */
+    parser->has_error = true;
+}
+
+/**
+ * @brief Display all collected parser errors
+ *
+ * @param parser Parser context
+ * @param out Output stream
+ * @param use_color Whether to use ANSI colors
+ */
+void parser_display_errors(parser_t *parser, FILE *out, bool use_color) {
+    if (!parser || !parser->error_collector) {
+        /* Fallback to legacy error display */
+        if (parser && parser->error_message) {
+            fprintf(out, "lusush: %s\n", parser->error_message);
+        }
+        return;
+    }
+
+    shell_error_display_all(parser->error_collector, out, use_color);
+}
+
+/**
+ * @brief Get the error collector from parser
+ *
+ * @param parser Parser context
+ * @return Error collector or NULL
+ */
+shell_error_collector_t *parser_get_error_collector(parser_t *parser) {
+    return parser ? parser->error_collector : NULL;
+}
+
 /**
  * @brief Expect and consume a specific token type
  *
@@ -151,12 +267,11 @@ static void set_parser_error(parser_t *parser, const char *message) {
  */
 static bool expect_token(parser_t *parser, token_type_t expected) {
     if (!tokenizer_match(parser->tokenizer, expected)) {
-        char error_buf[256];
         token_t *current = tokenizer_current(parser->tokenizer);
-        snprintf(error_buf, sizeof(error_buf), "Expected %s but got %s",
-                 token_type_name(expected),
-                 current ? token_type_name(current->type) : "EOF");
-        set_parser_error(parser, strdup(error_buf));
+        parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                         "expected '%s', got '%s'",
+                         token_type_name(expected),
+                         current ? token_type_name(current->type) : "EOF");
         return false;
     }
     tokenizer_advance(parser->tokenizer);
@@ -776,11 +891,15 @@ static node_t *parse_simple_command(parser_t *parser) {
     }
 
     if (!token_is_word_like(current->type) && current->type != TOK_LBRACKET) {
-        set_parser_error(parser, "Expected command name");
+        parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                         "expected command name, got '%s'",
+                         current->text ? current->text : token_type_name(current->type));
         return NULL;
     }
 
-    node_t *command = new_node(NODE_COMMAND);
+    /* Create command node with source location from current token */
+    source_location_t cmd_loc = token_to_source_location(current, parser->source_name);
+    node_t *command = new_node_at(NODE_COMMAND, cmd_loc);
     if (!command) {
         return NULL;
     }
@@ -1517,11 +1636,15 @@ static char *collect_heredoc_content(parser_t *parser, const char *delimiter,
  * @return If statement AST node
  */
 static node_t *parse_if_statement(parser_t *parser) {
+    /* Capture location before consuming 'if' token */
+    token_t *if_token = tokenizer_current(parser->tokenizer);
+    source_location_t if_loc = token_to_source_location(if_token, parser->source_name);
+
     if (!expect_token(parser, TOK_IF)) {
         return NULL;
     }
 
-    node_t *if_node = new_node(NODE_IF);
+    node_t *if_node = new_node_at(NODE_IF, if_loc);
     if (!if_node) {
         return NULL;
     }
@@ -1641,11 +1764,15 @@ static node_t *parse_if_statement(parser_t *parser) {
  * @return While loop AST node
  */
 static node_t *parse_while_statement(parser_t *parser) {
+    /* Capture location before consuming 'while' token */
+    token_t *while_token = tokenizer_current(parser->tokenizer);
+    source_location_t while_loc = token_to_source_location(while_token, parser->source_name);
+
     if (!expect_token(parser, TOK_WHILE)) {
         return NULL;
     }
 
-    node_t *while_node = new_node(NODE_WHILE);
+    node_t *while_node = new_node_at(NODE_WHILE, while_loc);
     if (!while_node) {
         return NULL;
     }
@@ -1778,11 +1905,15 @@ static node_t *parse_until_statement(parser_t *parser) {
  * @return For loop AST node with variable name in val.str
  */
 static node_t *parse_for_statement(parser_t *parser) {
+    /* Capture location before consuming 'for' token */
+    token_t *for_token = tokenizer_current(parser->tokenizer);
+    source_location_t for_loc = token_to_source_location(for_token, parser->source_name);
+
     if (!expect_token(parser, TOK_FOR)) {
         return NULL;
     }
 
-    node_t *for_node = new_node(NODE_FOR);
+    node_t *for_node = new_node_at(NODE_FOR, for_loc);
     if (!for_node) {
         return NULL;
     }
@@ -1790,7 +1921,8 @@ static node_t *parse_for_statement(parser_t *parser) {
     // Parse variable name
     if (!tokenizer_match(parser->tokenizer, TOK_WORD)) {
         free_node_tree(for_node);
-        set_parser_error(parser, "Expected variable name after 'for'");
+        parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                         "expected variable name after 'for'");
         return NULL;
     }
 
