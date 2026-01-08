@@ -20,6 +20,7 @@
 #include "autocorrect.h"
 #include "builtins.h"
 #include "config.h"
+#include "dirstack.h"
 #include "errors.h"
 #include "history.h"
 #include "input.h"
@@ -597,6 +598,9 @@ int init(int argc, char **argv, FILE **in) {
     // Initialize command hash table
     init_command_hash();
 
+    // Initialize directory stack for pushd/popd
+    dirstack_init();
+
     // Completion is handled automatically by readline integration
     // No need to set callbacks - they're integrated in lusush_readline_init()
 
@@ -609,6 +613,7 @@ int init(int argc, char **argv, FILE **in) {
     atexit(free_global_symtable);
     atexit(free_aliases);
     atexit(free_command_hash);
+    atexit(dirstack_cleanup);
     atexit(autocorrect_cleanup);
     atexit(ssh_hosts_cleanup);
     atexit(config_cleanup);

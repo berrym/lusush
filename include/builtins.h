@@ -367,6 +367,50 @@ int bin_debug(int argc, char **argv);
  */
 int bin_command(int argc, char **argv);
 
+/**
+ * @brief Push directory onto stack and change to it
+ *
+ * Options:
+ *   pushd [dir]  - Push current dir, cd to dir
+ *   pushd +N     - Rotate stack so Nth entry is at top
+ *   pushd -N     - Rotate stack so Nth from bottom is at top
+ *   pushd        - Exchange top two stack entries
+ *
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on error
+ */
+int bin_pushd(int argc, char **argv);
+
+/**
+ * @brief Pop directory from stack and change to it
+ *
+ * Options:
+ *   popd         - Pop top entry and cd there
+ *   popd +N      - Remove Nth entry from top
+ *   popd -N      - Remove Nth entry from bottom
+ *
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on error
+ */
+int bin_popd(int argc, char **argv);
+
+/**
+ * @brief Display directory stack
+ *
+ * Options:
+ *   dirs         - Display stack on one line
+ *   dirs -p      - Print one entry per line
+ *   dirs -v      - Print with stack index numbers
+ *   dirs -c      - Clear the stack
+ *
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, non-zero on error
+ */
+int bin_dirs(int argc, char **argv);
+
 /* ============================================================================
  * Command Hash Table
  * ============================================================================ */

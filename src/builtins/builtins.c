@@ -13,6 +13,7 @@
 #include "builtins.h"
 
 #include "alias.h"
+#include "dirstack.h"
 #include "config.h"
 #include "config_registry.h"
 #include "debug.h"
@@ -138,6 +139,9 @@ builtin builtins[] = {
     {"network", "manage network and SSH hosts", bin_network},
     {"debug", "advanced debugging and profiling", bin_debug},
     {"command", "execute command bypassing builtins/aliases", bin_command},
+    {"pushd", "push directory onto stack", bin_pushd},
+    {"popd", "pop directory from stack", bin_popd},
+    {"dirs", "display directory stack", bin_dirs},
 };
 
 const size_t builtins_count = sizeof(builtins) / sizeof(builtins[0]);
@@ -339,9 +343,28 @@ int bin_cd(int argc __attribute__((unused)),
 
     // Attempt to change directory
     if (chdir(target_dir) < 0) {
+        // If chdir failed and cdable_vars is enabled, try treating target as variable name
+        if (shell_mode_allows(FEATURE_CDABLE_VARS) && target_dir[0] != '/' && 
+            target_dir[0] != '.' && target_dir[0] != '~') {
+            const char *var_value = symtable_get_global(target_dir);
+            if (var_value && var_value[0] == '/') {
+                // Try cd to the variable's value
+                if (chdir(var_value) == 0) {
+                    // Success - update target_dir for PWD setting
+                    target_dir = (char *)var_value;
+                    goto cd_success;
+                }
+            }
+        }
         error_return("cd");
         free(current_dir);
         return 1;
+    }
+cd_success:
+
+    // Auto-push old directory to stack if enabled
+    if (shell_mode_allows(FEATURE_AUTO_PUSHD) && current_dir) {
+        dirstack_push(current_dir);
     }
 
     // Update previous directory
@@ -6111,4 +6134,280 @@ int bin_command(int argc, char **argv) {
     }
 
     return 1;
+}
+
+/* ============================================================================
+ * Directory Stack Builtins
+ * ============================================================================ */
+
+/**
+ * @brief Push directory onto stack and change to it
+ *
+ * Usage:
+ *   pushd [dir]  - Push current dir, cd to dir
+ *   pushd +N     - Rotate stack so Nth entry is at top, cd there
+ *   pushd -N     - Rotate stack so Nth from bottom is at top, cd there
+ *   pushd        - Exchange top two stack entries
+ *
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, 1 on error
+ */
+int bin_pushd(int argc, char **argv) {
+    char *cwd = getcwd(NULL, 0);
+    if (!cwd) {
+        error_return("pushd: getcwd");
+        return 1;
+    }
+
+    if (argc == 1) {
+        // pushd with no args: exchange top two entries
+        if (dirstack_size() < 1) {
+            fprintf(stderr, "pushd: no other directory\n");
+            free(cwd);
+            return 1;
+        }
+        
+        const char *top = dirstack_peek(0);
+        if (!top) {
+            fprintf(stderr, "pushd: directory stack empty\n");
+            free(cwd);
+            return 1;
+        }
+        
+        // Save current directory, pop top, push current, cd to old top
+        char *old_top = dirstack_pop();
+        dirstack_push(cwd);
+        
+        if (chdir(old_top) < 0) {
+            error_return("pushd");
+            // Restore stack state
+            dirstack_pop();
+            dirstack_push(old_top);
+            free(old_top);
+            free(cwd);
+            return 1;
+        }
+        
+        // Update PWD
+        symtable_set_global("OLDPWD", cwd);
+        char *new_cwd = getcwd(NULL, 0);
+        if (new_cwd) {
+            symtable_set_global("PWD", new_cwd);
+            free(new_cwd);
+        }
+        
+        free(old_top);
+        free(cwd);
+        dirstack_print(false, false);
+        return 0;
+    }
+
+    char *arg = argv[1];
+    
+    // Check for +N or -N rotation
+    if (arg[0] == '+' || arg[0] == '-') {
+        char *endptr;
+        long n = strtol(arg + 1, &endptr, 10);
+        if (*endptr == '\0' && n >= 0) {
+            int idx = (arg[0] == '+') ? (int)n : -(int)n - 1;
+            
+            // Need to account for cwd being index 0
+            if (idx == 0) {
+                // +0 means current dir, nothing to do
+                free(cwd);
+                dirstack_print(false, false);
+                return 0;
+            }
+            
+            // Adjust for the fact that cwd is position 0
+            int stack_idx = idx - 1;
+            
+            const char *target = dirstack_peek(stack_idx);
+            if (!target) {
+                fprintf(stderr, "pushd: %s: directory stack index out of range\n", arg);
+                free(cwd);
+                return 1;
+            }
+            
+            // Rotate stack and cd
+            if (dirstack_rotate(stack_idx) < 0) {
+                fprintf(stderr, "pushd: %s: rotation failed\n", arg);
+                free(cwd);
+                return 1;
+            }
+            
+            target = dirstack_peek(0);
+            if (chdir(target) < 0) {
+                error_return("pushd");
+                free(cwd);
+                return 1;
+            }
+            
+            symtable_set_global("OLDPWD", cwd);
+            char *new_cwd = getcwd(NULL, 0);
+            if (new_cwd) {
+                symtable_set_global("PWD", new_cwd);
+                free(new_cwd);
+            }
+            
+            free(cwd);
+            dirstack_print(false, false);
+            return 0;
+        }
+    }
+    
+    // Push current directory and cd to new one
+    if (chdir(arg) < 0) {
+        error_return("pushd");
+        free(cwd);
+        return 1;
+    }
+    
+    dirstack_push(cwd);
+    
+    symtable_set_global("OLDPWD", cwd);
+    char *new_cwd = getcwd(NULL, 0);
+    if (new_cwd) {
+        symtable_set_global("PWD", new_cwd);
+        free(new_cwd);
+    }
+    
+    free(cwd);
+    dirstack_print(false, false);
+    return 0;
+}
+
+/**
+ * @brief Pop directory from stack and change to it
+ *
+ * Usage:
+ *   popd         - Pop top entry and cd there
+ *   popd +N      - Remove Nth entry from top (0 = current dir)
+ *   popd -N      - Remove Nth entry from bottom
+ *
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, 1 on error
+ */
+int bin_popd(int argc, char **argv) {
+    if (dirstack_size() < 1) {
+        fprintf(stderr, "popd: directory stack empty\n");
+        return 1;
+    }
+
+    if (argc == 1) {
+        // popd with no args: pop top and cd there
+        char *dir = dirstack_pop();
+        if (!dir) {
+            fprintf(stderr, "popd: directory stack empty\n");
+            return 1;
+        }
+        
+        char *cwd = getcwd(NULL, 0);
+        
+        if (chdir(dir) < 0) {
+            error_return("popd");
+            // Put it back
+            dirstack_push(dir);
+            free(dir);
+            free(cwd);
+            return 1;
+        }
+        
+        if (cwd) {
+            symtable_set_global("OLDPWD", cwd);
+            free(cwd);
+        }
+        
+        char *new_cwd = getcwd(NULL, 0);
+        if (new_cwd) {
+            symtable_set_global("PWD", new_cwd);
+            free(new_cwd);
+        }
+        
+        free(dir);
+        dirstack_print(false, false);
+        return 0;
+    }
+
+    char *arg = argv[1];
+    
+    // Check for +N or -N removal
+    if (arg[0] == '+' || arg[0] == '-') {
+        char *endptr;
+        long n = strtol(arg + 1, &endptr, 10);
+        if (*endptr == '\0' && n >= 0) {
+            int idx;
+            if (arg[0] == '+') {
+                idx = (int)n;
+            } else {
+                idx = dirstack_size() - (int)n;
+            }
+            
+            // +0 means current directory, can't remove that
+            if (idx == 0) {
+                fprintf(stderr, "popd: can't remove current directory\n");
+                return 1;
+            }
+            
+            // Adjust for cwd being position 0
+            int stack_idx = idx - 1;
+            
+            if (dirstack_remove(stack_idx) < 0) {
+                fprintf(stderr, "popd: %s: directory stack index out of range\n", arg);
+                return 1;
+            }
+            
+            dirstack_print(false, false);
+            return 0;
+        }
+    }
+    
+    fprintf(stderr, "popd: %s: invalid argument\n", arg);
+    return 1;
+}
+
+/**
+ * @brief Display directory stack
+ *
+ * Usage:
+ *   dirs         - Display stack on one line
+ *   dirs -p      - Print one entry per line
+ *   dirs -v      - Print with stack index numbers
+ *   dirs -c      - Clear the stack
+ *   dirs -l      - Use full paths (no ~ substitution)
+ *
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, 1 on error
+ */
+int bin_dirs(int argc, char **argv) {
+    bool one_per_line = false;
+    bool show_index = false;
+    bool clear_stack = false;
+    
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-p") == 0) {
+            one_per_line = true;
+        } else if (strcmp(argv[i], "-v") == 0) {
+            show_index = true;
+            one_per_line = true;
+        } else if (strcmp(argv[i], "-c") == 0) {
+            clear_stack = true;
+        } else if (strcmp(argv[i], "-l") == 0) {
+            // Full paths (currently default, ~ substitution not implemented)
+        } else if (argv[i][0] == '-') {
+            fprintf(stderr, "dirs: %s: invalid option\n", argv[i]);
+            return 1;
+        }
+    }
+    
+    if (clear_stack) {
+        dirstack_clear();
+        return 0;
+    }
+    
+    dirstack_print(one_per_line, show_index);
+    return 0;
 }
