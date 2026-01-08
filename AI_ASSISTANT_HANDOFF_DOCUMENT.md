@@ -1,13 +1,82 @@
-# AI Assistant Handoff Document - Session 116
+# AI Assistant Handoff Document - Session 117
 
-**Date**: 2026-01-07
-**Session Type**: Extended Shell Features Implementation
+**Date**: 2026-01-08
+**Session Type**: Bug Fixes and CI Setup
 **Status**: COMPLETE
 **Branch**: `feature/lle`
 
 ---
 
-## Session 116: Extended Shell Features (v1.6.0)
+## Session 117: Bug Fixes, Associative Arrays, and CI Setup (v1.5.0)
+
+Fixed multiple bugs in arithmetic expansion, array handling, and associative arrays. Added GitHub Actions CI with Codecov integration.
+
+### Bug Fixes
+
+#### 1. Arithmetic Expansion Memory Bug
+- **Issue**: `$((5 + 3))` crashed with "pointer being freed was not allocated"
+- **Cause**: `stack_item_cleanup()` freed union member without type check; numeric values were interpreted as pointers
+- **Fix**: Added `ITEM_VAR_PTR` type check before freeing `var_name` in `src/arithmetic.c`
+
+#### 2. Array Subscript Parsing with Variables
+- **Issue**: `arr[$i]=value` not recognized as assignment
+- **Cause**: Tokenizer split `arr[$i]` into separate tokens at `$`
+- **Fix**: Added handling in `src/tokenizer.c` to include variable references inside brackets
+
+#### 3. `${var}` Syntax in Arithmetic
+- **Issue**: `$((${x} + 5))` failed - only `$x` syntax worked
+- **Fix**: Added `${...}` variable parsing in `src/arithmetic.c`
+
+#### 4. Associative Array Support
+- **Issue**: `${assoc[key]}` and `assoc[key]=value` didn't work
+- **Cause**: Executor always used numeric index functions, not string key functions
+- **Fix**: Added `array->is_associative` checks in `src/executor.c` to use `symtable_array_get_assoc()` and `symtable_array_set_assoc()`
+
+#### 5. Array Element Append (`+=`)
+- **Issue**: `arr[n]+=suffix` replaced instead of appending
+- **Cause**: Tokenizer included `+=` as part of word token
+- **Fix**: Stop word scanning at `]` when followed by `=` or `+=` in `src/tokenizer.c`
+
+#### 6. CI Test Failures (Non-TTY)
+- **Issue**: Adaptive controller tests failed in CI (no terminal)
+- **Cause**: Tests expected success but context init returns error for `LLE_ADAPTIVE_MODE_NONE`
+- **Fix**: Updated `tests/lle/unit/test_adaptive_controllers.c` to skip TTY-dependent tests gracefully
+
+### CI/CD Setup
+
+#### GitHub Actions (`.github/workflows/ci.yml`)
+- Builds on Ubuntu and macOS
+- Runs all 57 tests
+- Generates code coverage with lcov
+- Uploads to Codecov
+
+#### README Badges
+- Added CI status badge
+- Added Codecov coverage badge
+- Fixed GitHub URLs to `berrym/lusush`
+
+### Version Update
+- Updated `meson.build` version from 1.3.0 to 1.5.0
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `src/arithmetic.c` | Memory bug fix, `${var}` syntax support |
+| `src/tokenizer.c` | Array subscript parsing, `+=` tokenization |
+| `src/executor.c` | Associative array read/write |
+| `tests/lle/unit/test_adaptive_controllers.c` | Non-TTY handling |
+| `.github/workflows/ci.yml` | NEW: CI workflow |
+| `README.md` | CI and Codecov badges |
+| `meson.build` | Version 1.5.0 |
+
+### Test Results
+- All 57 tests pass locally
+- CI tests now handle non-TTY environments
+
+---
+
+## Session 116: Extended Shell Features (v1.5.0-prerelease)
 
 Implemented comprehensive extended shell features beyond POSIX: nullglob, extglob patterns, directory stack, auto_pushd, and cdable_vars.
 
