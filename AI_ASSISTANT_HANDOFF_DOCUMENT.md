@@ -1,9 +1,122 @@
-# AI Assistant Handoff Document - Session 115
+# AI Assistant Handoff Document - Session 116
 
 **Date**: 2026-01-07
-**Session Type**: Brace Expansion Implementation
+**Session Type**: Extended Shell Features Implementation
 **Status**: COMPLETE
 **Branch**: `feature/lle`
+
+---
+
+## Session 116: Extended Shell Features (v1.6.0)
+
+Implemented comprehensive extended shell features beyond POSIX: nullglob, extglob patterns, directory stack, auto_pushd, and cdable_vars.
+
+### Features Implemented
+
+#### 1. Nullglob (`FEATURE_NULL_GLOB`)
+
+When enabled, unmatched glob patterns expand to nothing instead of the literal pattern.
+
+```bash
+setopt nullglob
+echo /nonexistent/*    # -> (nothing, instead of literal pattern)
+for f in *.xyz; do echo $f; done  # Loop doesn't execute if no matches
+```
+
+#### 2. Extended Glob Patterns (`FEATURE_EXTENDED_GLOB`)
+
+Bash-style extended glob patterns for advanced matching:
+
+| Pattern | Meaning | Example |
+|---------|---------|---------|
+| `@(pat\|pat)` | Exactly one of the patterns | `@(foo\|bar)` matches `foo` or `bar` |
+| `?(pat)` | Zero or one occurrence | `?(prefix)file` matches `file` or `prefixfile` |
+| `*(pat)` | Zero or more occurrences | `*(ab)` matches ``, `ab`, `abab` |
+| `+(pat)` | One or more occurrences | `+(ab)` matches `ab`, `abab` |
+| `!(pat)` | Anything except pattern | `!(*.c)` matches all except .c files |
+
+```bash
+echo @(build|lusush)           # Files named "build" or "lusush"
+echo !(*.o|*.a)                # All files except .o and .a
+echo test_@(shell|event)_*     # test_shell_* and test_event_*
+```
+
+#### 3. Directory Stack (`pushd`, `popd`, `dirs`)
+
+Full directory stack implementation for navigation:
+
+```bash
+pushd /tmp           # Push current dir, cd to /tmp
+pushd /var           # Push /tmp, cd to /var
+dirs                 # -> /var /tmp /original
+dirs -v              # Show with index numbers
+popd                 # Pop /tmp, cd there
+pushd +1             # Rotate to index 1
+popd +2              # Remove index 2 from stack
+dirs -c              # Clear stack
+```
+
+#### 4. auto_pushd (`FEATURE_AUTO_PUSHD`)
+
+When enabled, every `cd` automatically pushes the old directory to the stack.
+
+```bash
+setopt auto_pushd
+cd /tmp
+cd /var
+dirs                 # -> /var /tmp /original
+```
+
+#### 5. cdable_vars (`FEATURE_CDABLE_VARS`)
+
+When enabled, allows `cd VARNAME` to change to the directory stored in a variable.
+
+```bash
+setopt cdable_vars
+PROJECT=/home/user/myproject
+cd PROJECT           # -> /home/user/myproject
+```
+
+### Implementation Details
+
+#### New Files
+
+| File | Purpose |
+|------|---------|
+| `include/dirstack.h` | Directory stack API |
+| `src/dirstack.c` | Stack implementation with DIRSTACK variable sync |
+
+#### Modified Files
+
+| File | Changes |
+|------|---------|
+| `src/executor.c` | Nullglob support, extglob pattern matching |
+| `src/tokenizer.c` | Extglob pattern recognition (`@(`, `?(`, `*(`, `+(`, `!(`) |
+| `src/builtins/builtins.c` | pushd, popd, dirs builtins; auto_pushd and cdable_vars in bin_cd |
+| `src/init.c` | dirstack_init() and dirstack_cleanup() |
+| `src/lle/completion/builtin_completions.c` | Completions for new builtins |
+| `meson.build` | Added dirstack.c to build |
+
+#### Key Implementation Points
+
+1. **Extglob tokenization**: Added lookahead to detect extglob operators followed by `(` and scan to matching `)`. Modified `case '!'` to check for extglob before returning single character.
+
+2. **Extglob matching**: Convert extglob to POSIX extended regex, compile with `regcomp()`, match with `regexec()`. Negation (`!`) uses inverted match logic.
+
+3. **Directory stack**: Static array of 64 entries with push/pop/rotate/remove operations. Syncs `DIRSTACK` array variable on modifications.
+
+4. **cdable_vars fallback**: When `chdir()` fails and target doesn't start with `/`, `.`, or `~`, try looking up target as variable name.
+
+### Test Results
+
+- All 57 existing tests pass
+- Manual verification of all new features
+
+### Commits
+
+1. `a6cfe806` - Implement nullglob and extglob pattern matching
+2. `85c9e675` - Implement directory stack (pushd/popd/dirs), auto_pushd, and cdable_vars
+3. Current - Add tab completions for new builtins
 
 ---
 

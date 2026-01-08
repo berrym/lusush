@@ -332,6 +332,11 @@ static const lle_builtin_completion_spec_t builtin_specs[] = {
     {"bg", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_JOB},
     {"wait", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_JOB},
 
+    /* Directory stack builtins */
+    {"pushd", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_DIRECTORY},
+    {"popd", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_NONE},
+    {"dirs", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_NONE},
+
     /* Simple builtins (no special completions, but registered for lookup) */
     {"exit", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_NONE},
     {"pwd", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_NONE},
