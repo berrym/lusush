@@ -4,7 +4,7 @@ project('lusush',
                           'optimization=3',
                           'warning_level=2'
                          ],
-        version: '1.3.0',
+        version: '1.5.0',
         license: 'GPL-3.0+')
 
 # Import filesystem module for directory checks
