@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ master, feature/lle ]
+    branches: [master, feature/lle]
   pull_request:
-    branches: [ master ]
+    branches: [master]
 
 jobs:
   build-and-test:
@@ -15,48 +15,48 @@ jobs:
         os: [ubuntu-latest, macos-latest]
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Install dependencies (Ubuntu)
-      if: runner.os == 'Linux'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y meson ninja-build lcov
+      - name: Install dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y meson ninja-build lcov
 
-    - name: Install dependencies (macOS)
-      if: runner.os == 'macOS'
-      run: |
-        brew install meson ninja lcov
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install meson ninja lcov
 
-    - name: Configure (with coverage)
-      run: |
-        meson setup build -Db_coverage=true
+      - name: Configure (with coverage)
+        run: |
+          meson setup build -Db_coverage=true
 
-    - name: Build
-      run: |
-        meson compile -C build
+      - name: Build
+        run: |
+          meson compile -C build
 
-    - name: Run tests
-      run: |
-        meson test -C build --print-errorlogs
+      - name: Run tests
+        run: |
+          meson test -C build --print-errorlogs
 
-    - name: Generate coverage report
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        cd build
-        ninja coverage
-        lcov --capture --directory . --output-file coverage.info
-        lcov --remove coverage.info '/usr/*' --output-file coverage.info
-        lcov --remove coverage.info '*/tests/*' --output-file coverage.info
-        lcov --list coverage.info
+      - name: Generate coverage report
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cd build
+          # Use --ignore-errors to handle line mismatch issues with gcov/lcov
+          lcov --capture --directory . --output-file coverage.info --ignore-errors mismatch,gcov
+          lcov --remove coverage.info '/usr/*' --output-file coverage.info --ignore-errors unused
+          lcov --remove coverage.info '*/tests/*' --output-file coverage.info --ignore-errors unused
+          lcov --list coverage.info
 
-    - name: Upload coverage to Codecov
-      if: matrix.os == 'ubuntu-latest'
-      uses: codecov/codecov-action@v4
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        files: build/coverage.info
-        flags: unittests
-        name: codecov-lusush
-        fail_ci_if_error: false
-        verbose: true
+      - name: Upload coverage to Codecov
+        if: matrix.os == 'ubuntu-latest'
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: build/coverage.info
+          flags: unittests
+          name: codecov-lusush
+          fail_ci_if_error: false
+          verbose: true
