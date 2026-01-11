@@ -670,8 +670,10 @@ static void report_command_not_found(executor_t *executor, const char *command,
             snprintf(suggestion + pos, sizeof(suggestion) - pos, "?");
         }
         shell_error_set_suggestion(error, suggestion);
-        autocorrect_free_results(&results);
     }
+
+    /* Always free autocorrect results (original_command is allocated even with no suggestions) */
+    autocorrect_free_results(&results);
 
     /* Display the error */
     shell_error_display(error, stderr, isatty(STDERR_FILENO));
@@ -7295,6 +7297,7 @@ static char *parse_parameter_expansion(executor_t *executor,
         }
 
         free(var_name);
+        free(var_value);
         free(expanded_default);
         return result ? result : strdup("");
     }
@@ -8343,14 +8346,18 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
                             // Ensure buffer is large enough
                             while (result_pos + value_len >= buffer_size) {
                                 buffer_size *= 2;
-                                result = realloc(result, buffer_size);
-                                if (!result) {
+                                char *new_result = realloc(result, buffer_size);
+                                if (!new_result) {
+                                    free(result);
+                                    free(var_value);
                                     free(var_name);
                                     return strdup("");
                                 }
+                                result = new_result;
                             }
                             strcpy(&result[result_pos], var_value);
                             result_pos += value_len;
+                            free(var_value);
                         }
 
                         free(var_name);

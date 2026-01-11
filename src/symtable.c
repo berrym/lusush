@@ -50,6 +50,9 @@ static symtable_t dummy_symtable = {0, NULL, NULL};
 #define METADATA_SEPARATOR "|"
 #define METADATA_BUFFER_SIZE 64
 
+// Forward declarations
+static void cleanup_array_storage(void);
+
 // ============================================================================
 // STRUCTURES
 // ============================================================================
@@ -1414,6 +1417,9 @@ void init_symtable(void) {
  * Should be called during shell shutdown.
  */
 void free_global_symtable(void) {
+    // Free array storage first (arrays are separate from regular variables)
+    cleanup_array_storage();
+
     if (global_manager) {
         symtable_manager_free(global_manager);
         global_manager = NULL;
@@ -2355,6 +2361,34 @@ static void ensure_array_storage(void) {
     if (!array_storage) {
         array_storage = ht_strstr_create(DEFAULT_HT_FLAGS);
     }
+}
+
+/**
+ * @brief Free all arrays and the array storage hash table
+ *
+ * Called during shell shutdown to release all array memory.
+ */
+static void cleanup_array_storage(void) {
+    if (!array_storage) {
+        return;
+    }
+
+    // Iterate through all arrays and free them
+    ht_enum_t *e = ht_strstr_enum_create(array_storage);
+    if (e) {
+        const char *key;
+        const char *ptr_str;
+        while (ht_strstr_enum_next(e, &key, &ptr_str)) {
+            void *ptr;
+            if (sscanf(ptr_str, "%p", &ptr) == 1 && ptr) {
+                symtable_array_free((array_value_t *)ptr);
+            }
+        }
+        ht_strstr_enum_destroy(e);
+    }
+
+    ht_strstr_destroy(array_storage);
+    array_storage = NULL;
 }
 
 /**

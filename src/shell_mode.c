@@ -16,6 +16,9 @@
 #include <string.h>
 #include <strings.h>
 
+/* Forward declaration for portability (see ht_fnv1a.c) */
+int strcasecmp(const char *s1, const char *s2);
+
 /* ============================================================================
  * Global State
  * ============================================================================ */
