@@ -1,13 +1,89 @@
-# AI Assistant Handoff Document - Session 117
+# AI Assistant Handoff Document - Session 118
 
-**Date**: 2026-01-08
-**Session Type**: Bug Fixes and CI Setup
+**Date**: 2026-01-11
+**Session Type**: Memory Leak Fixes and API Implementation
 **Status**: COMPLETE
-**Branch**: `feature/lle`
+**Branch**: `master`
+
+---
+
+## Session 118: Memory Leak Fixes and symtable_get_environ Implementation
+
+Fixed all memory leaks identified via valgrind and implemented the previously stubbed `symtable_get_environ()` function for environment export.
+
+### Memory Leak Fixes
+
+#### 1. Parameter Expansion Leaks (`src/executor.c`)
+- **Issue**: `var_value` from `parse_parameter_expansion` not freed in `expand_quoted_string`
+- **Fix**: Added `free(var_value)` after use at line 8356
+- **Issue**: `var_value` from `symtable_get_var` not freed in operator handling
+- **Fix**: Added `free(var_value)` before return at line 7300
+
+#### 2. Array Storage Leak (`src/symtable.c`)
+- **Issue**: Arrays in `array_storage` hash table never freed on shell exit
+- **Fix**: Added `cleanup_array_storage()` function that iterates through all arrays and frees them
+- Called from `free_global_symtable()` during shutdown
+
+#### 3. Autocorrect Suggestions Leak (`src/executor.c`)
+- **Issue**: `autocorrect_free_results()` only called when suggestions found, but `original_command` always allocated
+- **Fix**: Moved `autocorrect_free_results(&results)` outside the `if (num_suggestions > 0)` block
+
+#### 4. Linux Portability Fix (`src/shell_mode.c`)
+- **Issue**: `strcasecmp` implicit declaration on newer Linux/glibc
+- **Fix**: Added forward declaration `int strcasecmp(const char *s1, const char *s2);`
+
+### symtable_get_environ Implementation
+
+Implemented the previously stubbed `symtable_get_environ()` function:
+
+```c
+char **symtable_get_environ(symtable_manager_t *manager);
+```
+
+**Purpose**: Builds a NULL-terminated array of `"name=value"` strings for all variables with `SYMVAR_EXPORTED` flag set.
+
+**Implementation Details**:
+- Iterates through global scope's hash table using `ht_strstr_enum_create/next`
+- Deserializes each variable to check `SYMVAR_EXPORTED` flag
+- Builds dynamic array with initial capacity 64, doubling as needed
+- Properly frees all resources on error paths
+
+**Note**: Currently unused by executor (which relies on `setenv()` + `execvp()`), but provides clean API for:
+- `export -p` builtin implementation
+- Future `execve()` integration if needed
+- Environment introspection/debugging
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `src/executor.c` | Free `var_value` in expand_quoted_string and parse_parameter_expansion; always free autocorrect results |
+| `src/symtable.c` | Add `cleanup_array_storage()`, implement `symtable_get_environ()` |
+| `src/shell_mode.c` | Add `strcasecmp` forward declaration |
+| `README.md` | Update to reflect zero memory leaks |
+
+### Test Results
+
+- **All 57 tests pass**
+- **Valgrind**: 0 leaks, 0 errors
+  ```
+  All heap blocks were freed -- no leaks are possible
+  ERROR SUMMARY: 0 errors from 0 contexts
+  ```
+
+### Commits
+
+1. `6e5280fb` - Fix memory leaks in parameter expansion, array storage, and autocorrect
+2. `1393d825` - README: Update to reflect memory leak fixes
+3. `f8d7ba3e` - Implement symtable_get_environ for environment export
 
 ---
 
 ## Session 117: Bug Fixes, Associative Arrays, and CI Setup (v1.5.0)
+
+**Date**: 2026-01-08
+**Session Type**: Bug Fixes and CI Setup
+**Status**: COMPLETE
 
 Fixed multiple bugs in arithmetic expansion, array handling, and associative arrays. Added GitHub Actions CI with Codecov integration.
 
@@ -1316,11 +1392,13 @@ Implemented the foundational multi-mode architecture for extending lusush beyond
 | 0 | Shell Mode Infrastructure | COMPLETE | 20/20 |
 | 1 | Arrays and Arithmetic `(( ))` | COMPLETE | 52/52 |
 | 2 | Extended Tests `[[ ]]` | COMPLETE | 100/100 |
-| 3 | Process Substitution | PENDING | - |
-| 4 | Extended Parameter Expansion | PENDING | - |
+| 3 | Process Substitution | COMPLETE | 23/23 |
+| 4 | Extended Parameter Expansion | COMPLETE | 43/43 |
 | 5 | Control Flow Extensions | PENDING | - |
 | 6 | Function Enhancements | PENDING | - |
-| 7 | Zsh-Specific Features | PENDING | - |
+| 7 | Zsh-Specific Features | COMPLETE | 27/28 |
+
+**Memory Status**: Zero leaks (valgrind verified)
 
 ---
 
