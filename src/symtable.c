@@ -836,19 +836,91 @@ int symtable_export_var(symtable_manager_t *manager, const char *name) {
  * @brief Get the environment as a NULL-terminated string array
  *
  * Creates an array of "name=value" strings for exported variables.
- * Currently returns an empty environment (TODO: implement full export).
+ * Iterates through the global scope and collects all variables with
+ * the SYMVAR_EXPORTED flag set.
  *
  * @param manager Symbol table manager
  * @return Allocated environment array, must be freed with symtable_free_environ
  */
 char **symtable_get_environ(symtable_manager_t *manager) {
-    (void)manager; // TODO: Implement environment export
-
-    // Return empty environment for now
-    char **env = malloc(sizeof(char *));
-    if (env) {
-        env[0] = NULL;
+    if (!manager || !manager->global_scope || !manager->global_scope->vars_ht) {
+        // Return empty environment
+        char **env = malloc(sizeof(char *));
+        if (env) {
+            env[0] = NULL;
+        }
+        return env;
     }
+
+    // Initial capacity for environment array
+    size_t capacity = 64;
+    size_t count = 0;
+    char **env = malloc(capacity * sizeof(char *));
+    if (!env) {
+        return NULL;
+    }
+
+    // Iterate through all variables in the global scope
+    ht_enum_t *e = ht_strstr_enum_create(manager->global_scope->vars_ht);
+    if (!e) {
+        free(env);
+        return NULL;
+    }
+
+    const char *name;
+    const char *serialized;
+    while (ht_strstr_enum_next(e, &name, &serialized)) {
+        // Deserialize to check flags
+        symvar_t *var = deserialize_variable(name, serialized);
+        if (!var) {
+            continue;
+        }
+
+        // Check if variable is exported
+        if (var->flags & SYMVAR_EXPORTED) {
+            // Build "name=value" string
+            size_t name_len = strlen(name);
+            size_t value_len = var->value ? strlen(var->value) : 0;
+            char *entry = malloc(name_len + 1 + value_len + 1); // name=value\0
+            if (entry) {
+                snprintf(entry, name_len + 1 + value_len + 1, "%s=%s",
+                         name, var->value ? var->value : "");
+
+                // Grow array if needed
+                if (count + 1 >= capacity) {
+                    capacity *= 2;
+                    char **new_env = realloc(env, capacity * sizeof(char *));
+                    if (!new_env) {
+                        free(entry);
+                        // Free what we've allocated so far
+                        for (size_t i = 0; i < count; i++) {
+                            free(env[i]);
+                        }
+                        free(env);
+                        free(var->name);
+                        free(var->value);
+                        free(var);
+                        ht_strstr_enum_destroy(e);
+                        return NULL;
+                    }
+                    env = new_env;
+                }
+
+                env[count++] = entry;
+            }
+        }
+
+        // Free the deserialized variable
+        free(var->name);
+        free(var->value);
+        free(var);
+    }
+
+    ht_strstr_enum_destroy(e);
+
+    // NULL-terminate the array
+    env[count] = NULL;
+
     return env;
 }
 
