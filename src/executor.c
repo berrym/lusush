@@ -3679,15 +3679,17 @@ static int execute_subshell(executor_t *executor, node_t *subshell) {
  */
 /**
  * @brief Glob qualifier types (Zsh-style)
+ *
+ * Uses power-of-2 values for bitmask operations (combined qualifiers like *(.,@))
  */
 typedef enum {
-    GLOB_QUAL_NONE,     // No qualifier
-    GLOB_QUAL_FILE,     // (.) - regular files only
-    GLOB_QUAL_DIR,      // (/) - directories only
-    GLOB_QUAL_LINK,     // (@) - symbolic links only
-    GLOB_QUAL_EXEC,     // (*) - executable files
-    GLOB_QUAL_READABLE, // (r) - readable files
-    GLOB_QUAL_WRITABLE, // (w) - writable files
+    GLOB_QUAL_NONE     = 0,   // No qualifier
+    GLOB_QUAL_FILE     = 1,   // (.) - regular files only
+    GLOB_QUAL_DIR      = 2,   // (/) - directories only
+    GLOB_QUAL_LINK     = 4,   // (@) - symbolic links only
+    GLOB_QUAL_EXEC     = 8,   // (*) - executable files
+    GLOB_QUAL_READABLE = 16,  // (r) - readable files
+    GLOB_QUAL_WRITABLE = 32,  // (w) - writable files
 } glob_qualifier_t;
 
 /**
@@ -3705,27 +3707,45 @@ static glob_qualifier_t parse_glob_qualifier(const char *pattern, char **base_pa
 
     size_t len = strlen(pattern);
     
-    // Check for qualifier pattern: ends with (X) where X is a qualifier char
+    // Check for qualifier pattern: ends with (X) or (X,Y,...) where X,Y are qualifier chars
     if (len >= 3 && pattern[len - 1] == ')') {
-        // Find matching open paren
-        const char *open_paren = strrchr(pattern, '(');
-        if (open_paren && open_paren == pattern + len - 3) {
-            char qual_char = pattern[len - 2];
+        // Find matching open paren - must be near end (qualifiers are short)
+        // Limit search to last 10 chars (or start of string for short patterns)
+        const char *open_paren = NULL;
+        size_t min_idx = (len > 10) ? (len - 10) : 1;
+        for (size_t i = len - 2; i >= min_idx; i--) {
+            if (pattern[i] == '(') {
+                open_paren = &pattern[i];
+                break;
+            }
+            if (i == min_idx) break;  // Prevent underflow on decrement
+        }
+        
+        if (open_paren) {
+            // Parse all qualifier characters between ( and )
             glob_qualifier_t qual = GLOB_QUAL_NONE;
+            bool valid_qualifier = true;
             
-            switch (qual_char) {
-            case '.': qual = GLOB_QUAL_FILE; break;
-            case '/': qual = GLOB_QUAL_DIR; break;
-            case '@': qual = GLOB_QUAL_LINK; break;
-            case '*': qual = GLOB_QUAL_EXEC; break;
-            case 'r': qual = GLOB_QUAL_READABLE; break;
-            case 'w': qual = GLOB_QUAL_WRITABLE; break;
-            default: break;
+            for (const char *p = open_paren + 1; p < pattern + len - 1; p++) {
+                switch (*p) {
+                case '.': qual |= GLOB_QUAL_FILE; break;
+                case '/': qual |= GLOB_QUAL_DIR; break;
+                case '@': qual |= GLOB_QUAL_LINK; break;
+                case '*': qual |= GLOB_QUAL_EXEC; break;
+                case 'r': qual |= GLOB_QUAL_READABLE; break;
+                case 'w': qual |= GLOB_QUAL_WRITABLE; break;
+                case ',': break;  // Separator, ignore
+                default:
+                    // Unknown character - not a valid glob qualifier
+                    valid_qualifier = false;
+                    break;
+                }
+                if (!valid_qualifier) break;
             }
             
-            if (qual != GLOB_QUAL_NONE) {
+            if (valid_qualifier && qual != GLOB_QUAL_NONE) {
                 // Strip the qualifier
-                *base_pattern = strndup(pattern, len - 3);
+                *base_pattern = strndup(pattern, open_paren - pattern);
                 return qual;
             }
         }
@@ -3752,22 +3772,49 @@ static bool matches_glob_qualifier(const char *path, glob_qualifier_t qualifier)
         return false;
     }
     
-    switch (qualifier) {
-    case GLOB_QUAL_FILE:
-        return S_ISREG(st.st_mode);
-    case GLOB_QUAL_DIR:
-        return S_ISDIR(st.st_mode);
-    case GLOB_QUAL_LINK:
-        return S_ISLNK(st.st_mode);
-    case GLOB_QUAL_EXEC:
-        return S_ISREG(st.st_mode) && (st.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH));
-    case GLOB_QUAL_READABLE:
-        return access(path, R_OK) == 0;
-    case GLOB_QUAL_WRITABLE:
-        return access(path, W_OK) == 0;
-    default:
-        return true;
+    // With combined qualifiers (bitmask), file must match ANY of the type qualifiers
+    // For example, *(.,@) matches files OR symlinks
+    bool type_match = false;
+    bool has_type_qualifier = false;
+    
+    // Check type qualifiers (file, dir, link, exec) - OR logic
+    if (qualifier & GLOB_QUAL_FILE) {
+        has_type_qualifier = true;
+        if (S_ISREG(st.st_mode)) type_match = true;
     }
+    if (qualifier & GLOB_QUAL_DIR) {
+        has_type_qualifier = true;
+        if (S_ISDIR(st.st_mode)) type_match = true;
+    }
+    if (qualifier & GLOB_QUAL_LINK) {
+        has_type_qualifier = true;
+        if (S_ISLNK(st.st_mode)) type_match = true;
+    }
+    if (qualifier & GLOB_QUAL_EXEC) {
+        has_type_qualifier = true;
+        if (S_ISREG(st.st_mode) && (st.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH))) {
+            type_match = true;
+        }
+    }
+    
+    // If no type qualifiers specified, default to matching any type
+    if (!has_type_qualifier) {
+        type_match = true;
+    }
+    
+    if (!type_match) {
+        return false;
+    }
+    
+    // Check permission qualifiers - AND logic (must satisfy all)
+    if (qualifier & GLOB_QUAL_READABLE) {
+        if (access(path, R_OK) != 0) return false;
+    }
+    if (qualifier & GLOB_QUAL_WRITABLE) {
+        if (access(path, W_OK) != 0) return false;
+    }
+    
+    return true;
 }
 
 /**
@@ -4317,9 +4364,26 @@ static char **expand_glob_pattern(const char *pattern, int *expanded_count) {
         return result;
     }
 
-    // Try extglob expansion first if pattern contains extglob syntax
-    if (has_extglob_pattern(pattern)) {
-        char **extglob_results = expand_extglob_pattern(pattern, expanded_count);
+    // Parse glob qualifier FIRST (Zsh-style)
+    // This must happen before extglob detection because *(.) could be either:
+    //   - Zsh glob qualifier: * with file qualifier (.)
+    //   - Bash extglob: zero or more of pattern "."
+    // Glob qualifiers are always a single char at the END, so check that first
+    char *base_pattern = NULL;
+    glob_qualifier_t qualifier = GLOB_QUAL_NONE;
+    
+    if (shell_mode_allows(FEATURE_GLOB_QUALIFIERS)) {
+        qualifier = parse_glob_qualifier(pattern, &base_pattern);
+    }
+    
+    // If we found a glob qualifier, use the base pattern for further expansion
+    // Otherwise, use the original pattern
+    const char *pattern_to_expand = (qualifier != GLOB_QUAL_NONE) ? base_pattern : pattern;
+    
+    // Try extglob expansion if pattern contains extglob syntax
+    // (only if we didn't already strip a glob qualifier)
+    if (qualifier == GLOB_QUAL_NONE && has_extglob_pattern(pattern_to_expand)) {
+        char **extglob_results = expand_extglob_pattern(pattern_to_expand, expanded_count);
         if (extglob_results && *expanded_count > 0) {
             return extglob_results;
         }
@@ -4347,14 +4411,9 @@ static char **expand_glob_pattern(const char *pattern, int *expanded_count) {
         }
         return result;
     }
-
-    // Parse glob qualifier (Zsh-style)
-    char *base_pattern = NULL;
-    glob_qualifier_t qualifier = GLOB_QUAL_NONE;
     
-    if (shell_mode_allows(FEATURE_GLOB_QUALIFIERS)) {
-        qualifier = parse_glob_qualifier(pattern, &base_pattern);
-    } else {
+    // If no glob qualifier was parsed yet, set up base_pattern now
+    if (qualifier == GLOB_QUAL_NONE) {
         base_pattern = strdup(pattern);
     }
     
@@ -5403,8 +5462,15 @@ static int execute_assignment(executor_t *executor, const char *assignment) {
         return 1;
     }
 
+    // Check for += append operation
+    bool is_append = (eq > assignment && *(eq - 1) == '+');
+    
     // Split into variable and value
     size_t var_len = eq - assignment;
+    if (is_append) {
+        var_len--;  // Exclude the '+' from variable name
+    }
+    
     char *var_name = malloc(var_len + 1);
     if (!var_name) {
         return 1;
@@ -5454,8 +5520,41 @@ static int execute_assignment(executor_t *executor, const char *assignment) {
     // POSIX compliance: variable assignments are GLOBAL by default
     // Local variables are only created via explicit 'local' builtin
     int result;
-    result = symtable_set_global_var(executor->symtable, target_name,
-                                     value ? value : "");
+    
+    if (is_append) {
+        // Check if target is an array - append as new element
+        array_value_t *array = symtable_get_array(target_name);
+        if (array) {
+            // Append value as new array element
+            symtable_array_append(array, value ? value : "");
+            result = 0;
+        } else {
+            // String append - concatenate to existing value
+            char *existing = symtable_get_var(executor->symtable, target_name);
+            if (existing && existing[0]) {
+                size_t existing_len = strlen(existing);
+                size_t value_len = value ? strlen(value) : 0;
+                char *combined = malloc(existing_len + value_len + 1);
+                if (combined) {
+                    strcpy(combined, existing);
+                    if (value) {
+                        strcat(combined, value);
+                    }
+                    result = symtable_set_global_var(executor->symtable, target_name, combined);
+                    free(combined);
+                } else {
+                    result = -1;
+                }
+            } else {
+                // No existing value, just set the new value
+                result = symtable_set_global_var(executor->symtable, target_name,
+                                                 value ? value : "");
+            }
+        }
+    } else {
+        result = symtable_set_global_var(executor->symtable, target_name,
+                                         value ? value : "");
+    }
     
     // Free resolved nameref if it was allocated
     if (resolved_to_free) {
@@ -7358,7 +7457,7 @@ static char *parse_parameter_expansion(executor_t *executor,
 
     // Handle zsh-style parameter flags: ${(X)var}
     // Flags: U=uppercase, L=lowercase, C=capitalize, f=split on newlines,
-    //        o=sort ascending, O=sort descending
+    //        o=sort ascending, O=sort descending, k=keys, v=values
     //        j:X:=join with X, s:X:=split on X
     if (expansion[0] == '(') {
         const char *close_paren = strchr(expansion, ')');
@@ -7375,8 +7474,57 @@ static char *parse_parameter_expansion(executor_t *executor,
             // Rest of expansion after )
             const char *rest = close_paren + 1;
 
-            // Parse the variable/expression part
-            char *inner_result = parse_parameter_expansion(executor, rest);
+            // Check for 'k' flag (return keys instead of values)
+            // This must be handled before inner expansion
+            bool want_keys = (strchr(flags, 'k') != NULL);
+            
+            char *inner_result = NULL;
+            
+            if (want_keys) {
+                // Handle (k) flag: return array keys instead of values
+                // Parse array name from rest (e.g., "arr[@]" -> "arr")
+                char *arr_name = NULL;
+                const char *bracket = strchr(rest, '[');
+                if (bracket) {
+                    arr_name = strndup(rest, bracket - rest);
+                } else {
+                    arr_name = strdup(rest);
+                }
+                
+                if (arr_name) {
+                    array_value_t *array = symtable_get_array(arr_name);
+                    if (array) {
+                        // Get all keys from array (works for both indexed and associative)
+                        size_t count;
+                        char **keys = symtable_array_get_keys(array, &count);
+                        if (keys && count > 0) {
+                            // Calculate total length needed
+                            size_t total_len = 0;
+                            for (size_t i = 0; i < count; i++) {
+                                total_len += strlen(keys[i]) + 1;
+                            }
+                            inner_result = malloc(total_len + 1);
+                            if (inner_result) {
+                                inner_result[0] = '\0';
+                                for (size_t i = 0; i < count; i++) {
+                                    if (i > 0) strcat(inner_result, " ");
+                                    strcat(inner_result, keys[i]);
+                                    free(keys[i]);
+                                }
+                            }
+                            free(keys);
+                        }
+                    }
+                    free(arr_name);
+                }
+                if (!inner_result) {
+                    inner_result = strdup("");
+                }
+            } else {
+                // Normal expansion
+                inner_result = parse_parameter_expansion(executor, rest);
+            }
+            
             if (!inner_result) {
                 free(flags);
                 return strdup("");
@@ -7658,6 +7806,16 @@ static char *parse_parameter_expansion(executor_t *executor,
                     p++;
                     break;
 
+                case 'k':
+                    // Keys flag - already handled before inner expansion
+                    p++;
+                    break;
+
+                case 'v':
+                    // Values flag - no-op (values are the default)
+                    p++;
+                    break;
+
                 default:
                     // Unknown flag, skip
                     p++;
@@ -7821,10 +7979,24 @@ static char *parse_parameter_expansion(executor_t *executor,
                             if (idx_result && !arithm_error_flag) {
                                 int idx = (int)strtoll(idx_result, NULL, 10);
                                 free(idx_result);
-                                const char *elem =
-                                    symtable_array_get_index(array, idx);
-                                snprintf(result_buf, sizeof(result_buf), "%zu",
-                                         elem ? strlen(elem) : 0);
+                                
+                                // Adjust for 1-indexed arrays (zsh mode)
+                                if (!shell_mode_allows(FEATURE_ARRAY_ZERO_INDEXED)) {
+                                    if (idx <= 0) {
+                                        snprintf(result_buf, sizeof(result_buf), "0");
+                                    } else {
+                                        idx--;  // Convert 1-indexed to 0-indexed
+                                        const char *elem =
+                                            symtable_array_get_index(array, idx);
+                                        snprintf(result_buf, sizeof(result_buf), "%zu",
+                                                 elem ? strlen(elem) : 0);
+                                    }
+                                } else {
+                                    const char *elem =
+                                        symtable_array_get_index(array, idx);
+                                    snprintf(result_buf, sizeof(result_buf), "%zu",
+                                             elem ? strlen(elem) : 0);
+                                }
                             } else {
                                 if (idx_result) free(idx_result);
                                 snprintf(result_buf, sizeof(result_buf), "0");
@@ -7908,9 +8080,22 @@ static char *parse_parameter_expansion(executor_t *executor,
                         if (idx_result && !arithm_error_flag) {
                             int idx = (int)strtoll(idx_result, NULL, 10);
                             free(idx_result);
-                            const char *elem =
-                                symtable_array_get_index(array, idx);
-                            result = strdup(elem ? elem : "");
+                            
+                            // Adjust for 1-indexed arrays (zsh mode)
+                            if (!shell_mode_allows(FEATURE_ARRAY_ZERO_INDEXED)) {
+                                if (idx <= 0) {
+                                    result = strdup("");
+                                } else {
+                                    idx--;  // Convert 1-indexed to 0-indexed
+                                    const char *elem =
+                                        symtable_array_get_index(array, idx);
+                                    result = strdup(elem ? elem : "");
+                                }
+                            } else {
+                                const char *elem =
+                                    symtable_array_get_index(array, idx);
+                                result = strdup(elem ? elem : "");
+                            }
                         } else {
                             if (idx_result) free(idx_result);
                             result = strdup("");
@@ -8398,6 +8583,16 @@ static char *parse_parameter_expansion(executor_t *executor,
 
     // Fall back to symbol table lookup for regular variables
     // Note: symtable_get_var returns a strdup'd value, caller must free
+    
+    // In zsh mode, ${arr} without subscript expands to all elements
+    // Check if this is an array first
+    array_value_t *array = symtable_get_array(expansion);
+    if (array) {
+        // Array exists - expand all elements
+        char *result = symtable_array_expand(array, " ");
+        return result ? result : strdup("");
+    }
+    
     char *value = symtable_get_var(executor->symtable, expansion);
 
     // Check for unset variable error (set -u) for ${var} syntax
@@ -11118,13 +11313,53 @@ static int execute_array_assignment(executor_t *executor,
                         }
                     }
                 } else {
-                    // Regular element - assign to next index (only for indexed arrays)
-                    if (!is_associative) {
+                    // Regular element without [key]=value syntax
+                    if (is_associative) {
+                        // Zsh-style: arr=(key1 val1 key2 val2 ...)
+                        // Alternating key-value pairs
+                        char *expanded_key = expand_variable(executor, elem_str);
+                        const char *key = expanded_key ? expanded_key : elem_str;
+                        
+                        // Get next element as value
+                        node_t *value_elem = elem->next_sibling;
+                        if (value_elem && value_elem->val.str) {
+                            char *expanded_val = expand_variable(executor, value_elem->val.str);
+                            const char *val = expanded_val ? expanded_val : value_elem->val.str;
+                            
+                            symtable_array_set_assoc(array, key, val);
+                            
+                            if (expanded_val) free(expanded_val);
+                            elem = value_elem;  // Skip the value element
+                        }
+                        if (expanded_key) free(expanded_key);
+                    } else {
+                        // Indexed array - assign to next index
+                        // Expand the element and word-split the result
                         char *expanded = expand_variable(executor, elem_str);
                         const char *final_value = expanded ? expanded : elem_str;
 
-                        symtable_array_set_index(array, index, final_value);
-                        index++;
+                        // Word split the expanded value if it contains spaces
+                        // This handles ${(s:,:)var} and ${(f)var} producing multiple words
+                        if (strchr(final_value, ' ') != NULL) {
+                            // Split on spaces and add each word as separate element
+                            char *copy = strdup(final_value);
+                            if (copy) {
+                                char *saveptr;
+                                char *word = strtok_r(copy, " ", &saveptr);
+                                while (word) {
+                                    // Skip empty words
+                                    if (*word) {
+                                        symtable_array_set_index(array, index, word);
+                                        index++;
+                                    }
+                                    word = strtok_r(NULL, " ", &saveptr);
+                                }
+                                free(copy);
+                            }
+                        } else {
+                            symtable_array_set_index(array, index, final_value);
+                            index++;
+                        }
 
                         if (expanded) {
                             free(expanded);
@@ -11243,8 +11478,17 @@ static int execute_array_assignment(executor_t *executor,
         long long idx = strtoll(idx_result, NULL, 10);
         free(idx_result);
 
-        // Note: negative indices are now handled by symtable_array_*_index()
-        // which converts them to positive indices relative to max_index
+        // Adjust for 1-indexed arrays (zsh mode)
+        // When FEATURE_ARRAY_ZERO_INDEXED is false, user index 1 maps to internal 0
+        if (!shell_mode_allows(FEATURE_ARRAY_ZERO_INDEXED)) {
+            if (idx <= 0) {
+                if (expanded_value)
+                    free(expanded_value);
+                set_executor_error(executor, "Array index must be positive in zsh mode");
+                return 1;
+            }
+            idx--;  // Convert 1-indexed to 0-indexed internally
+        }
 
         if (is_append) {
             // Append to existing element

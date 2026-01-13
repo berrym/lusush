@@ -881,10 +881,11 @@ static node_t *parse_simple_command(parser_t *parser) {
                  value->type == TOK_BACKQUOTE)) {
                 size_t var_len = strlen(var_name);
                 size_t value_len = strlen(value->text);
-                char *assignment = malloc(var_len + 1 + value_len + 1);
+                // Add extra byte for '+' if append operation
+                char *assignment = malloc(var_len + (is_append ? 2 : 1) + value_len + 1);
                 if (assignment) {
                     strcpy(assignment, var_name);
-                    strcat(assignment, "=");
+                    strcat(assignment, is_append ? "+=" : "=");
                     strcat(assignment, value->text);
                     command->val.str = assignment;
                     command->val_type = VAL_STR;

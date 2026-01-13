@@ -539,7 +539,7 @@ static bool is_operator_char(char c) {
  * @return true if character can be part of a word
  */
 static bool is_word_char(char c) {
-    return isalnum(c) || strchr("_.-/~:@*?[]+%!", c) != NULL;
+    return isalnum(c) || strchr("_.-/~:@*?[]+%!,", c) != NULL;
 }
 
 /**
@@ -556,7 +556,7 @@ static bool is_word_codepoint(uint32_t codepoint) {
     // ASCII range: Use traditional shell word character logic
     if (codepoint < 0x80) {
         char c = (char)codepoint;
-        return isalnum(c) || strchr("_.-/~:@*?[]+%!", c) != NULL;
+        return isalnum(c) || strchr("_.-/~:@*?[]+%!,", c) != NULL;
     }
 
     // Non-ASCII UTF-8: All non-ASCII codepoints are valid word characters

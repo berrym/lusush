@@ -26,6 +26,7 @@
 
 #include "ht.h"
 #include "lusush.h"
+#include "shell_mode.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -2520,6 +2521,10 @@ bool symtable_is_array(const char *name) {
 
 /**
  * @brief Set an array element using shell syntax
+ *
+ * This is the user-facing API for array element assignment.
+ * It handles the translation between user indices (which may be 1-indexed
+ * in zsh mode) and internal indices (always 0-indexed).
  */
 int symtable_set_array_element(const char *name, const char *subscript,
                                const char *value) {
@@ -2546,17 +2551,33 @@ int symtable_set_array_element(const char *name, const char *subscript,
         // Parse subscript as integer
         char *endptr;
         long index = strtol(subscript, &endptr, 10);
-        if (*endptr != '\0' || index < 0) {
+        if (*endptr != '\0') {
             // Not a valid integer - could be associative key
             // For now, treat as error for indexed array
             return -1;
         }
+        
+        // Adjust for 1-indexed arrays (zsh mode)
+        // When FEATURE_ARRAY_ZERO_INDEXED is false, user index 1 maps to internal 0
+        if (!shell_mode_allows(FEATURE_ARRAY_ZERO_INDEXED)) {
+            if (index <= 0) {
+                return -1;  // In 1-indexed mode, index 0 and below are invalid
+            }
+            index--;  // Convert 1-indexed to 0-indexed internally
+        } else if (index < 0) {
+            return -1;  // 0-indexed mode doesn't allow negative here
+        }
+        
         return symtable_array_set_index(array, (int)index, value);
     }
 }
 
 /**
  * @brief Get an array element using shell syntax
+ *
+ * This is the user-facing API for array element access.
+ * It handles the translation between user indices (which may be 1-indexed
+ * in zsh mode) and internal indices (always 0-indexed).
  */
 char *symtable_get_array_element(const char *name, const char *subscript) {
     if (!name || !subscript) {
@@ -2574,9 +2595,21 @@ char *symtable_get_array_element(const char *name, const char *subscript) {
     } else {
         char *endptr;
         long index = strtol(subscript, &endptr, 10);
-        if (*endptr != '\0' || index < 0) {
+        if (*endptr != '\0') {
             return NULL;
         }
+        
+        // Adjust for 1-indexed arrays (zsh mode)
+        // When FEATURE_ARRAY_ZERO_INDEXED is false, user index 1 maps to internal 0
+        if (!shell_mode_allows(FEATURE_ARRAY_ZERO_INDEXED)) {
+            if (index <= 0) {
+                return NULL;  // In 1-indexed mode, index 0 and below are invalid
+            }
+            index--;  // Convert 1-indexed to 0-indexed internally
+        } else if (index < 0) {
+            return NULL;  // 0-indexed mode doesn't allow negative here
+        }
+        
         result = symtable_array_get_index(array, (int)index);
     }
 
