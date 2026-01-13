@@ -63,6 +63,7 @@ lle_sources += files(
   'unicode/utf8_index.c',
   'unicode/unicode_grapheme.c',
   'unicode/unicode_compare.c',
+  'unicode/unicode_case.c',
   'unicode/grapheme_detector.c',
   'unicode/char_width.c',
 )
