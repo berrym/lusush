@@ -63,6 +63,7 @@ int bin_readonly(int argc, char **argv);
 int bin_config(int argc, char **argv);
 int bin_setopt(int argc, char **argv);
 int bin_unsetopt(int argc, char **argv);
+int bin_shopt(int argc, char **argv);
 int bin_hash(int argc, char **argv);
 int bin_display(int argc, char **argv);
 int bin_network(int argc, char **argv);
@@ -173,6 +174,7 @@ builtin builtins[] = {
     {"config", "manage shell configuration", bin_config},
     {"setopt", "enable shell options/features", bin_setopt},
     {"unsetopt", "disable shell options/features", bin_unsetopt},
+    {"shopt", "bash-style shell options", bin_shopt},
     {"hash", "remember utility locations", bin_hash},
     {"display", "manage layered display system", bin_display},
     {"network", "manage network and SSH hosts", bin_network},
@@ -4224,6 +4226,173 @@ int bin_unsetopt(int argc, char **argv) {
     }
 
     return 0;
+}
+
+/**
+ * @brief Bash-style shopt builtin for shell options
+ *
+ * Provides bash-compatible syntax for managing shell options.
+ * Usage:
+ *   shopt                  - List all shopt options with current state
+ *   shopt -p               - Print in re-usable format (shopt -s/-u)
+ *   shopt -s <opt> [...]   - Set (enable) one or more options
+ *   shopt -u <opt> [...]   - Unset (disable) one or more options
+ *   shopt -q <opt>         - Query option silently (exit status only)
+ *   shopt -o               - Operate on set -o options instead
+ *
+ * Option names accepted:
+ *   - Bash names: extglob, nullglob, globstar, dotglob, etc.
+ *   - Lusush names: extended_glob, null_glob, etc.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, 1 on error, 2 if -q and option is off
+ */
+int bin_shopt(int argc, char **argv)
+{
+    bool set_mode = false;      /* -s: enable options */
+    bool unset_mode = false;    /* -u: disable options */
+    bool query_mode = false;    /* -q: query silently */
+    bool print_mode = false;    /* -p: print format */
+    bool set_o_mode = false;    /* -o: use set -o options */
+    int opt_end = 1;
+
+    /* Parse flags */
+    for (int i = 1; i < argc; i++) {
+        if (argv[i][0] != '-') {
+            break;
+        }
+        if (strcmp(argv[i], "--") == 0) {
+            opt_end = i + 1;
+            break;
+        }
+
+        /* Process each character in the option string */
+        for (const char *p = argv[i] + 1; *p; p++) {
+            switch (*p) {
+            case 's':
+                set_mode = true;
+                break;
+            case 'u':
+                unset_mode = true;
+                break;
+            case 'q':
+                query_mode = true;
+                break;
+            case 'p':
+                print_mode = true;
+                break;
+            case 'o':
+                set_o_mode = true;
+                break;
+            default:
+                fprintf(stderr, "shopt: -%c: invalid option\n", *p);
+                fprintf(stderr,
+                        "shopt: usage: shopt [-pqsu] [-o] [optname ...]\n");
+                return 1;
+            }
+        }
+        opt_end = i + 1;
+    }
+
+    /* -s and -u are mutually exclusive */
+    if (set_mode && unset_mode) {
+        fprintf(stderr, "shopt: cannot set and unset options simultaneously\n");
+        return 1;
+    }
+
+    /* -o mode: operate on set -o options (not implemented, just note it) */
+    if (set_o_mode) {
+        /* For now, -o options map to the same features */
+        /* In bash, -o uses different option namespace, but we unify them */
+    }
+
+    /* No option names given - list all options */
+    if (opt_end >= argc) {
+        if (query_mode) {
+            fprintf(stderr, "shopt: -q: option name required\n");
+            return 1;
+        }
+
+        /* List all features */
+        for (int i = 0; i < (int)FEATURE_COUNT; i++) {
+            shell_feature_t feature = (shell_feature_t)i;
+            const char *name = shell_feature_name(feature);
+            bool enabled = shell_mode_allows(feature);
+
+            /* If -s or -u specified without names, filter by state */
+            if (set_mode && !enabled) {
+                continue;
+            }
+            if (unset_mode && enabled) {
+                continue;
+            }
+
+            if (print_mode) {
+                printf("shopt %s %s\n", enabled ? "-s" : "-u", name);
+            } else {
+                printf("%-30s %s\n", name, enabled ? "on" : "off");
+            }
+        }
+        return 0;
+    }
+
+    /* Process each option name */
+    int result = 0;
+    for (int i = opt_end; i < argc; i++) {
+        shell_feature_t feature;
+
+        if (!shell_feature_parse(argv[i], &feature)) {
+            if (!query_mode) {
+                fprintf(stderr, "shopt: %s: invalid shell option name\n",
+                        argv[i]);
+            }
+            result = 1;
+            continue;
+        }
+
+        bool enabled = shell_mode_allows(feature);
+
+        if (query_mode) {
+            /* -q: return status based on option state */
+            if (!enabled) {
+                result = 1;
+            }
+        } else if (set_mode) {
+            /* -s: enable the option */
+            shell_feature_enable(feature);
+
+            /* Sync to registry if initialized */
+            if (config_registry_is_initialized()) {
+                char key[CREG_KEY_MAX];
+                snprintf(key, sizeof(key), "shell.features.%s",
+                         shell_feature_name(feature));
+                config_registry_set_boolean(key, true);
+            }
+        } else if (unset_mode) {
+            /* -u: disable the option */
+            shell_feature_disable(feature);
+
+            /* Sync to registry if initialized */
+            if (config_registry_is_initialized()) {
+                char key[CREG_KEY_MAX];
+                snprintf(key, sizeof(key), "shell.features.%s",
+                         shell_feature_name(feature));
+                config_registry_set_boolean(key, false);
+            }
+        } else {
+            /* No -s/-u: just print the option state */
+            if (print_mode) {
+                printf("shopt %s %s\n", enabled ? "-s" : "-u",
+                       shell_feature_name(feature));
+            } else {
+                printf("%-30s %s\n", shell_feature_name(feature),
+                       enabled ? "on" : "off");
+            }
+        }
+    }
+
+    return result;
 }
 
 /**

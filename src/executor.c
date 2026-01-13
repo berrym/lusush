@@ -6533,6 +6533,87 @@ static char *convert_case_all_lower(const char *str) {
 }
 
 /**
+ * @brief Capitalize each word (zsh-style ${(C)var})
+ *
+ * Converts the first character of each word to uppercase and the rest
+ * to lowercase. Words are delimited by whitespace.
+ *
+ * @param str String to convert
+ * @return Converted string (caller must free)
+ */
+static char *convert_case_capitalize_words(const char *str) {
+    if (!str) {
+        return strdup("");
+    }
+
+    size_t len = strlen(str);
+    if (len == 0) {
+        return strdup("");
+    }
+
+    /* Allocate buffer - capitalize shouldn't change length significantly */
+    size_t buf_size = len * 4 + 1;  /* UTF-8 worst case */
+    char *result = malloc(buf_size);
+    if (!result) {
+        return strdup("");
+    }
+
+    const char *src = str;
+    char *dst = result;
+    bool word_start = true;
+
+    while (*src) {
+        /* Get UTF-8 codepoint length */
+        size_t cp_len = 1;
+        unsigned char c = (unsigned char)*src;
+        if (c >= 0xC0 && c < 0xE0) cp_len = 2;
+        else if (c >= 0xE0 && c < 0xF0) cp_len = 3;
+        else if (c >= 0xF0) cp_len = 4;
+
+        /* Ensure we don't read past end */
+        size_t remaining = strlen(src);
+        if (cp_len > remaining) cp_len = remaining;
+
+        if (isspace((unsigned char)*src)) {
+            *dst++ = *src++;
+            word_start = true;
+        } else if (word_start) {
+            /* Uppercase the first character of word */
+            char temp[8] = {0};
+            memcpy(temp, src, cp_len);
+            char upper[16] = {0};
+            size_t upper_len = lle_utf8_toupper(temp, cp_len, upper, sizeof(upper));
+            if (upper_len != (size_t)-1 && upper_len < sizeof(upper)) {
+                memcpy(dst, upper, upper_len);
+                dst += upper_len;
+            } else {
+                memcpy(dst, src, cp_len);
+                dst += cp_len;
+            }
+            src += cp_len;
+            word_start = false;
+        } else {
+            /* Lowercase the rest */
+            char temp[8] = {0};
+            memcpy(temp, src, cp_len);
+            char lower[16] = {0};
+            size_t lower_len = lle_utf8_tolower(temp, cp_len, lower, sizeof(lower));
+            if (lower_len != (size_t)-1 && lower_len < sizeof(lower)) {
+                memcpy(dst, lower, lower_len);
+                dst += lower_len;
+            } else {
+                memcpy(dst, src, cp_len);
+                dst += cp_len;
+            }
+            src += cp_len;
+        }
+    }
+    *dst = '\0';
+
+    return result;
+}
+
+/**
  * @brief Pattern substitution for ${var/pattern/replacement}
  *
  * Replaces pattern matches in str with replacement.
@@ -7273,6 +7354,324 @@ static char *parse_parameter_expansion(executor_t *executor,
                                        const char *expansion) {
     if (!expansion) {
         return strdup("");
+    }
+
+    // Handle zsh-style parameter flags: ${(X)var}
+    // Flags: U=uppercase, L=lowercase, C=capitalize, f=split on newlines,
+    //        o=sort ascending, O=sort descending
+    //        j:X:=join with X, s:X:=split on X
+    if (expansion[0] == '(') {
+        const char *close_paren = strchr(expansion, ')');
+        if (close_paren && close_paren > expansion + 1) {
+            // Extract flags between ( and )
+            size_t flags_len = close_paren - expansion - 1;
+            char *flags = malloc(flags_len + 1);
+            if (!flags) {
+                return strdup("");
+            }
+            strncpy(flags, expansion + 1, flags_len);
+            flags[flags_len] = '\0';
+
+            // Rest of expansion after )
+            const char *rest = close_paren + 1;
+
+            // Parse the variable/expression part
+            char *inner_result = parse_parameter_expansion(executor, rest);
+            if (!inner_result) {
+                free(flags);
+                return strdup("");
+            }
+
+            // Process flags in order
+            char *result = inner_result;
+            const char *p = flags;
+
+            while (*p) {
+                char *new_result = NULL;
+
+                switch (*p) {
+                case 'U':
+                    // Uppercase all
+                    new_result = convert_case_all_upper(result);
+                    if (result != inner_result) free(result);
+                    result = new_result ? new_result : strdup("");
+                    p++;
+                    break;
+
+                case 'L':
+                    // Lowercase all
+                    new_result = convert_case_all_lower(result);
+                    if (result != inner_result) free(result);
+                    result = new_result ? new_result : strdup("");
+                    p++;
+                    break;
+
+                case 'C':
+                    // Capitalize each word
+                    new_result = convert_case_capitalize_words(result);
+                    if (result != inner_result) free(result);
+                    result = new_result ? new_result : strdup("");
+                    p++;
+                    break;
+
+                case 'f':
+                    // Split on newlines - for now, replace newlines with spaces
+                    // (full array support would require different return type)
+                    {
+                        size_t len = strlen(result);
+                        new_result = malloc(len + 1);
+                        if (new_result) {
+                            for (size_t i = 0; i <= len; i++) {
+                                new_result[i] = (result[i] == '\n') ? ' ' : result[i];
+                            }
+                        }
+                        if (result != inner_result) free(result);
+                        result = new_result ? new_result : strdup("");
+                    }
+                    p++;
+                    break;
+
+                case 'j':
+                    // Join with separator: j:X:
+                    if (p[1] == ':') {
+                        // Find closing :
+                        const char *sep_start = p + 2;
+                        const char *sep_end = strchr(sep_start, ':');
+                        if (sep_end) {
+                            size_t sep_len = sep_end - sep_start;
+                            char *sep = malloc(sep_len + 1);
+                            if (sep) {
+                                strncpy(sep, sep_start, sep_len);
+                                sep[sep_len] = '\0';
+
+                                // Replace spaces with separator
+                                size_t res_len = strlen(result);
+                                size_t count = 0;
+                                for (size_t i = 0; i < res_len; i++) {
+                                    if (result[i] == ' ') count++;
+                                }
+                                new_result = malloc(res_len + count * sep_len + 1);
+                                if (new_result) {
+                                    char *dst = new_result;
+                                    for (size_t i = 0; i < res_len; i++) {
+                                        if (result[i] == ' ') {
+                                            memcpy(dst, sep, sep_len);
+                                            dst += sep_len;
+                                        } else {
+                                            *dst++ = result[i];
+                                        }
+                                    }
+                                    *dst = '\0';
+                                }
+                                free(sep);
+                            }
+                            if (result != inner_result) free(result);
+                            result = new_result ? new_result : strdup("");
+                            p = sep_end + 1;
+                        } else {
+                            p++;  // Malformed, skip
+                        }
+                    } else {
+                        p++;  // No separator specified
+                    }
+                    break;
+
+                case 's':
+                    // Split on separator: s:X: - replace X with space
+                    if (p[1] == ':') {
+                        const char *sep_start = p + 2;
+                        const char *sep_end = strchr(sep_start, ':');
+                        if (sep_end) {
+                            size_t sep_len = sep_end - sep_start;
+                            char *sep = malloc(sep_len + 1);
+                            if (sep && sep_len > 0) {
+                                strncpy(sep, sep_start, sep_len);
+                                sep[sep_len] = '\0';
+
+                                // Replace separator with space
+                                size_t res_len = strlen(result);
+                                new_result = malloc(res_len + 1);
+                                if (new_result) {
+                                    char *src = result;
+                                    char *dst = new_result;
+                                    while (*src) {
+                                        if (strncmp(src, sep, sep_len) == 0) {
+                                            *dst++ = ' ';
+                                            src += sep_len;
+                                        } else {
+                                            *dst++ = *src++;
+                                        }
+                                    }
+                                    *dst = '\0';
+                                }
+                                free(sep);
+                            } else {
+                                if (sep) free(sep);
+                            }
+                            if (new_result) {
+                                if (result != inner_result) free(result);
+                                result = new_result;
+                            }
+                            p = sep_end + 1;
+                        } else {
+                            p++;
+                        }
+                    } else {
+                        p++;
+                    }
+                    break;
+
+                case 'o':
+                    // Sort ascending - split on spaces, sort, rejoin
+                    {
+                        // Count words
+                        size_t word_count = 0;
+                        bool in_word = false;
+                        for (const char *c = result; *c; c++) {
+                            if (*c == ' ') {
+                                in_word = false;
+                            } else if (!in_word) {
+                                word_count++;
+                                in_word = true;
+                            }
+                        }
+
+                        if (word_count > 1) {
+                            char **words = malloc(word_count * sizeof(char *));
+                            if (words) {
+                                // Split into words
+                                char *copy = strdup(result);
+                                if (copy) {
+                                    size_t idx = 0;
+                                    char *tok = strtok(copy, " ");
+                                    while (tok && idx < word_count) {
+                                        words[idx++] = strdup(tok);
+                                        tok = strtok(NULL, " ");
+                                    }
+                                    word_count = idx;
+
+                                    // Sort ascending
+                                    for (size_t i = 0; i < word_count - 1; i++) {
+                                        for (size_t j = i + 1; j < word_count; j++) {
+                                            if (strcmp(words[i], words[j]) > 0) {
+                                                char *tmp = words[i];
+                                                words[i] = words[j];
+                                                words[j] = tmp;
+                                            }
+                                        }
+                                    }
+
+                                    // Rejoin
+                                    size_t total_len = 0;
+                                    for (size_t i = 0; i < word_count; i++) {
+                                        total_len += strlen(words[i]) + 1;
+                                    }
+                                    new_result = malloc(total_len + 1);
+                                    if (new_result) {
+                                        new_result[0] = '\0';
+                                        for (size_t i = 0; i < word_count; i++) {
+                                            if (i > 0) strcat(new_result, " ");
+                                            strcat(new_result, words[i]);
+                                        }
+                                    }
+
+                                    for (size_t i = 0; i < word_count; i++) {
+                                        free(words[i]);
+                                    }
+                                    free(copy);
+                                }
+                                free(words);
+                            }
+                            if (new_result) {
+                                if (result != inner_result) free(result);
+                                result = new_result;
+                            }
+                        }
+                    }
+                    p++;
+                    break;
+
+                case 'O':
+                    // Sort descending - same as 'o' but reverse comparison
+                    {
+                        size_t word_count = 0;
+                        bool in_word = false;
+                        for (const char *c = result; *c; c++) {
+                            if (*c == ' ') {
+                                in_word = false;
+                            } else if (!in_word) {
+                                word_count++;
+                                in_word = true;
+                            }
+                        }
+
+                        if (word_count > 1) {
+                            char **words = malloc(word_count * sizeof(char *));
+                            if (words) {
+                                char *copy = strdup(result);
+                                if (copy) {
+                                    size_t idx = 0;
+                                    char *tok = strtok(copy, " ");
+                                    while (tok && idx < word_count) {
+                                        words[idx++] = strdup(tok);
+                                        tok = strtok(NULL, " ");
+                                    }
+                                    word_count = idx;
+
+                                    // Sort descending
+                                    for (size_t i = 0; i < word_count - 1; i++) {
+                                        for (size_t j = i + 1; j < word_count; j++) {
+                                            if (strcmp(words[i], words[j]) < 0) {
+                                                char *tmp = words[i];
+                                                words[i] = words[j];
+                                                words[j] = tmp;
+                                            }
+                                        }
+                                    }
+
+                                    size_t total_len = 0;
+                                    for (size_t i = 0; i < word_count; i++) {
+                                        total_len += strlen(words[i]) + 1;
+                                    }
+                                    new_result = malloc(total_len + 1);
+                                    if (new_result) {
+                                        new_result[0] = '\0';
+                                        for (size_t i = 0; i < word_count; i++) {
+                                            if (i > 0) strcat(new_result, " ");
+                                            strcat(new_result, words[i]);
+                                        }
+                                    }
+
+                                    for (size_t i = 0; i < word_count; i++) {
+                                        free(words[i]);
+                                    }
+                                    free(copy);
+                                }
+                                free(words);
+                            }
+                            if (new_result) {
+                                if (result != inner_result) free(result);
+                                result = new_result;
+                            }
+                        }
+                    }
+                    p++;
+                    break;
+
+                default:
+                    // Unknown flag, skip
+                    p++;
+                    break;
+                }
+            }
+
+            free(flags);
+            if (result == inner_result) {
+                return result;  // No transformation applied
+            }
+            free(inner_result);
+            return result;
+        }
     }
 
     // Handle indirect expansion: ${!name} or ${!prefix*} or ${!prefix@}

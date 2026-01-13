@@ -328,7 +328,7 @@ static const bool feature_matrix[SHELL_MODE_COUNT][FEATURE_COUNT] = {
         /* Zsh-Specific - selective adoption */
         [FEATURE_GLOB_QUALIFIERS]     = true,  /* Powerful feature */
         [FEATURE_HOOK_FUNCTIONS]      = true,  /* Essential for prompts */
-        [FEATURE_ZSH_PARAM_FLAGS]     = false, /* Less common, opt-in */
+        [FEATURE_ZSH_PARAM_FLAGS]     = true,  /* Now implemented: ${(U)var} etc */
         [FEATURE_PLUGIN_SYSTEM]       = true,  /* Lusush extension */
     },
 };
