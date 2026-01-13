@@ -539,7 +539,7 @@ static bool is_operator_char(char c) {
  * @return true if character can be part of a word
  */
 static bool is_word_char(char c) {
-    return isalnum(c) || strchr("_.-/~:@*?[]+%!,", c) != NULL;
+    return isalnum(c) || strchr("_.-/~:@*?[]+%!,^#", c) != NULL;
 }
 
 /**
@@ -556,7 +556,7 @@ static bool is_word_codepoint(uint32_t codepoint) {
     // ASCII range: Use traditional shell word character logic
     if (codepoint < 0x80) {
         char c = (char)codepoint;
-        return isalnum(c) || strchr("_.-/~:@*?[]+%!,", c) != NULL;
+        return isalnum(c) || strchr("_.-/~:@*?[]+%!,^#", c) != NULL;
     }
 
     // Non-ASCII UTF-8: All non-ASCII codepoints are valid word characters
@@ -1215,6 +1215,66 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                 tokenizer->column += 2;
                 return token_new(TOK_DOUBLE_LPAREN, "((", 2, start_line,
                                  start_column, start_pos);
+            }
+            // Check for zsh-style glob alternation: (a|b)suffix
+            // This is a word, not a subshell, when:
+            // 1. Extended glob is enabled
+            // 2. There's a | inside the parens
+            // 3. After ), there's more word-like content (not whitespace/EOF/operator)
+            if (shell_mode_allows(FEATURE_EXTENDED_GLOB)) {
+                size_t scan_pos = tokenizer->position + 1;
+                bool has_pipe = false;
+                bool found_close = false;
+                int paren_depth = 1;
+                
+                // Scan to find matching ) and check for |
+                while (scan_pos < tokenizer->input_length && paren_depth > 0) {
+                    char sc = tokenizer->input[scan_pos];
+                    if (sc == '(') {
+                        paren_depth++;
+                    } else if (sc == ')') {
+                        paren_depth--;
+                        if (paren_depth == 0) {
+                            found_close = true;
+                        }
+                    } else if (sc == '|' && paren_depth == 1) {
+                        has_pipe = true;
+                    }
+                    scan_pos++;
+                }
+                
+                // If we found (a|b) pattern, check what follows
+                if (found_close && has_pipe) {
+                    // Check if there's word-like content after )
+                    if (scan_pos < tokenizer->input_length) {
+                        char next = tokenizer->input[scan_pos];
+                        // If followed by alphanumeric, dot, or other word chars, it's glob alternation
+                        if (isalnum(next) || next == '.' || next == '_' || 
+                            next == '-' || next == '*' || next == '?') {
+                            // Treat entire (a|b)suffix as a word token
+                            size_t word_start = tokenizer->position;
+                            // Skip past the closing paren we found
+                            tokenizer->position = scan_pos;
+                            tokenizer->column += (scan_pos - word_start);
+                            
+                            // Continue scanning word chars after )
+                            while (tokenizer->position < tokenizer->input_length) {
+                                char wc = tokenizer->input[tokenizer->position];
+                                if (isalnum(wc) || is_word_char(wc)) {
+                                    tokenizer->position++;
+                                    tokenizer->column++;
+                                } else {
+                                    break;
+                                }
+                            }
+                            
+                            size_t word_len = tokenizer->position - word_start;
+                            // token_new copies the text, so pass input directly
+                            return token_new(TOK_WORD, &tokenizer->input[word_start], word_len,
+                                           start_line, start_column, start_pos);
+                        }
+                    }
+                }
             }
             tokenizer->position++;
             tokenizer->column++;

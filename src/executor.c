@@ -3817,6 +3817,345 @@ static bool matches_glob_qualifier(const char *path, glob_qualifier_t qualifier)
     return true;
 }
 
+// =============================================================================
+// ZSH EXTENDED GLOB PATTERNS
+// =============================================================================
+// Zsh extended glob uses different syntax than bash:
+//   X#   - zero or more of X (like * in regex)
+//   X##  - one or more of X (like + in regex)
+//   (a|b) - alternation (without preceding operator)
+//   ^pat - negation (match everything except pattern)
+// =============================================================================
+
+/**
+ * @brief Check if pattern contains zsh-style extglob syntax
+ * 
+ * Detects X#, X##, (a|b) alternation, and ^pattern negation.
+ */
+static bool has_zsh_extglob_pattern(const char *pattern) {
+    if (!pattern || !shell_mode_allows(FEATURE_EXTENDED_GLOB)) {
+        return false;
+    }
+    
+    // Check for ^pattern negation at start
+    if (pattern[0] == '^') {
+        return true;
+    }
+    
+    // Check for (a|b) alternation - parentheses with | inside, NOT preceded by extglob op
+    const char *p = pattern;
+    while (*p) {
+        if (*p == '(' && (p == pattern || !strchr("?*+@!", *(p - 1)))) {
+            // Found ( not preceded by extglob operator - check for | inside
+            const char *inner = p + 1;
+            int depth = 1;
+            while (*inner && depth > 0) {
+                if (*inner == '(') depth++;
+                else if (*inner == ')') depth--;
+                else if (*inner == '|' && depth == 1) return true;
+                inner++;
+            }
+        }
+        p++;
+    }
+    
+    // Check for # or ## quantifiers (after a char or ])
+    p = pattern;
+    while (*p) {
+        if (*p == '#') {
+            // # must be preceded by something (char, ], or ))
+            if (p > pattern) {
+                char prev = *(p - 1);
+                if (prev != '/' && prev != ' ' && prev != '\t') {
+                    return true;
+                }
+            }
+        }
+        p++;
+    }
+    
+    return false;
+}
+
+/**
+ * @brief Convert zsh extglob pattern to POSIX extended regex
+ * 
+ * Converts zsh extended glob syntax to regex:
+ *   X#   -> X* (zero or more)
+ *   X##  -> X+ (one or more)
+ *   (a|b) -> (a|b) (alternation)
+ *   [...]# -> [...]* (char class zero or more)
+ *   *    -> .* (any chars)
+ *   ?    -> . (any single char)
+ *   .    -> \. (literal dot)
+ * 
+ * @param pattern Zsh extglob pattern (without leading ^ if negation)
+ * @return Regex pattern (caller must free), or NULL on error
+ */
+static char *zsh_extglob_to_regex(const char *pattern) {
+    if (!pattern) return NULL;
+    
+    // Allocate generous buffer
+    size_t max_len = strlen(pattern) * 4 + 10;
+    char *regex = malloc(max_len);
+    if (!regex) return NULL;
+    
+    char *out = regex;
+    *out++ = '^';  // Anchor at start
+    
+    const char *p = pattern;
+    while (*p) {
+        if (*p == '[') {
+            // Character class - copy until ]
+            const char *class_start = p;
+            *out++ = *p++;
+            // Handle negation [^ or [!
+            if (*p == '^' || *p == '!') {
+                *out++ = '^';
+                p++;
+            }
+            // Handle ] as first char (literal)
+            if (*p == ']') {
+                *out++ = *p++;
+            }
+            while (*p && *p != ']') {
+                *out++ = *p++;
+            }
+            if (*p == ']') {
+                *out++ = *p++;
+            }
+            // Check for # or ## after char class
+            if (*p == '#') {
+                if (*(p + 1) == '#') {
+                    *out++ = '+';  // ## = one or more
+                    p += 2;
+                } else {
+                    *out++ = '*';  // # = zero or more
+                    p++;
+                }
+            }
+        } else if (*p == '(') {
+            // Alternation group - copy as-is, handling nested parens
+            *out++ = *p++;
+            int depth = 1;
+            while (*p && depth > 0) {
+                if (*p == '(') {
+                    depth++;
+                    *out++ = *p++;
+                } else if (*p == ')') {
+                    depth--;
+                    *out++ = *p++;
+                } else if (*p == '*') {
+                    // Glob * inside alternation
+                    *out++ = '.';
+                    *out++ = '*';
+                    p++;
+                } else if (*p == '?') {
+                    *out++ = '.';
+                    p++;
+                } else if (*p == '.') {
+                    *out++ = '\\';
+                    *out++ = '.';
+                    p++;
+                } else {
+                    *out++ = *p++;
+                }
+            }
+        } else if (*p == '*') {
+            // Glob * -> regex .*
+            *out++ = '.';
+            *out++ = '*';
+            p++;
+        } else if (*p == '?') {
+            // Glob ? -> regex .
+            *out++ = '.';
+            p++;
+        } else if (*p == '.') {
+            // Escape literal dot
+            *out++ = '\\';
+            *out++ = '.';
+            p++;
+        } else if (*p == '#') {
+            // Standalone # - should not happen if preceded by nothing
+            // Skip it (treat as literal)
+            *out++ = '#';
+            p++;
+        } else {
+            // Regular character
+            char c = *p++;
+            // Check for # or ## quantifier after this char
+            if (*p == '#') {
+                // Need to wrap single char in group for regex
+                // But first, escape regex metacharacters
+                if (strchr("^$+{}\\|()", c)) {
+                    *out++ = '\\';
+                }
+                *out++ = c;
+                if (*(p + 1) == '#') {
+                    *out++ = '+';  // ## = one or more
+                    p += 2;
+                } else {
+                    *out++ = '*';  // # = zero or more
+                    p++;
+                }
+            } else {
+                // No quantifier - regular char, might need escaping
+                if (strchr("^$+{}\\|", c)) {
+                    *out++ = '\\';
+                }
+                *out++ = c;
+            }
+        }
+    }
+    
+    *out++ = '$';  // Anchor at end
+    *out = '\0';
+    
+    return regex;
+}
+
+/**
+ * @brief Match filename against zsh extglob pattern
+ */
+static bool match_zsh_extglob(const char *filename, const char *pattern, bool is_negated) {
+    char *regex_pattern = zsh_extglob_to_regex(pattern);
+    if (!regex_pattern) {
+        return false;
+    }
+    
+    regex_t regex;
+    int ret = regcomp(&regex, regex_pattern, REG_EXTENDED | REG_NOSUB);
+    free(regex_pattern);
+    
+    if (ret != 0) {
+        return false;
+    }
+    
+    ret = regexec(&regex, filename, 0, NULL, 0);
+    regfree(&regex);
+    
+    bool matches = (ret == 0);
+    
+    // For ^pattern, invert the result
+    if (is_negated) {
+        matches = !matches;
+    }
+    
+    return matches;
+}
+
+/**
+ * @brief Expand zsh extglob pattern by reading directory and matching
+ */
+static char **expand_zsh_extglob_pattern(const char *pattern, int *expanded_count) {
+    *expanded_count = 0;
+    
+    if (!pattern) {
+        return NULL;
+    }
+    
+    // Check for ^pattern negation
+    bool is_negated = (pattern[0] == '^');
+    const char *match_pattern = is_negated ? pattern + 1 : pattern;
+    
+    // Split pattern into directory and filename parts
+    char *pattern_copy = strdup(match_pattern);
+    if (!pattern_copy) return NULL;
+    
+    char *last_slash = strrchr(pattern_copy, '/');
+    char *dir_path = NULL;
+    char *file_pattern = NULL;
+    
+    if (last_slash) {
+        *last_slash = '\0';
+        dir_path = pattern_copy;
+        file_pattern = last_slash + 1;
+    } else {
+        dir_path = ".";
+        file_pattern = pattern_copy;
+    }
+    
+    DIR *dir = opendir(dir_path);
+    if (!dir) {
+        free(pattern_copy);
+        return NULL;
+    }
+    
+    // Collect matching entries
+    char **results = NULL;
+    size_t result_count = 0;
+    size_t result_capacity = 0;
+    
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        // Skip . and ..
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+        
+        // Skip hidden files unless pattern starts with .
+        if (entry->d_name[0] == '.' && file_pattern[0] != '.') {
+            continue;
+        }
+        
+        if (match_zsh_extglob(entry->d_name, file_pattern, is_negated)) {
+            // Grow array if needed
+            if (result_count >= result_capacity) {
+                size_t new_capacity = result_capacity == 0 ? 16 : result_capacity * 2;
+                char **new_results = realloc(results, (new_capacity + 1) * sizeof(char *));
+                if (!new_results) {
+                    // Cleanup on failure
+                    for (size_t i = 0; i < result_count; i++) {
+                        free(results[i]);
+                    }
+                    free(results);
+                    closedir(dir);
+                    free(pattern_copy);
+                    return NULL;
+                }
+                results = new_results;
+                result_capacity = new_capacity;
+            }
+            
+            // Build full path if in subdirectory
+            char *full_path;
+            if (last_slash) {
+                size_t dir_len = strlen(dir_path);
+                size_t name_len = strlen(entry->d_name);
+                full_path = malloc(dir_len + 1 + name_len + 1);
+                if (full_path) {
+                    strcpy(full_path, dir_path);
+                    full_path[dir_len] = '/';
+                    strcpy(full_path + dir_len + 1, entry->d_name);
+                }
+            } else {
+                full_path = strdup(entry->d_name);
+            }
+            
+            if (full_path) {
+                results[result_count++] = full_path;
+            }
+        }
+    }
+    
+    closedir(dir);
+    free(pattern_copy);
+    
+    if (result_count == 0) {
+        free(results);
+        return NULL;
+    }
+    
+    // Sort results
+    qsort(results, result_count, sizeof(char *), 
+          (int (*)(const void *, const void *))strcmp);
+    
+    results[result_count] = NULL;
+    *expanded_count = result_count;
+    
+    return results;
+}
+
 /**
  * @brief Check if pattern contains extglob syntax
  * 
@@ -4380,9 +4719,42 @@ static char **expand_glob_pattern(const char *pattern, int *expanded_count) {
     // Otherwise, use the original pattern
     const char *pattern_to_expand = (qualifier != GLOB_QUAL_NONE) ? base_pattern : pattern;
     
-    // Try extglob expansion if pattern contains extglob syntax
+    // Try zsh-style extglob expansion first (X#, X##, (a|b), ^pattern)
+    if (qualifier == GLOB_QUAL_NONE && has_zsh_extglob_pattern(pattern_to_expand)) {
+        // Free base_pattern if it was allocated by parse_glob_qualifier
+        free(base_pattern);
+        char **zsh_results = expand_zsh_extglob_pattern(pattern_to_expand, expanded_count);
+        if (zsh_results && *expanded_count > 0) {
+            return zsh_results;
+        }
+        // Zsh extglob expansion failed or no matches - handle according to nullglob
+        if (shell_mode_allows(FEATURE_NULL_GLOB)) {
+            char **result = malloc(sizeof(char *));
+            if (result) {
+                result[0] = NULL;
+                *expanded_count = 0;
+                return result;
+            }
+            *expanded_count = 0;
+            return NULL;
+        }
+        // Return original pattern
+        char **result = malloc(2 * sizeof(char *));
+        if (result) {
+            result[0] = strdup(pattern);
+            result[1] = NULL;
+            *expanded_count = 1;
+        } else {
+            *expanded_count = 0;
+        }
+        return result;
+    }
+    
+    // Try bash-style extglob expansion if pattern contains extglob syntax
     // (only if we didn't already strip a glob qualifier)
     if (qualifier == GLOB_QUAL_NONE && has_extglob_pattern(pattern_to_expand)) {
+        // Free base_pattern if it was allocated by parse_glob_qualifier
+        free(base_pattern);
         char **extglob_results = expand_extglob_pattern(pattern_to_expand, expanded_count);
         if (extglob_results && *expanded_count > 0) {
             return extglob_results;
@@ -4561,18 +4933,43 @@ static bool needs_glob_expansion(const char *str) {
     }
 
     // Check for glob metacharacters: *, ?, and character classes [...]
-    while (*str) {
-        if (*str == '*' || *str == '?' || *str == '[') {
+    const char *p = str;
+    while (*p) {
+        if (*p == '*' || *p == '?' || *p == '[') {
             return true;
         }
-        // Check for extglob patterns: ?(pat), *(pat), +(pat), @(pat), !(pat)
+        // Check for bash-style extglob patterns: ?(pat), *(pat), +(pat), @(pat), !(pat)
         if (shell_mode_allows(FEATURE_EXTENDED_GLOB)) {
-            if ((*str == '?' || *str == '*' || *str == '+' || 
-                 *str == '@' || *str == '!') && *(str + 1) == '(') {
+            if ((*p == '?' || *p == '*' || *p == '+' || 
+                 *p == '@' || *p == '!') && *(p + 1) == '(') {
                 return true;
             }
+            // Check for zsh-style extglob: ^pattern, X#, X##, (a|b)
+            // ^ at start = negation
+            if (p == str && *p == '^') {
+                return true;
+            }
+            // # after a char or ] = zero or more quantifier
+            if (*p == '#' && p > str) {
+                char prev = *(p - 1);
+                if (prev != '/' && prev != ' ' && prev != '\t') {
+                    return true;
+                }
+            }
+            // ( not preceded by extglob op may be zsh alternation
+            if (*p == '(' && (p == str || !strchr("?*+@!", *(p - 1)))) {
+                // Check for | inside
+                const char *inner = p + 1;
+                int depth = 1;
+                while (*inner && depth > 0) {
+                    if (*inner == '(') depth++;
+                    else if (*inner == ')') depth--;
+                    else if (*inner == '|' && depth == 1) return true;
+                    inner++;
+                }
+            }
         }
-        str++;
+        p++;
     }
     return false;
 }
