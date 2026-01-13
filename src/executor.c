@@ -7520,6 +7520,31 @@ static char *parse_parameter_expansion(executor_t *executor,
                 if (!inner_result) {
                     inner_result = strdup("");
                 }
+            } else if (strchr(flags, 'w') != NULL && rest[0] == '#') {
+                // Handle (w)# - word count instead of character count
+                // Get the variable value first
+                const char *var_name = rest + 1;  // Skip the #
+                char *var_value = parse_parameter_expansion(executor, var_name);
+                if (var_value) {
+                    // Count words (space-separated)
+                    size_t word_count = 0;
+                    bool in_word = false;
+                    for (const char *c = var_value; *c; c++) {
+                        if (*c == ' ' || *c == '\t' || *c == '\n') {
+                            in_word = false;
+                        } else if (!in_word) {
+                            word_count++;
+                            in_word = true;
+                        }
+                    }
+                    // Return word count as string
+                    char count_buf[32];
+                    snprintf(count_buf, sizeof(count_buf), "%zu", word_count);
+                    inner_result = strdup(count_buf);
+                    free(var_value);
+                } else {
+                    inner_result = strdup("0");
+                }
             } else {
                 // Normal expansion
                 inner_result = parse_parameter_expansion(executor, rest);
