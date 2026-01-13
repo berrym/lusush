@@ -31,6 +31,7 @@ static const struct {
     {"case", TOK_CASE},   {"esac", TOK_ESAC},
     {"until", TOK_UNTIL}, {"function", TOK_FUNCTION},
     {"select", TOK_SELECT}, {"time", TOK_TIME},
+    {"coproc", TOK_COPROC},
     {NULL, TOK_WORD} // Sentinel
 };
 
@@ -351,7 +352,7 @@ const char *token_type_name(token_type_t type) {
  * @return true if token is a keyword
  */
 bool token_is_keyword(token_type_t type) {
-    return type >= TOK_IF && type <= TOK_TIME;
+    return type >= TOK_IF && type <= TOK_COPROC;
 }
 
 /**
@@ -850,6 +851,39 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                                      length, start_line, start_column,
                                      start_pos);
                 }
+            } else if (next == '\'') {
+                // ANSI-C quoting $'...'
+                tokenizer->position++;  // Skip the '
+                tokenizer->column++;
+                
+                size_t content_start = tokenizer->position;
+                
+                while (tokenizer->position < tokenizer->input_length) {
+                    char curr = tokenizer->input[tokenizer->position];
+                    
+                    if (curr == '\'') {
+                        // End of ANSI-C string
+                        tokenizer->position++;
+                        tokenizer->column++;
+                        break;
+                    } else if (curr == '\\' && 
+                               tokenizer->position + 1 < tokenizer->input_length) {
+                        // Escape sequence - skip both chars
+                        tokenizer->position += 2;
+                        tokenizer->column += 2;
+                    } else if (curr == '\n') {
+                        tokenizer->line++;
+                        tokenizer->column = 0;
+                        tokenizer->position++;
+                    } else {
+                        tokenizer->position++;
+                        tokenizer->column++;
+                    }
+                }
+                
+                size_t length = tokenizer->position - start;
+                return token_new(TOK_STRING, &tokenizer->input[start],
+                                 length, start_line, start_column, start_pos);
             } else if (next == '{') {
                 // Parameter expansion ${var} with proper nested brace handling
                 tokenizer->position++;
@@ -1245,20 +1279,54 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                 // If no whitespace after { and we found matching }, treat as word
                 // This covers: {a,b,c}, {1..10}, {solo}, {}
                 if (!has_whitespace_after_open && found_close) {
-                    size_t brace_len = scan_pos - tokenizer->position;
+                    // Also consume suffix: word characters AND additional brace patterns
+                    // This handles {a,b,c}_suffix and {1..2}{a..b} Cartesian products
+                    while (scan_pos < tokenizer->input_length) {
+                        char sc = tokenizer->input[scan_pos];
+                        // Check for word characters that can be part of suffix
+                        if (isalnum((unsigned char)sc) || 
+                            strchr("_.-/~:@*?+%!", sc) != NULL) {
+                            scan_pos++;
+                        } else if ((unsigned char)sc >= 0x80) {
+                            // UTF-8 continuation - skip entire sequence
+                            int seq_len = 1;
+                            if ((sc & 0xE0) == 0xC0) seq_len = 2;
+                            else if ((sc & 0xF0) == 0xE0) seq_len = 3;
+                            else if ((sc & 0xF8) == 0xF0) seq_len = 4;
+                            scan_pos += seq_len;
+                        } else if (sc == '{') {
+                            // Another brace pattern - scan for its closing }
+                            // to support Cartesian products like {1..2}{a..b}
+                            size_t brace_scan = scan_pos + 1;
+                            int depth = 1;
+                            bool valid_brace = false;
+                            while (brace_scan < tokenizer->input_length && depth > 0) {
+                                char bc = tokenizer->input[brace_scan];
+                                if (bc == '{') depth++;
+                                else if (bc == '}') {
+                                    depth--;
+                                    if (depth == 0) valid_brace = true;
+                                }
+                                brace_scan++;
+                            }
+                            if (valid_brace) {
+                                scan_pos = brace_scan;  // Include this brace group
+                            } else {
+                                break;  // Malformed brace, stop
+                            }
+                        } else {
+                            break;
+                        }
+                    }
                     
-                    // Check if there's a prefix (word chars before the {)
-                    // We need to back up and include them - but we're already
-                    // past them. For now, just return the brace part as a word.
-                    // The prefix case like file{1,2}.txt is handled when { appears
-                    // mid-word in the word scanning section.
+                    size_t total_len = scan_pos - tokenizer->position;
                     
                     token_t *tok = token_new(TOK_WORD, 
                                              &tokenizer->input[tokenizer->position],
-                                             brace_len, start_line, start_column, 
+                                             total_len, start_line, start_column, 
                                              start_pos);
                     tokenizer->position = scan_pos;
-                    tokenizer->column += brace_len;
+                    tokenizer->column += total_len;
                     return tok;
                 }
             }
@@ -1389,30 +1457,20 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
             if (curr_char_len > 0) {
                 // Valid UTF-8 character - check if it's a word character
                 if (is_word_codepoint(curr_codepoint)) {
-                    // Special case: stop at ] - it should be tokenized separately
-                    // This allows [idx]=value syntax in array literals to work
-                    // Note: We don't consume the ] here, it becomes its own TOK_RBRACKET
+                    // Special case: stop at ] ONLY inside array literals
+                    // For arr[n]=value, we want arr[n] as ONE token (element assignment)
+                    // For [idx]=value inside =(...), we want idx as separate token
+                    // The key distinction: if word started right after [, break at ]
+                    // Otherwise, keep ] as part of the word
                     if (curr_codepoint == ']' && 
                         shell_mode_allows(FEATURE_INDEXED_ARRAYS)) {
-                        // Check if we're in a context where ] should end the word
-                        // If followed by = or +=, definitely stop (for arr[n]=value)
-                        // Also stop if we started after a [ (for [idx]=value in literals)
-                        size_t next_pos = tokenizer->position + 1;
-                        if (next_pos < tokenizer->input_length) {
-                            char next_char = tokenizer->input[next_pos];
-                            if (next_char == '=' || 
-                                (next_char == '+' && next_pos + 1 < tokenizer->input_length &&
-                                 tokenizer->input[next_pos + 1] == '=')) {
-                                // Stop here, don't include the ]
-                                break;
-                            }
-                        }
-                        // Also stop if we're right after a [ (detected by checking 
-                        // if the char before 'start' was '[')
+                        // Only break if we started immediately after a [ 
+                        // (i.e., we're inside an array literal parsing [idx]=value)
                         if (start > 0 && tokenizer->input[start - 1] == '[') {
                             // Don't consume ], let it be tokenized separately
                             break;
                         }
+                        // Otherwise, include ] in word (for arr[n]=value syntax)
                     }
 
                     // Special case: stop at + if followed by = (for += operator)

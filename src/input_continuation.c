@@ -361,8 +361,9 @@ void continuation_analyze_line(const char *line, continuation_state_t *state) {
             state->bracket_count--;
         }
 
-        // Handle here document detection
-        if (c == '<' && *(p + 1) == '<' && !state->in_here_doc) {
+        // Handle here document detection (but not herestring <<<)
+        if (c == '<' && *(p + 1) == '<' && *(p + 2) != '<' &&
+            !state->in_here_doc) {
             // Found <<, look for delimiter
             const char *delim_start = p + 2;
 

@@ -845,6 +845,22 @@ endif
   endif
 
   # ============================================================================
+  # UNICODE CASE AND COMPARISON TESTS
+  # ============================================================================
+
+  # Unicode Case Conversion and Comparison Unit Tests
+  # Tests unicode_case.h and unicode_compare.h APIs
+  if fs.exists('tests/lle/unit/test_unicode_case_compare.c')
+    test_unicode_case_compare = executable('test_unicode_case_compare',
+                                           'tests/lle/unit/test_unicode_case_compare.c',
+                                           include_directories: inc,
+                                           dependencies: [lle_dep])
+    test('LLE Unicode Case and Compare', test_unicode_case_compare,
+         suite: 'lle-unit',
+         timeout: 30)
+  endif
+
+  # ============================================================================
   # SPEC 25: DEFAULT KEYBINDINGS TESTS
   # ============================================================================
 

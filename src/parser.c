@@ -53,6 +53,7 @@ static node_t *parse_process_substitution(parser_t *parser);
 // Forward declarations for extended language features (Phase 5)
 static node_t *parse_select_statement(parser_t *parser);
 static node_t *parse_time_command(parser_t *parser);
+static node_t *parse_coproc(parser_t *parser);
 
 // Forward declarations for extended language features (Phase 7: Zsh)
 static node_t *parse_anonymous_function(parser_t *parser);
@@ -709,6 +710,8 @@ static node_t *parse_simple_command(parser_t *parser) {
             return parse_select_statement(parser);
         case TOK_TIME:
             return parse_time_command(parser);
+        case TOK_COPROC:
+            return parse_coproc(parser);
         default:
             // Other keywords not implemented yet
             printf("DEBUG: Unhandled keyword type %d (%s)\n", current->type,
@@ -2483,6 +2486,95 @@ static node_t *parse_time_command(parser_t *parser) {
     add_child_node(time_node, pipeline);
 
     return time_node;
+}
+
+/**
+ * @brief Parse a coprocess command
+ *
+ * Parses: coproc [NAME] command
+ * Creates a coprocess running in the background with bidirectional pipes.
+ * If NAME is provided, file descriptors are stored in NAME array and
+ * PID in NAME_PID variable. Otherwise uses COPROC and COPROC_PID.
+ *
+ * The first child node stores the command to execute.
+ * The node's val.str stores the coprocess name (or NULL for default COPROC).
+ *
+ * @param parser Parser instance
+ * @return Coproc AST node
+ */
+static node_t *parse_coproc(parser_t *parser) {
+    if (!expect_token(parser, TOK_COPROC)) {
+        return NULL;
+    }
+
+    // Check if feature is enabled
+    if (!shell_mode_allows(FEATURE_COPROC)) {
+        parser_error_add(parser, SHELL_ERR_FEATURE_DISABLED,
+                         "coproc: feature not enabled in current shell mode");
+        return NULL;
+    }
+
+    node_t *coproc_node = new_node(NODE_COPROC);
+    if (!coproc_node) {
+        return NULL;
+    }
+
+    // Skip any whitespace/newlines
+    token_t *current = tokenizer_current(parser->tokenizer);
+    while (current && (current->type == TOK_NEWLINE || 
+                       current->type == TOK_WHITESPACE)) {
+        tokenizer_advance(parser->tokenizer);
+        current = tokenizer_current(parser->tokenizer);
+    }
+
+    if (!current || current->type == TOK_EOF) {
+        free_node_tree(coproc_node);
+        parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                         "expected command after 'coproc'");
+        return NULL;
+    }
+
+    // Check if first word is a NAME (simple identifier followed by command)
+    // NAME must be a valid identifier and not a compound command starter
+    char *coproc_name = NULL;
+    
+    if (token_is_word_like(current->type)) {
+        // Peek ahead to see if this is a name or the start of a command
+        token_t *next = tokenizer_peek(parser->tokenizer);
+        
+        // If next token is also word-like or a compound command starter,
+        // then current token is the NAME
+        if (next && (token_is_word_like(next->type) || 
+                     next->type == TOK_LBRACE ||
+                     next->type == TOK_LPAREN ||
+                     next->type == TOK_WHILE ||
+                     next->type == TOK_UNTIL ||
+                     next->type == TOK_FOR ||
+                     next->type == TOK_IF ||
+                     next->type == TOK_CASE ||
+                     next->type == TOK_SELECT)) {
+            // Current is the NAME
+            coproc_name = strdup(current->text);
+            tokenizer_advance(parser->tokenizer);
+        }
+    }
+
+    // Store name (NULL means use default "COPROC")
+    coproc_node->val.str = coproc_name;
+    coproc_node->val_type = VAL_STR;
+
+    // Parse the command (can be simple command or compound command)
+    node_t *command = parse_pipeline(parser);
+    if (!command) {
+        free_node_tree(coproc_node);
+        parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                         "expected command after 'coproc'");
+        return NULL;
+    }
+
+    add_child_node(coproc_node, command);
+
+    return coproc_node;
 }
 
 /**

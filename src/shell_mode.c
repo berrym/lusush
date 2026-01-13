@@ -74,9 +74,14 @@ static const bool feature_matrix[SHELL_MODE_COUNT][FEATURE_COUNT] = {
         [FEATURE_EXTENDED_GLOB]       = false,
         [FEATURE_NULL_GLOB]           = false,
         [FEATURE_DOT_GLOB]            = false,
+        [FEATURE_GLOBSTAR]            = false, /* POSIX doesn't have ** recursive glob */
 
         /* Brace Expansion */
         [FEATURE_BRACE_EXPANSION]     = false, /* POSIX doesn't have brace expansion */
+
+        /* Quoting Extensions */
+        [FEATURE_ANSI_QUOTING]        = false, /* POSIX doesn't have $'...' */
+        [FEATURE_LOCALE_QUOTING]      = false, /* POSIX doesn't have $"..." */
 
         /* Control Flow Extensions */
         [FEATURE_CASE_FALLTHROUGH]    = false,
@@ -88,6 +93,13 @@ static const bool feature_matrix[SHELL_MODE_COUNT][FEATURE_COUNT] = {
         [FEATURE_AUTO_CD]             = false,
         [FEATURE_AUTO_PUSHD]          = false,
         [FEATURE_CDABLE_VARS]         = false,
+
+        /* History Behavior */
+        [FEATURE_HISTAPPEND]          = false,
+        [FEATURE_INC_APPEND_HISTORY]  = false,
+        [FEATURE_SHARE_HISTORY]       = false,
+        [FEATURE_HIST_VERIFY]         = false,
+        [FEATURE_CHECKJOBS]           = false,
 
         /* Function Enhancements */
         [FEATURE_NAMEREF]             = false,
@@ -135,9 +147,14 @@ static const bool feature_matrix[SHELL_MODE_COUNT][FEATURE_COUNT] = {
         [FEATURE_EXTENDED_GLOB]       = false,
         [FEATURE_NULL_GLOB]           = false,
         [FEATURE_DOT_GLOB]            = false,
+        [FEATURE_GLOBSTAR]            = false, /* shopt globstar, off by default */
 
         /* Brace Expansion */
         [FEATURE_BRACE_EXPANSION]     = true, /* Bash has brace expansion on by default */
+
+        /* Quoting Extensions */
+        [FEATURE_ANSI_QUOTING]        = true, /* Bash supports $'...' */
+        [FEATURE_LOCALE_QUOTING]      = true, /* Bash supports $"..." */
 
         /* Control Flow Extensions */
         [FEATURE_CASE_FALLTHROUGH]    = true,
@@ -149,6 +166,13 @@ static const bool feature_matrix[SHELL_MODE_COUNT][FEATURE_COUNT] = {
         [FEATURE_AUTO_CD]             = false, /* shopt autocd, off by default */
         [FEATURE_AUTO_PUSHD]          = false,
         [FEATURE_CDABLE_VARS]         = false,
+
+        /* History Behavior */
+        [FEATURE_HISTAPPEND]          = true,  /* Bash default on */
+        [FEATURE_INC_APPEND_HISTORY]  = false, /* Bash: off by default */
+        [FEATURE_SHARE_HISTORY]       = false, /* Bash doesn't have this */
+        [FEATURE_HIST_VERIFY]         = false, /* shopt histverify, off */
+        [FEATURE_CHECKJOBS]           = false, /* shopt checkjobs, off */
 
         /* Function Enhancements */
         [FEATURE_NAMEREF]             = true,
@@ -196,9 +220,14 @@ static const bool feature_matrix[SHELL_MODE_COUNT][FEATURE_COUNT] = {
         [FEATURE_EXTENDED_GLOB]       = true,
         [FEATURE_NULL_GLOB]           = true,  /* CSH_NULL_GLOB behavior */
         [FEATURE_DOT_GLOB]            = false, /* GLOB_DOTS off by default */
+        [FEATURE_GLOBSTAR]            = true,  /* ** recursive glob on by default */
 
         /* Brace Expansion */
         [FEATURE_BRACE_EXPANSION]     = true, /* Zsh has brace expansion on by default */
+
+        /* Quoting Extensions */
+        [FEATURE_ANSI_QUOTING]        = true, /* Zsh supports $'...' */
+        [FEATURE_LOCALE_QUOTING]      = false, /* Zsh doesn't have $"..." */
 
         /* Control Flow Extensions */
         [FEATURE_CASE_FALLTHROUGH]    = true,
@@ -210,6 +239,13 @@ static const bool feature_matrix[SHELL_MODE_COUNT][FEATURE_COUNT] = {
         [FEATURE_AUTO_CD]             = false, /* AUTO_CD option, off by default */
         [FEATURE_AUTO_PUSHD]          = false,
         [FEATURE_CDABLE_VARS]         = false,
+
+        /* History Behavior */
+        [FEATURE_HISTAPPEND]          = true,  /* APPEND_HISTORY */
+        [FEATURE_INC_APPEND_HISTORY]  = true,  /* INC_APPEND_HISTORY on by default */
+        [FEATURE_SHARE_HISTORY]       = false, /* SHARE_HISTORY off by default */
+        [FEATURE_HIST_VERIFY]         = false, /* HIST_VERIFY off by default */
+        [FEATURE_CHECKJOBS]           = false, /* CHECK_JOBS off by default */
 
         /* Function Enhancements */
         [FEATURE_NAMEREF]             = true,
@@ -257,9 +293,14 @@ static const bool feature_matrix[SHELL_MODE_COUNT][FEATURE_COUNT] = {
         [FEATURE_EXTENDED_GLOB]       = true,
         [FEATURE_NULL_GLOB]           = true,  /* Safer: no literal *.foo */
         [FEATURE_DOT_GLOB]            = false, /* Explicit is better */
+        [FEATURE_GLOBSTAR]            = true,  /* ** recursive glob - very useful */
 
         /* Brace Expansion */
         [FEATURE_BRACE_EXPANSION]     = true, /* Essential shell feature */
+
+        /* Quoting Extensions */
+        [FEATURE_ANSI_QUOTING]        = true, /* Very useful, widely expected */
+        [FEATURE_LOCALE_QUOTING]      = false, /* Niche use, Bash-only */
 
         /* Control Flow Extensions - full support */
         [FEATURE_CASE_FALLTHROUGH]    = true,
@@ -271,6 +312,13 @@ static const bool feature_matrix[SHELL_MODE_COUNT][FEATURE_COUNT] = {
         [FEATURE_AUTO_CD]             = true,  /* Convenience feature */
         [FEATURE_AUTO_PUSHD]          = false, /* Optional */
         [FEATURE_CDABLE_VARS]         = false, /* Optional */
+
+        /* History Behavior - better defaults */
+        [FEATURE_HISTAPPEND]          = true,  /* Preserve history */
+        [FEATURE_INC_APPEND_HISTORY]  = true,  /* Better crash recovery */
+        [FEATURE_SHARE_HISTORY]       = false, /* Can be confusing, opt-in */
+        [FEATURE_HIST_VERIFY]         = false, /* Slows workflow, opt-in */
+        [FEATURE_CHECKJOBS]           = true,  /* Prevents accidental job loss */
 
         /* Function Enhancements - full support */
         [FEATURE_NAMEREF]             = true,
@@ -333,9 +381,14 @@ static const char *feature_names[FEATURE_COUNT] = {
     [FEATURE_EXTENDED_GLOB]        = "extended_glob",
     [FEATURE_NULL_GLOB]            = "null_glob",
     [FEATURE_DOT_GLOB]             = "dot_glob",
+    [FEATURE_GLOBSTAR]             = "globstar",
 
     /* Brace Expansion */
     [FEATURE_BRACE_EXPANSION]      = "brace_expansion",
+
+    /* Quoting Extensions */
+    [FEATURE_ANSI_QUOTING]         = "ansi_quoting",
+    [FEATURE_LOCALE_QUOTING]       = "locale_quoting",
 
     /* Control Flow Extensions */
     [FEATURE_CASE_FALLTHROUGH]     = "case_fallthrough",
@@ -347,6 +400,13 @@ static const char *feature_names[FEATURE_COUNT] = {
     [FEATURE_AUTO_CD]              = "auto_cd",
     [FEATURE_AUTO_PUSHD]           = "auto_pushd",
     [FEATURE_CDABLE_VARS]          = "cdable_vars",
+
+    /* History Behavior */
+    [FEATURE_HISTAPPEND]           = "histappend",
+    [FEATURE_INC_APPEND_HISTORY]   = "inc_append_history",
+    [FEATURE_SHARE_HISTORY]        = "share_history",
+    [FEATURE_HIST_VERIFY]          = "hist_verify",
+    [FEATURE_CHECKJOBS]            = "checkjobs",
 
     /* Function Enhancements */
     [FEATURE_NAMEREF]              = "nameref",
@@ -373,9 +433,17 @@ static const struct {
     {"extglob",     FEATURE_EXTENDED_GLOB},
     {"nullglob",    FEATURE_NULL_GLOB},
     {"dotglob",     FEATURE_DOT_GLOB},
+    {"globstar",    FEATURE_GLOBSTAR},
     {"braceexp",    FEATURE_BRACE_EXPANSION},
+    {"ansiquoting", FEATURE_ANSI_QUOTING},
+    {"dollarquote", FEATURE_ANSI_QUOTING},
     {"autocd",      FEATURE_AUTO_CD},
     {"wordsplit",   FEATURE_WORD_SPLIT_DEFAULT},
+    {"histappend",  FEATURE_HISTAPPEND},
+    {"incappendhistory", FEATURE_INC_APPEND_HISTORY},
+    {"sharehistory", FEATURE_SHARE_HISTORY},
+    {"histverify",  FEATURE_HIST_VERIFY},
+    {"checkjobs",   FEATURE_CHECKJOBS},
     {"plugins",     FEATURE_PLUGIN_SYSTEM},
     {NULL, 0}
 };

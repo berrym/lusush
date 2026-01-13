@@ -83,9 +83,14 @@ typedef enum {
     FEATURE_EXTENDED_GLOB, /**< extglob: ?(pat), *(pat), etc. */
     FEATURE_NULL_GLOB,     /**< Null glob: unmatched patterns expand to nothing */
     FEATURE_DOT_GLOB,      /**< Include dotfiles in glob matches */
+    FEATURE_GLOBSTAR,      /**< ** matches recursively through directories */
 
     /* Brace Expansion */
     FEATURE_BRACE_EXPANSION, /**< {a,b,c} and {1..10} brace expansion */
+
+    /* Quoting Extensions */
+    FEATURE_ANSI_QUOTING,    /**< $'...' ANSI-C quoting with escape sequences */
+    FEATURE_LOCALE_QUOTING,  /**< $"..." locale-aware quoting (gettext) */
 
     /* Control Flow Extensions (Phase 5) */
     FEATURE_CASE_FALLTHROUGH, /**< ;& and ;;& in case statements */
@@ -97,6 +102,13 @@ typedef enum {
     FEATURE_AUTO_CD,            /**< Auto-cd to directories without cd command */
     FEATURE_AUTO_PUSHD,         /**< Auto-push directories to stack on cd */
     FEATURE_CDABLE_VARS,        /**< Treat unset vars as directory names for cd */
+
+    /* History Behavior */
+    FEATURE_HISTAPPEND,         /**< Append to history file instead of overwrite */
+    FEATURE_INC_APPEND_HISTORY, /**< Append each command immediately (better crash recovery) */
+    FEATURE_SHARE_HISTORY,      /**< Share history between concurrent sessions */
+    FEATURE_HIST_VERIFY,        /**< Verify history expansion before execution */
+    FEATURE_CHECKJOBS,          /**< Warn about running jobs on exit */
 
     /* Function Enhancements (Phase 6) */
     FEATURE_NAMEREF,             /**< local -n nameref variables */
