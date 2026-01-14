@@ -958,6 +958,7 @@ static node_t *parse_simple_command(parser_t *parser) {
             arg_token->type == TOK_REDIRECT_BOTH ||
             arg_token->type == TOK_APPEND_ERR ||
             arg_token->type == TOK_REDIRECT_FD ||
+            arg_token->type == TOK_REDIRECT_FD_ALLOC ||
             arg_token->type == TOK_REDIRECT_CLOBBER ||
             arg_token->type == TOK_APPEND_BOTH) {
 
@@ -1343,6 +1344,7 @@ static bool is_redirection_token(token_type_t type) {
            type == TOK_REDIRECT_BOTH ||
            type == TOK_APPEND_ERR ||
            type == TOK_REDIRECT_FD ||
+           type == TOK_REDIRECT_FD_ALLOC ||
            type == TOK_REDIRECT_CLOBBER ||
            type == TOK_APPEND_BOTH;
 }
@@ -1424,6 +1426,9 @@ static node_t *parse_redirection(parser_t *parser) {
     case TOK_REDIRECT_FD:
         node_type = NODE_REDIR_FD;
         break;
+    case TOK_REDIRECT_FD_ALLOC:
+        node_type = NODE_REDIR_FD_ALLOC;
+        break;
     case TOK_REDIRECT_CLOBBER:
         node_type = NODE_REDIR_CLOBBER;
         break;
@@ -1455,6 +1460,23 @@ static node_t *parse_redirection(parser_t *parser) {
     if (node_type == NODE_REDIR_FD) {
         // No separate target token needed for file descriptor redirections
         return redir_node;
+    }
+
+    // For NODE_REDIR_FD_ALLOC, check if target is embedded (>&- or >&N patterns)
+    // or if we need a separate target file ({varname}> or {varname}>>)
+    if (node_type == NODE_REDIR_FD_ALLOC) {
+        const char *redir_text = redir_node->val.str;
+        size_t len = strlen(redir_text);
+        // Check if ends with >&- or >&N or <&- or <&N (no target needed)
+        if (len >= 2) {
+            char last = redir_text[len - 1];
+            char prev = redir_text[len - 2];
+            if (prev == '&' && (last == '-' || isdigit(last))) {
+                // {varname}>&- or {varname}>&N - no target needed
+                return redir_node;
+            }
+        }
+        // Otherwise fall through to parse target file
     }
 
     if (!target_token || !token_is_word_like(target_token->type)) {

@@ -38,6 +38,7 @@ typedef enum {
     NODE_REDIR_BOTH,          // '&>'
     NODE_REDIR_BOTH_APPEND,   // '&>>' - append both stdout and stderr
     NODE_REDIR_FD,            // '&1', '&2', etc.
+    NODE_REDIR_FD_ALLOC,      // '{varname}>' - fd allocation (bash 4.1+/zsh)
     NODE_REDIR_CLOBBER,       // '>|'
     // List types for semantic clarity
     NODE_COMMAND_LIST, // Sequence of commands separated by semicolons

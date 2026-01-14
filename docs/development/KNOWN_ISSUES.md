@@ -284,23 +284,30 @@ echo "test" >&$FD      # Correctly redirects to fd 10
 
 This limitation does not affect coproc usage since coproc fds are accessed via array variables.
 
-**Future Enhancement - {varname} FD Allocation Syntax**:
-The `{varname}` syntax for automatic fd allocation (bash 4.1+/zsh feature) is not yet implemented:
+**{varname} FD Allocation Syntax - IMPLEMENTED (Session 122)**:
+The `{varname}` syntax for automatic fd allocation (bash 4.1+/zsh feature) is now fully supported:
 
 ```bash
-# NOT YET SUPPORTED:
-exec {myfd}>/tmp/file    # Allocate fd and store in $myfd
+# All patterns now work:
+exec {myfd}>/tmp/file    # Allocate fd (≥10), open file for write, store in $myfd
+exec {myfd}>>/tmp/file   # Allocate fd, open file for append
+exec {myfd}</tmp/file    # Allocate fd, open file for read
 exec {myfd}>&-           # Close fd stored in $myfd
+exec {myfd}>&2           # Allocate fd and dup to stderr
 
-# WORKAROUND - use explicit fd numbers:
-exec 10>/tmp/file
-echo "hello" >&10
-exec 10>&-
+# Usage example:
+exec {myfd}>/tmp/test.txt
+echo "Writing to allocated fd: $myfd"
+echo "Data via fd" >&$myfd
+exec {myfd}>&-
 ```
 
-This syntax allows the shell to automatically allocate an available fd (≥10) and store it in a variable.
-It's commonly used with coproc for cleaner fd management. Implementation would require tokenizer 
-and redirection system changes to recognize `{varname}` as a special fd reference.
+Implementation details:
+- Tokenizer recognizes `{identifier}` followed by `>`, `>>`, `<`, `>&`, `<&` as `TOK_REDIRECT_FD_ALLOC`
+- Parser creates `NODE_REDIR_FD_ALLOC` nodes with proper target handling
+- Redirection system allocates fd ≥10 using `fstat()` to find available slots
+- Variable is set to allocated fd number via symtable
+- Closing with `{varname}>&-` looks up the variable value and closes that fd
 
 ---
 
@@ -1064,9 +1071,10 @@ Implemented type-aware deduplication, full path storage for shadowing commands, 
 - Issue #25: macOS cursor flicker (LOW - cosmetic only)
 - Issue #41: Coproc stdin behavior (LOW - expected behavior, not a bug)
 
-**Session 122 Resolved**: 2 issues fixed:
+**Session 122 Resolved**: 3 features implemented:
 - Issue #31: FD variable expansion in redirections - FIXED (tokenizer + redirection.c)
 - Issue #37: `exec` redirection-only mode - FIXED (tokenizer + executor.c)
+- `{varname}` FD allocation syntax - IMPLEMENTED (bash 4.1+/zsh feature)
 
 **Session 120 Resolved**: 7 HIGH severity issues fixed:
 - Issue #40/#44: Array element assignment - FIXED (tokenizer context tracking)

@@ -233,6 +233,8 @@ const char *token_type_name(token_type_t type) {
         return "APPEND_ERR";
     case TOK_REDIRECT_FD:
         return "REDIRECT_FD";
+    case TOK_REDIRECT_FD_ALLOC:
+        return "REDIRECT_FD_ALLOC";
     case TOK_REDIRECT_CLOBBER:
         return "REDIRECT_CLOBBER";
     case TOK_ASSIGN:
@@ -1366,6 +1368,56 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                              start_pos);
 
         case '{':
+            // Check for {varname} fd allocation syntax (bash 4.1+/zsh)
+            // Pattern: {identifier}> or {identifier}< for fd allocation
+            if (tokenizer->position + 2 < tokenizer->input_length) {
+                size_t scan = tokenizer->position + 1;  // After '{'
+                // Scan for valid identifier: [a-zA-Z_][a-zA-Z0-9_]*
+                if (scan < tokenizer->input_length &&
+                    (isalpha(tokenizer->input[scan]) ||
+                     tokenizer->input[scan] == '_')) {
+                    scan++;
+                    while (scan < tokenizer->input_length &&
+                           (isalnum(tokenizer->input[scan]) ||
+                            tokenizer->input[scan] == '_')) {
+                        scan++;
+                    }
+                    // Check for closing } followed by redirection operator
+                    if (scan < tokenizer->input_length &&
+                        tokenizer->input[scan] == '}') {
+                        size_t after_brace = scan + 1;
+                        if (after_brace < tokenizer->input_length) {
+                            char next_ch = tokenizer->input[after_brace];
+                            // Must be followed by > or < for fd allocation
+                            if (next_ch == '>' || next_ch == '<') {
+                                // This is {varname}> or {varname}< fd allocation
+                                // Include the entire pattern with redirection op
+                                size_t tok_end = after_brace + 1;
+                                // Check for >> or >& or <& variants
+                                if (tok_end < tokenizer->input_length) {
+                                    char op2 = tokenizer->input[tok_end];
+                                    if (op2 == '>' || op2 == '&' || op2 == '<') {
+                                        tok_end++;
+                                        // Check for >&- pattern
+                                        if (tok_end < tokenizer->input_length &&
+                                            tokenizer->input[tok_end] == '-') {
+                                            tok_end++;
+                                        }
+                                    }
+                                }
+                                size_t length = tok_end - tokenizer->position;
+                                token_t *tok = token_new(
+                                    TOK_REDIRECT_FD_ALLOC,
+                                    &tokenizer->input[tokenizer->position],
+                                    length, start_line, start_column, start_pos);
+                                tokenizer->position = tok_end;
+                                tokenizer->column += length;
+                                return tok;
+                            }
+                        }
+                    }
+                }
+            }
             // Check if this is brace expansion: {a,b,c} or {1..10}
             // Or a literal brace word: {solo} or {}
             // Command groups require whitespace after {: { cmd; }

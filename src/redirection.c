@@ -48,6 +48,8 @@ static int setup_here_string(executor_t *executor, const char *content);
 static char *expand_redirection_target(executor_t *executor,
                                        const char *target);
 static int setup_fd_redirection(executor_t *executor, const char *redir_text);
+static int setup_fd_alloc_redirection(executor_t *executor, node_t *redir_node);
+static int find_available_fd(int min_fd);
 
 /**
  * @brief Setup redirections for a command
@@ -67,7 +69,7 @@ int setup_redirections(executor_t *executor, node_t *command) {
     // POSIX compliant: Process redirections left-to-right in order they appear
     node_t *child = command->first_child;
     while (child) {
-        if (child->type >= NODE_REDIR_IN && child->type <= NODE_REDIR_CLOBBER) {
+        if (child->type >= NODE_REDIR_IN && child->type <= NODE_REDIR_FD_ALLOC) {
             int result = handle_redirection_node(executor, child);
             if (result != 0) {
                 return result;
@@ -134,6 +136,11 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
     if (redir_node->type == NODE_REDIR_FD) {
         // File descriptor redirection: >&2, 2>&1, <&3, >&$VAR, etc.
         return setup_fd_redirection(executor, redir_node->val.str);
+    }
+
+    // Handle NODE_REDIR_FD_ALLOC for {varname}> fd allocation syntax
+    if (redir_node->type == NODE_REDIR_FD_ALLOC) {
+        return setup_fd_alloc_redirection(executor, redir_node);
     }
 
     // Get the target (filename) from the first child for other redirections
@@ -888,6 +895,247 @@ int restore_file_descriptors(redirection_state_t *state) {
         close(state->saved_stderr);
     }
 
+    return result;
+}
+
+/**
+ * @brief Find next available file descriptor
+ *
+ * Scans for the first unused fd >= min_fd. Used for {varname} fd allocation
+ * syntax (bash 4.1+/zsh feature).
+ *
+ * @param min_fd Minimum fd to check (typically 10)
+ * @return Available fd number, or -1 if none available
+ */
+static int find_available_fd(int min_fd) {
+    struct stat st;
+    for (int fd = min_fd; fd < 255; fd++) {
+        // Check if this fd is available by trying to fstat it
+        // If fstat returns -1 with EBADF, the fd is not open
+        if (fstat(fd, &st) == -1 && errno == EBADF) {
+            return fd;
+        }
+    }
+    return -1;  // No available fd found
+}
+
+/**
+ * @brief Setup fd allocation redirection
+ *
+ * Handles {varname} fd allocation syntax (bash 4.1+/zsh feature):
+ * - {varname}>/file - allocate fd, open file for writing, store fd in varname
+ * - {varname}>>/file - allocate fd, open file for appending
+ * - {varname}</file - allocate fd, open file for reading
+ * - {varname}>&- - close fd stored in $varname (lookup value first)
+ * - {varname}>&N - allocate fd, dup to fd N
+ *
+ * @param executor Executor context for variable access
+ * @param redir_node Redirection node containing pattern and optional target
+ * @return 0 on success, non-zero on error
+ */
+static int setup_fd_alloc_redirection(executor_t *executor, node_t *redir_node) {
+    if (!redir_node || !redir_node->val.str) {
+        return 1;
+    }
+
+    const char *redir_text = redir_node->val.str;
+
+    // Parse {varname} - extract variable name between braces
+    if (*redir_text != '{') {
+        return 1;
+    }
+
+    const char *var_start = redir_text + 1;
+    const char *var_end = strchr(var_start, '}');
+    if (!var_end) {
+        return 1;
+    }
+
+    size_t var_len = var_end - var_start;
+    char *var_name = malloc(var_len + 1);
+    if (!var_name) {
+        return 1;
+    }
+    strncpy(var_name, var_start, var_len);
+    var_name[var_len] = '\0';
+
+    // Get redirection operator after }
+    const char *op = var_end + 1;
+
+    // Determine operation type
+    bool is_input = (*op == '<');
+    bool is_close = false;
+    bool is_dup = false;
+    bool is_append = false;
+    int dup_target = -1;
+
+    op++;  // Skip < or >
+
+    // Check for >> (append)
+    if (*op == '>') {
+        is_append = true;
+        op++;
+    }
+    // Check for >& or <& (dup or close)
+    else if (*op == '&') {
+        op++;
+        if (*op == '-') {
+            is_close = true;
+        } else if (isdigit(*op)) {
+            is_dup = true;
+            dup_target = *op - '0';
+        }
+    }
+
+    int result = 0;
+
+    if (is_close) {
+        // {varname}>&- : close fd stored in $varname
+        // First look up the variable value
+        char *fd_str = symtable_get_var(executor->symtable, var_name);
+        if (!fd_str || *fd_str == '\0') {
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "%s: ambiguous redirect", var_name);
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
+            free(fd_str);
+            free(var_name);
+            return 1;
+        }
+        char *endptr;
+        long fd_val = strtol(fd_str, &endptr, 10);
+        if (*endptr != '\0' || fd_val < 0 || fd_val > 255) {
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "%s: bad file descriptor", fd_str);
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
+            free(fd_str);
+            free(var_name);
+            return 1;
+        }
+        free(fd_str);
+        if (close((int)fd_val) == -1 && errno != EBADF) {
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "%ld: %s", fd_val, strerror(errno));
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
+            free(var_name);
+            return 1;
+        }
+        free(var_name);
+        return 0;
+    }
+
+    if (is_dup) {
+        // {varname}>&N : allocate fd and dup to N
+        int allocated_fd = find_available_fd(10);
+        if (allocated_fd < 0) {
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_FD_UNAVAILABLE, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "cannot allocate file descriptor for %s", var_name);
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
+            free(var_name);
+            return 1;
+        }
+        if (dup2(dup_target, allocated_fd) == -1) {
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "%d: %s", dup_target, strerror(errno));
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
+            free(var_name);
+            return 1;
+        }
+        // Store allocated fd in variable
+        char fd_str[16];
+        snprintf(fd_str, sizeof(fd_str), "%d", allocated_fd);
+        symtable_set_var(executor->symtable, var_name, fd_str, SYMVAR_NONE);
+        free(var_name);
+        return 0;
+    }
+
+    // {varname}>/file or {varname}</file : allocate fd and open file
+    // Get target filename from first child
+    node_t *target_node = redir_node->first_child;
+    if (!target_node || !target_node->val.str) {
+        shell_error_t *error = shell_error_create(
+            SHELL_ERR_INVALID_REDIRECT, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+            "missing redirection target");
+        shell_error_display(error, stderr, isatty(STDERR_FILENO));
+        shell_error_free(error);
+        free(var_name);
+        return 1;
+    }
+
+    // Expand the target filename
+    char *target = expand_redirection_target(executor, target_node->val.str);
+    if (!target) {
+        free(var_name);
+        return 1;
+    }
+
+    // Allocate fd
+    int allocated_fd = find_available_fd(10);
+    if (allocated_fd < 0) {
+        shell_error_t *error = shell_error_create(
+            SHELL_ERR_FD_UNAVAILABLE, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+            "cannot allocate file descriptor for %s", var_name);
+        shell_error_display(error, stderr, isatty(STDERR_FILENO));
+        shell_error_free(error);
+        free(var_name);
+        free(target);
+        return 1;
+    }
+
+    // Open file with appropriate flags
+    int flags;
+    if (is_input) {
+        flags = O_RDONLY;
+    } else if (is_append) {
+        flags = O_WRONLY | O_CREAT | O_APPEND;
+    } else {
+        flags = O_WRONLY | O_CREAT | O_TRUNC;
+    }
+
+    int fd = open(target, flags, 0644);
+    if (fd == -1) {
+        shell_error_t *error = shell_error_create(
+            SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+            "%s: %s", target, strerror(errno));
+        shell_error_display(error, stderr, isatty(STDERR_FILENO));
+        shell_error_free(error);
+        free(var_name);
+        free(target);
+        return 1;
+    }
+
+    // Move fd to allocated slot if necessary
+    if (fd != allocated_fd) {
+        if (dup2(fd, allocated_fd) == -1) {
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "dup2: %s", strerror(errno));
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
+            close(fd);
+            free(var_name);
+            free(target);
+            return 1;
+        }
+        close(fd);
+    }
+
+    // Store allocated fd in variable
+    char fd_str[16];
+    snprintf(fd_str, sizeof(fd_str), "%d", allocated_fd);
+    symtable_set_var(executor->symtable, var_name, fd_str, SYMVAR_NONE);
+
+    free(var_name);
+    free(target);
     return result;
 }
 
