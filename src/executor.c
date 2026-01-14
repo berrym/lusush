@@ -1312,7 +1312,9 @@ static int execute_command(executor_t *executor, node_t *command) {
             fflush(stderr);
 
             // Restore file descriptors after builtin execution
-            if (has_redirections) {
+            // EXCEPT for 'exec' builtin - its redirections are permanent
+            if (has_redirections &&
+                !(filtered_argv[0] && strcmp(filtered_argv[0], "exec") == 0)) {
                 restore_file_descriptors(&redir_state);
             }
         }
