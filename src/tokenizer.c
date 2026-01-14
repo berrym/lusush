@@ -856,8 +856,6 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                 tokenizer->position++;  // Skip the '
                 tokenizer->column++;
                 
-                size_t content_start = tokenizer->position;
-                
                 while (tokenizer->position < tokenizer->input_length) {
                     char curr = tokenizer->input[tokenizer->position];
                     
@@ -1087,6 +1085,46 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                                          start_column, start_pos);
                     }
                 }
+                // Handle <&N, <&-, <&$VAR patterns (input fd duplication)
+                if (next == '&' &&
+                    tokenizer->position + 2 < tokenizer->input_length) {
+                    char fd_char = tokenizer->input[tokenizer->position + 2];
+                    // Handle <&N (dup input from fd N) or <&- (close stdin)
+                    if (isdigit(fd_char) || fd_char == '-') {
+                        tokenizer->position += 3;
+                        tokenizer->column += 3;
+                        return token_new(TOK_REDIRECT_FD, &tokenizer->input[start_pos],
+                                         3, start_line, start_column, start_pos);
+                    }
+                    // Handle <&$VAR or <&${VAR} patterns
+                    if (fd_char == '$') {
+                        size_t fd_start = tokenizer->position + 2;
+                        size_t fd_pos = fd_start + 1; // Skip $
+                        // Handle ${...} brace form
+                        if (fd_pos < tokenizer->input_length &&
+                            tokenizer->input[fd_pos] == '{') {
+                            fd_pos++; // Skip {
+                            int brace_depth = 1;
+                            while (fd_pos < tokenizer->input_length && brace_depth > 0) {
+                                if (tokenizer->input[fd_pos] == '{') brace_depth++;
+                                else if (tokenizer->input[fd_pos] == '}') brace_depth--;
+                                fd_pos++;
+                            }
+                        } else {
+                            // Simple $VAR form - scan alphanumeric/underscore
+                            while (fd_pos < tokenizer->input_length &&
+                                   (isalnum(tokenizer->input[fd_pos]) ||
+                                    tokenizer->input[fd_pos] == '_')) {
+                                fd_pos++;
+                            }
+                        }
+                        size_t length = fd_pos - start_pos;
+                        tokenizer->position = fd_pos;
+                        tokenizer->column += length;
+                        return token_new(TOK_REDIRECT_FD, &tokenizer->input[start_pos],
+                                         length, start_line, start_column, start_pos);
+                    }
+                }
             }
             tokenizer->position++;
             tokenizer->column++;
@@ -1117,13 +1155,44 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                                      start_column, start_pos);
                 }
                 if (next == '&' &&
-                    tokenizer->position + 2 < tokenizer->input_length &&
-                    isdigit(tokenizer->input[tokenizer->position + 2])) {
+                    tokenizer->position + 2 < tokenizer->input_length) {
+                    char fd_char = tokenizer->input[tokenizer->position + 2];
                     // Handle >&N pattern (redirect stdout to file descriptor N)
-                    tokenizer->position += 3;
-                    tokenizer->column += 3;
-                    return token_new(TOK_REDIRECT_FD, &tokenizer->input[start_pos],
-                                     3, start_line, start_column, start_pos);
+                    // Also handle >&- (close fd) and >&$VAR (variable expansion)
+                    if (isdigit(fd_char) || fd_char == '-') {
+                        tokenizer->position += 3;
+                        tokenizer->column += 3;
+                        return token_new(TOK_REDIRECT_FD, &tokenizer->input[start_pos],
+                                         3, start_line, start_column, start_pos);
+                    }
+                    // Handle >&$VAR or >&${VAR} patterns
+                    if (fd_char == '$') {
+                        size_t fd_start = tokenizer->position + 2;
+                        size_t fd_pos = fd_start + 1; // Skip $
+                        // Handle ${...} brace form
+                        if (fd_pos < tokenizer->input_length &&
+                            tokenizer->input[fd_pos] == '{') {
+                            fd_pos++; // Skip {
+                            int brace_depth = 1;
+                            while (fd_pos < tokenizer->input_length && brace_depth > 0) {
+                                if (tokenizer->input[fd_pos] == '{') brace_depth++;
+                                else if (tokenizer->input[fd_pos] == '}') brace_depth--;
+                                fd_pos++;
+                            }
+                        } else {
+                            // Simple $VAR form - scan alphanumeric/underscore
+                            while (fd_pos < tokenizer->input_length &&
+                                   (isalnum(tokenizer->input[fd_pos]) ||
+                                    tokenizer->input[fd_pos] == '_')) {
+                                fd_pos++;
+                            }
+                        }
+                        size_t length = fd_pos - start_pos;
+                        tokenizer->position = fd_pos;
+                        tokenizer->column += length;
+                        return token_new(TOK_REDIRECT_FD, &tokenizer->input[start_pos],
+                                         length, start_line, start_column, start_pos);
+                    }
                 }
             }
             tokenizer->position++;
@@ -1338,6 +1407,9 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                 
                 // If no whitespace after { and we found matching }, treat as word
                 // This covers: {a,b,c}, {1..10}, {solo}, {}
+                // Note: has_comma/has_dotdot tracked for potential future validation
+                (void)has_comma;
+                (void)has_dotdot;
                 if (!has_whitespace_after_open && found_close) {
                     // Also consume suffix: word characters AND additional brace patterns
                     // This handles {a,b,c}_suffix and {1..2}{a..b} Cartesian products

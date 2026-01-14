@@ -233,56 +233,56 @@ The zsh parameter flag parsing in `parse_parameter_expansion()` may not be resol
 ### Issue #31: Coproc FD Redirection Syntax Not Supported
 **Severity**: MEDIUM  
 **Discovered**: 2026-01-12 (Session 118/119 - Coproc implementation)  
-**Status**: Documented limitation  
-**Component**: Redirection system (src/redirection.c, src/executor.c)
+**Status**: FIXED (Session 122)  
+**Fixed**: 2026-01-14  
+**Component**: Redirection system (src/redirection.c, src/tokenizer.c)
 
 **Description**:
-The coproc feature correctly creates bidirectional pipes and stores file descriptors in an array variable (e.g., `COPROC[0]=5`, `COPROC[1]=4`). However, the shell's redirection syntax does not support variable expansion in file descriptor positions.
+The coproc feature correctly creates bidirectional pipes and stores file descriptors in an array variable (e.g., `COPROC[0]=5`, `COPROC[1]=4`). Previously, the shell's redirection syntax did not support variable expansion in file descriptor positions.
 
-**Working**:
+**Fix Details**:
+- Modified tokenizer to recognize `>&$VAR`, `>&${VAR}`, `<&$VAR`, `<&${VAR}` patterns
+- Updated `setup_fd_redirection()` to expand variables before performing dup2
+- Added support for `>&-` and `<&-` fd close syntax
+- Added `SHELL_ERR_BAD_FD` error code for structured error reporting
+
+**Now Working**:
 ```bash
 coproc cat
-echo ${COPROC[0]}  # Outputs: 5
-echo ${COPROC[1]}  # Outputs: 4
-echo ${COPROC_PID} # Outputs: 12345
+echo "hello" >&${COPROC[1]}    # Write to coproc stdin
+exec {COPROC[1]}>&-            # Close write end (send EOF)
+read response <&${COPROC[0]}   # Read from coproc stdout
+echo "Got: $response"          # Outputs: Got: hello
 ```
 
-**Not Working**:
+**All Supported Patterns**:
 ```bash
-# These syntaxes are NOT supported:
-echo "hello" >&${COPROC[1]}    # Variable expansion in fd position
-read response <&${COPROC[0]}   # Variable expansion in fd position
-
-# Workaround - use numeric fd directly:
-echo "hello" >&4    # Works if you know the fd number
-read response <&5   # Works if you know the fd number
+>&N          # Redirect stdout to fd N (single digit 0-9)
+<&N          # Redirect stdin from fd N (single digit 0-9)
+N>&M         # Redirect fd N to fd M (single digits)
+>&$VAR       # Variable expansion for fd target (any valid fd)
+>&${VAR}     # Brace-style variable expansion
+>&${arr[0]}  # Array subscript expansion
+>&-          # Close stdout
+<&-          # Close stdin
+N>&-         # Close fd N
 ```
 
-**Root Cause**:
-The redirection parser (`src/executor.c` and `src/redirection.c`) expects literal numeric file descriptors in `>&N` and `<&N` syntax. Variable expansion (`${VAR}`) is not performed in the file descriptor position before the redirection is processed.
+**Remaining Limitation**:
+Literal multi-digit file descriptors (e.g., `>&10`) are not yet supported in the tokenizer. 
+The tokenizer currently only recognizes single-digit literal fds (0-9). However, multi-digit
+fds work correctly through variable expansion:
 
-**Bash Behavior**:
-Bash supports `>&${VAR}` by expanding the variable before processing the redirection. This requires the parser/executor to:
-1. Recognize `>&` followed by `${...}` or `$VAR`
-2. Expand the variable
-3. Convert the result to an integer file descriptor
-
-**Impact**:
-- Coprocesses work correctly (pipes created, FDs stored)
-- Users must use numeric FDs directly or use `eval` workaround
-- Not a coproc bug - this is a separate redirection feature gap
-
-**Workaround**:
 ```bash
-coproc cat
-# Use eval to expand variable in fd position:
-eval "echo hello >&\${COPROC[1]}"
-eval "read response <&\${COPROC[0]}"
+# This does NOT work (tokenizer limitation):
+echo "test" >&10       # Parsed as >&1 followed by 0
+
+# This DOES work (variable expansion):
+FD=10
+echo "test" >&$FD      # Correctly redirects to fd 10
 ```
 
-**Priority**: MEDIUM (coproc works, just requires workaround for FD usage)
-
-**Status**: DOCUMENTED - Future enhancement for redirection system
+This limitation does not affect coproc usage since coproc fds are accessed via array variables.
 
 ---
 
@@ -554,14 +554,14 @@ The tokenizer/parser does not recognize `name[index]=value` as an assignment whe
 
 ---
 
-### Issue #41: Coproc Blocks in Non-Interactive Script Mode
-**Severity**: MEDIUM  
+### Issue #41: Coproc Blocks When Command Reads stdin
+**Severity**: LOW (Expected Behavior)  
 **Discovered**: 2026-01-12 (Session 119 - Valgrind testing)  
-**Status**: Documented limitation  
+**Status**: NOT A BUG - Expected behavior (confirmed Session 122)  
 **Component**: src/executor.c (execute_coproc)
 
 **Description**:
-Coprocess commands that read from stdin (like `cat`) block indefinitely when run in script mode because they wait for input that never comes.
+Coprocess commands that read from stdin (like `cat`) block until they receive EOF. This is expected POSIX behavior - the parent must close the write end of the pipe to signal EOF.
 
 **Blocking Example**:
 ```bash
@@ -1046,14 +1046,17 @@ Implemented type-aware deduplication, full path storage for shadowing commands, 
 ### HIGH Severity (1):
 - Issue #26: LLE freeze/hang (CRITICAL but not reproducible)
 
-### MEDIUM Severity (2):
-- Issue #31: Coproc FD redirection syntax (workaround available)
-- Issue #41: Coproc blocks in non-interactive script mode
+### MEDIUM Severity (1):
+- Issue #40: Array element assignment (workaround: recreate array)
 
-### LOW Severity (3):
+### LOW Severity (4):
 - Issue #37: `exec` redirection-only mode (LOW)
 - Issue #38: `declare -p` list all variables (LOW)
 - Issue #25: macOS cursor flicker (LOW - cosmetic only)
+- Issue #41: Coproc stdin behavior (LOW - expected behavior, not a bug)
+
+**Session 122 Resolved**: 1 MEDIUM severity issue fixed:
+- Issue #31: FD variable expansion in redirections - FIXED (tokenizer + redirection.c)
 
 **Session 120 Resolved**: 7 HIGH severity issues fixed:
 - Issue #40/#44: Array element assignment - FIXED (tokenizer context tracking)

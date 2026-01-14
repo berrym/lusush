@@ -22,6 +22,7 @@
 #include "executor.h"
 #include "lusush.h"
 #include "node.h"
+#include "shell_error.h"
 #include "symtable.h"
 
 #include <ctype.h>
@@ -46,7 +47,7 @@ static int setup_here_document_with_processing(executor_t *executor,
 static int setup_here_string(executor_t *executor, const char *content);
 static char *expand_redirection_target(executor_t *executor,
                                        const char *target);
-static int setup_fd_redirection(const char *redir_text);
+static int setup_fd_redirection(executor_t *executor, const char *redir_text);
 
 /**
  * @brief Setup redirections for a command
@@ -131,8 +132,8 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
 
     // Handle NODE_REDIR_FD first since it doesn't need a target child
     if (redir_node->type == NODE_REDIR_FD) {
-        // File descriptor redirection: >&2, 2>&1, etc.
-        return setup_fd_redirection(redir_node->val.str);
+        // File descriptor redirection: >&2, 2>&1, <&3, >&$VAR, etc.
+        return setup_fd_redirection(executor, redir_node->val.str);
     }
 
     // Get the target (filename) from the first child for other redirections
@@ -695,43 +696,113 @@ static char *expand_redirection_target(executor_t *executor,
 /**
  * @brief Setup file descriptor redirection
  *
- * Handles file descriptor duplication patterns like >&2, 2>&1, etc.
+ * Handles file descriptor duplication patterns including:
+ * - >&N, <&N - redirect stdout/stdin to fd N
+ * - N>&M, N<&M - redirect fd N to fd M
+ * - >&-, <&- - close stdout/stdin
+ * - N>&-, N<&- - close fd N
+ * - >&$VAR, <&${VAR} - variable expansion for fd target
  *
- * @param redir_text Redirection text (e.g., ">&2", "2>&1")
+ * @param executor Executor context for variable expansion
+ * @param redir_text Redirection text (e.g., ">&2", "2>&1", ">&$FD")
  * @return 0 on success, non-zero on error
  */
-static int setup_fd_redirection(const char *redir_text) {
+static int setup_fd_redirection(executor_t *executor, const char *redir_text) {
     if (!redir_text) {
         return 1;
     }
 
-    // Parse patterns like ">&2", "2>&1", etc.
-    if (redir_text[0] == '>' && redir_text[1] == '&' &&
-        isdigit(redir_text[2])) {
-        // >&N - redirect stdout to file descriptor N
-        int target_fd = redir_text[2] - '0';
+    const char *p = redir_text;
+    int source_fd = -1;
 
-        if (dup2(target_fd, STDOUT_FILENO) == -1) {
-            perror("dup2");
+    // Check for leading digit (N>&M or N<&M pattern)
+    if (isdigit(*p)) {
+        source_fd = *p - '0';
+        p++;
+    }
+
+    // Determine direction: < or >
+    if (*p == '<') {
+        if (source_fd == -1) source_fd = STDIN_FILENO;
+        p++;
+    } else if (*p == '>') {
+        if (source_fd == -1) source_fd = STDOUT_FILENO;
+        p++;
+    } else {
+        return 1; // Unknown pattern
+    }
+
+    // Must have &
+    if (*p != '&') {
+        return 1;
+    }
+    p++;
+
+    // Get the target fd - may be digit, -, or variable
+    int target_fd = -1;
+    bool close_fd = false;
+
+    if (*p == '-') {
+        // Close the file descriptor
+        close_fd = true;
+    } else if (isdigit(*p)) {
+        // Literal digit
+        target_fd = *p - '0';
+    } else if (*p == '$') {
+        // Variable expansion needed
+        char *expanded = expand_redirection_target(executor, p);
+        if (!expanded || *expanded == '\0') {
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "%s: bad file descriptor", p);
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
+            free(expanded);
             return 1;
+        }
+        // Parse the expanded value
+        char *endptr;
+        long fd_val = strtol(expanded, &endptr, 10);
+        if (*endptr != '\0' || fd_val < 0 || fd_val > 255) {
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "%s: bad file descriptor", expanded);
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
+            free(expanded);
+            return 1;
+        }
+        target_fd = (int)fd_val;
+        free(expanded);
+    } else {
+        return 1; // Unknown pattern
+    }
+
+    // Perform the redirection
+    if (close_fd) {
+        if (close(source_fd) == -1) {
+            // Ignore EBADF - fd wasn't open, which is fine for close
+            if (errno != EBADF) {
+                shell_error_t *error = shell_error_create(
+                    SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                    "%d: %s", source_fd, strerror(errno));
+                shell_error_display(error, stderr, isatty(STDERR_FILENO));
+                shell_error_free(error);
+                return 1;
+            }
         }
         return 0;
     }
 
-    if (isdigit(redir_text[0]) && redir_text[1] == '>' &&
-        redir_text[2] == '&' && isdigit(redir_text[3])) {
-        // N>&M - redirect file descriptor N to file descriptor M
-        int source_fd = redir_text[0] - '0';
-        int target_fd = redir_text[3] - '0';
-
-        if (dup2(target_fd, source_fd) == -1) {
-            perror("dup2");
-            return 1;
-        }
-        return 0;
+    if (dup2(target_fd, source_fd) == -1) {
+        shell_error_t *error = shell_error_create(
+            SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+            "%d: %s", target_fd, strerror(errno));
+        shell_error_display(error, stderr, isatty(STDERR_FILENO));
+        shell_error_free(error);
+        return 1;
     }
-
-    return 1; // Unknown pattern
+    return 0;
 }
 
 /**

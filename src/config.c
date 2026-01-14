@@ -2121,7 +2121,10 @@ int config_get_xdg_config_path(char *buffer, size_t size) {
         return -1;
     }
 
-    snprintf(buffer, size, "%s/%s", xdg_dir, CONFIG_XDG_FILE);
+    int written = snprintf(buffer, size, "%s/%s", xdg_dir, CONFIG_XDG_FILE);
+    if (written < 0 || (size_t)written >= size) {
+        return -1;  // Path truncated
+    }
     return 0;
 }
 

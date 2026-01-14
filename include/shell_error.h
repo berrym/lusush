@@ -102,6 +102,7 @@ typedef enum shell_error_code {
     SHELL_ERR_LOOP_LIMIT,            /**< Loop iteration limit exceeded */
     SHELL_ERR_SCOPE_ERROR,           /**< Failed to create/pop scope */
     SHELL_ERR_FUNCTION_ERROR,        /**< Function definition/call error */
+    SHELL_ERR_BAD_FD,                /**< Bad file descriptor */
     SHELL_ERR_RUNTIME_MAX = 1199,
 
     /* Builtin errors (1200-1299) */

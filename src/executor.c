@@ -3938,7 +3938,6 @@ static char *zsh_extglob_to_regex(const char *pattern) {
     while (*p) {
         if (*p == '[') {
             // Character class - copy until ]
-            const char *class_start = p;
             *out++ = *p++;
             // Handle negation [^ or [!
             if (*p == '^' || *p == '!') {
@@ -4529,7 +4528,10 @@ static int expand_globstar_recursive(const char *base_dir,
         if (remaining_pattern && remaining_pattern[0]) {
             /* Build candidate path with remaining pattern */
             char candidate[PATH_MAX];
-            snprintf(candidate, sizeof(candidate), "%s/%s", full_path, remaining_pattern);
+            int written = snprintf(candidate, sizeof(candidate), "%s/%s", full_path, remaining_pattern);
+            if (written < 0 || (size_t)written >= sizeof(candidate)) {
+                continue;  /* Path too long, skip this entry */
+            }
 
             /* Use glob to match the remaining pattern */
             glob_t globbuf;
@@ -4583,7 +4585,7 @@ static int expand_globstar_recursive(const char *base_dir,
  * @brief Expand globstar (**) pattern
  *
  * When globstar is enabled, ** matches zero or more directories recursively.
- * For example: src/** //*.c matches all .c files under src/ at any depth.
+ * For example: src/ ** / *.c matches all .c files under src/ at any depth.
  *
  * @param pattern Pattern containing **
  * @param expanded_count Output: number of matches
