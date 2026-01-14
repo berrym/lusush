@@ -368,47 +368,29 @@ None needed - issue is purely cosmetic and self-correcting.
 ### Issue #36: `read` Builtin - `-t`, `-n`, `-s` Options Not Implemented
 **Severity**: MEDIUM  
 **Discovered**: Pre-existing (documented in source code)  
-**Status**: Documented limitation  
+**Status**: FIXED (Session 121)  
 **Component**: src/builtins/builtins.c (bin_read)
 
 **Description**:
-The `read` builtin accepts but does not implement several commonly-used options:
+The `read` builtin previously accepted but did not implement several commonly-used options.
 
-**Options parsed but not functional**:
-- **`-t timeout`**: Should timeout after specified seconds, currently ignored
-- **`-n nchars`**: Should read only specified number of characters, currently ignored
-- **`-s`**: Silent mode (don't echo input), currently ignored
-
-**Current Behavior**:
+**Now Working** (Bash-compatible):
 ```bash
-read -t 5 var      # Timeout parsed but read still blocks indefinitely
-read -n 1 var      # Nchars parsed but reads full line
-read -s password   # Silent flag parsed but input is still echoed
-```
-
-**Expected Behavior** (Bash-compatible):
-```bash
-read -t 5 var      # Returns after 5 seconds if no input
-read -n 1 var      # Returns after 1 character
+read -t 5 var      # Returns exit 1 after 5 seconds if no input
+read -n 1 var      # Returns after 1 character (non-canonical mode)
 read -s password   # Input not echoed to terminal
 ```
 
-**Source Code Evidence** (src/builtins/builtins.c):
-```c
-// Line 1783: TODO: Implement timeout functionality
-// Line 1796: TODO: Implement nchars functionality
-// Line 1800: TODO: Implement silent mode
-// Line 1883-1885: Variables suppressed as "not yet implemented"
-```
-
-**Impact**:
-- Scripts using `read -t` for user prompts will block indefinitely
-- Interactive menus using `read -n 1` won't work as expected
-- Password prompts using `read -s` will show input
+**Implementation Details**:
+- **`-t timeout`**: Uses `select()` with timeout before reading
+- **`-n nchars`**: Uses `termios` non-canonical mode, reads char by char
+- **`-s`**: Uses `termios` to disable `ECHO` flag, restores on completion
+- Terminal settings properly restored even on timeout/error
+- Works correctly with both TTY and pipe input
 
 **Priority**: MEDIUM (commonly used features)
 
-**Status**: DOCUMENTED - Needs implementation
+**Status**: FIXED (Session 121) - Full implementation with termios and select()
 
 ---
 
@@ -1059,13 +1041,12 @@ Implemented type-aware deduplication, full path storage for shadowing commands, 
 
 ## Current Status
 
-**Active Issues**: 7
+**Active Issues**: 6
 
 ### HIGH Severity (1):
 - Issue #26: LLE freeze/hang (CRITICAL but not reproducible)
 
-### MEDIUM Severity (3):
-- Issue #36: `read` builtin `-t`, `-n`, `-s` options not implemented
+### MEDIUM Severity (2):
 - Issue #31: Coproc FD redirection syntax (workaround available)
 - Issue #41: Coproc blocks in non-interactive script mode
 

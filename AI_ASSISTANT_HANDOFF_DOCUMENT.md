@@ -59,15 +59,25 @@ Fixed `${(U)1}` and similar zsh parameter flags not working with positional para
 
 **Fix**: Added function scope check for single-digit positional parameters. When in function scope, retrieve from local symtable instead of global `shell_argv`.
 
+### Fix 5: Implement `read -t`, `-n`, `-s` Options (Issue #36)
+
+Implemented the three most commonly needed `read` builtin options:
+
+- **`-t timeout`**: Uses `select()` to timeout after specified seconds, returns exit 1 on timeout
+- **`-n nchars`**: Uses `termios` non-canonical mode to read exactly N characters
+- **`-s`**: Uses `termios` to disable echo for password input
+
+All options properly restore terminal settings on completion/error and work with both TTY and pipe input.
+
 ### Files Modified
 
 | File | Changes |
 |------|---------|
 | `src/lle/adaptive/adaptive_terminal_detection.c` | Fixed color capability detection to include COLORTERM |
 | `src/lle/terminal/terminal_signature_database.c` | Added Ghostty terminal signature |
-| `src/builtins/builtins.c` | Fixed `bin_shift()` to handle function scope |
+| `src/builtins/builtins.c` | Fixed `bin_shift()` function scope; implemented `read -t/-n/-s` |
 | `src/executor.c` | Fixed `execute_for()` $@ expansion, `parse_parameter_expansion()` positional params |
-| `docs/development/KNOWN_ISSUES.md` | Documented and marked Issues #48, #49, #50 as fixed |
+| `docs/development/KNOWN_ISSUES.md` | Documented and marked Issues #36, #48, #49, #50 as fixed |
 
 ---
 

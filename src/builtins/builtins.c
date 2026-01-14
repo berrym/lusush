@@ -50,8 +50,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/select.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <termios.h>
 #include <unistd.h>
 
 // Forward declarations for job control builtins
@@ -1751,7 +1753,7 @@ int bin_read(int argc, char **argv) {
     // Option flags
     char *prompt = NULL;
     bool raw_mode = false;
-    int timeout = -1;
+    int timeout_secs = -1;
     int nchars = -1;
     bool silent_mode = false;
 
@@ -1772,20 +1774,18 @@ int bin_read(int argc, char **argv) {
             // -r: Raw mode (don't interpret backslashes)
             raw_mode = true;
         } else if (strcmp(arg, "-t") == 0) {
-            // -t timeout: Timeout after specified seconds (not implemented yet)
+            // -t timeout: Timeout after specified seconds
             if (opt_index + 1 >= argc) {
                 error_message("read: -t requires a timeout value");
                 return 1;
             }
-            timeout = atoi(argv[++opt_index]);
-            if (timeout < 0) {
+            timeout_secs = atoi(argv[++opt_index]);
+            if (timeout_secs < 0) {
                 error_message("read: invalid timeout value");
                 return 1;
             }
-            // TODO: Implement timeout functionality
         } else if (strcmp(arg, "-n") == 0) {
-            // -n nchars: Read only specified number of characters (not
-            // implemented yet)
+            // -n nchars: Read only specified number of characters
             if (opt_index + 1 >= argc) {
                 error_message("read: -n requires a character count");
                 return 1;
@@ -1795,11 +1795,9 @@ int bin_read(int argc, char **argv) {
                 error_message("read: invalid character count");
                 return 1;
             }
-            // TODO: Implement nchars functionality
         } else if (strcmp(arg, "-s") == 0) {
-            // -s: Silent mode (don't echo input) - not implemented yet
+            // -s: Silent mode (don't echo input)
             silent_mode = true;
-            // TODO: Implement silent mode
         } else if (strcmp(arg, "--") == 0) {
             // End of options
             opt_index++;
@@ -1830,12 +1828,139 @@ int bin_read(int argc, char **argv) {
         fflush(stdout);
     }
 
-    // Use existing input infrastructure
-    char *line = get_input(stdin);
+    char *line = NULL;
+    int result = 0;
+    int fd = fileno(stdin);
+    bool is_tty = isatty(fd);
+
+    // Save original terminal settings if we need to modify them
+    struct termios orig_termios, new_termios;
+    bool termios_modified = false;
+
+    if (is_tty && (silent_mode || nchars > 0)) {
+        if (tcgetattr(fd, &orig_termios) == 0) {
+            new_termios = orig_termios;
+
+            if (silent_mode) {
+                // Disable echo
+                new_termios.c_lflag &= ~ECHO;
+            }
+
+            if (nchars > 0) {
+                // Non-canonical mode for character-by-character reading
+                new_termios.c_lflag &= ~ICANON;
+                new_termios.c_cc[VMIN] = 1;
+                new_termios.c_cc[VTIME] = 0;
+            }
+
+            if (tcsetattr(fd, TCSANOW, &new_termios) == 0) {
+                termios_modified = true;
+            }
+        }
+    }
+
+    // Handle timeout with select()
+    if (timeout_secs >= 0) {
+        fd_set readfds;
+        struct timeval tv;
+
+        FD_ZERO(&readfds);
+        FD_SET(fd, &readfds);
+        tv.tv_sec = timeout_secs;
+        tv.tv_usec = 0;
+
+        int select_result = select(fd + 1, &readfds, NULL, NULL, &tv);
+
+        if (select_result <= 0) {
+            // Timeout (0) or error (-1)
+            if (termios_modified) {
+                tcsetattr(fd, TCSANOW, &orig_termios);
+            }
+            symtable_set_global(varname, "");
+            return (select_result == 0) ? 142 : 1; // 142 = timeout exit code
+        }
+    }
+
+    // Read input based on options
+    if (nchars > 0) {
+        // Read exactly nchars characters
+        line = malloc(nchars + 1);
+        if (!line) {
+            if (termios_modified) {
+                tcsetattr(fd, TCSANOW, &orig_termios);
+            }
+            return 1;
+        }
+
+        int chars_read = 0;
+        while (chars_read < nchars) {
+            // Check timeout for each character if specified
+            if (timeout_secs >= 0) {
+                fd_set readfds;
+                struct timeval tv;
+
+                FD_ZERO(&readfds);
+                FD_SET(fd, &readfds);
+                tv.tv_sec = timeout_secs;
+                tv.tv_usec = 0;
+
+                int select_result = select(fd + 1, &readfds, NULL, NULL, &tv);
+                if (select_result <= 0) {
+                    line[chars_read] = '\0';
+                    result = (select_result == 0) ? 142 : 1;
+                    break;
+                }
+            }
+
+            ssize_t n = read(fd, &line[chars_read], 1);
+            if (n <= 0) {
+                // EOF or error
+                if (chars_read == 0) {
+                    free(line);
+                    line = NULL;
+                    result = 1;
+                } else {
+                    line[chars_read] = '\0';
+                }
+                break;
+            }
+
+            // Stop at newline even in nchars mode
+            if (line[chars_read] == '\n') {
+                line[chars_read] = '\0';
+                break;
+            }
+
+            chars_read++;
+        }
+
+        if (line && chars_read == nchars) {
+            line[nchars] = '\0';
+        }
+
+        // Print newline if silent mode (since echo was disabled)
+        if (silent_mode && is_tty) {
+            printf("\n");
+        }
+    } else {
+        // Normal line reading
+        line = get_input(stdin);
+
+        // Print newline if silent mode (since echo was disabled)
+        if (silent_mode && is_tty && line) {
+            printf("\n");
+        }
+    }
+
+    // Restore terminal settings
+    if (termios_modified) {
+        tcsetattr(fd, TCSANOW, &orig_termios);
+    }
 
     if (!line) {
         // EOF or input error
-        return 1;
+        symtable_set_global(varname, "");
+        return result ? result : 1;
     }
 
     // Process backslashes unless in raw mode
@@ -1880,12 +2005,7 @@ int bin_read(int argc, char **argv) {
 
     if (line)
         free(line);
-    return 0;
-
-    // Suppress unused variable warnings for features not yet implemented
-    (void)timeout;
-    (void)nchars;
-    (void)silent_mode;
+    return result;
 }
 
 /**
