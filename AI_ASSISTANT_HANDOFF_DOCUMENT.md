@@ -1,9 +1,51 @@
-# AI Assistant Handoff Document - Session 120
+# AI Assistant Handoff Document - Session 121
 
-**Date**: 2026-01-13
-**Session Type**: Critical Bug Fixes - 100% Compatibility
+**Date**: 2026-01-14
+**Session Type**: LLE Adaptive Terminal Bug Fix
 **Status**: COMPLETE
 **Branch**: `master`
+
+---
+
+## Session 121: Fix LLE Syntax Highlighting for COLORTERM-based Terminals
+
+Fixed a bug where syntax highlighting was disabled in terminals like Ghostty that set `COLORTERM=truecolor` but use non-standard `TERM` values.
+
+### Problem
+
+Ghostty terminal emulator sets:
+- `TERM=xterm-ghostty` (no "color" or "256" substring)
+- `COLORTERM=truecolor`
+
+The color detection in LLE checked only the `TERM` variable for "color" or "256" substrings:
+```c
+detection->supports_colors =
+    (term && (strstr(term, "color") || strstr(term, "256")));
+```
+
+This caused `supports_colors = false`, disabling syntax highlighting even though Ghostty fully supports truecolor.
+
+### Fix
+
+Reordered detection logic so `supports_truecolor` is evaluated first, then included in `supports_colors`:
+
+```c
+detection->supports_truecolor =
+    (colorterm && (strcmp(colorterm, "truecolor") == 0 ||
+                   strcmp(colorterm, "24bit") == 0));
+detection->supports_colors =
+    (term && (strstr(term, "color") || strstr(term, "256"))) ||
+    detection->supports_truecolor;
+```
+
+Also added Ghostty to the terminal signature database for proper recognition.
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `src/lle/adaptive/adaptive_terminal_detection.c` | Fixed color capability detection to include COLORTERM |
+| `src/lle/terminal/terminal_signature_database.c` | Added Ghostty terminal signature |
 
 ---
 

@@ -136,12 +136,13 @@ analyze_environment_variables(lle_terminal_detection_result_t *detection) {
                  sizeof(detection->colorterm));
 
     /* Basic capability inference from environment */
-    detection->supports_colors =
-        (term && (strstr(term, "color") || strstr(term, "256")));
-    detection->supports_256_colors = (term && strstr(term, "256"));
     detection->supports_truecolor =
         (colorterm && (strcmp(colorterm, "truecolor") == 0 ||
                        strcmp(colorterm, "24bit") == 0));
+    detection->supports_256_colors = (term && strstr(term, "256"));
+    detection->supports_colors =
+        (term && (strstr(term, "color") || strstr(term, "256"))) ||
+        detection->supports_truecolor;
     detection->supports_unicode =
         (colorterm != NULL); /* COLORTERM usually implies UTF-8 */
 

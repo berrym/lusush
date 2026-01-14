@@ -138,6 +138,16 @@ static const lle_terminal_signature_t lle_known_terminals[] = {
      .force_interactive = false,
      .requires_special_handling = false},
 
+    /* Ghostty */
+    {.name = "ghostty",
+     .term_program_pattern = "ghostty",
+     .term_pattern = "xterm-ghostty",
+     .env_var_check = "COLORTERM",
+     .capability_level = LLE_CAPABILITY_PREMIUM,
+     .preferred_mode = LLE_ADAPTIVE_MODE_NATIVE,
+     .force_interactive = false,
+     .requires_special_handling = false},
+
     /* Terminal.app (macOS) */
     {.name = "terminal_app",
      .term_program_pattern = "Apple_Terminal",
