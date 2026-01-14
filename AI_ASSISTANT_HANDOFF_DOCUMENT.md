@@ -51,6 +51,14 @@ map shout hello world foo
 
 All 58 tests pass.
 
+### Fix 4: Zsh Parameter Flags with Positional Parameters (Issue #50)
+
+Fixed `${(U)1}` and similar zsh parameter flags not working with positional parameters in functions.
+
+**Problem**: `parse_parameter_expansion()` used global `shell_argv` for positional parameters, ignoring function scope.
+
+**Fix**: Added function scope check for single-digit positional parameters. When in function scope, retrieve from local symtable instead of global `shell_argv`.
+
 ### Files Modified
 
 | File | Changes |
@@ -58,8 +66,8 @@ All 58 tests pass.
 | `src/lle/adaptive/adaptive_terminal_detection.c` | Fixed color capability detection to include COLORTERM |
 | `src/lle/terminal/terminal_signature_database.c` | Added Ghostty terminal signature |
 | `src/builtins/builtins.c` | Fixed `bin_shift()` to handle function scope |
-| `src/executor.c` | Fixed `execute_for()` to expand `$@` in function scope |
-| `docs/development/KNOWN_ISSUES.md` | Documented and marked Issues #48, #49 as fixed |
+| `src/executor.c` | Fixed `execute_for()` $@ expansion, `parse_parameter_expansion()` positional params |
+| `docs/development/KNOWN_ISSUES.md` | Documented and marked Issues #48, #49, #50 as fixed |
 
 ---
 

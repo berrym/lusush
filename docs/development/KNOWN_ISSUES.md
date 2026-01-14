@@ -180,6 +180,56 @@ c
 
 ---
 
+### Issue #50: Zsh Parameter Flags Don't Work with Positional Parameters
+**Severity**: MEDIUM  
+**Discovered**: 2026-01-14 (Session 121 - Higher-order function testing)  
+**Status**: Active bug  
+**Component**: src/executor.c (parse_parameter_expansion)
+
+**Description**:
+Zsh-style parameter flags like `${(U)var}` work correctly with named variables but not with positional parameters (`$1`, `$2`, etc.).
+
+**Not Working**:
+```bash
+set -o zsh
+shout() { echo "SHOUT: ${(U)1}"; }
+shout hello
+# Expected: SHOUT: HELLO
+# Actual:   SHOUT:
+```
+
+**Working** (named variable):
+```bash
+set -o zsh
+x=hello
+echo "${(U)x}"
+# Output: HELLO
+```
+
+**Workaround**:
+```bash
+shout() {
+    local tmp=$1
+    echo "SHOUT: ${(U)tmp}"
+}
+```
+
+**Comparison with zsh**:
+```bash
+# zsh correctly handles flags with positional parameters:
+$ zsh -c 'f() { echo "${(U)1}"; }; f hello'
+HELLO
+```
+
+**Root Cause** (suspected):
+The zsh parameter flag parsing in `parse_parameter_expansion()` may not be resolving positional parameters from function scope before applying the transformation.
+
+**Priority**: MEDIUM (workaround available, but reduces zsh compatibility)
+
+**Status**: FIXED (Session 121) - Added function scope check for positional parameters in parse_parameter_expansion
+
+---
+
 ### Issue #31: Coproc FD Redirection Syntax Not Supported
 **Severity**: MEDIUM  
 **Discovered**: 2026-01-12 (Session 118/119 - Coproc implementation)  

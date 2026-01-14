@@ -9022,12 +9022,24 @@ static char *parse_parameter_expansion(executor_t *executor,
                     return strdup((shell_argc > 0 && shell_argv[0])
                                       ? shell_argv[0]
                                       : "lusush");
-                } else if (pos > 0 && pos < shell_argc && shell_argv[pos]) {
-                    // $1, $2, etc. are script arguments
-                    return strdup(shell_argv[pos]);
-                } else {
-                    // Parameter doesn't exist, return empty string
-                    return strdup("");
+                } else if (pos > 0) {
+                    // $1, $2, etc. - check function scope first
+                    if (symtable_in_function_scope(executor->symtable)) {
+                        // In function scope - get from local positional params
+                        char param_name[16];
+                        snprintf(param_name, sizeof(param_name), "%d", pos);
+                        char *value = symtable_get_var(executor->symtable, param_name);
+                        if (value && value[0] != '\0') {
+                            return value;  // Already allocated by symtable_get_var
+                        }
+                        free(value);
+                        return strdup("");
+                    } else if (pos < shell_argc && shell_argv[pos]) {
+                        // Global scope - use shell_argv
+                        return strdup(shell_argv[pos]);
+                    } else {
+                        return strdup("");
+                    }
                 }
             }
             break;
