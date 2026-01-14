@@ -1,6 +1,6 @@
 # Lusush Known Issues and Blockers
 
-**Date**: 2026-01-13 (Updated: Session 120)  
+**Date**: 2026-01-14 (Updated: Session 121)  
 **Status**: Major bug fixes - 100% compatibility test pass rate achieved!  
 **Implementation Status**: ANSI-C quoting, mapfile/readarray, nameref, coproc - all implemented  
 **Memory Status**: Zero memory leaks verified with valgrind  
@@ -58,6 +58,127 @@ Major Bash/Zsh compatibility features implemented:
 ---
 
 ## Active Issues
+
+### Issue #48: `shift` Builtin Does Not Modify Positional Parameters Inside Functions
+**Severity**: HIGH  
+**Discovered**: 2026-01-14 (Session 121 - Function/closure testing)  
+**Status**: Active bug  
+**Component**: src/builtins/builtins.c (bin_shift)
+
+**Description**:
+The `shift` builtin inside a function does not actually shift the positional parameters (`$@`, `$1`, `$2`, etc.). The parameters remain unchanged after the `shift` command.
+
+**Not Working**:
+```bash
+test_shift() {
+    echo "before shift: $@"
+    shift
+    echo "after shift: $@"
+}
+test_shift a b c d
+# Expected:
+#   before shift: a b c d
+#   after shift: b c d
+# Actual:
+#   before shift: a b c d
+#   after shift: a b c d
+```
+
+**Impact**:
+This breaks common shell patterns including:
+- Callback/higher-order function patterns: `fn=$1; shift; $fn "$@"`
+- Option parsing loops: `while [ $# -gt 0 ]; do case $1 in ...; esac; shift; done`
+- Argument processing: extracting first arg then passing rest to another command
+
+**Example Broken Pattern**:
+```bash
+# Higher-order map function - BROKEN
+map() {
+    local fn=$1
+    shift                    # shift doesn't work - fn=$1 and $@ unchanged
+    for item in "$@"; do
+        $fn "$item"          # Wrong: still includes original $1
+    done
+}
+```
+
+**Root Cause** (suspected):
+The `bin_shift()` function may be modifying a copy of the positional parameters or not correctly updating the function's local scope positional parameters.
+
+**Comparison with zsh**:
+```bash
+# zsh correctly handles shift in functions:
+$ zsh -c 'f() { echo "$@"; shift; echo "$@"; }; f a b c'
+a b c
+b c
+```
+
+**Priority**: HIGH (breaks common shell idioms and higher-order function patterns)
+
+**Status**: FIXED (Session 121) - Modified bin_shift to handle function scope
+
+---
+
+### Issue #49: `for` Loop Does Not Expand `$@` in Function Scope
+**Severity**: HIGH  
+**Discovered**: 2026-01-14 (Session 121 - Function/closure testing)  
+**Status**: Active bug  
+**Component**: src/executor.c (execute_for)
+
+**Description**:
+When using `$@` or `$*` in a `for` loop word list inside a function, the loop does not iterate over the positional parameters. The variable expands correctly when echoed but not in the `for` loop context.
+
+**Not Working**:
+```bash
+test_loop() {
+    echo "args: $@"        # Works: outputs "args: a b c"
+    for item in $@; do     # Bug: loop body never executes
+        echo "item: $item"
+    done
+}
+test_loop a b c
+# Expected:
+#   args: a b c
+#   item: a
+#   item: b
+#   item: c
+# Actual:
+#   args: a b c
+#   (nothing - loop doesn't iterate)
+```
+
+**Working** (explicit list):
+```bash
+test_loop() {
+    for item in a b c; do  # Works with literal list
+        echo "item: $item"
+    done
+}
+```
+
+**Impact**:
+This breaks common shell patterns including:
+- Iterating over function arguments: `for arg in "$@"; do ... done`
+- Processing all arguments in a function
+- Higher-order functions that iterate over remaining arguments
+
+**Root Cause** (suspected):
+The `execute_for()` function may be expanding `$@` using global `shell_argv` instead of the function's local positional parameters, resulting in an empty or incorrect word list.
+
+**Comparison with zsh**:
+```bash
+# zsh correctly handles $@ in for loops inside functions:
+$ zsh -c 'f() { for i in $@; do echo $i; done; }; f a b c'
+a
+b
+c
+```
+
+**Priority**: HIGH (breaks common shell idioms for argument processing)
+
+**Status**: FIXED (Session 121) - Modified execute_for to check function scope and use local positional parameters
+
+---
 
 ### Issue #31: Coproc FD Redirection Syntax Not Supported
 **Severity**: MEDIUM  
@@ -935,6 +1056,6 @@ Implemented type-aware deduplication, full path storage for shadowing commands, 
 
 ---
 
-**Last Updated**: 2026-01-13 (Session 120)  
+**Last Updated**: 2026-01-14 (Session 121)  
 **Next Review**: Before each commit, after each bug discovery  
 **Maintainer**: Update this file whenever bugs are discovered - NO EXCEPTIONS

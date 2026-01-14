@@ -2281,6 +2281,64 @@ int bin_shift(int argc, char **argv) {
         }
     }
 
+    // Check if we're in a function scope
+    symtable_manager_t *mgr = symtable_get_global_manager();
+    if (mgr && symtable_in_function_scope(mgr)) {
+        // In function scope - shift local positional parameters
+        char *argc_str = symtable_get_var(mgr, "#");
+        int func_argc = argc_str ? atoi(argc_str) : 0;
+        free(argc_str);
+
+        // Limit shift count to available parameters
+        if (shift_count > func_argc) {
+            shift_count = func_argc;
+        }
+
+        if (shift_count > 0 && func_argc > 0) {
+            int new_argc = func_argc - shift_count;
+
+            // Collect values of parameters that will remain after shift
+            char **new_values = malloc((new_argc + 1) * sizeof(char *));
+            if (!new_values) {
+                return 1;
+            }
+
+            for (int i = 0; i < new_argc; i++) {
+                char param_name[16];
+                snprintf(param_name, sizeof(param_name), "%d",
+                         i + 1 + shift_count);
+                new_values[i] = symtable_get_var(mgr, param_name);
+            }
+            new_values[new_argc] = NULL;
+
+            // Update positional parameters with shifted values
+            for (int i = 1; i <= func_argc; i++) {
+                char param_name[16];
+                snprintf(param_name, sizeof(param_name), "%d", i);
+                if (i <= new_argc && new_values[i - 1]) {
+                    symtable_set_local_var(mgr, param_name, new_values[i - 1]);
+                } else {
+                    // Clear parameters beyond new count
+                    symtable_set_local_var(mgr, param_name, "");
+                }
+            }
+
+            // Free collected values
+            for (int i = 0; i < new_argc; i++) {
+                free(new_values[i]);
+            }
+            free(new_values);
+
+            // Update $#
+            char new_argc_str[16];
+            snprintf(new_argc_str, sizeof(new_argc_str), "%d", new_argc);
+            symtable_set_local_var(mgr, "#", new_argc_str);
+        }
+
+        return 0;
+    }
+
+    // Not in function scope - shift global shell_argv
     // Calculate available parameters to shift (excluding script name at
     // argv[0])
     int available_params = shell_argc > 1 ? shell_argc - 1 : 0;

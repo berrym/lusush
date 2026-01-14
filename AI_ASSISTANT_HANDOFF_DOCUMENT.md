@@ -7,38 +7,49 @@
 
 ---
 
-## Session 121: Fix LLE Syntax Highlighting for COLORTERM-based Terminals
+## Session 121: Fix LLE Syntax Highlighting, `shift`, and `for` Loop in Functions
+
+### Fix 1: LLE Syntax Highlighting for COLORTERM-based Terminals
 
 Fixed a bug where syntax highlighting was disabled in terminals like Ghostty that set `COLORTERM=truecolor` but use non-standard `TERM` values.
 
-### Problem
+**Problem**: Ghostty sets `TERM=xterm-ghostty` (no "color" or "256" substring) with `COLORTERM=truecolor`. The color detection only checked `TERM`.
 
-Ghostty terminal emulator sets:
-- `TERM=xterm-ghostty` (no "color" or "256" substring)
-- `COLORTERM=truecolor`
+**Fix**: Reordered detection logic so `supports_truecolor` is evaluated first from `COLORTERM`, then included in `supports_colors`. Also added Ghostty to terminal signature database.
 
-The color detection in LLE checked only the `TERM` variable for "color" or "256" substrings:
-```c
-detection->supports_colors =
-    (term && (strstr(term, "color") || strstr(term, "256")));
+### Fix 2: `shift` Builtin in Function Scope (Issue #48)
+
+Fixed `shift` not modifying positional parameters inside functions.
+
+**Problem**: `bin_shift()` only modified global `shell_argc`/`shell_argv`, but functions use local scope positional parameters stored in symtable.
+
+**Fix**: Added function scope check using `symtable_in_function_scope()`. When in function scope, shift modifies local `$1`, `$2`, etc. via `symtable_set_local_var()`.
+
+### Fix 3: `for` Loop `$@` Expansion in Function Scope (Issue #49)
+
+Fixed `for item in $@` not iterating over function arguments.
+
+**Problem**: `execute_for()` expanded `$@` using global `shell_argv` even inside functions.
+
+**Fix**: Added function scope check. When in function scope, iterate over local positional parameters from symtable instead of global `shell_argv`.
+
+### Test Results
+
+Both fixes enable higher-order function patterns:
+```bash
+map() {
+    local fn=$1
+    shift
+    for item in "$@"; do
+        $fn "$item"
+    done
+}
+shout() { echo "SHOUT: ${1^^}"; }
+map shout hello world foo
+# Output: SHOUT: HELLO, SHOUT: WORLD, SHOUT: FOO
 ```
 
-This caused `supports_colors = false`, disabling syntax highlighting even though Ghostty fully supports truecolor.
-
-### Fix
-
-Reordered detection logic so `supports_truecolor` is evaluated first, then included in `supports_colors`:
-
-```c
-detection->supports_truecolor =
-    (colorterm && (strcmp(colorterm, "truecolor") == 0 ||
-                   strcmp(colorterm, "24bit") == 0));
-detection->supports_colors =
-    (term && (strstr(term, "color") || strstr(term, "256"))) ||
-    detection->supports_truecolor;
-```
-
-Also added Ghostty to the terminal signature database for proper recognition.
+All 58 tests pass.
 
 ### Files Modified
 
@@ -46,6 +57,9 @@ Also added Ghostty to the terminal signature database for proper recognition.
 |------|---------|
 | `src/lle/adaptive/adaptive_terminal_detection.c` | Fixed color capability detection to include COLORTERM |
 | `src/lle/terminal/terminal_signature_database.c` | Added Ghostty terminal signature |
+| `src/builtins/builtins.c` | Fixed `bin_shift()` to handle function scope |
+| `src/executor.c` | Fixed `execute_for()` to expand `$@` in function scope |
+| `docs/development/KNOWN_ISSUES.md` | Documented and marked Issues #48, #49 as fixed |
 
 ---
 

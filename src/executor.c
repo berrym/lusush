@@ -2030,22 +2030,53 @@ static int execute_for(executor_t *executor, node_t *for_node) {
                 if (strcmp(word->val.str, "\"$@\"") == 0 ||
                     strcmp(word->val.str, "$@") == 0) {
                     // Handle quoted "$@" - preserve word boundaries
-                    for (int i = 1; i < shell_argc; i++) {
-                        if (shell_argv[i]) {
-                            // Resize array if needed
-                            expanded_words =
-                                realloc(expanded_words,
-                                        (word_count + 1) * sizeof(char *));
-                            if (!expanded_words) {
-                                set_executor_error(
-                                    executor,
-                                    "Memory allocation failed in for loop");
-                                symtable_pop_scope(executor->symtable);
-                                return 1;
+                    // Check if we're in a function scope
+                    if (symtable_in_function_scope(executor->symtable)) {
+                        // In function scope - use local positional parameters
+                        char *argc_str = symtable_get_var(executor->symtable, "#");
+                        int func_argc = argc_str ? atoi(argc_str) : 0;
+                        free(argc_str);
+                        
+                        for (int i = 1; i <= func_argc; i++) {
+                            char param_name[16];
+                            snprintf(param_name, sizeof(param_name), "%d", i);
+                            char *param_value = symtable_get_var(executor->symtable, param_name);
+                            if (param_value && param_value[0] != '\0') {
+                                expanded_words =
+                                    realloc(expanded_words,
+                                            (word_count + 1) * sizeof(char *));
+                                if (!expanded_words) {
+                                    free(param_value);
+                                    set_executor_error(
+                                        executor,
+                                        "Memory allocation failed in for loop");
+                                    symtable_pop_scope(executor->symtable);
+                                    return 1;
+                                }
+                                expanded_words[word_count] = param_value;
+                                word_count++;
+                            } else {
+                                free(param_value);
                             }
+                        }
+                    } else {
+                        // Not in function scope - use global shell_argv
+                        for (int i = 1; i < shell_argc; i++) {
+                            if (shell_argv[i]) {
+                                expanded_words =
+                                    realloc(expanded_words,
+                                            (word_count + 1) * sizeof(char *));
+                                if (!expanded_words) {
+                                    set_executor_error(
+                                        executor,
+                                        "Memory allocation failed in for loop");
+                                    symtable_pop_scope(executor->symtable);
+                                    return 1;
+                                }
 
-                            expanded_words[word_count] = strdup(shell_argv[i]);
-                            word_count++;
+                                expanded_words[word_count] = strdup(shell_argv[i]);
+                                word_count++;
+                            }
                         }
                     }
                 } else {
