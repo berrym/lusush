@@ -1532,7 +1532,7 @@ static int execute_pipeline(executor_t *executor, node_t *pipeline) {
         close(pipe_fd[1]);
 
         int result = execute_node(executor, left);
-        exit(result);
+        _exit(result);  // Use _exit() to avoid stdio buffer flushing in child
     }
 
     pid_t right_pid = fork();
@@ -1554,7 +1554,7 @@ static int execute_pipeline(executor_t *executor, node_t *pipeline) {
         close(pipe_fd[0]);
 
         int result = execute_node(executor, right);
-        exit(result);
+        _exit(result);  // Use _exit() to avoid stdio buffer flushing in child
     }
 
     // Parent: close pipes and wait
@@ -10765,7 +10765,7 @@ int executor_execute_background(executor_t *executor, node_t *command) {
         if (pid == 0) {
             // Child process - execute the command
             int result = execute_node(executor, command->first_child);
-            exit(result);
+            _exit(result);  // Use _exit() to avoid stdio buffer flushing in child
         } else {
             // Parent process - store background PID but no job tracking
             last_background_pid = pid;
@@ -10791,7 +10791,7 @@ int executor_execute_background(executor_t *executor, node_t *command) {
 
         // Execute the command
         int result = execute_node(executor, command->first_child);
-        exit(result);
+        _exit(result);  // Use _exit() to avoid stdio buffer flushing in child
     } else {
         // Parent process - add to job list
         setpgid(pid, pid); // Set child's process group
@@ -11065,12 +11065,12 @@ static int execute_builtin_with_captured_stdout(executor_t *executor,
         // Child process - setup redirections and execute builtin
         int redir_result = setup_redirections(executor, command);
         if (redir_result != 0) {
-            exit(1);
+            _exit(1);  // Use _exit() to avoid stdio buffer flushing in child
         }
 
         // Execute the builtin command
         int result = execute_builtin_command(executor, argv);
-        exit(result);
+        _exit(result);  // Use _exit() to avoid stdio buffer flushing in child
     } else {
         // Parent process - wait for child, retrying on EINTR
         int status;
