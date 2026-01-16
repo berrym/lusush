@@ -2159,15 +2159,37 @@ static node_t *parse_for_statement(parser_t *parser) {
     for_node->val_type = VAL_STR;
     tokenizer_advance(parser->tokenizer);
 
-    if (!expect_token(parser, TOK_IN)) {
-        free_node_tree(for_node);
-        return NULL;
-    }
-
     // Parse word list
     node_t *word_list = new_node(NODE_VAR); // Use as container
     if (!word_list) {
         free_node_tree(for_node);
+        return NULL;
+    }
+
+    // POSIX: 'in' keyword is optional. If omitted, iterate over "$@"
+    // Check if we have 'in' or if we're going directly to ';'/newline/'do'
+    if (tokenizer_match(parser->tokenizer, TOK_IN)) {
+        // Consume the 'in' token and parse word list
+        tokenizer_advance(parser->tokenizer);
+    } else if (tokenizer_match(parser->tokenizer, TOK_SEMICOLON) ||
+               tokenizer_match(parser->tokenizer, TOK_NEWLINE) ||
+               tokenizer_match(parser->tokenizer, TOK_DO)) {
+        // No 'in' clause - POSIX says iterate over positional parameters
+        // Create a word list containing "$@"
+        node_t *at_node = new_node(NODE_VAR);
+        if (at_node) {
+            at_node->val.str = strdup("\"$@\"");
+            at_node->val_type = VAL_STR;
+            add_child_node(word_list, at_node);
+        }
+        // Skip to where we expect 'do'
+        goto skip_word_parsing;
+    } else {
+        // Unexpected token after variable name
+        free_node_tree(for_node);
+        free_node_tree(word_list);
+        parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                         "expected 'in', ';', or 'do' after variable name in for loop");
         return NULL;
     }
 
@@ -2303,6 +2325,7 @@ static node_t *parse_for_statement(parser_t *parser) {
         }
     }
 
+skip_word_parsing:
     add_child_node(for_node, word_list);
 
     // Skip any separators (semicolons, newlines, whitespace)
@@ -2985,9 +3008,11 @@ static bool is_valid_posix_function_name(const char *name) {
  */
 static node_t *parse_function_definition(parser_t *parser) {
     token_t *current = tokenizer_current(parser->tokenizer);
+    bool has_function_keyword = false;
 
     // Handle "function" keyword form
     if (current && current->type == TOK_FUNCTION) {
+        has_function_keyword = true;
         tokenizer_advance(parser->tokenizer);
         current = tokenizer_current(parser->tokenizer);
     }
@@ -3022,6 +3047,15 @@ static node_t *parse_function_definition(parser_t *parser) {
         return NULL;
     }
     tokenizer_advance(parser->tokenizer);
+
+    // ksh/bash style: "function name { }" - parentheses are optional
+    // POSIX style: "name() { }" - parentheses required
+    // Check if we have '(' or if we're going directly to '{'
+    current = tokenizer_current(parser->tokenizer);
+    if (has_function_keyword && current && current->type == TOK_LBRACE) {
+        // "function name { }" form - skip parameter parsing, go to body
+        goto parse_function_body;
+    }
 
     // Expect '('
     if (!expect_token(parser, TOK_LPAREN)) {
@@ -3174,6 +3208,7 @@ static node_t *parse_function_definition(parser_t *parser) {
         free_function_params(params);
     }
 
+parse_function_body:
     // Skip separators before '{'
     skip_separators(parser);
 

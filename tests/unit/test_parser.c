@@ -387,22 +387,14 @@ TEST(parse_for_loop) {
 
 TEST(parse_for_loop_no_in) {
     /* POSIX: for without 'in' iterates over positional params ($@)
-     * This is Issue #55 - lusush currently rejects this valid POSIX syntax */
+     * Issue #55 - FIXED: lusush now supports this valid POSIX syntax */
     parser_t *parser = parser_new("for arg; do echo $arg; done");
     ASSERT_NOT_NULL(parser, "parser_new failed");
     
     node_t *ast = parser_parse(parser);
-    
-    /* KNOWN FAILURE: Issue #55 - for without 'in' not implemented
-     * When fixed, uncomment the assertions below and remove this block */
-    if (ast == NULL) {
-        printf("    KNOWN FAILURE (Issue #55): for without 'in' not supported\n");
-        parser_free(parser);
-        return;  /* Skip rest of test - known bug */
-    }
-    
-    /* When Issue #55 is fixed, this code will run */
+    ASSERT_NOT_NULL(ast, "parser_parse should return AST for 'for var;' syntax");
     ASSERT(!parser_has_error(parser), "Should not have parse error");
+    
     free_node_tree(ast);
     parser_free(parser);
 }
@@ -462,21 +454,14 @@ TEST(parse_case_with_patterns) {
 
 TEST(parse_function_keyword) {
     /* ksh/bash style: function name { body; }
-     * This is Issue #56 - lusush requires parentheses */
+     * Issue #56 - FIXED: lusush now supports this syntax */
     parser_t *parser = parser_new("function foo { echo bar; }");
     ASSERT_NOT_NULL(parser, "parser_new failed");
     
     node_t *ast = parser_parse(parser);
-    
-    /* KNOWN FAILURE: Issue #56 - function without () not supported
-     * When fixed, remove this block */
-    if (ast == NULL) {
-        printf("    KNOWN FAILURE (Issue #56): 'function name { }' not supported\n");
-        parser_free(parser);
-        return;
-    }
-    
+    ASSERT_NOT_NULL(ast, "parser_parse should return AST for 'function name { }' syntax");
     ASSERT(!parser_has_error(parser), "Should not have parse error");
+    
     free_node_tree(ast);
     parser_free(parser);
 }
