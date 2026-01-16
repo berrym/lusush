@@ -1150,5 +1150,27 @@ if fs.exists('tests/unit/test_executor.c')
        timeout: 60)
 endif
 
+# ============================================================================
+# Builtin Command Tests
+# Tests individual builtin commands (test, cd, export, echo, etc.)
+if fs.exists('tests/unit/test_builtins.c')
+  # Reuse same source filtering as executor tests
+  test_builtins_sources = []
+  foreach s : src
+    if not s.endswith('lusush.c')
+      test_builtins_sources += s
+    endif
+  endforeach
+  test_builtins = executable('test_builtins',
+                             'tests/unit/test_builtins.c',
+                             'tests/unit/test_executor_stubs.c',
+                             test_builtins_sources + lle_shell_sources,
+                             include_directories: inc,
+                             dependencies: [lle_dep, libm])
+  test('Builtins', test_builtins,
+       suite: 'unit',
+       timeout: 60)
+endif
+
 # Phase 4: Continuation Prompt Tests
 # ============================================================================
