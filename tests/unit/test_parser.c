@@ -67,22 +67,6 @@
         }                                                                      \
     } while (0)
 
-/* Helper to count children of a node */
-static size_t count_children(node_t *node) {
-    if (!node) return 0;
-    return node->children;
-}
-
-/* Helper to get nth child */
-static node_t *get_child(node_t *node, size_t n) {
-    if (!node || !node->first_child) return NULL;
-    node_t *child = node->first_child;
-    for (size_t i = 0; i < n && child; i++) {
-        child = child->next_sibling;
-    }
-    return child;
-}
-
 /* ============================================================================
  * LIFECYCLE TESTS
  * ============================================================================

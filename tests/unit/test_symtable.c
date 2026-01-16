@@ -49,19 +49,21 @@
 
 #define ASSERT_STR_EQ(actual, expected, message)                               \
     do {                                                                       \
-        if ((actual) == NULL || (expected) == NULL) {                          \
-            if ((actual) != (expected)) {                                      \
+        const char *_actual = (actual);                                        \
+        const char *_expected = (expected);                                    \
+        if (_actual == NULL || _expected == NULL) {                            \
+            if (_actual != _expected) {                                        \
                 printf("    FAILED: %s\n", message);                           \
                 printf("      Expected: %s, Got: %s\n",                        \
-                       (expected) ? (expected) : "NULL",                       \
-                       (actual) ? (actual) : "NULL");                          \
+                       _expected ? _expected : "NULL",                         \
+                       _actual ? _actual : "NULL");                            \
                 printf("      at %s:%d\n", __FILE__, __LINE__);                \
                 exit(1);                                                       \
             }                                                                  \
-        } else if (strcmp((actual), (expected)) != 0) {                        \
+        } else if (strcmp(_actual, _expected) != 0) {                          \
             printf("    FAILED: %s\n", message);                               \
-            printf("      Expected: \"%s\", Got: \"%s\"\n", (expected),        \
-                   (actual));                                                  \
+            printf("      Expected: \"%s\", Got: \"%s\"\n", _expected,         \
+                   _actual);                                                   \
             printf("      at %s:%d\n", __FILE__, __LINE__);                    \
             exit(1);                                                           \
         }                                                                      \
@@ -313,11 +315,9 @@ TEST(get_environ) {
     char **env = symtable_get_environ(mgr);
     ASSERT_NOT_NULL(env, "symtable_get_environ should return non-NULL");
     
-    /* Count entries and verify exported vars are present */
-    int count = 0;
+    /* Verify exported vars are present */
     bool found_var1 = false, found_var2 = false, found_var3 = false;
     for (int i = 0; env[i] != NULL; i++) {
-        count++;
         if (strstr(env[i], "VAR1=value1")) found_var1 = true;
         if (strstr(env[i], "VAR2=value2")) found_var2 = true;
         if (strstr(env[i], "VAR3=")) found_var3 = true;
