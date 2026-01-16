@@ -1172,5 +1172,27 @@ if fs.exists('tests/unit/test_builtins.c')
        timeout: 60)
 endif
 
+# ============================================================================
+# Expansion Tests
+# Tests variable expansion, parameter expansion, arithmetic expansion
+if fs.exists('tests/unit/test_expansion.c')
+  # Reuse same source filtering as executor tests
+  test_expansion_sources = []
+  foreach s : src
+    if not s.endswith('lusush.c')
+      test_expansion_sources += s
+    endif
+  endforeach
+  test_expansion = executable('test_expansion',
+                              'tests/unit/test_expansion.c',
+                              'tests/unit/test_executor_stubs.c',
+                              test_expansion_sources + lle_shell_sources,
+                              include_directories: inc,
+                              dependencies: [lle_dep, libm])
+  test('Expansion', test_expansion,
+       suite: 'unit',
+       timeout: 60)
+endif
+
 # Phase 4: Continuation Prompt Tests
 # ============================================================================

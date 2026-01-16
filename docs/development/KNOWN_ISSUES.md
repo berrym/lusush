@@ -1365,6 +1365,95 @@ The exit status from the child process in command substitution is likely being c
 
 ---
 
+---
+
+### Issue #60: Single Quotes Do Not Prevent Variable Expansion
+**Severity**: HIGH  
+**Discovered**: 2026-01-16 (Unit test coverage session)  
+**Status**: Active bug  
+**Component**: src/executor.c or src/tokenizer.c
+
+**Description**:
+Single-quoted strings are incorrectly expanding variables. In all POSIX-compliant shells, single quotes must prevent ALL expansion - this is fundamental shell behavior, not a mode-dependent feature.
+
+**Reproduction**:
+```bash
+# /tmp/test_quote.sh
+VAR=value
+RESULT='$VAR'
+echo RESULT=$RESULT
+```
+
+**Expected (bash, zsh, all POSIX shells)**:
+```
+RESULT=$VAR
+```
+
+**Actual (lusush)**:
+```
+RESULT=value
+```
+
+**Root Cause**:
+The executor has code at line 2955-2956 stating "Regular single-quoted strings: no expansion at all" but the expansion is happening anyway. Either:
+1. The tokenizer is not correctly identifying single-quoted strings as `NODE_STRING` (non-expandable)
+2. Or the single-quoted content is being passed through expansion before reaching that code path
+
+**Impact**:
+- Breaks fundamental shell quoting semantics
+- Scripts relying on single quotes to protect special characters fail
+- This is NOT mode-dependent - single quote behavior is POSIX-mandated
+
+**Priority**: HIGH (fundamental shell semantics violation)
+
+---
+
+### Issue #59: Variable Concatenation `${A}_${B}` Causes Memory Corruption
+**Severity**: HIGH  
+**Discovered**: 2026-01-16 (Unit test coverage session)  
+**Status**: Active bug  
+**Component**: src/executor.c (variable expansion)
+
+**Description**:
+When using braced variable expansion with text between expansions (e.g., `${A}_${B}`), the shell crashes with a memory corruption error.
+
+**Reproduction**:
+```bash
+A=hello
+B=world
+RESULT=${A}_${B}
+# Crashes with: malloc: *** error for object 0x...: pointer being freed was not allocated
+```
+
+**Also broken**:
+```bash
+RESULT=${A}_${B}  # underscore between
+# Error output: error[E1101]: _: command not found
+# Then crashes with malloc error
+
+PREFIX=hello
+RESULT=${PREFIX}world  # braced var followed by text
+# Same malloc error - pointer being freed was not allocated
+```
+
+**Expected Result**:
+```bash
+$ bash -c 'A=hello; B=world; RESULT=${A}_${B}; echo $RESULT'
+hello_world
+```
+
+**Root Cause**:
+The variable expansion parsing appears to incorrectly handle text following a closing brace `}` when another expansion immediately follows. The underscore `_` is being parsed as a command rather than as literal text to concatenate.
+
+**Impact**:
+- Common pattern `${VAR1}_${VAR2}` crashes the shell
+- Affects filename construction, variable naming patterns
+- Workaround: use quotes `"${A}_${B}"` (but this may also fail)
+
+**Priority**: HIGH (common shell pattern)
+
+---
+
 **Last Updated**: 2026-01-16 (Unit test coverage session)  
 **Next Review**: Before each commit, after each bug discovery  
 **Maintainer**: Update this file whenever bugs are discovered - NO EXCEPTIONS
