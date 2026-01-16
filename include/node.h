@@ -78,6 +78,7 @@ typedef enum {
     NODE_CASE_ITEM,     // Case item with terminator type
     NODE_SELECT,        // select var in list; do body; done
     NODE_TIME,          // time [-p] pipeline
+    NODE_NEGATE,        // ! pipeline - negate exit status
 
     // Extended language features (Phase 7: Zsh-Specific)
     NODE_ANON_FUNCTION, // () { body } - anonymous function (immediately executed)

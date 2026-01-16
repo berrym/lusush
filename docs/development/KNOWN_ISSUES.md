@@ -1302,8 +1302,8 @@ Implemented type-aware deduplication, full path storage for shadowing commands, 
 ### Issue #57: Negation Command `! cmd` Causes Memory Corruption
 **Severity**: HIGH  
 **Discovered**: 2026-01-16 (Unit test coverage session)  
-**Status**: Active bug  
-**Component**: src/executor.c
+**Status**: FIXED (2026-01-16)  
+**Component**: src/parser.c, src/executor.c
 
 **Description**:
 Using the negation operator `!` before a command causes a double-free or invalid free memory error. The shell crashes with "malloc: pointer being freed was not allocated".
@@ -1325,12 +1325,27 @@ The negation command handling in `execute_node()` or related functions has a mem
 
 **Priority**: HIGH (common shell construct)
 
+**Fix Applied**:
+The `!` character was being tokenized as a word and not recognized as a pipeline prefix.
+- Added `NODE_NEGATE` type to node.h
+- Modified `parse_pipeline()` in parser.c to check for `!` prefix and wrap pipeline in `NODE_NEGATE`
+- Added `execute_negate()` in executor.c to execute child and invert exit status
+
+**Now Working**:
+```bash
+! false   # Returns 0
+! true    # Returns 1
+! exit 5  # Returns 0
+```
+
+**Status**: FIXED AND VERIFIED
+
 ---
 
 ### Issue #58: Command Substitution Exit Status Not Preserved in $?
 **Severity**: MEDIUM  
 **Discovered**: 2026-01-16 (Unit test coverage session)  
-**Status**: Active bug  
+**Status**: FIXED (2026-01-16)  
 **Component**: src/executor.c
 
 **Description**:
@@ -1354,7 +1369,7 @@ $ bash -c 'X=$(exit 42); echo $?'
 ```
 
 **Root Cause**:
-The exit status from the child process in command substitution is likely being captured but not propagated back to the executor's `exit_status` field after the substitution completes.
+The exit status from the child process in command substitution was being captured but not propagated back to the executor's `exit_status` field after the substitution completes.
 
 **Impact**:
 - Scripts cannot check if command substitution succeeded
@@ -1363,6 +1378,20 @@ The exit status from the child process in command substitution is likely being c
 
 **Priority**: MEDIUM (workaround: check command separately)
 
+**Fix Applied**:
+Two changes in src/executor.c:
+1. Modified `expand_command_substitution()` to propagate the child's exit status to `executor->exit_status` after waitpid
+2. Modified `execute_assignment()` to save the exit status after expansion and restore it after the variable is set
+
+**Now Working**:
+```bash
+X=$(false); echo $?   # Output: 1
+X=$(exit 42); echo $?  # Output: 42
+X=$(true); echo $?    # Output: 0
+```
+
+**Status**: FIXED AND VERIFIED
+
 ---
 
 ---
@@ -1370,8 +1399,8 @@ The exit status from the child process in command substitution is likely being c
 ### Issue #60: Single Quotes Do Not Prevent Variable Expansion
 **Severity**: HIGH  
 **Discovered**: 2026-01-16 (Unit test coverage session)  
-**Status**: Active bug  
-**Component**: src/executor.c or src/tokenizer.c
+**Status**: FIXED (2026-01-16)  
+**Component**: src/parser.c, src/executor.c
 
 **Description**:
 Single-quoted strings are incorrectly expanding variables. In all POSIX-compliant shells, single quotes must prevent ALL expansion - this is fundamental shell behavior, not a mode-dependent feature.
@@ -1406,13 +1435,32 @@ The executor has code at line 2955-2956 stating "Regular single-quoted strings: 
 
 **Priority**: HIGH (fundamental shell semantics violation)
 
+**Root Cause**:
+Two issues combined:
+1. The tokenizer strips quotes from token text (by design) but parser didn't preserve quote type
+2. `expand_if_needed()` had no way to know content came from single quotes
+
+**Fix Applied**:
+1. Modified parser's assignment value collection to re-add single quotes around `TOK_STRING` token content
+2. Modified `expand_if_needed()` to detect single quotes and preserve content literally
+3. Added exception for command substitution `$(...)` which may contain internal quotes
+
+**Now Working**:
+```bash
+VAR=xxx; RESULT='$VAR'; echo $RESULT  # Output: $VAR (literal)
+A=1; B=2; RESULT="$A and $B"; echo $RESULT  # Output: 1 and 2 (expanded)
+RESULT=$(cat <<< 'hello'); echo $RESULT  # Output: hello (here string works)
+```
+
+**Status**: FIXED AND VERIFIED
+
 ---
 
 ### Issue #59: Variable Concatenation `${A}_${B}` Causes Memory Corruption
 **Severity**: HIGH  
 **Discovered**: 2026-01-16 (Unit test coverage session)  
-**Status**: Active bug  
-**Component**: src/executor.c (variable expansion)
+**Status**: FIXED (2026-01-16)  
+**Component**: src/parser.c (assignment parsing)
 
 **Description**:
 When using braced variable expansion with text between expansions (e.g., `${A}_${B}`), the shell crashes with a memory corruption error.
@@ -1451,6 +1499,25 @@ The variable expansion parsing appears to incorrectly handle text following a cl
 - Workaround: use quotes `"${A}_${B}"` (but this may also fail)
 
 **Priority**: HIGH (common shell pattern)
+
+**Root Cause**:
+The assignment parser was only consuming a single token as the value. When parsing
+`RESULT=${A}_${B}`, it took only `${A}` as the value, leaving `_${B}` as separate
+tokens interpreted as a command.
+
+**Fix Applied**:
+Modified `parse_simple_command()` in parser.c to collect all consecutive value tokens
+when parsing assignments. The loop continues until hitting whitespace, a separator,
+or a word followed by `=` (which indicates a new assignment).
+
+**Now Working**:
+```bash
+A=hello; B=world; RESULT=${A}_${B}; echo $RESULT  # Output: hello_world
+PREFIX=hello; RESULT=${PREFIX}world; echo $RESULT  # Output: helloworld
+A=1 B=2 C=3 cmd  # Multiple assignments still work correctly
+```
+
+**Status**: FIXED AND VERIFIED
 
 ---
 

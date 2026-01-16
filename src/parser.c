@@ -563,6 +563,19 @@ static node_t *parse_command_list(parser_t *parser) {
  * @return Pipeline AST node
  */
 static node_t *parse_pipeline(parser_t *parser) {
+    // Check for negation prefix (! pipeline)
+    bool negate = false;
+    token_t *current = tokenizer_current(parser->tokenizer);
+    if (current && current->type == TOK_WORD && 
+        current->length == 1 && current->text[0] == '!') {
+        negate = true;
+        tokenizer_advance(parser->tokenizer); // consume !
+        // Skip whitespace after !
+        while (tokenizer_match(parser->tokenizer, TOK_WHITESPACE)) {
+            tokenizer_advance(parser->tokenizer);
+        }
+    }
+
     node_t *left = parse_simple_command(parser);
     if (!left) {
         return NULL;
@@ -614,7 +627,18 @@ static node_t *parse_pipeline(parser_t *parser) {
         }
 
         add_child_node(background_node, left);
-        return background_node;
+        left = background_node;
+    }
+
+    // Wrap in negation node if ! prefix was present
+    if (negate) {
+        node_t *negate_node = new_node(NODE_NEGATE);
+        if (!negate_node) {
+            free_node_tree(left);
+            return NULL;
+        }
+        add_child_node(negate_node, left);
+        return negate_node;
     }
 
     return left;
@@ -874,23 +898,90 @@ static node_t *parse_simple_command(parser_t *parser) {
                 return NULL;
             }
 
+            // Collect all consecutive value tokens (handles ${A}_${B} etc.)
+            // Value tokens include words, variables, command subs, etc.
+            // Stop at whitespace, semicolon, newline, or other separators
             if (value &&
                 (token_is_word_like(value->type) ||
                  value->type == TOK_VARIABLE || value->type == TOK_ARITH_EXP ||
                  value->type == TOK_COMMAND_SUB ||
                  value->type == TOK_BACKQUOTE)) {
+                
+                // Build complete value by concatenating adjacent tokens
+                size_t value_capacity = 256;
+                size_t value_len = 0;
+                char *full_value = malloc(value_capacity);
+                if (!full_value) {
+                    free(var_name);
+                    free_node_tree(command);
+                    return NULL;
+                }
+                full_value[0] = '\0';
+                
+                while (value &&
+                       (token_is_word_like(value->type) ||
+                        value->type == TOK_VARIABLE || 
+                        value->type == TOK_ARITH_EXP ||
+                        value->type == TOK_COMMAND_SUB ||
+                        value->type == TOK_BACKQUOTE)) {
+                    
+                    // Check if this word is followed by = (making it a new assignment)
+                    // If so, stop - this word belongs to the next assignment
+                    if (token_is_word_like(value->type)) {
+                        token_t *peek = tokenizer_peek(parser->tokenizer);
+                        if (peek && (peek->type == TOK_ASSIGN || 
+                                     peek->type == TOK_PLUS_ASSIGN)) {
+                            break; // This word starts a new assignment
+                        }
+                    }
+                    
+                    size_t token_len = strlen(value->text);
+                    // For single-quoted strings, add 2 for surrounding quotes
+                    size_t extra_len = (value->type == TOK_STRING) ? 2 : 0;
+                    
+                    // Grow buffer if needed
+                    if (value_len + token_len + extra_len + 1 > value_capacity) {
+                        value_capacity = (value_len + token_len + extra_len + 1) * 2;
+                        char *new_value = realloc(full_value, value_capacity);
+                        if (!new_value) {
+                            free(full_value);
+                            free(var_name);
+                            free_node_tree(command);
+                            return NULL;
+                        }
+                        full_value = new_value;
+                    }
+                    
+                    // Add token with appropriate quoting
+                    // Only single quotes need to be preserved to prevent expansion
+                    // Double quotes: expand variables but don't keep quotes
+                    if (value->type == TOK_STRING) {
+                        // Single-quoted: preserve quotes to prevent expansion
+                        strcat(full_value, "'");
+                        strcat(full_value, value->text);
+                        strcat(full_value, "'");
+                        value_len += token_len + 2;
+                    } else {
+                        // All other types: just append the text
+                        strcat(full_value, value->text);
+                        value_len += token_len;
+                    }
+                    
+                    tokenizer_advance(parser->tokenizer); // consume this token
+                    value = tokenizer_current(parser->tokenizer);
+                }
+                
+                // Build final assignment string: var=value or var+=value
                 size_t var_len = strlen(var_name);
-                size_t value_len = strlen(value->text);
-                // Add extra byte for '+' if append operation
                 char *assignment = malloc(var_len + (is_append ? 2 : 1) + value_len + 1);
                 if (assignment) {
                     strcpy(assignment, var_name);
                     strcat(assignment, is_append ? "+=" : "=");
-                    strcat(assignment, value->text);
+                    strcat(assignment, full_value);
                     command->val.str = assignment;
                     command->val_type = VAL_STR;
                 }
-                tokenizer_advance(parser->tokenizer); // consume value
+                free(full_value);
             } else {
                 // Assignment with empty value: variable=
                 size_t var_len = strlen(var_name);

@@ -111,6 +111,7 @@ static int execute_external_command_with_setup(executor_t *executor,
 static int execute_builtin_command(executor_t *executor, char **argv);
 static int execute_brace_group(executor_t *executor, node_t *group);
 static int execute_subshell(executor_t *executor, node_t *subshell);
+static int execute_negate(executor_t *executor, node_t *negate_node);
 
 /// Forward declarations for Phase 1: Arrays and Arithmetic
 static int execute_arithmetic_command(executor_t *executor, node_t *arith_node);
@@ -880,6 +881,8 @@ static int execute_node(executor_t *executor, node_t *node) {
         return execute_command_list(executor, node);
     case NODE_BACKGROUND:
         return executor_execute_background(executor, node);
+    case NODE_NEGATE:
+        return execute_negate(executor, node);
     case NODE_VAR:
         // Variable nodes are typically handled by their parent
         return 0;
@@ -3291,6 +3294,151 @@ char *expand_if_needed(executor_t *executor, const char *text) {
         return NULL;
     }
 
+    // Handle strings that contain single quotes - process them specially
+    // Single-quoted content should not be expanded (POSIX requirement)
+    // BUT: Don't enter this path for command substitution $(...) or `...`
+    // which may contain quotes internally
+    if (strchr(text, '\'') && 
+        !(text[0] == '$' && text[1] == '(') &&
+        !(text[0] == '`')) {
+        size_t len = strlen(text);
+        size_t result_capacity = len + 1;
+        char *result = malloc(result_capacity);
+        if (!result) {
+            return strdup(text);
+        }
+        size_t result_pos = 0;
+        
+        for (size_t i = 0; i < len; i++) {
+            if (text[i] == '\'') {
+                // Single quote - copy content literally until closing quote
+                i++; // Skip opening quote
+                while (i < len && text[i] != '\'') {
+                    if (result_pos >= result_capacity - 1) {
+                        result_capacity *= 2;
+                        char *new_result = realloc(result, result_capacity);
+                        if (!new_result) {
+                            free(result);
+                            return strdup(text);
+                        }
+                        result = new_result;
+                    }
+                    result[result_pos++] = text[i++];
+                }
+                // i now points to closing quote (or end of string)
+            } else if (text[i] == '"') {
+                // Double quote - expand content until closing quote
+                i++; // Skip opening quote
+                size_t dq_start = i;
+                int depth = 1;
+                while (i < len && depth > 0) {
+                    if (text[i] == '"' && (i == 0 || text[i-1] != '\\')) {
+                        depth--;
+                        if (depth == 0) break;
+                    }
+                    i++;
+                }
+                // Extract double-quoted content and expand it
+                size_t dq_len = i - dq_start;
+                char *dq_content = malloc(dq_len + 1);
+                if (dq_content) {
+                    strncpy(dq_content, &text[dq_start], dq_len);
+                    dq_content[dq_len] = '\0';
+                    char *expanded = expand_quoted_string(executor, dq_content);
+                    free(dq_content);
+                    if (expanded) {
+                        size_t exp_len = strlen(expanded);
+                        while (result_pos + exp_len >= result_capacity) {
+                            result_capacity *= 2;
+                            char *new_result = realloc(result, result_capacity);
+                            if (!new_result) {
+                                free(result);
+                                free(expanded);
+                                return strdup(text);
+                            }
+                            result = new_result;
+                        }
+                        strcpy(&result[result_pos], expanded);
+                        result_pos += exp_len;
+                        free(expanded);
+                    }
+                }
+                // i now points to closing quote
+            } else if (text[i] == '$') {
+                // Outside quotes - expand variable
+                size_t var_start = i;
+                // Find end of variable reference
+                if (i + 1 < len && text[i + 1] == '{') {
+                    // ${var} format - find closing brace
+                    size_t brace_end = i + 2;
+                    int brace_depth = 1;
+                    while (brace_end < len && brace_depth > 0) {
+                        if (text[brace_end] == '{') brace_depth++;
+                        else if (text[brace_end] == '}') brace_depth--;
+                        brace_end++;
+                    }
+                    i = brace_end - 1;
+                } else if (i + 1 < len && text[i + 1] == '(') {
+                    // $(cmd) or $((arith)) - find closing paren
+                    size_t paren_end = i + 2;
+                    int paren_depth = 1;
+                    while (paren_end < len && paren_depth > 0) {
+                        if (text[paren_end] == '(') paren_depth++;
+                        else if (text[paren_end] == ')') paren_depth--;
+                        paren_end++;
+                    }
+                    i = paren_end - 1;
+                } else {
+                    // $var format
+                    i++;
+                    while (i < len && (isalnum(text[i]) || text[i] == '_')) {
+                        i++;
+                    }
+                    i--; // Back up to last char of variable
+                }
+                // Extract and expand the variable reference
+                size_t var_len = i - var_start + 1;
+                char *var_ref = malloc(var_len + 1);
+                if (var_ref) {
+                    strncpy(var_ref, &text[var_start], var_len);
+                    var_ref[var_len] = '\0';
+                    char *expanded = expand_variable(executor, var_ref);
+                    free(var_ref);
+                    if (expanded) {
+                        size_t exp_len = strlen(expanded);
+                        while (result_pos + exp_len >= result_capacity) {
+                            result_capacity *= 2;
+                            char *new_result = realloc(result, result_capacity);
+                            if (!new_result) {
+                                free(result);
+                                free(expanded);
+                                return strdup(text);
+                            }
+                            result = new_result;
+                        }
+                        strcpy(&result[result_pos], expanded);
+                        result_pos += exp_len;
+                        free(expanded);
+                    }
+                }
+            } else {
+                // Regular character outside quotes
+                if (result_pos >= result_capacity - 1) {
+                    result_capacity *= 2;
+                    char *new_result = realloc(result, result_capacity);
+                    if (!new_result) {
+                        free(result);
+                        return strdup(text);
+                    }
+                    result = new_result;
+                }
+                result[result_pos++] = text[i];
+            }
+        }
+        result[result_pos] = '\0';
+        return result;
+    }
+
     // Check for tilde expansion first
     if (text[0] == '~') {
         char *tilde_expanded = expand_tilde(text);
@@ -3553,6 +3701,36 @@ static int execute_external_command_with_redirection(executor_t *executor,
         }
         return 1;
     }
+}
+
+/**
+ * @brief Execute a negated pipeline (! pipeline)
+ *
+ * Executes the pipeline and inverts its exit status.
+ * Exit status 0 becomes 1, any non-zero becomes 0.
+ *
+ * @param executor Executor context
+ * @param negate_node Negate node containing the pipeline
+ * @return Inverted exit status
+ */
+static int execute_negate(executor_t *executor, node_t *negate_node) {
+    if (!negate_node || negate_node->type != NODE_NEGATE) {
+        return 1;
+    }
+
+    // Execute the child (pipeline)
+    node_t *child = negate_node->first_child;
+    if (!child) {
+        return 1;
+    }
+
+    int result = execute_node(executor, child);
+    
+    // Invert the exit status: 0 -> 1, non-zero -> 0
+    int inverted = (result == 0) ? 1 : 0;
+    executor->exit_status = inverted;
+    
+    return inverted;
 }
 
 /**
@@ -5945,7 +6123,10 @@ static int execute_assignment(executor_t *executor, const char *assignment) {
     }
 
     // Expand the value using modern expansion
+    // Save exit status set by command substitution (POSIX: assignment-only
+    // commands should return the exit status of the last command substitution)
     char *value = expand_if_needed(executor, eq + 1);
+    int cmd_sub_exit_status = executor->exit_status;
 
     // Resolve nameref if the variable is a nameref (max depth 10)
     const char *target_name = var_name;
@@ -6016,7 +6197,14 @@ static int execute_assignment(executor_t *executor, const char *assignment) {
     free(var_name);
     free(value);
 
-    return result == 0 ? 0 : 1;
+    // POSIX: For assignment-only commands, return the exit status of the
+    // last command substitution performed during value expansion, or 0
+    // if no command substitution was performed or if the assignment failed
+    if (result == 0) {
+        executor->exit_status = cmd_sub_exit_status;
+        return cmd_sub_exit_status;
+    }
+    return 1;
 }
 
 /**
@@ -9690,6 +9878,13 @@ static char *expand_command_substitution(executor_t *executor,
         int status;
         while (waitpid(pid, &status, 0) == -1 && errno == EINTR)
             ;
+
+        // Propagate child's exit status to executor for $? access
+        if (WIFEXITED(status)) {
+            executor->exit_status = WEXITSTATUS(status);
+        } else if (WIFSIGNALED(status)) {
+            executor->exit_status = 128 + WTERMSIG(status);
+        }
 
         // Then read all available output
         while ((bytes_read = read(pipefd[0], buffer, sizeof(buffer))) > 0) {
