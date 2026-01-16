@@ -7213,10 +7213,13 @@ int bin_env(int argc, char **argv) {
         /* Child process */
         
         if (ignore_env) {
-            /* Clear entire environment */
+            /* Clear entire environment - use portable approach
+             * clearenv() is a GNU extension not available on macOS/BSD
+             * Setting environ to NULL or empty array is POSIX portable
+             */
             extern char **environ;
-            environ = NULL;
-            clearenv();
+            static char *empty_env[] = { NULL };
+            environ = empty_env;
         } else {
             /* Unset specified variables */
             for (int u = 0; u < unset_count; u++) {
