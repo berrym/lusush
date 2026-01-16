@@ -186,12 +186,20 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
 
         int fd = open(target, O_WRONLY | O_CREAT | O_TRUNC, 0644);
         if (fd == -1) {
-            perror(target);
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "%s: %s", target, strerror(errno));
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
             result = 1;
             break;
         }
         if (dup2(fd, STDOUT_FILENO) == -1) {
-            perror("dup2");
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "dup2: %s", strerror(errno));
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
             result = 1;
         }
         close(fd);
@@ -202,12 +210,20 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         // Append output redirection: command >> file
         int fd = open(target, O_WRONLY | O_CREAT | O_APPEND, 0644);
         if (fd == -1) {
-            perror(target);
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "%s: %s", target, strerror(errno));
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
             result = 1;
             break;
         }
         if (dup2(fd, STDOUT_FILENO) == -1) {
-            perror("dup2");
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "dup2: %s", strerror(errno));
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
             close(fd);
             result = 1;
             break;
@@ -220,12 +236,20 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         // Input redirection: command < file (stdin only)
         int fd = open(target, O_RDONLY);
         if (fd == -1) {
-            perror(target);
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "%s: %s", target, strerror(errno));
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
             result = 1;
             break;
         }
         if (dup2(fd, STDIN_FILENO) == -1) {
-            perror("dup2");
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "dup2: %s", strerror(errno));
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
             close(fd);
             result = 1;
             break;
@@ -243,12 +267,20 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         }
         int fd = open(target, O_RDONLY);
         if (fd == -1) {
-            perror(target);
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "%s: %s", target, strerror(errno));
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
             result = 1;
             break;
         }
         if (dup2(fd, dest_fd) == -1) {
-            perror("dup2");
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "dup2: %s", strerror(errno));
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
             close(fd);
             result = 1;
             break;
@@ -266,12 +298,20 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         }
         int fd = open(target, O_WRONLY | O_CREAT | O_TRUNC, 0644);
         if (fd == -1) {
-            perror(target);
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "%s: %s", target, strerror(errno));
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
             result = 1;
             break;
         }
         if (dup2(fd, dest_fd) == -1) {
-            perror("dup2");
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "dup2: %s", strerror(errno));
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
             close(fd);
             result = 1;
             break;
@@ -289,12 +329,20 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         }
         int fd = open(target, O_WRONLY | O_CREAT | O_APPEND, 0644);
         if (fd == -1) {
-            perror(target);
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "%s: %s", target, strerror(errno));
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
             result = 1;
             break;
         }
         if (dup2(fd, dest_fd) == -1) {
-            perror("dup2");
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "dup2: %s", strerror(errno));
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
             close(fd);
             result = 1;
             break;
@@ -307,12 +355,20 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         // Combined stdout/stderr redirection: command &> file
         int fd = open(target, O_WRONLY | O_CREAT | O_TRUNC, 0644);
         if (fd == -1) {
-            perror(target);
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "%s: %s", target, strerror(errno));
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
             result = 1;
             break;
         }
         if (dup2(fd, STDOUT_FILENO) == -1 || dup2(fd, STDERR_FILENO) == -1) {
-            perror("dup2");
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "dup2: %s", strerror(errno));
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
             close(fd);
             result = 1;
             break;
@@ -325,12 +381,20 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         // Append both stdout/stderr: command &>> file
         int fd = open(target, O_WRONLY | O_CREAT | O_APPEND, 0644);
         if (fd == -1) {
-            perror(target);
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "%s: %s", target, strerror(errno));
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
             result = 1;
             break;
         }
         if (dup2(fd, STDOUT_FILENO) == -1 || dup2(fd, STDERR_FILENO) == -1) {
-            perror("dup2");
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "dup2: %s", strerror(errno));
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
             close(fd);
             result = 1;
             break;
@@ -362,12 +426,20 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         // Override noclobber setting - always allow overwriting
         int fd = open(target, O_WRONLY | O_CREAT | O_TRUNC, 0644);
         if (fd == -1) {
-            perror(target);
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "%s: %s", target, strerror(errno));
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
             result = 1;
             break;
         }
         if (dup2(fd, STDOUT_FILENO) == -1) {
-            perror("dup2");
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "dup2: %s", strerror(errno));
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
             result = 1;
         }
         close(fd);
@@ -398,13 +470,21 @@ static int setup_here_document(const char *delimiter, bool strip_tabs) {
     // Create a temporary pipe for the here document content
     int pipefd[2];
     if (pipe(pipefd) == -1) {
-        perror("pipe");
+        shell_error_t *error = shell_error_create(
+            SHELL_ERR_PIPE_FAILED, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+            "pipe: %s", strerror(errno));
+        shell_error_display(error, stderr, isatty(STDERR_FILENO));
+        shell_error_free(error);
         return 1;
     }
 
     pid_t pid = fork();
     if (pid == -1) {
-        perror("fork");
+        shell_error_t *error = shell_error_create(
+            SHELL_ERR_FORK_FAILED, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+            "fork: %s", strerror(errno));
+        shell_error_display(error, stderr, isatty(STDERR_FILENO));
+        shell_error_free(error);
         close(pipefd[0]);
         close(pipefd[1]);
         return 1;
@@ -454,7 +534,11 @@ static int setup_here_document(const char *delimiter, bool strip_tabs) {
         close(pipefd[1]); // Close write end
 
         if (dup2(pipefd[0], STDIN_FILENO) == -1) {
-            perror("dup2");
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "dup2: %s", strerror(errno));
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
             close(pipefd[0]);
             return 1;
         }
@@ -485,13 +569,21 @@ static int setup_here_document_with_content(const char *content) {
     // Create a temporary pipe for the here document content
     int pipefd[2];
     if (pipe(pipefd) == -1) {
-        perror("pipe");
+        shell_error_t *error = shell_error_create(
+            SHELL_ERR_PIPE_FAILED, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+            "pipe: %s", strerror(errno));
+        shell_error_display(error, stderr, isatty(STDERR_FILENO));
+        shell_error_free(error);
         return 1;
     }
 
     pid_t pid = fork();
     if (pid == -1) {
-        perror("fork");
+        shell_error_t *error = shell_error_create(
+            SHELL_ERR_FORK_FAILED, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+            "fork: %s", strerror(errno));
+        shell_error_display(error, stderr, isatty(STDERR_FILENO));
+        shell_error_free(error);
         close(pipefd[0]);
         close(pipefd[1]);
         return 1;
@@ -506,7 +598,9 @@ static int setup_here_document_with_content(const char *content) {
         if (content_len > 0) {
             ssize_t written = write(pipefd[1], content, content_len);
             if (written == -1) {
-                perror("write");
+                // In child process, use fprintf since shell_error requires
+                // allocation which may fail; also child exits immediately
+                fprintf(stderr, "write: %s\n", strerror(errno));
             }
         }
 
@@ -517,7 +611,11 @@ static int setup_here_document_with_content(const char *content) {
         close(pipefd[1]); // Close write end
 
         if (dup2(pipefd[0], STDIN_FILENO) == -1) {
-            perror("dup2");
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "dup2: %s", strerror(errno));
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
             close(pipefd[0]);
             return 1;
         }
@@ -657,7 +755,11 @@ static int setup_here_string(executor_t *executor, const char *content) {
 
     int pipefd[2];
     if (pipe(pipefd) == -1) {
-        perror("pipe");
+        shell_error_t *error = shell_error_create(
+            SHELL_ERR_PIPE_FAILED, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+            "pipe: %s", strerror(errno));
+        shell_error_display(error, stderr, isatty(STDERR_FILENO));
+        shell_error_free(error);
         return 1;
     }
 
@@ -673,7 +775,11 @@ static int setup_here_string(executor_t *executor, const char *content) {
     ssize_t written =
         write(pipefd[1], expanded_content, strlen(expanded_content));
     if (written == -1) {
-        perror("write");
+        shell_error_t *error = shell_error_create(
+            SHELL_ERR_IO_ERROR, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+            "write: %s", strerror(errno));
+        shell_error_display(error, stderr, isatty(STDERR_FILENO));
+        shell_error_free(error);
         free(expanded_content);
         close(pipefd[0]);
         close(pipefd[1]);
@@ -687,7 +793,11 @@ static int setup_here_string(executor_t *executor, const char *content) {
 
     // Redirect stdin to read from the pipe
     if (dup2(pipefd[0], STDIN_FILENO) == -1) {
-        perror("dup2");
+        shell_error_t *error = shell_error_create(
+            SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+            "dup2: %s", strerror(errno));
+        shell_error_display(error, stderr, isatty(STDERR_FILENO));
+        shell_error_free(error);
         close(pipefd[0]);
         return 1;
     }
@@ -954,7 +1064,11 @@ int restore_file_descriptors(redirection_state_t *state) {
     // Restore stdin
     if (state->stdin_saved) {
         if (dup2(state->saved_stdin, STDIN_FILENO) == -1) {
-            perror("Failed to restore stdin");
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "failed to restore stdin: %s", strerror(errno));
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
             result = 1;
         }
         close(state->saved_stdin);
@@ -963,7 +1077,11 @@ int restore_file_descriptors(redirection_state_t *state) {
     // Restore stdout
     if (state->stdout_saved) {
         if (dup2(state->saved_stdout, STDOUT_FILENO) == -1) {
-            perror("Failed to restore stdout");
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "failed to restore stdout: %s", strerror(errno));
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
             result = 1;
         }
         close(state->saved_stdout);
@@ -972,7 +1090,11 @@ int restore_file_descriptors(redirection_state_t *state) {
     // Restore stderr
     if (state->stderr_saved) {
         if (dup2(state->saved_stderr, STDERR_FILENO) == -1) {
-            perror("Failed to restore stderr");
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                "failed to restore stderr: %s", strerror(errno));
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
             result = 1;
         }
         close(state->saved_stderr);
