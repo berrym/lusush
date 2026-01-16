@@ -2877,7 +2877,12 @@ int bin_exec(int argc, char **argv) {
     execvp(command, exec_argv);
 
     // If we get here, exec failed
-    perror("exec");
+    int saved_errno = errno;
+    shell_error_t *error = shell_error_create(
+        SHELL_ERR_COMMAND_NOT_FOUND, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+        "exec: %s: %s", command, strerror(saved_errno));
+    shell_error_display(error, stderr, isatty(STDERR_FILENO));
+    shell_error_free(error);
 
     // exec failure should exit the shell with error status
     exit(127);
@@ -3003,7 +3008,12 @@ int bin_wait(int argc, char **argv) {
                             job_or_pid);
                     return 127;
                 } else {
-                    perror("wait");
+                    int saved_errno = errno;
+                    shell_error_t *error = shell_error_create(
+                        SHELL_ERR_IO_ERROR, SHELL_SEVERITY_ERROR,
+                        SOURCE_LOC_UNKNOWN, "wait: %s", strerror(saved_errno));
+                    shell_error_display(error, stderr, isatty(STDERR_FILENO));
+                    shell_error_free(error);
                     return 1;
                 }
             } else if (result > 0) {
@@ -3271,7 +3281,12 @@ int bin_ulimit(int argc, char **argv) {
     // Handle specific resource
     struct rlimit rlim;
     if (getrlimit(resource, &rlim) != 0) {
-        perror("ulimit: getrlimit");
+        int saved_errno = errno;
+        shell_error_t *error = shell_error_create(
+            SHELL_ERR_IO_ERROR, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+            "ulimit: getrlimit: %s", strerror(saved_errno));
+        shell_error_display(error, stderr, isatty(STDERR_FILENO));
+        shell_error_free(error);
         return 1;
     }
 
@@ -3364,7 +3379,12 @@ int bin_ulimit(int argc, char **argv) {
     }
 
     if (setrlimit(resource, &rlim) != 0) {
-        perror("ulimit: setrlimit");
+        int saved_errno = errno;
+        shell_error_t *error = shell_error_create(
+            SHELL_ERR_IO_ERROR, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+            "ulimit: setrlimit: %s", strerror(saved_errno));
+        shell_error_display(error, stderr, isatty(STDERR_FILENO));
+        shell_error_free(error);
         return 1;
     }
 
@@ -3391,7 +3411,12 @@ int bin_times(int argc, char **argv) {
     // Get process times
     real_time = times(&tms_buf);
     if (real_time == (clock_t)-1) {
-        perror("times");
+        int saved_errno = errno;
+        shell_error_t *error = shell_error_create(
+            SHELL_ERR_IO_ERROR, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+            "times: %s", strerror(saved_errno));
+        shell_error_display(error, stderr, isatty(STDERR_FILENO));
+        shell_error_free(error);
         return 1;
     }
 
@@ -7231,7 +7256,12 @@ int bin_env(int argc, char **argv) {
     /* Run command with modified environment */
     pid_t pid = fork();
     if (pid < 0) {
-        perror("env: fork");
+        int saved_errno = errno;
+        shell_error_t *error = shell_error_create(
+            SHELL_ERR_FORK_FAILED, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+            "env: fork: %s", strerror(saved_errno));
+        shell_error_display(error, stderr, isatty(STDERR_FILENO));
+        shell_error_free(error);
         free(unset_vars);
         free(env_assignments);
         return 126;
@@ -7280,7 +7310,12 @@ int bin_env(int argc, char **argv) {
     
     int status;
     if (waitpid(pid, &status, 0) < 0) {
-        perror("env: waitpid");
+        int saved_errno = errno;
+        shell_error_t *error = shell_error_create(
+            SHELL_ERR_IO_ERROR, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+            "env: waitpid: %s", strerror(saved_errno));
+        shell_error_display(error, stderr, isatty(STDERR_FILENO));
+        shell_error_free(error);
         return 126;
     }
     
