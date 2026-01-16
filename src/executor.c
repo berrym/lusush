@@ -1532,7 +1532,9 @@ static int execute_pipeline(executor_t *executor, node_t *pipeline) {
         close(pipe_fd[1]);
 
         int result = execute_node(executor, left);
-        _exit(result);  // Use _exit() to avoid stdio buffer flushing in child
+        fflush(stdout);
+        fflush(stderr);
+        _exit(result);
     }
 
     pid_t right_pid = fork();
@@ -1554,7 +1556,9 @@ static int execute_pipeline(executor_t *executor, node_t *pipeline) {
         close(pipe_fd[0]);
 
         int result = execute_node(executor, right);
-        _exit(result);  // Use _exit() to avoid stdio buffer flushing in child
+        fflush(stdout);
+        fflush(stderr);
+        _exit(result);
     }
 
     // Parent: close pipes and wait
@@ -2598,6 +2602,8 @@ static int execute_coproc(executor_t *executor, node_t *coproc_node) {
 
         // Execute the command
         int result = execute_node(executor, command);
+        fflush(stdout);
+        fflush(stderr);
         _exit(result);
     }
 
@@ -10765,7 +10771,9 @@ int executor_execute_background(executor_t *executor, node_t *command) {
         if (pid == 0) {
             // Child process - execute the command
             int result = execute_node(executor, command->first_child);
-            _exit(result);  // Use _exit() to avoid stdio buffer flushing in child
+            fflush(stdout);
+            fflush(stderr);
+            _exit(result);
         } else {
             // Parent process - store background PID but no job tracking
             last_background_pid = pid;
@@ -10791,7 +10799,9 @@ int executor_execute_background(executor_t *executor, node_t *command) {
 
         // Execute the command
         int result = execute_node(executor, command->first_child);
-        _exit(result);  // Use _exit() to avoid stdio buffer flushing in child
+        fflush(stdout);
+        fflush(stderr);
+        _exit(result);
     } else {
         // Parent process - add to job list
         setpgid(pid, pid); // Set child's process group
@@ -11065,12 +11075,18 @@ static int execute_builtin_with_captured_stdout(executor_t *executor,
         // Child process - setup redirections and execute builtin
         int redir_result = setup_redirections(executor, command);
         if (redir_result != 0) {
-            _exit(1);  // Use _exit() to avoid stdio buffer flushing in child
+            _exit(1);
         }
 
         // Execute the builtin command
         int result = execute_builtin_command(executor, argv);
-        _exit(result);  // Use _exit() to avoid stdio buffer flushing in child
+        
+        // Flush stdio buffers before _exit() - critical for file redirections
+        // Without this, output redirected to files would be lost because
+        // _exit() doesn't flush stdio buffers (unlike exit())
+        fflush(stdout);
+        fflush(stderr);
+        _exit(result);
     } else {
         // Parent process - wait for child, retrying on EINTR
         int status;
@@ -12140,6 +12156,8 @@ static char *expand_process_substitution(executor_t *executor, node_t *proc_sub)
         }
 
         executor_free(child_executor);
+        fflush(stdout);
+        fflush(stderr);
         _exit(result);
     }
 

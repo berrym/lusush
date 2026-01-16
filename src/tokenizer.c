@@ -227,6 +227,8 @@ const char *token_type_name(token_type_t type) {
         return "HERESTRING";
     case TOK_REDIRECT_ERR:
         return "REDIRECT_ERR";
+    case TOK_REDIRECT_IN_FD:
+        return "REDIRECT_IN_FD";
     case TOK_REDIRECT_BOTH:
         return "REDIRECT_BOTH";
     case TOK_APPEND_ERR:
@@ -1631,48 +1633,58 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                                      &tokenizer->input[num_start], length,
                                      start_line, start_column, start_pos);
                 }
-            } else if (tokenizer->input[tokenizer->position] == '<' &&
-                       tokenizer->position + 1 < tokenizer->input_length &&
-                       tokenizer->input[tokenizer->position + 1] == '&') {
-                // Handle N<&M, N<&-, or N<&$VAR patterns (input fd duplication)
-                if (tokenizer->position + 2 < tokenizer->input_length) {
-                    char fd_char = tokenizer->input[tokenizer->position + 2];
-                    if (isdigit(fd_char) || fd_char == '-') {
-                        tokenizer->position += 3; // Skip <&M or <&-
-                        tokenizer->column += 3;
-                        size_t length = tokenizer->position - num_start;
-                        return token_new(TOK_REDIRECT_FD,
-                                         &tokenizer->input[num_start], length,
-                                         start_line, start_column, start_pos);
-                    }
-                    // Handle N<&$VAR or N<&${VAR} patterns
-                    if (fd_char == '$') {
-                        size_t fd_pos = tokenizer->position + 3; // After <&$
-                        // Handle ${...} brace form
-                        if (fd_pos < tokenizer->input_length &&
-                            tokenizer->input[fd_pos] == '{') {
-                            fd_pos++; // Skip {
-                            int brace_depth = 1;
-                            while (fd_pos < tokenizer->input_length && brace_depth > 0) {
-                                if (tokenizer->input[fd_pos] == '{') brace_depth++;
-                                else if (tokenizer->input[fd_pos] == '}') brace_depth--;
-                                fd_pos++;
-                            }
-                        } else {
-                            // Simple $VAR form - scan alphanumeric/underscore
-                            while (fd_pos < tokenizer->input_length &&
-                                   (isalnum(tokenizer->input[fd_pos]) ||
-                                    tokenizer->input[fd_pos] == '_')) {
-                                fd_pos++;
-                            }
+            } else if (tokenizer->input[tokenizer->position] == '<') {
+                // Check for N<& patterns first
+                if (tokenizer->position + 1 < tokenizer->input_length &&
+                    tokenizer->input[tokenizer->position + 1] == '&') {
+                    // Handle N<&M, N<&-, or N<&$VAR patterns (input fd duplication)
+                    if (tokenizer->position + 2 < tokenizer->input_length) {
+                        char fd_char = tokenizer->input[tokenizer->position + 2];
+                        if (isdigit(fd_char) || fd_char == '-') {
+                            tokenizer->position += 3; // Skip <&M or <&-
+                            tokenizer->column += 3;
+                            size_t length = tokenizer->position - num_start;
+                            return token_new(TOK_REDIRECT_FD,
+                                             &tokenizer->input[num_start], length,
+                                             start_line, start_column, start_pos);
                         }
-                        size_t length = fd_pos - num_start;
-                        tokenizer->position = fd_pos;
-                        tokenizer->column += length;
-                        return token_new(TOK_REDIRECT_FD,
-                                         &tokenizer->input[num_start], length,
-                                         start_line, start_column, start_pos);
+                        // Handle N<&$VAR or N<&${VAR} patterns
+                        if (fd_char == '$') {
+                            size_t fd_pos = tokenizer->position + 3; // After <&$
+                            // Handle ${...} brace form
+                            if (fd_pos < tokenizer->input_length &&
+                                tokenizer->input[fd_pos] == '{') {
+                                fd_pos++; // Skip {
+                                int brace_depth = 1;
+                                while (fd_pos < tokenizer->input_length && brace_depth > 0) {
+                                    if (tokenizer->input[fd_pos] == '{') brace_depth++;
+                                    else if (tokenizer->input[fd_pos] == '}') brace_depth--;
+                                    fd_pos++;
+                                }
+                            } else {
+                                // Simple $VAR form - scan alphanumeric/underscore
+                                while (fd_pos < tokenizer->input_length &&
+                                       (isalnum(tokenizer->input[fd_pos]) ||
+                                        tokenizer->input[fd_pos] == '_')) {
+                                    fd_pos++;
+                                }
+                            }
+                            size_t length = fd_pos - num_start;
+                            tokenizer->position = fd_pos;
+                            tokenizer->column += length;
+                            return token_new(TOK_REDIRECT_FD,
+                                             &tokenizer->input[num_start], length,
+                                             start_line, start_column, start_pos);
+                        }
                     }
+                } else {
+                    // Handle N< (redirect input to file descriptor N)
+                    tokenizer->position++;
+                    tokenizer->column++;
+                    size_t length = tokenizer->position - num_start;
+                    return token_new(TOK_REDIRECT_IN_FD,
+                                     &tokenizer->input[num_start], length,
+                                     start_line, start_column, start_pos);
                 }
             }
         }

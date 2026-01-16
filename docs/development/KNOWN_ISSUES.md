@@ -230,6 +230,139 @@ The zsh parameter flag parsing in `parse_parameter_expansion()` may not be resol
 
 ---
 
+### Issue #51: `N<` Input Redirection Not Tokenized Correctly
+**Severity**: HIGH  
+**Discovered**: 2026-01-15 (Session 123 - macOS redirection testing)  
+**Status**: Active bug  
+**Component**: src/tokenizer.c
+
+**Description**:
+The tokenizer handles `N>` (digit followed by output redirection) correctly but fails to recognize `N<` (digit followed by input redirection). This causes `exec 3<file` to fail while `exec 3>file` works.
+
+**Not Working**:
+```bash
+exec 3</tmp/test.txt
+# Error: exec: no command specified
+# Exit code: 1
+```
+
+**Working**:
+```bash
+exec 3>/tmp/test.txt   # Works correctly
+exec 3<&0              # Works (N<& pattern is handled)
+```
+
+**Root Cause**:
+In `src/tokenizer.c`, the digit-followed-by-redirection handling (around line 1570-1680) has:
+- `N>` handled at line ~1626: creates `TOK_REDIRECT_ERR` token
+- `N>>` handled: creates `TOK_APPEND_ERR` token  
+- `N>&` handled: creates `TOK_REDIRECT_FD` token
+- `N<&` handled: creates `TOK_REDIRECT_FD` token
+- `N<` **NOT handled**: falls through, `N` treated as word, `<` as separate redirect
+
+The condition only checks for `N<&` but not plain `N<`:
+```c
+} else if (tokenizer->input[tokenizer->position] == '<' &&
+           tokenizer->position + 1 < tokenizer->input_length &&
+           tokenizer->input[tokenizer->position + 1] == '&') {
+    // Only handles N<& - missing plain N<
+```
+
+**Fix Required**:
+Add handling for `N<` pattern similar to how `N>` is handled, returning a `TOK_REDIRECT_IN` token with the fd number prefix.
+
+**Impact**:
+- `exec 3<file` fails
+- Any input redirection with explicit fd number fails
+- Affects scripts that use numbered input redirections
+
+**Priority**: HIGH (breaks standard shell redirection functionality)
+
+**Status**: FIXED (Session 123) - Added `TOK_REDIRECT_IN_FD` and `NODE_REDIR_IN_FD` types for proper `N<` handling
+
+---
+
+### Issue #52: File Redirections Fail When Shell Runs in Subshell Capture
+**Severity**: HIGH  
+**Discovered**: 2026-01-15 (Session 123 - macOS redirection testing)  
+**Status**: FIXED (Session 123)  
+**Component**: src/executor.c, src/redirection.c
+
+**Description**:
+When lusush is invoked inside a `$()` command substitution (subshell capture), file redirections produce empty files even though the same command works correctly when run directly.
+
+**Root Cause**:
+The switch from `exit()` to `_exit()` in forked child processes (to fix the pipeline infinite loop bug) caused stdio buffers not to be flushed. `_exit()` exits immediately without flushing buffers, so output redirected to files was lost.
+
+**Fix**:
+Added explicit `fflush(stdout)` and `fflush(stderr)` calls before all `_exit()` calls in forked child processes:
+- Pipeline left/right children (execute_pipeline)
+- Background job children (executor_execute_background)
+- Builtin with captured stdout children
+- Coprocess children
+- Process substitution children
+- Also added fflush in `restore_file_descriptors()` before restoring fds
+
+---
+
+### Issue #53: Writing to Closed File Descriptor Doesn't Fail
+**Severity**: MEDIUM  
+**Discovered**: 2026-01-15 (Session 123 - macOS redirection testing)  
+**Status**: Active bug  
+**Component**: src/builtins/builtins.c (bin_echo, possibly others)
+
+**Description**:
+When a file descriptor is closed with `exec N>&-`, subsequent writes to that fd should fail with "bad file descriptor" error and return non-zero exit status. Instead, lusush silently succeeds and writes to stdout.
+
+**Not Working**:
+```bash
+exec 3>/tmp/test.txt
+exec 3>&-           # Close fd 3
+echo test >&3       # Should fail - fd 3 is closed
+# Expected: error message, non-zero exit
+# Actual: "test" printed to stdout, exit 0
+```
+
+**Expected Behavior** (bash/zsh):
+```bash
+$ bash -c 'exec 3>/tmp/t.txt; exec 3>&-; echo test >&3'
+bash: 3: Bad file descriptor
+
+$ zsh -c 'exec 3>/tmp/t.txt; exec 3>&-; echo test >&3'
+zsh:1: 3: bad file descriptor
+```
+
+**Root Cause** (suspected):
+The redirection `>&3` may be silently failing without being detected, causing echo to fall back to writing to stdout. Or the fd close isn't being tracked properly.
+
+**Impact**:
+- Scripts that rely on detecting closed fd errors will behave incorrectly
+- Resource cleanup patterns like `exec 3>&-; cmd >&3 || handle_error` won't work
+
+**Priority**: MEDIUM (affects error handling patterns)
+
+**Observations**:
+- Direct execution: file contains "hello" (6 bytes), stdout shows "hello"
+- Captured execution: file is 0 bytes, no stdout captured
+- The `echo` command itself works (stdout-only tests pass)
+- The issue is specific to file redirections when lusush is a child process with captured stdout
+
+**Root Cause** (suspected):
+Possible causes:
+1. Output buffering not being flushed before process exit in subshell context
+2. File descriptors not being properly inherited or managed in forked context
+3. Race condition between file write and process termination
+4. Different stdio behavior when stdout is a pipe vs terminal
+
+**Impact**:
+- Any automated testing that captures lusush output will see failures
+- Scripts that invoke lusush in `$()` with file redirections will fail
+- CI/CD pipelines testing redirection functionality affected
+
+**Priority**: HIGH (breaks automated testing and scripted usage)
+
+---
+
 ### Issue #31: Coproc FD Redirection Syntax Not Supported
 **Severity**: MEDIUM  
 **Discovered**: 2026-01-12 (Session 118/119 - Coproc implementation)  

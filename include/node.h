@@ -30,8 +30,9 @@ typedef enum {
     NODE_REDIR_IN,            // '<'
     NODE_REDIR_OUT,           // '>'
     NODE_REDIR_APPEND,        // '>>'
-    NODE_REDIR_ERR,           // '2>'
-    NODE_REDIR_ERR_APPEND,    // '2>>'
+    NODE_REDIR_ERR,           // 'N>' (any fd output, e.g., 2>, 3>)
+    NODE_REDIR_IN_FD,         // 'N<' (any fd input, e.g., 3<, 4<)
+    NODE_REDIR_ERR_APPEND,    // 'N>>' (any fd append, e.g., 2>>, 3>>)
     NODE_REDIR_HEREDOC,       // '<<'
     NODE_REDIR_HEREDOC_STRIP, // '<<-'
     NODE_REDIR_HERESTRING,    // '<<<'

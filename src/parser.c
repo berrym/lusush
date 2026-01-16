@@ -955,6 +955,7 @@ static node_t *parse_simple_command(parser_t *parser) {
             arg_token->type == TOK_HEREDOC_STRIP ||
             arg_token->type == TOK_HERESTRING ||
             arg_token->type == TOK_REDIRECT_ERR ||
+            arg_token->type == TOK_REDIRECT_IN_FD ||
             arg_token->type == TOK_REDIRECT_BOTH ||
             arg_token->type == TOK_APPEND_ERR ||
             arg_token->type == TOK_REDIRECT_FD ||
@@ -1341,6 +1342,7 @@ static bool is_redirection_token(token_type_t type) {
            type == TOK_HEREDOC_STRIP ||
            type == TOK_HERESTRING ||
            type == TOK_REDIRECT_ERR ||
+           type == TOK_REDIRECT_IN_FD ||
            type == TOK_REDIRECT_BOTH ||
            type == TOK_APPEND_ERR ||
            type == TOK_REDIRECT_FD ||
@@ -1416,6 +1418,9 @@ static node_t *parse_redirection(parser_t *parser) {
         break;
     case TOK_REDIRECT_ERR:
         node_type = NODE_REDIR_ERR;
+        break;
+    case TOK_REDIRECT_IN_FD:
+        node_type = NODE_REDIR_IN_FD;
         break;
     case TOK_REDIRECT_BOTH:
         node_type = NODE_REDIR_BOTH;

@@ -38,7 +38,8 @@ typedef enum {
     TOK_HEREDOC,          // <<
     TOK_HEREDOC_STRIP,    // <<-
     TOK_HERESTRING,       // <<<
-    TOK_REDIRECT_ERR,     // 2>
+    TOK_REDIRECT_ERR,     // N> (any fd output, e.g., 2>, 3>)
+    TOK_REDIRECT_IN_FD,   // N< (any fd input, e.g., 3<, 4<)
     TOK_REDIRECT_BOTH,    // &>
     TOK_APPEND_ERR,       // 2>>
     TOK_REDIRECT_FD,       // &1, &2, etc.

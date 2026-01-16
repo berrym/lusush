@@ -217,7 +217,7 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
     }
 
     case NODE_REDIR_IN: {
-        // Input redirection: command < file
+        // Input redirection: command < file (stdin only)
         int fd = open(target, O_RDONLY);
         if (fd == -1) {
             perror(target);
@@ -234,15 +234,43 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         break;
     }
 
+    case NODE_REDIR_IN_FD: {
+        // Input redirection with explicit fd: N< file (e.g., 3< file)
+        // Extract fd number from redir_node->val.str (e.g., "3<")
+        int dest_fd = STDIN_FILENO;
+        if (redir_node->val.str && isdigit(redir_node->val.str[0])) {
+            dest_fd = redir_node->val.str[0] - '0';
+        }
+        int fd = open(target, O_RDONLY);
+        if (fd == -1) {
+            perror(target);
+            result = 1;
+            break;
+        }
+        if (dup2(fd, dest_fd) == -1) {
+            perror("dup2");
+            close(fd);
+            result = 1;
+            break;
+        }
+        close(fd);
+        break;
+    }
+
     case NODE_REDIR_ERR: {
-        // Error redirection: command 2> file
+        // Output redirection with explicit fd: N> file (e.g., 2>, 3>)
+        // Extract fd number from redir_node->val.str (e.g., "2>", "3>")
+        int dest_fd = STDERR_FILENO;
+        if (redir_node->val.str && isdigit(redir_node->val.str[0])) {
+            dest_fd = redir_node->val.str[0] - '0';
+        }
         int fd = open(target, O_WRONLY | O_CREAT | O_TRUNC, 0644);
         if (fd == -1) {
             perror(target);
             result = 1;
             break;
         }
-        if (dup2(fd, STDERR_FILENO) == -1) {
+        if (dup2(fd, dest_fd) == -1) {
             perror("dup2");
             close(fd);
             result = 1;
@@ -253,14 +281,19 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
     }
 
     case NODE_REDIR_ERR_APPEND: {
-        // Error append redirection: command 2>> file
+        // Append redirection with explicit fd: N>> file (e.g., 2>>, 3>>)
+        // Extract fd number from redir_node->val.str (e.g., "2>>", "3>>")
+        int dest_fd = STDERR_FILENO;
+        if (redir_node->val.str && isdigit(redir_node->val.str[0])) {
+            dest_fd = redir_node->val.str[0] - '0';
+        }
         int fd = open(target, O_WRONLY | O_CREAT | O_APPEND, 0644);
         if (fd == -1) {
             perror(target);
             result = 1;
             break;
         }
-        if (dup2(fd, STDERR_FILENO) == -1) {
+        if (dup2(fd, dest_fd) == -1) {
             perror("dup2");
             close(fd);
             result = 1;
@@ -867,6 +900,17 @@ int restore_file_descriptors(redirection_state_t *state) {
     }
 
     int result = 0;
+
+    // Flush stdio buffers before restoring file descriptors
+    // This is critical: when stdout/stderr are redirected to files,
+    // unflushed data in the stdio buffers would be lost when we
+    // restore the original file descriptors (which closes the redirected ones)
+    if (state->stdout_saved) {
+        fflush(stdout);
+    }
+    if (state->stderr_saved) {
+        fflush(stderr);
+    }
 
     // Restore stdin
     if (state->stdin_saved) {
