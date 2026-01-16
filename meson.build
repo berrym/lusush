@@ -1127,5 +1127,28 @@ if fs.exists('tests/unit/test_node.c')
        timeout: 30)
 endif
 
+# ============================================================================
+# Executor Integration Tests
+# Tests command execution, builtins, control structures, expansion
+# Uses all shell sources except lusush.c (has main())
+if fs.exists('tests/unit/test_executor.c')
+  # Filter out lusush.c from src list (contains main())
+  test_executor_sources = []
+  foreach s : src
+    if not s.endswith('lusush.c')
+      test_executor_sources += s
+    endif
+  endforeach
+  test_executor = executable('test_executor',
+                             'tests/unit/test_executor.c',
+                             'tests/unit/test_executor_stubs.c',
+                             test_executor_sources + lle_shell_sources,
+                             include_directories: inc,
+                             dependencies: [lle_dep, libm])
+  test('Executor', test_executor,
+       suite: 'unit',
+       timeout: 60)
+endif
+
 # Phase 4: Continuation Prompt Tests
 # ============================================================================
