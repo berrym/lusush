@@ -1357,7 +1357,11 @@ static int execute_command(executor_t *executor, node_t *command) {
                     result = 0; /* Success */
                 } else {
                     /* Failed to change directory, show error */
-                    perror("cd");
+                    shell_error_t *error = shell_error_create(
+                        SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR,
+                        SOURCE_LOC_UNKNOWN, "cd: %s: %s", argv[0], strerror(errno));
+                    shell_error_display(error, stderr, isatty(STDERR_FILENO));
+                    shell_error_free(error);
                     result = 1;
                 }
 
@@ -3494,7 +3498,7 @@ static int execute_external_command_with_redirection(executor_t *executor,
             exit_code = 127; // Command not found
         }
         if (!redirect_stderr) {
-            perror(argv[0]);
+            fprintf(stderr, "lusush: %s: %s\n", argv[0], strerror(errno));
         }
         exit(exit_code);
     } else {
@@ -5601,7 +5605,7 @@ static int execute_external_command_with_setup(executor_t *executor,
             exit_code = 127; // Command not found
         }
         if (!redirect_stderr) {
-            perror(argv[0]);
+            fprintf(stderr, "lusush: %s: %s\n", argv[0], strerror(errno));
         }
         exit(exit_code);
     } else {
