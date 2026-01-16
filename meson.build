@@ -1113,5 +1113,19 @@ if fs.exists('tests/unit/test_symtable.c')
        timeout: 30)
 endif
 
+# ============================================================================
+# AST Node Unit Tests
+# Tests node creation, child relationships, tree structure, memory management
+if fs.exists('tests/unit/test_node.c')
+  test_node = executable('test_node',
+                         'tests/unit/test_node.c',
+                         'src/node.c',
+                         'tests/unit/test_node_stubs.c',
+                         include_directories: inc)
+  test('AST Node', test_node,
+       suite: 'unit',
+       timeout: 30)
+endif
+
 # Phase 4: Continuation Prompt Tests
 # ============================================================================
