@@ -308,58 +308,63 @@ Added explicit `fflush(stdout)` and `fflush(stderr)` calls before all `_exit()` 
 ### Issue #53: Writing to Closed File Descriptor Doesn't Fail
 **Severity**: MEDIUM  
 **Discovered**: 2026-01-15 (Session 123 - macOS redirection testing)  
-**Status**: Active bug  
-**Component**: src/builtins/builtins.c (bin_echo, possibly others)
+**Status**: FIXED (Session 123)  
+**Component**: src/redirection.c (setup_fd_redirection), src/builtins/builtins.c (bin_echo)
 
 **Description**:
-When a file descriptor is closed with `exec N>&-`, subsequent writes to that fd should fail with "bad file descriptor" error and return non-zero exit status. Instead, lusush silently succeeds and writes to stdout.
+When a file descriptor is closed with `exec N>&-`, subsequent writes to that fd should fail with "bad file descriptor" error and return non-zero exit status.
 
-**Not Working**:
+**Root Cause**:
+Two issues were found:
+1. The `setup_fd_redirection()` function used `dup2()` which succeeds if the target fd is open to *anything* (even if inherited from parent and unsuitable for the operation). The shell inherited fds from parent processes that happened to be open.
+2. The `bin_echo()` builtin always returned 0 without checking for write errors.
+
+**Fix Applied**:
+1. Added fd validation in `setup_fd_redirection()` using `fcntl(fd, F_GETFL)` to:
+   - Check if target fd is actually open (returns -1 with EBADF if not)
+   - Verify fd access mode matches redirection direction (writable for output, readable for input)
+2. Added write error checking in `bin_echo()` using `fflush(stdout)` and `ferror(stdout)` to detect and report I/O errors
+
+**Now Working** (matches bash/zsh behavior):
 ```bash
-exec 3>/tmp/test.txt
-exec 3>&-           # Close fd 3
-echo test >&3       # Should fail - fd 3 is closed
-# Expected: error message, non-zero exit
-# Actual: "test" printed to stdout, exit 0
+$ ./build/lusush -c 'exec 3>/tmp/t.txt; exec 3>&-; echo test >&3'
+error[E1121]: 3: Bad file descriptor
+
+$ ./build/lusush -c 'echo test >&3; echo "exit: $?"'
+error[E1121]: 3: Bad file descriptor
+
+exit: 1
 ```
 
-**Expected Behavior** (bash/zsh):
-```bash
-$ bash -c 'exec 3>/tmp/t.txt; exec 3>&-; echo test >&3'
-bash: 3: Bad file descriptor
+**Status**: FIXED AND VERIFIED
 
-$ zsh -c 'exec 3>/tmp/t.txt; exec 3>&-; echo test >&3'
-zsh:1: 3: bad file descriptor
+---
+
+### Issue #54: `pwd -P` Does Not Resolve Physical Path on macOS
+**Severity**: LOW  
+**Discovered**: 2026-01-15 (Session 123 - macOS compatibility testing)  
+**Status**: FIXED (Session 123)  
+**Platform**: macOS (and likely other systems with symlinked directories)  
+**Component**: src/builtins/builtins.c (bin_pwd)
+
+**Description**:
+The `pwd -P` option should print the physical path with all symlinks resolved, but lusush was returning the logical path instead.
+
+**Root Cause**:
+The `bin_pwd()` function only checked `shell_opts.physical_mode` global setting and completely ignored the `-P` and `-L` command-line options.
+
+**Fix Applied**:
+Added option parsing to `bin_pwd()` to handle `-P` (physical) and `-L` (logical) flags, which override the shell's default physical_mode setting.
+
+**Now Working** (matches bash/zsh behavior):
+```bash
+$ ./build/lusush -c 'cd /tmp; pwd; pwd -P; pwd -L'
+/tmp
+/private/tmp
+/tmp
 ```
 
-**Root Cause** (suspected):
-The redirection `>&3` may be silently failing without being detected, causing echo to fall back to writing to stdout. Or the fd close isn't being tracked properly.
-
-**Impact**:
-- Scripts that rely on detecting closed fd errors will behave incorrectly
-- Resource cleanup patterns like `exec 3>&-; cmd >&3 || handle_error` won't work
-
-**Priority**: MEDIUM (affects error handling patterns)
-
-**Observations**:
-- Direct execution: file contains "hello" (6 bytes), stdout shows "hello"
-- Captured execution: file is 0 bytes, no stdout captured
-- The `echo` command itself works (stdout-only tests pass)
-- The issue is specific to file redirections when lusush is a child process with captured stdout
-
-**Root Cause** (suspected):
-Possible causes:
-1. Output buffering not being flushed before process exit in subshell context
-2. File descriptors not being properly inherited or managed in forked context
-3. Race condition between file write and process termination
-4. Different stdio behavior when stdout is a pipe vs terminal
-
-**Impact**:
-- Any automated testing that captures lusush output will see failures
-- Scripts that invoke lusush in `$()` with file redirections will fail
-- CI/CD pipelines testing redirection functionality affected
-
-**Priority**: HIGH (breaks automated testing and scripted usage)
+**Status**: FIXED AND VERIFIED
 
 ---
 

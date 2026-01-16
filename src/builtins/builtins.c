@@ -540,9 +540,23 @@ cd_success:
  * @param argv Argument vector (unused)
  * @return 0 on success, 1 on error
  */
-int bin_pwd(int argc __attribute__((unused)),
-            char **argv __attribute__((unused))) {
-    if (shell_opts.physical_mode) {
+int bin_pwd(int argc, char **argv) {
+    // Default to shell's physical_mode setting, but allow -P/-L to override
+    bool physical = shell_opts.physical_mode;
+
+    // Parse options: -P (physical), -L (logical)
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-P") == 0) {
+            physical = true;
+        } else if (strcmp(argv[i], "-L") == 0) {
+            physical = false;
+        } else if (argv[i][0] == '-') {
+            fprintf(stderr, "pwd: %s: invalid option\n", argv[i]);
+            return 1;
+        }
+    }
+
+    if (physical) {
         // In physical mode, resolve symlinks and show physical path
         char *physical_path = realpath(".", NULL);
         if (physical_path) {
@@ -556,6 +570,7 @@ int bin_pwd(int argc __attribute__((unused)),
         char *pwd_value = symtable_get_global("PWD");
         if (pwd_value) {
             printf("%s\n", pwd_value);
+            free(pwd_value);
             return 0;
         }
         // Fall through to getcwd if PWD not available
@@ -981,6 +996,9 @@ int bin_echo(int argc, char **argv) {
         }
     }
 
+    // Clear any previous error state on stdout
+    clearerr(stdout);
+
     // Print arguments
     for (int i = arg_start; i < argc; i++) {
         if (i > arg_start) {
@@ -1002,6 +1020,16 @@ int bin_echo(int argc, char **argv) {
 
     if (!no_newline) {
         printf("\n");
+    }
+
+    // Flush and check for write errors (e.g., writing to closed/invalid fd)
+    if (fflush(stdout) == EOF || ferror(stdout)) {
+        shell_error_t *error = shell_error_create(
+            SHELL_ERR_IO_ERROR, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+            "echo: write error: %s", strerror(errno));
+        shell_error_display(error, stderr, isatty(STDERR_FILENO));
+        shell_error_free(error);
+        return 1;
     }
 
     return 0;

@@ -834,6 +834,45 @@ static int setup_fd_redirection(executor_t *executor, const char *redir_text) {
         return 0;
     }
 
+    // Validate that target_fd is open and suitable for the operation
+    // Use fcntl to check if the fd is open and has appropriate access mode
+    int fd_flags = fcntl(target_fd, F_GETFL);
+    if (fd_flags == -1) {
+        // fd is not open
+        shell_error_t *error = shell_error_create(
+            SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+            "%d: Bad file descriptor", target_fd);
+        shell_error_display(error, stderr, isatty(STDERR_FILENO));
+        shell_error_free(error);
+        return 1;
+    }
+
+    // For output redirections (source_fd is stdout-like), verify target is writable
+    // For input redirections (source_fd is stdin-like), verify target is readable
+    int access_mode = fd_flags & O_ACCMODE;
+    bool is_output_redir = (source_fd != STDIN_FILENO);
+    bool is_input_redir = (source_fd == STDIN_FILENO);
+
+    if (is_output_redir && access_mode == O_RDONLY) {
+        // Trying to redirect output to a read-only fd
+        shell_error_t *error = shell_error_create(
+            SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+            "%d: Bad file descriptor", target_fd);
+        shell_error_display(error, stderr, isatty(STDERR_FILENO));
+        shell_error_free(error);
+        return 1;
+    }
+
+    if (is_input_redir && access_mode == O_WRONLY) {
+        // Trying to redirect input from a write-only fd
+        shell_error_t *error = shell_error_create(
+            SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+            "%d: Bad file descriptor", target_fd);
+        shell_error_display(error, stderr, isatty(STDERR_FILENO));
+        shell_error_free(error);
+        return 1;
+    }
+
     if (dup2(target_fd, source_fd) == -1) {
         shell_error_t *error = shell_error_create(
             SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
