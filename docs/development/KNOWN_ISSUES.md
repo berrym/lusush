@@ -1056,6 +1056,98 @@ symtable_unset_var(name);
 
 ---
 
+### Issue #55: `for var; do...done` POSIX Syntax Not Supported
+**Severity**: MEDIUM  
+**Discovered**: 2026-01-15 (Session 124 - Unit test development)  
+**Status**: Active bug  
+**Component**: src/parser.c
+
+**Description**:
+POSIX shell syntax allows `for var; do...done` without the `in` keyword, which iterates over the positional parameters (`$@`). Lusush requires the `in` keyword and rejects this valid POSIX syntax.
+
+**Not Working**:
+```bash
+for arg; do echo "$arg"; done
+# Error: expected 'IN', got 'SEMICOLON'
+```
+
+**Working** (explicit form):
+```bash
+for arg in "$@"; do echo "$arg"; done
+```
+
+**Comparison with bash/zsh**:
+```bash
+# bash and zsh both accept this POSIX syntax:
+$ bash -c 'set -- a b c; for x; do echo $x; done'
+a
+b
+c
+
+$ zsh -c 'set -- a b c; for x; do echo $x; done'
+a
+b
+c
+```
+
+**POSIX Reference**:
+From POSIX.1-2017 Shell Command Language:
+> If `in word...` is omitted, then the for command shall execute the compound-list once for each positional parameter that is set.
+
+**Root Cause**:
+The parser's `parse_for()` function requires `TOK_IN` after the loop variable name. It should instead treat a missing `in` clause as an implicit `in "$@"`.
+
+**Impact**:
+- Breaks POSIX compliance for `for` loops
+- Scripts using this common idiom will fail
+- Reduces portability from bash/zsh scripts
+
+**Priority**: MEDIUM (POSIX compliance issue, explicit form available as workaround)
+
+---
+
+### Issue #56: `function name { }` Syntax Not Supported (ksh/bash Style)
+**Severity**: MEDIUM  
+**Discovered**: 2026-01-15 (Session 124 - Unit test development)  
+**Status**: Active bug  
+**Component**: src/parser.c
+
+**Description**:
+The ksh/bash-style function definition `function name { body; }` is not supported. Lusush requires parentheses after the function name: `function name() { body; }`.
+
+**Not Working**:
+```bash
+function foo { echo bar; }
+# Error: expected 'LPAREN', got 'LBRACE'
+```
+
+**Working**:
+```bash
+function foo() { echo bar; }  # Works with parentheses
+foo() { echo bar; }           # POSIX style also works
+```
+
+**Comparison with bash/zsh**:
+```bash
+# Both bash and zsh accept function without parentheses:
+$ bash -c 'function foo { echo bar; }; foo'
+bar
+
+$ zsh -c 'function foo { echo bar; }; foo'
+bar
+```
+
+**Root Cause**:
+The parser's `parse_function_definition()` unconditionally expects `TOK_LPAREN` after the function name when the `function` keyword is used.
+
+**Impact**:
+- Reduces bash/ksh script compatibility
+- Scripts using this common style will fail
+
+**Priority**: MEDIUM (alternative syntax available)
+
+---
+
 ## Resolved Issues (Previous Sessions)
 
 ### Issue #30: macOS Memory Leaks Not Detected by Valgrind - FIXED
