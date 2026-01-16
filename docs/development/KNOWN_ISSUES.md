@@ -1299,6 +1299,72 @@ Implemented type-aware deduplication, full path storage for shadowing commands, 
 
 ---
 
-**Last Updated**: 2026-01-14 (Session 122)  
+### Issue #57: Negation Command `! cmd` Causes Memory Corruption
+**Severity**: HIGH  
+**Discovered**: 2026-01-16 (Unit test coverage session)  
+**Status**: Active bug  
+**Component**: src/executor.c
+
+**Description**:
+Using the negation operator `!` before a command causes a double-free or invalid free memory error. The shell crashes with "malloc: pointer being freed was not allocated".
+
+**Reproduction**:
+```bash
+! false  # Should return 0
+! true   # Should return 1
+# Both cause: malloc: *** error for object 0x4: pointer being freed was not allocated
+```
+
+**Root Cause**:
+The negation command handling in `execute_node()` or related functions has a memory management bug. The AST node or associated data is being freed twice, or a non-heap pointer is being freed.
+
+**Impact**:
+- `! command` syntax crashes the shell
+- Affects any script using negation for conditional logic
+- Common pattern `if ! cmd; then ...` will crash
+
+**Priority**: HIGH (common shell construct)
+
+---
+
+### Issue #58: Command Substitution Exit Status Not Preserved in $?
+**Severity**: MEDIUM  
+**Discovered**: 2026-01-16 (Unit test coverage session)  
+**Status**: Active bug  
+**Component**: src/executor.c
+
+**Description**:
+After a command substitution, `$?` does not reflect the exit status of the command that ran inside the substitution. It always returns 0 regardless of whether the inner command succeeded or failed.
+
+**Reproduction**:
+```bash
+X=$(false)
+echo $?  # Expected: 1, Actual: 0
+
+X=$(exit 42)
+echo $?  # Expected: 42, Actual: 0
+```
+
+**Expected Behavior (bash/zsh)**:
+```bash
+$ bash -c 'X=$(false); echo $?'
+1
+$ bash -c 'X=$(exit 42); echo $?'
+42
+```
+
+**Root Cause**:
+The exit status from the child process in command substitution is likely being captured but not propagated back to the executor's `exit_status` field after the substitution completes.
+
+**Impact**:
+- Scripts cannot check if command substitution succeeded
+- Pattern `VAR=$(cmd) || handle_error` won't work correctly
+- Reduces POSIX compliance
+
+**Priority**: MEDIUM (workaround: check command separately)
+
+---
+
+**Last Updated**: 2026-01-16 (Unit test coverage session)  
 **Next Review**: Before each commit, after each bug discovery  
 **Maintainer**: Update this file whenever bugs are discovered - NO EXCEPTIONS
