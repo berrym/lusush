@@ -1341,5 +1341,170 @@ if fs.exists('tests/unit/test_posix_history.c')
        timeout: 30)
 endif
 
+# ============================================================================
+# Debug Analysis Tests
+# Tests debug analysis: issue tracking, script analysis, security/performance checks
+if fs.exists('tests/unit/test_debug_analysis.c')
+  test_debug_analysis_sources = []
+  foreach s : src
+    if not s.endswith('lusush.c')
+      test_debug_analysis_sources += s
+    endif
+  endforeach
+  test_debug_analysis = executable('test_debug_analysis',
+                                   'tests/unit/test_debug_analysis.c',
+                                   'tests/unit/test_executor_stubs.c',
+                                   test_debug_analysis_sources + lle_shell_sources,
+                                   include_directories: inc,
+                                   dependencies: [lle_dep, libm])
+  test('Debug Analysis', test_debug_analysis,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# ============================================================================
+# Debug Trace Tests
+# Tests debug tracing: node/command/function tracing, stack frames, variable inspection
+if fs.exists('tests/unit/test_debug_trace.c')
+  test_debug_trace_sources = []
+  foreach s : src
+    if not s.endswith('lusush.c')
+      test_debug_trace_sources += s
+    endif
+  endforeach
+  test_debug_trace = executable('test_debug_trace',
+                                'tests/unit/test_debug_trace.c',
+                                'tests/unit/test_executor_stubs.c',
+                                test_debug_trace_sources + lle_shell_sources,
+                                include_directories: inc,
+                                dependencies: [lle_dep, libm])
+  test('Debug Trace', test_debug_trace,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# ============================================================================
+# Debug Breakpoints Tests
+# Tests breakpoint management: add/remove, enable/disable, conditions, step execution
+if fs.exists('tests/unit/test_debug_breakpoints.c')
+  test_debug_breakpoints_sources = []
+  foreach s : src
+    if not s.endswith('lusush.c')
+      test_debug_breakpoints_sources += s
+    endif
+  endforeach
+  test_debug_breakpoints = executable('test_debug_breakpoints',
+                                      'tests/unit/test_debug_breakpoints.c',
+                                      'tests/unit/test_executor_stubs.c',
+                                      test_debug_breakpoints_sources + lle_shell_sources,
+                                      include_directories: inc,
+                                      dependencies: [lle_dep, libm])
+  test('Debug Breakpoints', test_debug_breakpoints,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# ============================================================================
+# Display Controller Tests
+# Tests display controller: configuration, error handling, completion menu, autosuggestions
+if fs.exists('tests/unit/test_display_controller.c')
+  test_display_controller_sources = []
+  foreach s : src
+    if not s.endswith('lusush.c')
+      test_display_controller_sources += s
+    endif
+  endforeach
+  test_display_controller = executable('test_display_controller',
+                                       'tests/unit/test_display_controller.c',
+                                       'tests/unit/test_executor_stubs.c',
+                                       test_display_controller_sources + lle_shell_sources,
+                                       include_directories: inc,
+                                       dependencies: [lle_dep, libm])
+  test('Display Controller', test_display_controller,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# ============================================================================
+# Terminal Control Tests
+# Tests terminal control: color utilities, error handling, capability flags, style flags
+if fs.exists('tests/unit/test_terminal_control.c')
+  test_terminal_control_sources = []
+  foreach s : src
+    if not s.endswith('lusush.c')
+      test_terminal_control_sources += s
+    endif
+  endforeach
+  test_terminal_control = executable('test_terminal_control',
+                                     'tests/unit/test_terminal_control.c',
+                                     'tests/unit/test_executor_stubs.c',
+                                     test_terminal_control_sources + lle_shell_sources,
+                                     include_directories: inc,
+                                     dependencies: [lle_dep, libm])
+  test('Terminal Control', test_terminal_control,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# Screen Buffer Tests
+# ============================================================================
+if fs.exists('tests/unit/test_screen_buffer.c')
+  test_screen_buffer_sources = []
+  foreach s : src
+    if not s.endswith('lusush.c')
+      test_screen_buffer_sources += s
+    endif
+  endforeach
+  test_screen_buffer = executable('test_screen_buffer',
+                                  'tests/unit/test_screen_buffer.c',
+                                  'tests/unit/test_executor_stubs.c',
+                                  test_screen_buffer_sources + lle_shell_sources,
+                                  include_directories: inc,
+                                  dependencies: [lle_dep, libm])
+  test('Screen Buffer', test_screen_buffer,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# Composition Engine Tests
+# ============================================================================
+if fs.exists('tests/unit/test_composition_engine.c')
+  test_composition_engine_sources = []
+  foreach s : src
+    if not s.endswith('lusush.c')
+      test_composition_engine_sources += s
+    endif
+  endforeach
+  test_composition_engine = executable('test_composition_engine',
+                                       'tests/unit/test_composition_engine.c',
+                                       'tests/unit/test_executor_stubs.c',
+                                       test_composition_engine_sources + lle_shell_sources,
+                                       include_directories: inc,
+                                       dependencies: [lle_dep, libm])
+  test('Composition Engine', test_composition_engine,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# Prompt Layer Tests
+# ============================================================================
+if fs.exists('tests/unit/test_prompt_layer.c')
+  test_prompt_layer_sources = []
+  foreach s : src
+    if not s.endswith('lusush.c')
+      test_prompt_layer_sources += s
+    endif
+  endforeach
+  test_prompt_layer = executable('test_prompt_layer',
+                                 'tests/unit/test_prompt_layer.c',
+                                 'tests/unit/test_executor_stubs.c',
+                                 test_prompt_layer_sources + lle_shell_sources,
+                                 include_directories: inc,
+                                 dependencies: [lle_dep, libm])
+  test('Prompt Layer', test_prompt_layer,
+       suite: 'unit',
+       timeout: 30)
+endif
+
 # Phase 4: Continuation Prompt Tests
 # ============================================================================

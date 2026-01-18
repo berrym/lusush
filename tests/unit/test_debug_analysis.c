@@ -1,0 +1,562 @@
+/**
+ * @file test_debug_analysis.c
+ * @brief Unit tests for debug analysis module
+ *
+ * Tests script analysis functionality including syntax checking,
+ * style analysis, security issue detection, performance patterns,
+ * and portability concerns.
+ */
+
+#include "debug.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+// ============================================================================
+// Test Framework
+// ============================================================================
+
+static int tests_run = 0;
+static int tests_passed = 0;
+static int tests_failed = 0;
+
+#define TEST(name) static void test_##name(void)
+
+#define RUN_TEST(name)                                                         \
+    do {                                                                       \
+        tests_run++;                                                           \
+        printf("  Running %s...", #name);                                      \
+        fflush(stdout);                                                        \
+        test_##name();                                                         \
+        printf(" PASSED\n");                                                   \
+        tests_passed++;                                                        \
+    } while (0)
+
+#define ASSERT(cond, msg)                                                      \
+    do {                                                                       \
+        if (!(cond)) {                                                         \
+            printf(" FAILED: %s\n", msg);                                      \
+            tests_failed++;                                                    \
+            return;                                                            \
+        }                                                                      \
+    } while (0)
+
+#define ASSERT_NOT_NULL(ptr, msg) ASSERT((ptr) != NULL, msg)
+#define ASSERT_NULL(ptr, msg) ASSERT((ptr) == NULL, msg)
+#define ASSERT_TRUE(val, msg) ASSERT((val) == true, msg)
+#define ASSERT_FALSE(val, msg) ASSERT((val) == false, msg)
+#define ASSERT_EQ(a, b, msg) ASSERT((a) == (b), msg)
+#define ASSERT_NE(a, b, msg) ASSERT((a) != (b), msg)
+#define ASSERT_STR_EQ(a, b, msg) ASSERT(strcmp((a), (b)) == 0, msg)
+
+// ============================================================================
+// Test Helper Functions
+// ============================================================================
+
+static const char *test_script_dir = "/tmp/lusush_test_scripts";
+
+static void setup_test_dir(void) {
+    char cmd[256];
+    snprintf(cmd, sizeof(cmd), "mkdir -p %s", test_script_dir);
+    system(cmd);
+}
+
+static void cleanup_test_dir(void) {
+    char cmd[256];
+    snprintf(cmd, sizeof(cmd), "rm -rf %s", test_script_dir);
+    system(cmd);
+}
+
+static char *create_test_script(const char *name, const char *content) {
+    static char path[512];
+    snprintf(path, sizeof(path), "%s/%s", test_script_dir, name);
+    
+    FILE *f = fopen(path, "w");
+    if (f) {
+        fputs(content, f);
+        fclose(f);
+    }
+    return path;
+}
+
+// ============================================================================
+// Analysis Issue Management Tests
+// ============================================================================
+
+TEST(add_analysis_issue_basic) {
+    debug_context_t *ctx = debug_init();
+    ASSERT_NOT_NULL(ctx, "debug_init should succeed");
+    
+    debug_add_analysis_issue(ctx, "test.sh", 10, "warning", "style",
+                            "Test issue", "Fix suggestion");
+    
+    ASSERT_EQ(ctx->issue_count, 1, "Issue count should be 1");
+    ASSERT_NOT_NULL(ctx->analysis_issues, "Issues list should exist");
+    ASSERT_STR_EQ(ctx->analysis_issues->severity, "warning", "Severity");
+    ASSERT_STR_EQ(ctx->analysis_issues->category, "style", "Category");
+    ASSERT_EQ(ctx->analysis_issues->line_number, 10, "Line number");
+    
+    debug_cleanup(ctx);
+}
+
+TEST(add_analysis_issue_multiple) {
+    debug_context_t *ctx = debug_init();
+    ASSERT_NOT_NULL(ctx, "debug_init should succeed");
+    
+    debug_add_analysis_issue(ctx, "test.sh", 1, "error", "syntax",
+                            "Issue 1", NULL);
+    debug_add_analysis_issue(ctx, "test.sh", 5, "warning", "security",
+                            "Issue 2", "Suggestion 2");
+    debug_add_analysis_issue(ctx, "test.sh", 10, "info", "style",
+                            "Issue 3", "Suggestion 3");
+    
+    ASSERT_EQ(ctx->issue_count, 3, "Issue count should be 3");
+    
+    debug_cleanup(ctx);
+}
+
+TEST(add_analysis_issue_null_params) {
+    debug_context_t *ctx = debug_init();
+    ASSERT_NOT_NULL(ctx, "debug_init should succeed");
+    
+    // Should not crash with NULL parameters
+    debug_add_analysis_issue(NULL, "test.sh", 1, "error", "syntax",
+                            "Message", NULL);
+    debug_add_analysis_issue(ctx, NULL, 1, "error", "syntax",
+                            "Message", NULL);
+    debug_add_analysis_issue(ctx, "test.sh", 1, NULL, "syntax",
+                            "Message", NULL);
+    debug_add_analysis_issue(ctx, "test.sh", 1, "error", NULL,
+                            "Message", NULL);
+    debug_add_analysis_issue(ctx, "test.sh", 1, "error", "syntax",
+                            NULL, NULL);
+    
+    ASSERT_EQ(ctx->issue_count, 0, "No issues should be added");
+    
+    debug_cleanup(ctx);
+}
+
+TEST(clear_analysis_issues) {
+    debug_context_t *ctx = debug_init();
+    ASSERT_NOT_NULL(ctx, "debug_init should succeed");
+    
+    debug_add_analysis_issue(ctx, "test.sh", 1, "error", "syntax",
+                            "Issue 1", NULL);
+    debug_add_analysis_issue(ctx, "test.sh", 2, "warning", "style",
+                            "Issue 2", NULL);
+    
+    ASSERT_EQ(ctx->issue_count, 2, "Should have 2 issues");
+    
+    debug_clear_analysis_issues(ctx);
+    
+    ASSERT_EQ(ctx->issue_count, 0, "Issues should be cleared");
+    ASSERT_NULL(ctx->analysis_issues, "Issues list should be NULL");
+    
+    debug_cleanup(ctx);
+}
+
+TEST(show_analysis_report_empty) {
+    debug_context_t *ctx = debug_init();
+    ASSERT_NOT_NULL(ctx, "debug_init should succeed");
+    
+    // Should not crash with no issues
+    debug_show_analysis_report(ctx);
+    
+    debug_cleanup(ctx);
+}
+
+TEST(show_analysis_report_with_issues) {
+    debug_context_t *ctx = debug_init();
+    ASSERT_NOT_NULL(ctx, "debug_init should succeed");
+    
+    debug_add_analysis_issue(ctx, "test.sh", 1, "error", "syntax",
+                            "Syntax error", "Check syntax");
+    debug_add_analysis_issue(ctx, "test.sh", 5, "warning", "security",
+                            "Security warning", "Use quotes");
+    debug_add_analysis_issue(ctx, "test.sh", 10, "info", "performance",
+                            "Performance tip", "Optimize");
+    
+    // Should not crash
+    debug_show_analysis_report(ctx);
+    
+    debug_cleanup(ctx);
+}
+
+// ============================================================================
+// Script Analysis Tests
+// ============================================================================
+
+TEST(analyze_script_nonexistent) {
+    debug_context_t *ctx = debug_init();
+    ASSERT_NOT_NULL(ctx, "debug_init should succeed");
+    
+    // Should handle non-existent file gracefully
+    debug_analyze_script(ctx, "/nonexistent/path/script.sh");
+    
+    debug_cleanup(ctx);
+}
+
+TEST(analyze_script_null_params) {
+    debug_context_t *ctx = debug_init();
+    ASSERT_NOT_NULL(ctx, "debug_init should succeed");
+    
+    // Should not crash with NULL
+    debug_analyze_script(NULL, "test.sh");
+    debug_analyze_script(ctx, NULL);
+    
+    debug_cleanup(ctx);
+}
+
+TEST(analyze_script_valid_syntax) {
+    setup_test_dir();
+    debug_context_t *ctx = debug_init();
+    ASSERT_NOT_NULL(ctx, "debug_init should succeed");
+    
+    const char *script = "#!/bin/sh\necho hello\nexit 0\n";
+    char *path = create_test_script("valid.sh", script);
+    
+    debug_analyze_script(ctx, path);
+    
+    // Script has valid syntax - may or may not have style issues
+    // Just verify it doesn't crash
+    
+    debug_cleanup(ctx);
+    cleanup_test_dir();
+}
+
+TEST(analyze_script_missing_shebang) {
+    setup_test_dir();
+    debug_context_t *ctx = debug_init();
+    ASSERT_NOT_NULL(ctx, "debug_init should succeed");
+    
+    const char *script = "echo hello\nexit 0\n";
+    char *path = create_test_script("noshebang.sh", script);
+    
+    debug_analyze_script(ctx, path);
+    
+    // Should detect missing shebang as style issue
+    bool found_shebang_issue = false;
+    analysis_issue_t *issue = ctx->analysis_issues;
+    while (issue) {
+        if (strstr(issue->message, "shebang") != NULL) {
+            found_shebang_issue = true;
+            break;
+        }
+        issue = issue->next;
+    }
+    ASSERT_TRUE(found_shebang_issue, "Should detect missing shebang");
+    
+    debug_cleanup(ctx);
+    cleanup_test_dir();
+}
+
+TEST(analyze_script_security_eval) {
+    setup_test_dir();
+    debug_context_t *ctx = debug_init();
+    ASSERT_NOT_NULL(ctx, "debug_init should succeed");
+    
+    const char *script = "#!/bin/sh\neval $USER_INPUT\n";
+    char *path = create_test_script("eval.sh", script);
+    
+    debug_analyze_script(ctx, path);
+    
+    // Should detect eval as security issue
+    bool found_eval_issue = false;
+    analysis_issue_t *issue = ctx->analysis_issues;
+    while (issue) {
+        if (strcmp(issue->category, "security") == 0 &&
+            strstr(issue->message, "eval") != NULL) {
+            found_eval_issue = true;
+            break;
+        }
+        issue = issue->next;
+    }
+    ASSERT_TRUE(found_eval_issue, "Should detect eval security issue");
+    
+    debug_cleanup(ctx);
+    cleanup_test_dir();
+}
+
+TEST(analyze_script_security_rm_rf) {
+    setup_test_dir();
+    debug_context_t *ctx = debug_init();
+    ASSERT_NOT_NULL(ctx, "debug_init should succeed");
+    
+    const char *script = "#!/bin/sh\nrm -rf $DIR\n";
+    char *path = create_test_script("rmrf.sh", script);
+    
+    debug_analyze_script(ctx, path);
+    
+    // Should detect rm -rf as security concern
+    bool found_rm_issue = false;
+    analysis_issue_t *issue = ctx->analysis_issues;
+    while (issue) {
+        if (strcmp(issue->category, "security") == 0 &&
+            strstr(issue->message, "rm") != NULL) {
+            found_rm_issue = true;
+            break;
+        }
+        issue = issue->next;
+    }
+    ASSERT_TRUE(found_rm_issue, "Should detect rm -rf security issue");
+    
+    debug_cleanup(ctx);
+    cleanup_test_dir();
+}
+
+TEST(analyze_script_performance_useless_cat) {
+    setup_test_dir();
+    debug_context_t *ctx = debug_init();
+    ASSERT_NOT_NULL(ctx, "debug_init should succeed");
+    
+    const char *script = "#!/bin/sh\ncat file.txt | grep pattern\n";
+    char *path = create_test_script("uselesscat.sh", script);
+    
+    debug_analyze_script(ctx, path);
+    
+    // Should detect useless use of cat
+    bool found_cat_issue = false;
+    analysis_issue_t *issue = ctx->analysis_issues;
+    while (issue) {
+        if (strcmp(issue->category, "performance") == 0 &&
+            strstr(issue->message, "cat") != NULL) {
+            found_cat_issue = true;
+            break;
+        }
+        issue = issue->next;
+    }
+    ASSERT_TRUE(found_cat_issue, "Should detect useless use of cat");
+    
+    debug_cleanup(ctx);
+    cleanup_test_dir();
+}
+
+TEST(analyze_script_portability_source) {
+    setup_test_dir();
+    debug_context_t *ctx = debug_init();
+    ASSERT_NOT_NULL(ctx, "debug_init should succeed");
+    
+    const char *script = "#!/bin/sh\nsource config.sh\n";
+    char *path = create_test_script("source.sh", script);
+    
+    debug_analyze_script(ctx, path);
+    
+    // Should detect non-POSIX source command
+    bool found_source_issue = false;
+    analysis_issue_t *issue = ctx->analysis_issues;
+    while (issue) {
+        if (strcmp(issue->category, "portability") == 0 &&
+            strstr(issue->message, "source") != NULL) {
+            found_source_issue = true;
+            break;
+        }
+        issue = issue->next;
+    }
+    ASSERT_TRUE(found_source_issue, "Should detect non-POSIX source");
+    
+    debug_cleanup(ctx);
+    cleanup_test_dir();
+}
+
+TEST(analyze_script_portability_echo_e) {
+    setup_test_dir();
+    debug_context_t *ctx = debug_init();
+    ASSERT_NOT_NULL(ctx, "debug_init should succeed");
+    
+    const char *script = "#!/bin/sh\necho -e \"hello\\nworld\"\n";
+    char *path = create_test_script("echoe.sh", script);
+    
+    debug_analyze_script(ctx, path);
+    
+    // Should detect non-portable echo -e
+    bool found_echo_issue = false;
+    analysis_issue_t *issue = ctx->analysis_issues;
+    while (issue) {
+        if (strcmp(issue->category, "portability") == 0 &&
+            strstr(issue->message, "echo") != NULL) {
+            found_echo_issue = true;
+            break;
+        }
+        issue = issue->next;
+    }
+    ASSERT_TRUE(found_echo_issue, "Should detect non-portable echo -e");
+    
+    debug_cleanup(ctx);
+    cleanup_test_dir();
+}
+
+TEST(analyze_script_style_long_lines) {
+    setup_test_dir();
+    debug_context_t *ctx = debug_init();
+    ASSERT_NOT_NULL(ctx, "debug_init should succeed");
+    
+    // Create script with a very long line
+    char script[512];
+    snprintf(script, sizeof(script), "#!/bin/sh\n# %s\n",
+             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+             "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+             "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc");
+    char *path = create_test_script("longline.sh", script);
+    
+    debug_analyze_script(ctx, path);
+    
+    // Should detect long line
+    bool found_long_line = false;
+    analysis_issue_t *issue = ctx->analysis_issues;
+    while (issue) {
+        if (strcmp(issue->category, "style") == 0 &&
+            strstr(issue->message, "long") != NULL) {
+            found_long_line = true;
+            break;
+        }
+        issue = issue->next;
+    }
+    ASSERT_TRUE(found_long_line, "Should detect long line");
+    
+    debug_cleanup(ctx);
+    cleanup_test_dir();
+}
+
+TEST(analyze_script_style_trailing_whitespace) {
+    setup_test_dir();
+    debug_context_t *ctx = debug_init();
+    ASSERT_NOT_NULL(ctx, "debug_init should succeed");
+    
+    const char *script = "#!/bin/sh\necho hello   \n";
+    char *path = create_test_script("trailing.sh", script);
+    
+    debug_analyze_script(ctx, path);
+    
+    // Should detect trailing whitespace
+    bool found_trailing = false;
+    analysis_issue_t *issue = ctx->analysis_issues;
+    while (issue) {
+        if (strcmp(issue->category, "style") == 0 &&
+            strstr(issue->message, "railing") != NULL) {
+            found_trailing = true;
+            break;
+        }
+        issue = issue->next;
+    }
+    ASSERT_TRUE(found_trailing, "Should detect trailing whitespace");
+    
+    debug_cleanup(ctx);
+    cleanup_test_dir();
+}
+
+TEST(analyze_script_chmod_777) {
+    setup_test_dir();
+    debug_context_t *ctx = debug_init();
+    ASSERT_NOT_NULL(ctx, "debug_init should succeed");
+    
+    const char *script = "#!/bin/sh\nchmod 777 /tmp/file\n";
+    char *path = create_test_script("chmod.sh", script);
+    
+    debug_analyze_script(ctx, path);
+    
+    // Should detect overly permissive chmod
+    bool found_chmod_issue = false;
+    analysis_issue_t *issue = ctx->analysis_issues;
+    while (issue) {
+        if (strcmp(issue->category, "security") == 0 &&
+            strstr(issue->message, "chmod") != NULL) {
+            found_chmod_issue = true;
+            break;
+        }
+        issue = issue->next;
+    }
+    ASSERT_TRUE(found_chmod_issue, "Should detect chmod 777");
+    
+    debug_cleanup(ctx);
+    cleanup_test_dir();
+}
+
+// ============================================================================
+// Issue Severity Tests
+// ============================================================================
+
+TEST(issue_severity_counts) {
+    debug_context_t *ctx = debug_init();
+    ASSERT_NOT_NULL(ctx, "debug_init should succeed");
+    
+    debug_add_analysis_issue(ctx, "test.sh", 1, "error", "syntax",
+                            "Error 1", NULL);
+    debug_add_analysis_issue(ctx, "test.sh", 2, "error", "syntax",
+                            "Error 2", NULL);
+    debug_add_analysis_issue(ctx, "test.sh", 3, "warning", "style",
+                            "Warning 1", NULL);
+    debug_add_analysis_issue(ctx, "test.sh", 4, "info", "style",
+                            "Info 1", NULL);
+    debug_add_analysis_issue(ctx, "test.sh", 5, "info", "style",
+                            "Info 2", NULL);
+    debug_add_analysis_issue(ctx, "test.sh", 6, "info", "style",
+                            "Info 3", NULL);
+    
+    ASSERT_EQ(ctx->issue_count, 6, "Total should be 6");
+    
+    // Count by severity
+    int errors = 0, warnings = 0, infos = 0;
+    analysis_issue_t *issue = ctx->analysis_issues;
+    while (issue) {
+        if (strcmp(issue->severity, "error") == 0) errors++;
+        else if (strcmp(issue->severity, "warning") == 0) warnings++;
+        else if (strcmp(issue->severity, "info") == 0) infos++;
+        issue = issue->next;
+    }
+    
+    ASSERT_EQ(errors, 2, "Should have 2 errors");
+    ASSERT_EQ(warnings, 1, "Should have 1 warning");
+    ASSERT_EQ(infos, 3, "Should have 3 infos");
+    
+    debug_cleanup(ctx);
+}
+
+// ============================================================================
+// Main
+// ============================================================================
+
+int main(void) {
+    printf("Running debug analysis tests...\n\n");
+    
+    printf("Analysis Issue Management:\n");
+    RUN_TEST(add_analysis_issue_basic);
+    RUN_TEST(add_analysis_issue_multiple);
+    RUN_TEST(add_analysis_issue_null_params);
+    RUN_TEST(clear_analysis_issues);
+    RUN_TEST(show_analysis_report_empty);
+    RUN_TEST(show_analysis_report_with_issues);
+    
+    printf("\nScript Analysis:\n");
+    RUN_TEST(analyze_script_nonexistent);
+    RUN_TEST(analyze_script_null_params);
+    RUN_TEST(analyze_script_valid_syntax);
+    RUN_TEST(analyze_script_missing_shebang);
+    
+    printf("\nSecurity Analysis:\n");
+    RUN_TEST(analyze_script_security_eval);
+    RUN_TEST(analyze_script_security_rm_rf);
+    RUN_TEST(analyze_script_chmod_777);
+    
+    printf("\nPerformance Analysis:\n");
+    RUN_TEST(analyze_script_performance_useless_cat);
+    
+    printf("\nPortability Analysis:\n");
+    RUN_TEST(analyze_script_portability_source);
+    RUN_TEST(analyze_script_portability_echo_e);
+    
+    printf("\nStyle Analysis:\n");
+    RUN_TEST(analyze_script_style_long_lines);
+    RUN_TEST(analyze_script_style_trailing_whitespace);
+    
+    printf("\nIssue Severity:\n");
+    RUN_TEST(issue_severity_counts);
+    
+    printf("\n========================================\n");
+    printf("Tests run: %d, Passed: %d, Failed: %d\n", tests_run, tests_passed,
+           tests_failed);
+    printf("========================================\n");
+    
+    return tests_failed > 0 ? 1 : 0;
+}
