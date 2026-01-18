@@ -1194,5 +1194,89 @@ if fs.exists('tests/unit/test_expansion.c')
        timeout: 60)
 endif
 
+# ============================================================================
+# Fuzzy Match Library Tests
+# Tests Levenshtein, Damerau-Levenshtein, Jaro-Winkler, subsequence matching
+if fs.exists('tests/unit/test_fuzzy_match.c')
+  test_fuzzy_sources = []
+  foreach s : src
+    if not s.endswith('lusush.c')
+      test_fuzzy_sources += s
+    endif
+  endforeach
+  test_fuzzy_match = executable('test_fuzzy_match',
+                                'tests/unit/test_fuzzy_match.c',
+                                'tests/unit/test_executor_stubs.c',
+                                test_fuzzy_sources + lle_shell_sources,
+                                include_directories: inc,
+                                dependencies: [lle_dep, libm])
+  test('Fuzzy Match', test_fuzzy_match,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# ============================================================================
+# Debug Subsystem Tests
+# Tests debugger context, breakpoints, stack frames, profiling, analysis
+if fs.exists('tests/unit/test_debug.c')
+  test_debug_sources = []
+  foreach s : src
+    if not s.endswith('lusush.c')
+      test_debug_sources += s
+    endif
+  endforeach
+  test_debug = executable('test_debug',
+                          'tests/unit/test_debug.c',
+                          'tests/unit/test_executor_stubs.c',
+                          test_debug_sources + lle_shell_sources,
+                          include_directories: inc,
+                          dependencies: [lle_dep, libm])
+  test('Debug', test_debug,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# ============================================================================
+# FC Builtin Tests
+# Tests fc command: substitution parsing, range resolution, editing
+if fs.exists('tests/unit/test_fc.c')
+  test_fc_sources = []
+  foreach s : src
+    if not s.endswith('lusush.c')
+      test_fc_sources += s
+    endif
+  endforeach
+  test_fc = executable('test_fc',
+                       'tests/unit/test_fc.c',
+                       'tests/unit/test_executor_stubs.c',
+                       test_fc_sources + lle_shell_sources,
+                       include_directories: inc,
+                       dependencies: [lle_dep, libm])
+  test('FC Builtin', test_fc,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# ============================================================================
+# Display Layer Tests
+# Tests command layer, syntax highlighting, layer events, caching
+if fs.exists('tests/unit/test_display.c')
+  test_display_sources = []
+  foreach s : src
+    if not s.endswith('lusush.c')
+      test_display_sources += s
+    endif
+  endforeach
+  test_display = executable('test_display',
+                            'tests/unit/test_display.c',
+                            'tests/unit/test_executor_stubs.c',
+                            test_display_sources + lle_shell_sources,
+                            include_directories: inc,
+                            dependencies: [lle_dep, libm])
+  test('Display', test_display,
+       suite: 'unit',
+       timeout: 120)
+endif
+
 # Phase 4: Continuation Prompt Tests
 # ============================================================================
