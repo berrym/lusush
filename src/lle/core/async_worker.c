@@ -342,14 +342,15 @@ static void *lle_async_worker_thread(void *arg) {
             break;
         }
 
+        /* Update stats before callback so they're visible when callback signals */
+        pthread_mutex_lock(&worker->queue_mutex);
+        worker->total_completed++;
+        pthread_mutex_unlock(&worker->queue_mutex);
+
         /* Notify completion */
         if (worker->on_complete) {
             worker->on_complete(&response, worker->callback_user_data);
         }
-
-        pthread_mutex_lock(&worker->queue_mutex);
-        worker->total_completed++;
-        pthread_mutex_unlock(&worker->queue_mutex);
 
         free(request);
     }

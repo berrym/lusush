@@ -1,9 +1,27 @@
-# AI Assistant Handoff Document - Session 121
+# AI Assistant Handoff Document - Session 122
 
-**Date**: 2026-01-14
-**Session Type**: LLE Adaptive Terminal Bug Fix
+**Date**: 2026-01-17
+**Session Type**: Bug Fix
 **Status**: COMPLETE
 **Branch**: `master`
+
+---
+
+## Session 122: Fix Async Worker Race Condition
+
+### Fix: Race Condition in Async Worker Stats Tracking
+
+Fixed a race condition in the async worker thread pool where the `total_completed` counter was incremented AFTER the completion callback was called.
+
+**Problem**: The test `statistics_tracking` in `test_async_worker.c` would wake up from `wait_for_response()` (triggered by the callback) and immediately check `total_completed`, but the worker thread hadn't yet incremented the counter. This caused intermittent failures on Ubuntu CI.
+
+**Fix**: Moved `total_completed++` to execute BEFORE calling the callback, so stats are visible when the callback signals completion to waiters.
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `src/lle/core/async_worker.c` | Reordered stats increment before callback invocation |
 
 ---
 
