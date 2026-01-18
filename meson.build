@@ -1278,5 +1278,68 @@ if fs.exists('tests/unit/test_display.c')
        timeout: 120)
 endif
 
+# ============================================================================
+# Autocorrect System Tests
+# Tests autocorrection initialization, configuration, similarity scoring
+if fs.exists('tests/unit/test_autocorrect.c')
+  test_autocorrect_sources = []
+  foreach s : src
+    if not s.endswith('lusush.c')
+      test_autocorrect_sources += s
+    endif
+  endforeach
+  test_autocorrect = executable('test_autocorrect',
+                                'tests/unit/test_autocorrect.c',
+                                'tests/unit/test_executor_stubs.c',
+                                test_autocorrect_sources + lle_shell_sources,
+                                include_directories: inc,
+                                dependencies: [lle_dep, libm])
+  test('Autocorrect', test_autocorrect,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# ============================================================================
+# Directory Stack Tests
+# Tests pushd/popd, directory rotation, stack management
+if fs.exists('tests/unit/test_dirstack.c')
+  test_dirstack_sources = []
+  foreach s : src
+    if not s.endswith('lusush.c')
+      test_dirstack_sources += s
+    endif
+  endforeach
+  test_dirstack = executable('test_dirstack',
+                             'tests/unit/test_dirstack.c',
+                             'tests/unit/test_executor_stubs.c',
+                             test_dirstack_sources + lle_shell_sources,
+                             include_directories: inc,
+                             dependencies: [lle_dep, libm])
+  test('Dirstack', test_dirstack,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# ============================================================================
+# POSIX History Manager Tests
+# Tests history creation, entry management, ranges, file operations
+if fs.exists('tests/unit/test_posix_history.c')
+  test_posix_history_sources = []
+  foreach s : src
+    if not s.endswith('lusush.c')
+      test_posix_history_sources += s
+    endif
+  endforeach
+  test_posix_history = executable('test_posix_history',
+                                  'tests/unit/test_posix_history.c',
+                                  'tests/unit/test_executor_stubs.c',
+                                  test_posix_history_sources + lle_shell_sources,
+                                  include_directories: inc,
+                                  dependencies: [lle_dep, libm])
+  test('POSIX History', test_posix_history,
+       suite: 'unit',
+       timeout: 30)
+endif
+
 # Phase 4: Continuation Prompt Tests
 # ============================================================================
