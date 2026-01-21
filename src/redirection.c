@@ -187,7 +187,7 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         int fd = open(target, O_WRONLY | O_CREAT | O_TRUNC, 0644);
         if (fd == -1) {
             shell_error_t *error = shell_error_create(
-                SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR, redir_node->loc,
                 "%s: %s", target, strerror(errno));
             shell_error_display(error, stderr, isatty(STDERR_FILENO));
             shell_error_free(error);
@@ -196,7 +196,7 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         }
         if (dup2(fd, STDOUT_FILENO) == -1) {
             shell_error_t *error = shell_error_create(
-                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, redir_node->loc,
                 "dup2: %s", strerror(errno));
             shell_error_display(error, stderr, isatty(STDERR_FILENO));
             shell_error_free(error);
@@ -211,7 +211,7 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         int fd = open(target, O_WRONLY | O_CREAT | O_APPEND, 0644);
         if (fd == -1) {
             shell_error_t *error = shell_error_create(
-                SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR, redir_node->loc,
                 "%s: %s", target, strerror(errno));
             shell_error_display(error, stderr, isatty(STDERR_FILENO));
             shell_error_free(error);
@@ -220,7 +220,7 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         }
         if (dup2(fd, STDOUT_FILENO) == -1) {
             shell_error_t *error = shell_error_create(
-                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, redir_node->loc,
                 "dup2: %s", strerror(errno));
             shell_error_display(error, stderr, isatty(STDERR_FILENO));
             shell_error_free(error);
@@ -237,7 +237,7 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         int fd = open(target, O_RDONLY);
         if (fd == -1) {
             shell_error_t *error = shell_error_create(
-                SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR, redir_node->loc,
                 "%s: %s", target, strerror(errno));
             shell_error_display(error, stderr, isatty(STDERR_FILENO));
             shell_error_free(error);
@@ -246,7 +246,7 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         }
         if (dup2(fd, STDIN_FILENO) == -1) {
             shell_error_t *error = shell_error_create(
-                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, redir_node->loc,
                 "dup2: %s", strerror(errno));
             shell_error_display(error, stderr, isatty(STDERR_FILENO));
             shell_error_free(error);
@@ -268,7 +268,7 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         int fd = open(target, O_RDONLY);
         if (fd == -1) {
             shell_error_t *error = shell_error_create(
-                SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR, redir_node->loc,
                 "%s: %s", target, strerror(errno));
             shell_error_display(error, stderr, isatty(STDERR_FILENO));
             shell_error_free(error);
@@ -277,7 +277,7 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         }
         if (dup2(fd, dest_fd) == -1) {
             shell_error_t *error = shell_error_create(
-                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, redir_node->loc,
                 "dup2: %s", strerror(errno));
             shell_error_display(error, stderr, isatty(STDERR_FILENO));
             shell_error_free(error);
@@ -299,7 +299,7 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         int fd = open(target, O_WRONLY | O_CREAT | O_TRUNC, 0644);
         if (fd == -1) {
             shell_error_t *error = shell_error_create(
-                SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR, redir_node->loc,
                 "%s: %s", target, strerror(errno));
             shell_error_display(error, stderr, isatty(STDERR_FILENO));
             shell_error_free(error);
@@ -308,7 +308,7 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         }
         if (dup2(fd, dest_fd) == -1) {
             shell_error_t *error = shell_error_create(
-                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, redir_node->loc,
                 "dup2: %s", strerror(errno));
             shell_error_display(error, stderr, isatty(STDERR_FILENO));
             shell_error_free(error);
@@ -330,7 +330,7 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         int fd = open(target, O_WRONLY | O_CREAT | O_APPEND, 0644);
         if (fd == -1) {
             shell_error_t *error = shell_error_create(
-                SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR, redir_node->loc,
                 "%s: %s", target, strerror(errno));
             shell_error_display(error, stderr, isatty(STDERR_FILENO));
             shell_error_free(error);
@@ -339,7 +339,7 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         }
         if (dup2(fd, dest_fd) == -1) {
             shell_error_t *error = shell_error_create(
-                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, redir_node->loc,
                 "dup2: %s", strerror(errno));
             shell_error_display(error, stderr, isatty(STDERR_FILENO));
             shell_error_free(error);
@@ -356,7 +356,7 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         int fd = open(target, O_WRONLY | O_CREAT | O_TRUNC, 0644);
         if (fd == -1) {
             shell_error_t *error = shell_error_create(
-                SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR, redir_node->loc,
                 "%s: %s", target, strerror(errno));
             shell_error_display(error, stderr, isatty(STDERR_FILENO));
             shell_error_free(error);
@@ -365,7 +365,7 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         }
         if (dup2(fd, STDOUT_FILENO) == -1 || dup2(fd, STDERR_FILENO) == -1) {
             shell_error_t *error = shell_error_create(
-                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, redir_node->loc,
                 "dup2: %s", strerror(errno));
             shell_error_display(error, stderr, isatty(STDERR_FILENO));
             shell_error_free(error);
@@ -382,7 +382,7 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         int fd = open(target, O_WRONLY | O_CREAT | O_APPEND, 0644);
         if (fd == -1) {
             shell_error_t *error = shell_error_create(
-                SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR, redir_node->loc,
                 "%s: %s", target, strerror(errno));
             shell_error_display(error, stderr, isatty(STDERR_FILENO));
             shell_error_free(error);
@@ -391,7 +391,7 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         }
         if (dup2(fd, STDOUT_FILENO) == -1 || dup2(fd, STDERR_FILENO) == -1) {
             shell_error_t *error = shell_error_create(
-                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, redir_node->loc,
                 "dup2: %s", strerror(errno));
             shell_error_display(error, stderr, isatty(STDERR_FILENO));
             shell_error_free(error);
@@ -427,7 +427,7 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         int fd = open(target, O_WRONLY | O_CREAT | O_TRUNC, 0644);
         if (fd == -1) {
             shell_error_t *error = shell_error_create(
-                SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR, redir_node->loc,
                 "%s: %s", target, strerror(errno));
             shell_error_display(error, stderr, isatty(STDERR_FILENO));
             shell_error_free(error);
@@ -436,7 +436,7 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         }
         if (dup2(fd, STDOUT_FILENO) == -1) {
             shell_error_t *error = shell_error_create(
-                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, SOURCE_LOC_UNKNOWN,
+                SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, redir_node->loc,
                 "dup2: %s", strerror(errno));
             shell_error_display(error, stderr, isatty(STDERR_FILENO));
             shell_error_free(error);

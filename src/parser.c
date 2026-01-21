@@ -102,6 +102,12 @@ parser_t *parser_new_with_source(const char *input, const char *source_name) {
     parser->error_collector = shell_error_collector_new(
         input, strlen(input), parser->source_name, 0);
 
+    /* Initialize parser context stack */
+    parser->context_depth = 0;
+    for (size_t i = 0; i < PARSER_CONTEXT_MAX; i++) {
+        parser->context_stack[i] = NULL;
+    }
+
     return parser;
 }
 
@@ -275,6 +281,88 @@ shell_error_collector_t *parser_get_error_collector(parser_t *parser) {
     return parser ? parser->error_collector : NULL;
 }
 
+/* ============================================================================
+ * Parser Context Stack
+ * ============================================================================ */
+
+void parser_push_context(parser_t *parser, const char *context) {
+    if (!parser || !context) {
+        return;
+    }
+    if (parser->context_depth < PARSER_CONTEXT_MAX) {
+        parser->context_stack[parser->context_depth++] = context;
+    }
+}
+
+void parser_pop_context(parser_t *parser) {
+    if (!parser || parser->context_depth == 0) {
+        return;
+    }
+    parser->context_depth--;
+    parser->context_stack[parser->context_depth] = NULL;
+}
+
+/**
+ * @brief Add a structured error with context and help hint
+ */
+void parser_error_add_with_help(parser_t *parser, shell_error_code_t code,
+                                const char *help, const char *fmt, ...) {
+    if (!parser) {
+        return;
+    }
+
+    /* Get current token for location */
+    token_t *current = tokenizer_current(parser->tokenizer);
+    source_location_t loc = token_to_source_location(current, parser->source_name);
+
+    /* Create the error */
+    va_list args;
+    va_start(args, fmt);
+    shell_error_t *error = shell_error_createv(code, SHELL_SEVERITY_ERROR,
+                                                loc, fmt, args);
+    va_end(args);
+
+    if (!error) {
+        /* Fallback to legacy error system */
+        set_parser_error(parser, "parse error");
+        return;
+    }
+
+    /* Try to get source line for context display */
+    if (parser->error_collector && loc.line > 0) {
+        char *source_line = shell_error_collector_get_line(
+            parser->error_collector, loc.line);
+        if (source_line) {
+            shell_error_set_source_line(error, source_line,
+                                        loc.column > 0 ? loc.column - 1 : 0,
+                                        loc.column > 0 ? loc.column - 1 + loc.length : loc.length);
+            free(source_line);
+        }
+    }
+
+    /* Add parser context stack to error */
+    for (size_t i = 0; i < parser->context_depth; i++) {
+        shell_error_push_context(error, "%s", parser->context_stack[i]);
+    }
+
+    /* Add help suggestion if provided */
+    if (help) {
+        shell_error_set_suggestion(error, help);
+    }
+
+    /* Add to collector if available */
+    if (parser->error_collector) {
+        shell_error_collector_add(parser->error_collector, error);
+    } else {
+        /* Fallback: just set legacy error and free */
+        set_parser_error(parser, error->message ? error->message : "parse error");
+        shell_error_free(error);
+    }
+
+    /* Also set legacy error flag for compatibility */
+    parser->has_error = true;
+}
+
 /**
  * @brief Expect and consume a specific token type
  *
@@ -291,6 +379,30 @@ static bool expect_token(parser_t *parser, token_type_t expected) {
                          "expected '%s', got '%s'",
                          token_type_name(expected),
                          current ? token_type_name(current->type) : "EOF");
+        return false;
+    }
+    tokenizer_advance(parser->tokenizer);
+    return true;
+}
+
+/**
+ * @brief Expect and consume a specific token type with help hint
+ *
+ * Like expect_token but includes context and help message in error.
+ *
+ * @param parser Parser instance
+ * @param expected Token type to match
+ * @param help Help message for error (can be NULL)
+ * @return true if token matched and was consumed
+ */
+static bool expect_token_with_help(parser_t *parser, token_type_t expected,
+                                   const char *help) {
+    if (!tokenizer_match(parser->tokenizer, expected)) {
+        token_t *current = tokenizer_current(parser->tokenizer);
+        parser_error_add_with_help(parser, SHELL_ERR_UNEXPECTED_TOKEN, help,
+                                   "expected '%s', got '%s'",
+                                   token_type_name(expected),
+                                   current ? token_type_name(current->type) : "EOF");
         return false;
     }
     tokenizer_advance(parser->tokenizer);
@@ -1302,16 +1414,22 @@ static node_t *parse_simple_command(parser_t *parser) {
 static node_t *parse_brace_group(parser_t *parser) {
     token_t *current = tokenizer_current(parser->tokenizer);
     if (!current || current->type != TOK_LBRACE) {
-        parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN, "expected '{'");
+        parser_error_add_with_help(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                         "brace groups execute commands in the current shell",
+                         "expected '{'");
         return NULL;
     }
 
     /* Capture location for brace group */
     source_location_t brace_loc = token_to_source_location(current, parser->source_name);
 
+    /* Push context for better error messages */
+    parser_push_context(parser, "parsing brace group");
+
     // Create brace group node
     node_t *group_node = new_node_at(NODE_BRACE_GROUP, brace_loc);
     if (!group_node) {
+        parser_pop_context(parser);
         return NULL;
     }
 
@@ -1331,6 +1449,7 @@ static node_t *parse_brace_group(parser_t *parser) {
                 break; // End of input
             }
             free_node_tree(group_node);
+            parser_pop_context(parser);
             return NULL;
         }
 
@@ -1341,10 +1460,14 @@ static node_t *parse_brace_group(parser_t *parser) {
     }
 
     // Expect '}'
-    if (!expect_token(parser, TOK_RBRACE)) {
+    if (!expect_token_with_help(parser, TOK_RBRACE,
+            "brace group must end with '}'")) {
         free_node_tree(group_node);
+        parser_pop_context(parser);
         return NULL;
     }
+
+    parser_pop_context(parser);
 
     // Parse any trailing redirections: { cmd; } >/dev/null 2>&1
     if (!parse_trailing_redirections(parser, group_node)) {
@@ -1366,16 +1489,22 @@ static node_t *parse_brace_group(parser_t *parser) {
 static node_t *parse_subshell(parser_t *parser) {
     token_t *current = tokenizer_current(parser->tokenizer);
     if (!current || current->type != TOK_LPAREN) {
-        parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN, "expected '('");
+        parser_error_add_with_help(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                         "subshells execute commands in a child process",
+                         "expected '('");
         return NULL;
     }
 
     /* Capture location for subshell */
     source_location_t subshell_loc = token_to_source_location(current, parser->source_name);
 
+    /* Push context for better error messages */
+    parser_push_context(parser, "parsing subshell");
+
     // Create subshell node
     node_t *subshell_node = new_node_at(NODE_SUBSHELL, subshell_loc);
     if (!subshell_node) {
+        parser_pop_context(parser);
         return NULL;
     }
 
@@ -1395,6 +1524,7 @@ static node_t *parse_subshell(parser_t *parser) {
                 break; // End of input
             }
             free_node_tree(subshell_node);
+            parser_pop_context(parser);
             return NULL;
         }
 
@@ -1405,10 +1535,14 @@ static node_t *parse_subshell(parser_t *parser) {
     }
 
     // Expect ')'
-    if (!expect_token(parser, TOK_RPAREN)) {
+    if (!expect_token_with_help(parser, TOK_RPAREN,
+            "subshell must end with ')'")) {
         free_node_tree(subshell_node);
+        parser_pop_context(parser);
         return NULL;
     }
+
+    parser_pop_context(parser);
 
     // Parse any trailing redirections: (cmd) >/dev/null 2>&1
     if (!parse_trailing_redirections(parser, subshell_node)) {
@@ -1943,8 +2077,12 @@ static node_t *parse_if_statement(parser_t *parser) {
         return NULL;
     }
 
+    /* Push context for better error messages */
+    parser_push_context(parser, "parsing if statement");
+
     node_t *if_node = new_node_at(NODE_IF, if_loc);
     if (!if_node) {
+        parser_pop_context(parser);
         return NULL;
     }
 
@@ -1952,6 +2090,7 @@ static node_t *parse_if_statement(parser_t *parser) {
     node_t *condition = parse_logical_expression(parser);
     if (!condition) {
         free_node_tree(if_node);
+        parser_pop_context(parser);
         return NULL;
     }
     add_child_node(if_node, condition);
@@ -1960,8 +2099,10 @@ static node_t *parse_if_statement(parser_t *parser) {
     skip_separators(parser);
 
     // Now we should see 'then'
-    if (!expect_token(parser, TOK_THEN)) {
+    if (!expect_token_with_help(parser, TOK_THEN,
+            "'if' requires 'then' before the command body")) {
         free_node_tree(if_node);
+        parser_pop_context(parser);
         return NULL;
     }
 
@@ -1972,6 +2113,7 @@ static node_t *parse_if_statement(parser_t *parser) {
     node_t *then_body = parse_if_body(parser);
     if (!then_body) {
         free_node_tree(if_node);
+        parser_pop_context(parser);
         return NULL;
     }
     add_child_node(if_node, then_body);
@@ -1993,6 +2135,7 @@ static node_t *parse_if_statement(parser_t *parser) {
         node_t *elif_condition = parse_logical_expression(parser);
         if (!elif_condition) {
             free_node_tree(if_node);
+            parser_pop_context(parser);
             return NULL;
         }
         add_child_node(if_node, elif_condition);
@@ -2001,8 +2144,10 @@ static node_t *parse_if_statement(parser_t *parser) {
         skip_separators(parser);
 
         // Expect 'then' after elif condition
-        if (!expect_token(parser, TOK_THEN)) {
+        if (!expect_token_with_help(parser, TOK_THEN,
+                "'elif' requires 'then' before the command body")) {
             free_node_tree(if_node);
+            parser_pop_context(parser);
             return NULL;
         }
 
@@ -2013,6 +2158,7 @@ static node_t *parse_if_statement(parser_t *parser) {
         node_t *elif_body = parse_if_body(parser);
         if (!elif_body) {
             free_node_tree(if_node);
+            parser_pop_context(parser);
             return NULL;
         }
         add_child_node(if_node, elif_body);
@@ -2036,6 +2182,7 @@ static node_t *parse_if_statement(parser_t *parser) {
         node_t *else_body = parse_if_body(parser);
         if (!else_body) {
             free_node_tree(if_node);
+            parser_pop_context(parser);
             return NULL;
         }
         add_child_node(if_node, else_body);
@@ -2046,10 +2193,14 @@ static node_t *parse_if_statement(parser_t *parser) {
 
     // No need for additional semicolon handling here since we handled it above
 
-    if (!expect_token(parser, TOK_FI)) {
+    if (!expect_token_with_help(parser, TOK_FI,
+            "'if' statement must end with 'fi'")) {
         free_node_tree(if_node);
+        parser_pop_context(parser);
         return NULL;
     }
+
+    parser_pop_context(parser);
 
     // Parse any trailing redirections: if ...; then ...; fi >/dev/null 2>&1
     if (!parse_trailing_redirections(parser, if_node)) {
@@ -2077,8 +2228,12 @@ static node_t *parse_while_statement(parser_t *parser) {
         return NULL;
     }
 
+    /* Push context for better error messages */
+    parser_push_context(parser, "parsing while loop");
+
     node_t *while_node = new_node_at(NODE_WHILE, while_loc);
     if (!while_node) {
+        parser_pop_context(parser);
         return NULL;
     }
 
@@ -2097,8 +2252,10 @@ static node_t *parse_while_statement(parser_t *parser) {
 
     if (!condition) {
         free_node_tree(while_node);
-        parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+        parser_error_add_with_help(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                         "'while' requires a condition command",
                          "invalid while loop condition");
+        parser_pop_context(parser);
         return NULL;
     }
     add_child_node(while_node, condition);
@@ -2107,8 +2264,10 @@ static node_t *parse_while_statement(parser_t *parser) {
     skip_separators(parser);
 
     // Now we should see 'do'
-    if (!expect_token(parser, TOK_DO)) {
+    if (!expect_token_with_help(parser, TOK_DO,
+            "'while' requires 'do' before the loop body")) {
         free_node_tree(while_node);
+        parser_pop_context(parser);
         return NULL;
     }
 
@@ -2119,6 +2278,7 @@ static node_t *parse_while_statement(parser_t *parser) {
     node_t *body = parse_command_body(parser, TOK_DONE);
     if (!body) {
         free_node_tree(while_node);
+        parser_pop_context(parser);
         return NULL;
     }
     add_child_node(while_node, body);
@@ -2126,10 +2286,14 @@ static node_t *parse_while_statement(parser_t *parser) {
     // Skip separators before 'done'
     skip_separators(parser);
 
-    if (!expect_token(parser, TOK_DONE)) {
+    if (!expect_token_with_help(parser, TOK_DONE,
+            "'while' loop must end with 'done'")) {
         free_node_tree(while_node);
+        parser_pop_context(parser);
         return NULL;
     }
+
+    parser_pop_context(parser);
 
     // Parse any trailing redirections: while ...; do ...; done </input 2>&1
     if (!parse_trailing_redirections(parser, while_node)) {
@@ -2153,8 +2317,12 @@ static node_t *parse_until_statement(parser_t *parser) {
         return NULL;
     }
 
+    /* Push context for better error messages */
+    parser_push_context(parser, "parsing until loop");
+
     node_t *until_node = new_node(NODE_UNTIL);
     if (!until_node) {
+        parser_pop_context(parser);
         return NULL;
     }
 
@@ -2172,8 +2340,10 @@ static node_t *parse_until_statement(parser_t *parser) {
 
     if (!condition) {
         free_node_tree(until_node);
-        parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+        parser_error_add_with_help(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                         "'until' requires a condition command",
                          "invalid until loop condition");
+        parser_pop_context(parser);
         return NULL;
     }
     add_child_node(until_node, condition);
@@ -2182,8 +2352,10 @@ static node_t *parse_until_statement(parser_t *parser) {
     skip_separators(parser);
 
     // Now we should see 'do'
-    if (!expect_token(parser, TOK_DO)) {
+    if (!expect_token_with_help(parser, TOK_DO,
+            "'until' requires 'do' before the loop body")) {
         free_node_tree(until_node);
+        parser_pop_context(parser);
         return NULL;
     }
 
@@ -2194,6 +2366,7 @@ static node_t *parse_until_statement(parser_t *parser) {
     node_t *body = parse_command_body(parser, TOK_DONE);
     if (!body) {
         free_node_tree(until_node);
+        parser_pop_context(parser);
         return NULL;
     }
     add_child_node(until_node, body);
@@ -2201,10 +2374,14 @@ static node_t *parse_until_statement(parser_t *parser) {
     // Skip separators before 'done'
     skip_separators(parser);
 
-    if (!expect_token(parser, TOK_DONE)) {
+    if (!expect_token_with_help(parser, TOK_DONE,
+            "'until' loop must end with 'done'")) {
         free_node_tree(until_node);
+        parser_pop_context(parser);
         return NULL;
     }
+
+    parser_pop_context(parser);
 
     // Parse any trailing redirections: until ...; do ...; done </input 2>&1
     if (!parse_trailing_redirections(parser, until_node)) {
@@ -2232,16 +2409,22 @@ static node_t *parse_for_statement(parser_t *parser) {
         return NULL;
     }
 
+    /* Push context for better error messages */
+    parser_push_context(parser, "parsing for loop");
+
     node_t *for_node = new_node_at(NODE_FOR, for_loc);
     if (!for_node) {
+        parser_pop_context(parser);
         return NULL;
     }
 
     // Parse variable name
     if (!tokenizer_match(parser->tokenizer, TOK_WORD)) {
         free_node_tree(for_node);
-        parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+        parser_error_add_with_help(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                         "syntax: for NAME [in WORDS...]; do COMMANDS; done",
                          "expected variable name after 'for'");
+        parser_pop_context(parser);
         return NULL;
     }
 
@@ -2279,8 +2462,10 @@ static node_t *parse_for_statement(parser_t *parser) {
         // Unexpected token after variable name
         free_node_tree(for_node);
         free_node_tree(word_list);
-        parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+        parser_error_add_with_help(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                         "syntax: for NAME [in WORDS...]; do COMMANDS; done",
                          "expected 'in', ';', or 'do' after variable name in for loop");
+        parser_pop_context(parser);
         return NULL;
     }
 
@@ -2423,8 +2608,10 @@ skip_word_parsing:
     skip_separators(parser);
 
     // Now we should see 'do'
-    if (!expect_token(parser, TOK_DO)) {
+    if (!expect_token_with_help(parser, TOK_DO,
+            "'for' requires 'do' before the loop body")) {
         free_node_tree(for_node);
+        parser_pop_context(parser);
         return NULL;
     }
 
@@ -2435,6 +2622,7 @@ skip_word_parsing:
     node_t *body = parse_command_body(parser, TOK_DONE);
     if (!body) {
         free_node_tree(for_node);
+        parser_pop_context(parser);
         return NULL;
     }
     add_child_node(for_node, body);
@@ -2442,10 +2630,14 @@ skip_word_parsing:
     // Skip separators before 'done'
     skip_separators(parser);
 
-    if (!expect_token(parser, TOK_DONE)) {
+    if (!expect_token_with_help(parser, TOK_DONE,
+            "'for' loop must end with 'done'")) {
         free_node_tree(for_node);
+        parser_pop_context(parser);
         return NULL;
     }
+
+    parser_pop_context(parser);
 
     // Parse any trailing redirections: for ...; do ...; done >/dev/null 2>&1
     if (!parse_trailing_redirections(parser, for_node)) {
@@ -2470,16 +2662,22 @@ static node_t *parse_select_statement(parser_t *parser) {
         return NULL;
     }
 
+    /* Push context for better error messages */
+    parser_push_context(parser, "parsing select statement");
+
     node_t *select_node = new_node(NODE_SELECT);
     if (!select_node) {
+        parser_pop_context(parser);
         return NULL;
     }
 
     // Parse variable name
     if (!tokenizer_match(parser->tokenizer, TOK_WORD)) {
         free_node_tree(select_node);
-        parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+        parser_error_add_with_help(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                         "syntax: select NAME [in WORDS...]; do COMMANDS; done",
                          "expected variable name after 'select'");
+        parser_pop_context(parser);
         return NULL;
     }
 
@@ -2555,8 +2753,10 @@ static node_t *parse_select_statement(parser_t *parser) {
     skip_separators(parser);
 
     // Now we should see 'do'
-    if (!expect_token(parser, TOK_DO)) {
+    if (!expect_token_with_help(parser, TOK_DO,
+            "'select' requires 'do' before the command body")) {
         free_node_tree(select_node);
+        parser_pop_context(parser);
         return NULL;
     }
 
@@ -2567,6 +2767,7 @@ static node_t *parse_select_statement(parser_t *parser) {
     node_t *body = parse_command_body(parser, TOK_DONE);
     if (!body) {
         free_node_tree(select_node);
+        parser_pop_context(parser);
         return NULL;
     }
     add_child_node(select_node, body);
@@ -2574,10 +2775,14 @@ static node_t *parse_select_statement(parser_t *parser) {
     // Skip separators before 'done'
     skip_separators(parser);
 
-    if (!expect_token(parser, TOK_DONE)) {
+    if (!expect_token_with_help(parser, TOK_DONE,
+            "'select' statement must end with 'done'")) {
         free_node_tree(select_node);
+        parser_pop_context(parser);
         return NULL;
     }
+
+    parser_pop_context(parser);
 
     // Parse any trailing redirections: select ... done >/dev/null 2>&1
     if (!parse_trailing_redirections(parser, select_node)) {
@@ -2764,8 +2969,12 @@ static node_t *parse_case_statement(parser_t *parser) {
         return NULL;
     }
 
+    /* Push context for better error messages */
+    parser_push_context(parser, "parsing case statement");
+
     node_t *case_node = new_node(NODE_CASE);
     if (!case_node) {
+        parser_pop_context(parser);
         return NULL;
     }
 
@@ -2774,8 +2983,10 @@ static node_t *parse_case_statement(parser_t *parser) {
     if (!token_is_word_like(word_token->type) &&
         word_token->type != TOK_VARIABLE) {
         free_node_tree(case_node);
-        parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+        parser_error_add_with_help(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                         "syntax: case WORD in [PATTERN) COMMANDS ;;]... esac",
                          "expected word after 'case'");
+        parser_pop_context(parser);
         return NULL;
     }
 
@@ -2792,8 +3003,10 @@ static node_t *parse_case_statement(parser_t *parser) {
     skip_separators(parser);
 
     // Expect 'in' keyword
-    if (!expect_token(parser, TOK_IN)) {
+    if (!expect_token_with_help(parser, TOK_IN,
+            "'case' requires 'in' keyword after the test word")) {
         free_node_tree(case_node);
+        parser_pop_context(parser);
         return NULL;
     }
 
@@ -2867,8 +3080,10 @@ static node_t *parse_case_statement(parser_t *parser) {
             if (!single_pattern) {
                 free_node_tree(case_item);
                 free_node_tree(case_node);
-                parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                parser_error_add_with_help(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                                 "patterns can contain wildcards: *, ?, [...]",
                                  "expected pattern in case statement");
+                parser_pop_context(parser);
                 return NULL;
             }
 
@@ -2909,8 +3124,10 @@ static node_t *parse_case_statement(parser_t *parser) {
         if (!tokenizer_match(parser->tokenizer, TOK_RPAREN)) {
             free_node_tree(case_item);
             free_node_tree(case_node);
-            parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+            parser_error_add_with_help(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                             "case patterns must end with ')'",
                              "expected ')' after case pattern");
+            parser_pop_context(parser);
             return NULL;
         }
         tokenizer_advance(parser->tokenizer);
@@ -3015,10 +3232,14 @@ static node_t *parse_case_statement(parser_t *parser) {
     }
 
     // Expect 'esac'
-    if (!expect_token(parser, TOK_ESAC)) {
+    if (!expect_token_with_help(parser, TOK_ESAC,
+            "'case' statement must end with 'esac'")) {
         free_node_tree(case_node);
+        parser_pop_context(parser);
         return NULL;
     }
+
+    parser_pop_context(parser);
 
     // Parse any trailing redirections: case ... esac >/dev/null 2>&1
     if (!parse_trailing_redirections(parser, case_node)) {
@@ -3108,15 +3329,21 @@ static node_t *parse_function_definition(parser_t *parser) {
         current = tokenizer_current(parser->tokenizer);
     }
 
+    /* Push context for better error messages */
+    parser_push_context(parser, "parsing function definition");
+
     if (!current || !token_is_word_like(current->type)) {
-        parser_error_add(parser, SHELL_ERR_INVALID_FUNCTION,
+        parser_error_add_with_help(parser, SHELL_ERR_INVALID_FUNCTION,
+                         "syntax: name() { commands; } or function name { commands; }",
                          "expected function name");
+        parser_pop_context(parser);
         return NULL;
     }
 
     // Create function node
     node_t *function_node = new_node(NODE_FUNCTION);
     if (!function_node) {
+        parser_pop_context(parser);
         return NULL;
     }
 
@@ -3131,10 +3358,12 @@ static node_t *parse_function_definition(parser_t *parser) {
     // POSIX compliance: validate function name in posix mode
     if (is_posix_mode_enabled() &&
         !is_valid_posix_function_name(current->text)) {
-        parser_error_add(parser, SHELL_ERR_INVALID_FUNCTION,
+        parser_error_add_with_help(parser, SHELL_ERR_INVALID_FUNCTION,
+                         "POSIX function names must start with a letter or underscore",
                          "invalid function name in POSIX mode: '%s'",
                          current->text);
         free_node_tree(function_node);
+        parser_pop_context(parser);
         return NULL;
     }
     tokenizer_advance(parser->tokenizer);
@@ -3149,8 +3378,10 @@ static node_t *parse_function_definition(parser_t *parser) {
     }
 
     // Expect '('
-    if (!expect_token(parser, TOK_LPAREN)) {
+    if (!expect_token_with_help(parser, TOK_LPAREN,
+            "POSIX functions require '()' after the function name")) {
         free_node_tree(function_node);
+        parser_pop_context(parser);
         return NULL;
     }
 
@@ -3165,10 +3396,12 @@ static node_t *parse_function_definition(parser_t *parser) {
     while (current && current->type != TOK_RPAREN && current->type != TOK_EOF) {
         // Expect parameter name (word token)
         if (!token_is_word_like(current->type)) {
-            parser_error_add(parser, SHELL_ERR_INVALID_FUNCTION,
+            parser_error_add_with_help(parser, SHELL_ERR_INVALID_FUNCTION,
+                             "function parameters must be valid identifiers",
                              "expected parameter name");
             free_function_params(params);
             free_node_tree(function_node);
+            parser_pop_context(parser);
             return NULL;
         }
 
@@ -3191,11 +3424,13 @@ static node_t *parse_function_definition(parser_t *parser) {
             if (!current || (!token_is_word_like(current->type) &&
                              current->type != TOK_STRING &&
                              current->type != TOK_EXPANDABLE_STRING)) {
-                parser_error_add(parser, SHELL_ERR_INVALID_FUNCTION,
+                parser_error_add_with_help(parser, SHELL_ERR_INVALID_FUNCTION,
+                                 "use name=value syntax for default parameter values",
                                  "expected default value after '='");
                 free(param_name);
                 free_function_params(params);
                 free_node_tree(function_node);
+                parser_pop_context(parser);
                 return NULL;
             }
 
@@ -3244,18 +3479,22 @@ static node_t *parse_function_definition(parser_t *parser) {
             current = tokenizer_current(parser->tokenizer);
             // Continue to next parameter
         } else {
-            parser_error_add(parser, SHELL_ERR_INVALID_FUNCTION,
+            parser_error_add_with_help(parser, SHELL_ERR_INVALID_FUNCTION,
+                             "separate parameters with commas",
                              "expected ',' or ')' after parameter");
             free_function_params(params);
             free_node_tree(function_node);
+            parser_pop_context(parser);
             return NULL;
         }
     }
 
     // Expect ')'
-    if (!expect_token(parser, TOK_RPAREN)) {
+    if (!expect_token_with_help(parser, TOK_RPAREN,
+            "function parameter list must end with ')'")) {
         free_function_params(params);
         free_node_tree(function_node);
+        parser_pop_context(parser);
         return NULL;
     }
 
@@ -3304,8 +3543,10 @@ parse_function_body:
     skip_separators(parser);
 
     // Expect '{'
-    if (!expect_token(parser, TOK_LBRACE)) {
+    if (!expect_token_with_help(parser, TOK_LBRACE,
+            "function body must be enclosed in braces { }")) {
         free_node_tree(function_node);
+        parser_pop_context(parser);
         return NULL;
     }
 
@@ -3343,10 +3584,14 @@ parse_function_body:
     }
 
     // Expect '}'
-    if (!expect_token(parser, TOK_RBRACE)) {
+    if (!expect_token_with_help(parser, TOK_RBRACE,
+            "function body must end with '}'")) {
         free_node_tree(function_node);
+        parser_pop_context(parser);
         return NULL;
     }
+
+    parser_pop_context(parser);
 
     return function_node;
 }

@@ -17,6 +17,9 @@
 #include "shell_error.h"
 #include "tokenizer.h"
 
+/** Maximum depth of parser context stack */
+#define PARSER_CONTEXT_MAX 16
+
 /** Parser state */
 typedef struct parser {
     tokenizer_t *tokenizer;
@@ -26,6 +29,10 @@ typedef struct parser {
     /* Structured error collection (Phase 2 error management) */
     shell_error_collector_t *error_collector;
     const char *source_name;  /* Script name for error display */
+
+    /* Parser context stack for context-aware error messages */
+    const char *context_stack[PARSER_CONTEXT_MAX];
+    size_t context_depth;
 } parser_t;
 
 /* ============================================================================
@@ -154,5 +161,42 @@ void parser_display_errors(parser_t *parser, FILE *out, bool use_color);
  * @return Error collector or NULL if not initialized
  */
 shell_error_collector_t *parser_get_error_collector(parser_t *parser);
+
+/* ============================================================================
+ * Parser Context Stack (for context-aware error messages)
+ * ============================================================================ */
+
+/**
+ * @brief Push a parsing context onto the stack
+ *
+ * Used to track what construct is currently being parsed for better error
+ * messages. Context strings should be static or persist for parser lifetime.
+ *
+ * @param parser Parser context
+ * @param context Context description (e.g., "parsing if statement")
+ */
+void parser_push_context(parser_t *parser, const char *context);
+
+/**
+ * @brief Pop a parsing context from the stack
+ *
+ * @param parser Parser context
+ */
+void parser_pop_context(parser_t *parser);
+
+/**
+ * @brief Add a structured error with context and help hint
+ *
+ * Creates and adds a structured error with full source location,
+ * parser context stack, and an optional help suggestion.
+ *
+ * @param parser Parser context
+ * @param code Error code from shell_error_code_t
+ * @param help Optional help message (can be NULL)
+ * @param fmt Printf-style format string for error message
+ * @param ... Format arguments
+ */
+void parser_error_add_with_help(parser_t *parser, shell_error_code_t code,
+                                const char *help, const char *fmt, ...);
 
 #endif // PARSER_H
