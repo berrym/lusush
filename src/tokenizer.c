@@ -655,25 +655,128 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                          start_line, start_column, start_pos);
     }
 
-    // Handle quoted strings
+    // Handle quoted strings (with adjacent quote concatenation support)
     if (c == '\'' || c == '"') {
-        char quote_char = c;
+        // Build a combined token for adjacent quoted segments
+        // We need to extract content from each segment and combine them
+        size_t result_capacity = 256;
+        char *result = malloc(result_capacity);
+        if (!result) {
+            return token_new(TOK_ERROR, &tokenizer->input[start_pos], 1,
+                            start_line, start_column, start_pos);
+        }
+        size_t result_len = 0;
+        bool has_expandable = false;
+        
+    parse_next_segment:;
+        char quote_char = tokenizer->input[tokenizer->position];
         tokenizer->position++; // Skip opening quote
         tokenizer->column++;
-        size_t start = tokenizer->position;
+        size_t segment_start = tokenizer->position;
 
         while (tokenizer->position < tokenizer->input_length) {
             char curr = tokenizer->input[tokenizer->position];
             if (curr == quote_char) {
-                // Found closing quote
-                size_t length = tokenizer->position - start;
+                // Found closing quote - copy segment content
+                size_t segment_len = tokenizer->position - segment_start;
+                while (result_len + segment_len + 1 >= result_capacity) {
+                    result_capacity *= 2;
+                    char *new_result = realloc(result, result_capacity);
+                    if (!new_result) {
+                        free(result);
+                        return token_new(TOK_ERROR, &tokenizer->input[start_pos], 1,
+                                        start_line, start_column, start_pos);
+                    }
+                    result = new_result;
+                }
+                memcpy(&result[result_len], &tokenizer->input[segment_start], segment_len);
+                result_len += segment_len;
+                
                 tokenizer->position++; // Skip closing quote
                 tokenizer->column++;
-
-                token_type_t type =
-                    (quote_char == '"') ? TOK_EXPANDABLE_STRING : TOK_STRING;
-                return token_new(type, &tokenizer->input[start], length,
+                
+                if (quote_char == '"') {
+                    has_expandable = true;
+                }
+                
+                // Check for adjacent quote - continue if another quote follows
+                if (tokenizer->position < tokenizer->input_length) {
+                    char next = tokenizer->input[tokenizer->position];
+                    if (next == '\'' || next == '"') {
+                        // Adjacent quote - continue parsing
+                        goto parse_next_segment;
+                    }
+                    // Check for adjacent $' (ANSI-C quoting)
+                    if (next == '$' && tokenizer->position + 1 < tokenizer->input_length &&
+                        tokenizer->input[tokenizer->position + 1] == '\'') {
+                        tokenizer->position++; // Skip $
+                        tokenizer->column++;
+                        // Add marker for ANSI-C quote in result
+                        while (result_len + 2 >= result_capacity) {
+                            result_capacity *= 2;
+                            char *new_result = realloc(result, result_capacity);
+                            if (!new_result) {
+                                free(result);
+                                return token_new(TOK_ERROR, &tokenizer->input[start_pos], 1,
+                                                start_line, start_column, start_pos);
+                            }
+                            result = new_result;
+                        }
+                        result[result_len++] = '$';
+                        goto parse_next_segment;
+                    }
+                    // Check for adjacent unquoted word characters
+                    if (is_word_char(next) || next == '\\' || next == '$') {
+                        // Adjacent word - scan until whitespace or special char
+                        while (tokenizer->position < tokenizer->input_length) {
+                            char wc = tokenizer->input[tokenizer->position];
+                            if (wc == '\'' || wc == '"') {
+                                // Another quote - handle it
+                                goto parse_next_segment;
+                            }
+                            if (wc == '$' && tokenizer->position + 1 < tokenizer->input_length &&
+                                tokenizer->input[tokenizer->position + 1] == '\'') {
+                                tokenizer->position++;
+                                tokenizer->column++;
+                                result[result_len++] = '$';
+                                goto parse_next_segment;
+                            }
+                            if (!is_word_char(wc) && wc != '\\' && wc != '$') {
+                                break;
+                            }
+                            // Add character to result
+                            if (result_len + 1 >= result_capacity) {
+                                result_capacity *= 2;
+                                char *new_result = realloc(result, result_capacity);
+                                if (!new_result) {
+                                    free(result);
+                                    return token_new(TOK_ERROR, &tokenizer->input[start_pos], 1,
+                                                    start_line, start_column, start_pos);
+                                }
+                                result = new_result;
+                            }
+                            if (wc == '\\' && tokenizer->position + 1 < tokenizer->input_length) {
+                                // Escape sequence
+                                tokenizer->position++;
+                                tokenizer->column++;
+                                result[result_len++] = tokenizer->input[tokenizer->position];
+                            } else {
+                                result[result_len++] = wc;
+                            }
+                            tokenizer->position++;
+                            tokenizer->column++;
+                            has_expandable = true; // Unquoted content may have expansions
+                        }
+                    }
+                }
+                
+                // No more adjacent content - return the complete token
+                result[result_len] = '\0';
+                token_type_t type = has_expandable ? TOK_EXPANDABLE_STRING : TOK_STRING;
+                token_t *tok = token_new(type, result, result_len,
                                  start_line, start_column, start_pos);
+                free(result);
+                return tok;
             } else if (curr == '$' && quote_char == '"' &&
                        tokenizer->position + 1 < tokenizer->input_length &&
                        tokenizer->input[tokenizer->position + 1] == '(') {
@@ -1703,9 +1806,15 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
 
     // Check if this could be the start of a word
     // (either ASCII word char or non-ASCII UTF-8)
+    // Also handle backslash-escaped characters as word starters
     bool could_be_word = false;
     if (char_len > 0) {
         could_be_word = is_word_codepoint(codepoint);
+        // Backslash followed by another char starts a word (escape sequence)
+        if (!could_be_word && codepoint == '\\' &&
+            tokenizer->position + 1 < tokenizer->input_length) {
+            could_be_word = true;
+        }
     } else if (isalnum(c) || is_word_char(c)) {
         // Fallback for byte-level check (ASCII)
         could_be_word = true;
@@ -1764,6 +1873,26 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                     // Advance by the UTF-8 character length
                     tokenizer->position += curr_char_len;
                     tokenizer->column++; // One visual column per character
+                } else if (curr_codepoint == '\\' &&
+                           tokenizer->position + 1 < tokenizer->input_length) {
+                    // Backslash escape in word context
+                    // Include backslash + next character as part of word
+                    tokenizer->position++;  // Skip backslash
+                    tokenizer->column++;
+                    
+                    char next = tokenizer->input[tokenizer->position];
+                    if (next == '\n') {
+                        // Line continuation - skip the newline and continue
+                        tokenizer->line++;
+                        tokenizer->column = 1;
+                        tokenizer->position++;
+                    } else {
+                        // Include escaped character in word
+                        tokenizer->position++;
+                        tokenizer->column++;
+                    }
+                    is_numeric = false;
+                    continue;  // Keep scanning for more word characters
                 } else if (curr_codepoint == '(' && tokenizer->position > start) {
                     char prev = tokenizer->input[tokenizer->position - 1];
                     
@@ -1835,9 +1964,36 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                     }
                     // Not an extglob pattern or array literal - end the word here
                     break;
-                } else if (curr_codepoint == '$' &&
-                           shell_mode_allows(FEATURE_INDEXED_ARRAYS)) {
+                } else if (curr_codepoint == '$') {
+                    // Check for ANSI-C quoting $'...' first - include as part of word
+                    if (tokenizer->position + 1 < tokenizer->input_length &&
+                        tokenizer->input[tokenizer->position + 1] == '\'') {
+                        // Scan forward to find closing quote
+                        size_t scan_pos = tokenizer->position + 2;
+                        while (scan_pos < tokenizer->input_length) {
+                            char sc = tokenizer->input[scan_pos];
+                            if (sc == '\'') {
+                                // Found closing quote - include $'...' in word
+                                scan_pos++;
+                                is_numeric = false;
+                                size_t old_pos = tokenizer->position;
+                                tokenizer->position = scan_pos;
+                                tokenizer->column += (scan_pos - old_pos);
+                                continue;  // Continue scanning word
+                            } else if (sc == '\\' && scan_pos + 1 < tokenizer->input_length) {
+                                scan_pos += 2;  // Skip escaped char
+                            } else {
+                                scan_pos++;
+                            }
+                        }
+                        // Unterminated ANSI-C quote - fall through to break
+                    }
+                    
                     // Check if we're inside brackets (array subscript like arr[$i])
+                    if (!shell_mode_allows(FEATURE_INDEXED_ARRAYS)) {
+                        // No array support - end word here
+                        break;
+                    }
                     // Scan backwards to see if there's an unmatched '['
                     bool in_brackets = false;
                     for (size_t i = tokenizer->position; i > start; i--) {

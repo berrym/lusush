@@ -3312,8 +3312,60 @@ char *expand_if_needed(executor_t *executor, const char *text) {
         size_t result_pos = 0;
         
         for (size_t i = 0; i < len; i++) {
-            if (text[i] == '\'') {
-                // Single quote - copy content literally until closing quote
+            if (text[i] == '$' && i + 1 < len && text[i + 1] == '\'') {
+                // ANSI-C quoting $'...' - expand escape sequences
+                i += 2; // Skip $'
+                size_t content_start = i;
+                // Find closing quote (handling escaped quotes)
+                while (i < len) {
+                    if (text[i] == '\\' && i + 1 < len) {
+                        i += 2; // Skip escaped character
+                    } else if (text[i] == '\'') {
+                        break;
+                    } else {
+                        i++;
+                    }
+                }
+                // Extract and expand the ANSI-C string content
+                size_t content_len = i - content_start;
+                if (shell_mode_allows(FEATURE_ANSI_QUOTING)) {
+                    char *expanded = expand_ansi_c_string(&text[content_start], content_len);
+                    if (expanded) {
+                        size_t exp_len = strlen(expanded);
+                        while (result_pos + exp_len >= result_capacity) {
+                            result_capacity *= 2;
+                            char *new_result = realloc(result, result_capacity);
+                            if (!new_result) {
+                                free(result);
+                                free(expanded);
+                                return strdup(text);
+                            }
+                            result = new_result;
+                        }
+                        strcpy(&result[result_pos], expanded);
+                        result_pos += exp_len;
+                        free(expanded);
+                    }
+                } else {
+                    // Feature disabled - copy literally (including $')
+                    while (result_pos + content_len + 3 >= result_capacity) {
+                        result_capacity *= 2;
+                        char *new_result = realloc(result, result_capacity);
+                        if (!new_result) {
+                            free(result);
+                            return strdup(text);
+                        }
+                        result = new_result;
+                    }
+                    result[result_pos++] = '$';
+                    result[result_pos++] = '\'';
+                    strncpy(&result[result_pos], &text[content_start], content_len);
+                    result_pos += content_len;
+                    result[result_pos++] = '\'';
+                }
+                // i now points to closing quote (or end of string)
+            } else if (text[i] == '\'') {
+                // Regular single quote - copy content literally until closing quote
                 i++; // Skip opening quote
                 while (i < len && text[i] != '\'') {
                     if (result_pos >= result_capacity - 1) {
@@ -10332,47 +10384,12 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
 
     while (i < len) {
         if (str[i] == '$' && i + 1 < len) {
-            // Check for ANSI-C quoting $'...'
-            if (str[i + 1] == '\'') {
-                // Find the closing quote
-                size_t quote_start = i + 2;
-                size_t quote_end = quote_start;
-                while (quote_end < len) {
-                    if (str[quote_end] == '\\' && quote_end + 1 < len) {
-                        quote_end += 2; // Skip escaped character
-                    } else if (str[quote_end] == '\'') {
-                        break;
-                    } else {
-                        quote_end++;
-                    }
-                }
-                if (quote_end < len && str[quote_end] == '\'') {
-                    // Extract and expand the ANSI-C string content
-                    size_t content_len = quote_end - quote_start;
-                    char *expanded =
-                        expand_ansi_c_string(&str[quote_start], content_len);
-                    if (expanded) {
-                        size_t exp_len = strlen(expanded);
-                        while (result_pos + exp_len >= buffer_size) {
-                            buffer_size *= 2;
-                            char *new_result = realloc(result, buffer_size);
-                            if (!new_result) {
-                                free(result);
-                                free(expanded);
-                                return strdup("");
-                            }
-                            result = new_result;
-                        }
-                        strcpy(&result[result_pos], expanded);
-                        result_pos += exp_len;
-                        free(expanded);
-                    }
-                    i = quote_end + 1;
-                    continue;
-                }
-            }
+            // NOTE: ANSI-C quoting $'...' is NOT expanded inside double quotes
+            // per POSIX/bash behavior. It's only recognized at the outer level.
+            // So we skip the $' check here and treat it as a literal $.
+            
             // Check for arithmetic expansion $((...))
-            else if (str[i + 1] == '(' && i + 2 < len && str[i + 2] == '(') {
+            if (str[i + 1] == '(' && i + 2 < len && str[i + 2] == '(') {
                 // This is arithmetic expansion $((expr))
                 size_t arith_start = i;
                 size_t arith_end = i + 3;

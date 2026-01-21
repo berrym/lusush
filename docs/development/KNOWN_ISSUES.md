@@ -1,7 +1,7 @@
 # Lusush Known Issues and Blockers
 
-**Date**: 2026-01-14 (Updated: Session 121)  
-**Status**: Major bug fixes - 100% compatibility test pass rate achieved!  
+**Date**: 2026-01-20 (Updated: Session 124)  
+**Status**: ANSI-C quoting improvements - investigating quote concatenation issues  
 **Implementation Status**: ANSI-C quoting, mapfile/readarray, nameref, coproc - all implemented  
 **Memory Status**: Zero memory leaks verified with valgrind  
 **Compatibility Test**: 100% pass rate on all 63 applicable tests
@@ -1521,6 +1521,343 @@ A=1 B=2 C=3 cmd  # Multiple assignments still work correctly
 
 ---
 
-**Last Updated**: 2026-01-16 (Unit test coverage session)  
+### Issue #61: Adjacent Quoted String Concatenation Produces Spaces
+**Severity**: MEDIUM  
+**Discovered**: 2026-01-20 (Session 124 - ANSI-C quoting investigation)  
+**Status**: Active bug  
+**Component**: src/tokenizer.c or src/executor.c
+
+**Description**:
+When multiple quoted strings are concatenated without spaces (a common shell idiom), lusush incorrectly outputs spaces between them instead of concatenating directly.
+
+**Not Working**:
+```bash
+echo 'a'"b"'c'
+# Expected: abc
+# Actual:   a b c
+
+echo 'a'$'b''c'
+# Expected: abc
+# Actual:   a bc
+```
+
+**Working** (bash comparison):
+```bash
+$ bash -c "echo 'a'\"b\"'c'"
+abc
+$ bash -c "echo 'a'\$'b''c'"
+abc
+```
+
+**Root Cause** (suspected):
+The tokenizer is treating each quoted segment as a separate token/word instead of recognizing that adjacent quotes without whitespace should form a single word. This is a fundamental shell behavior where `'a'"b"'c'` should be equivalent to `abc`.
+
+**Impact**:
+- Common shell idiom for embedding special characters: `'prefix'"$var"'suffix'`
+- ANSI-C quoting concatenation: `$'\n''literal text'`
+- Any mixed quoting patterns
+
+**Priority**: MEDIUM (workaround: use a single quoting style or variables)
+
+---
+
+### Issue #62: Quote Continuation Idiom `'\''` Not Supported
+**Severity**: MEDIUM  
+**Discovered**: 2026-01-20 (Session 124 - ANSI-C quoting investigation)  
+**Status**: Active bug  
+**Component**: src/tokenizer.c
+
+**Description**:
+The classic shell idiom for including a literal single quote inside single-quoted strings (`'\''`) is not supported. This pattern works by: ending the single quote, adding an escaped single quote, then starting a new single quote.
+
+**Not Working**:
+```bash
+echo 'it'\''s a test'
+# Expected: it's a test
+# Actual:   error[E1003]: unterminated quoted string
+```
+
+**Working** (bash comparison):
+```bash
+$ bash -c "echo 'it'\''s a test'"
+it's a test
+```
+
+**Root Cause**:
+The tokenizer doesn't recognize that `'\''` is a valid pattern: `'...'` + `\'` + `'...'`. It appears to be failing to parse the `\'` as an escaped single quote outside of any quoting context.
+
+**Note**: This is related to Issue #61 - both involve adjacent quoted strings not being properly concatenated.
+
+**Impact**:
+- Cannot include single quotes in single-quoted strings using standard idiom
+- Breaks many existing shell scripts that use this pattern
+
+**Workaround**:
+Use ANSI-C quoting instead: `$'it\'s a test'`
+
+**Priority**: MEDIUM (workaround available via ANSI-C quoting)
+
+---
+
+### Issue #63: printf Does Not Reuse Format for Multiple Arguments
+**Severity**: LOW  
+**Discovered**: 2026-01-20 (Session 124 - ANSI-C quoting investigation)  
+**Status**: Active bug  
+**Component**: src/builtins/printf.c
+
+**Description**:
+When `printf` is given more arguments than format specifiers, it should reuse the format string for remaining arguments. Lusush only processes arguments for the first iteration.
+
+**Not Working**:
+```bash
+printf '%s\n' 'line1' 'line2'
+# Expected:
+#   line1
+#   line2
+# Actual:
+#   line1
+```
+
+**Working** (bash comparison):
+```bash
+$ bash -c "printf '%s\n' 'line1' 'line2'"
+line1
+line2
+```
+
+**POSIX Requirement**:
+> "The format operand shall be reused as often as necessary to satisfy the argument operands."
+
+**Priority**: LOW (echo can be used as workaround)
+
+---
+
+### Issue #64: ANSI-C Quoting Not Working in Variable Assignments
+**Severity**: HIGH  
+**Discovered**: 2026-01-20 (Session 124 - ANSI-C quoting investigation)  
+**Status**: Active bug  
+**Component**: src/tokenizer.c (word tokenization)
+
+**Description**:
+ANSI-C quoting (`$'...'`) works correctly when used as a command argument but fails when used as the value in a variable assignment. The `$` is treated literally and the single-quoted content is processed separately.
+
+**Not Working**:
+```bash
+x=$'hello\nworld'
+echo "$x"
+# Expected:
+#   hello
+#   world
+# Actual:
+#   $hello
+#   world
+```
+
+**Working** (as command argument):
+```bash
+echo $'hello\nworld'
+# Output:
+#   hello
+#   world
+```
+
+**Working** (bash comparison):
+```bash
+$ bash -c "x=\$'hello\\nworld'; echo \"\$x\""
+hello
+world
+```
+
+**Root Cause**:
+The tokenizer stops scanning a word when it encounters `$` after `=`. The assignment `x=$'hello'` is being tokenized as the word `x=` followed by a separate `$'hello'` token, rather than as a single word `x=$'hello'`.
+
+**Impact**:
+- Cannot use ANSI-C quoting for variable values
+- Breaks scripts that assign escape sequences to variables
+
+**Priority**: HIGH (common pattern for assigning newlines/tabs to variables)
+
+---
+
+### Issue #65: ANSI-C Quoting Incorrectly Expanded Inside Double Quotes
+**Severity**: MEDIUM  
+**Discovered**: 2026-01-20 (Session 124 - ANSI-C quoting investigation)  
+**Status**: Active bug - INTRODUCED BY RECENT CHANGE  
+**Component**: src/executor.c (expand_if_needed)
+
+**Description**:
+Inside double quotes, `$'...'` should NOT be expanded - it should remain literal. However, lusush incorrectly expands ANSI-C quoting even when inside double quotes.
+
+**Not Working**:
+```bash
+echo "test$'\n'test"
+# Expected: test$'\n'test
+# Actual:   test
+#           test
+```
+
+**Working** (bash comparison):
+```bash
+$ bash -c "echo \"test\$'\\n'test\""
+test$'\n'test
+```
+
+**Root Cause**:
+The recent change to `expand_if_needed()` in src/executor.c added handling for `$'...'` patterns, but this handling doesn't check whether the pattern is inside double quotes. Inside double quotes, only `$var`, `${var}`, `$(cmd)`, and `$((expr))` should be expanded, NOT `$'...'`.
+
+**Impact**:
+- Changes behavior of double-quoted strings containing literal `$'`
+- Could break scripts that expect `$'` to be literal inside double quotes
+
+**Priority**: MEDIUM (regression from recent change)
+
+---
+
+### Issue #66: Backslash Escape Outside Quotes Causes Parse Error
+**Severity**: HIGH  
+**Discovered**: 2026-01-20 (Session 124 - ANSI-C quoting investigation)  
+**Status**: Active bug (PRE-EXISTING)  
+**Component**: src/tokenizer.c
+
+**Description**:
+Using a backslash to escape characters outside of quotes causes an "unterminated quoted string" parse error. This is fundamental shell functionality that should work.
+
+**Not Working**:
+```bash
+echo \$HOME
+# Expected: $HOME
+# Actual:   error[E1003]: unterminated quoted string
+
+echo a\\b
+# Expected: a\b  (or a\\b depending on echo behavior)
+# Actual:   error[E1003]: unterminated quoted string
+
+echo \\
+# Expected: \
+# Actual:   error[E1003]: unterminated quoted string
+```
+
+**Working** (bash comparison):
+```bash
+$ bash -c 'echo \$HOME'
+$HOME
+$ bash -c 'echo a\\b'
+a\b
+```
+
+**Root Cause**:
+The tokenizer appears to be treating `\` followed by certain characters (like `$` or `\`) as the start of a quoted context that never ends, rather than as a simple escape sequence.
+
+**Impact**:
+- Cannot escape special characters outside quotes
+- Breaks many shell scripts that use `\$` to print literal dollar signs
+- Fundamental POSIX shell feature broken
+
+**Priority**: HIGH (breaks basic shell escaping)
+
+---
+
+### Issue #67: ANSI-C Quoting in Array Literals Not Working
+**Severity**: MEDIUM  
+**Discovered**: 2026-01-20 (Session 124 - ANSI-C quoting investigation)  
+**Status**: Active bug  
+**Component**: src/executor.c or src/parser.c
+
+**Description**:
+ANSI-C quoting inside array literal syntax `=(...)` does not work correctly. The array elements end up empty or incorrect.
+
+**Not Working**:
+```bash
+arr=($'a\nb' $'c\nd')
+echo "${arr[0]}"
+# Expected:
+#   a
+#   b
+# Actual:
+#   (empty or incorrect)
+```
+
+**Working** (bash comparison):
+```bash
+$ bash -c "arr=(\$'a\\nb' \$'c\\nd'); echo \"\${arr[0]}\""
+a
+b
+```
+
+**Root Cause** (suspected):
+The array literal parsing may not properly handle `$'...'` tokens, or the expansion happens at the wrong stage.
+
+**Impact**:
+- Cannot use escape sequences in array initialization
+- Affects scripts that build arrays with special characters
+
+**Priority**: MEDIUM (workaround: assign elements individually)
+
+---
+
+### Issue #68: Special Variables $RANDOM, $SECONDS, $LINENO Empty
+**Severity**: LOW  
+**Discovered**: 2026-01-20 (Session 124 - ANSI-C quoting investigation)  
+**Status**: Active bug (or missing feature)  
+**Component**: src/symtable.c or src/init.c
+
+**Description**:
+Several bash special variables that should have dynamic values are empty or unset in lusush.
+
+**Not Working**:
+```bash
+echo $RANDOM   # Expected: random number, Actual: empty
+echo $SECONDS  # Expected: seconds since shell start, Actual: empty
+echo $LINENO   # Expected: current line number, Actual: empty
+echo $BASHPID  # Expected: current process PID, Actual: empty
+```
+
+**Working**:
+```bash
+echo $$        # Works: shows PID
+echo $?        # Works: shows exit status
+echo $!        # Works: shows background PID (after bg job)
+echo $#        # Works: shows argument count
+echo $PPID     # Works: shows parent PID
+```
+
+**Impact**:
+- Scripts using `$RANDOM` for random behavior won't work
+- Scripts timing operations with `$SECONDS` won't work
+- Debug scripts using `$LINENO` won't show line numbers
+
+**Priority**: LOW (these are bash extensions, not POSIX required)
+
+---
+
+### Issue #69: `hash -t` Option Not Supported
+**Severity**: LOW  
+**Discovered**: 2026-01-20 (Session 124 - ANSI-C quoting investigation)  
+**Status**: Missing feature  
+**Component**: src/builtins/hash.c
+
+**Description**:
+The `hash -t` option (show path for a single command) is not supported.
+
+**Not Working**:
+```bash
+hash -t ls
+# Error: hash: invalid option
+```
+
+**Working** (bash):
+```bash
+$ bash -c 'hash ls; hash -t ls'
+/bin/ls
+```
+
+**Impact**:
+- Minor - can use `type -p` or `command -v` as alternatives
+
+**Priority**: LOW (workaround available)
+
+---
+
+**Last Updated**: 2026-01-20 (Session 124 - ANSI-C quoting investigation)  
 **Next Review**: Before each commit, after each bug discovery  
 **Maintainer**: Update this file whenever bugs are discovered - NO EXCEPTIONS
