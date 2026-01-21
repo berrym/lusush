@@ -710,6 +710,36 @@ void symtable_benchmark_opt_comparison(int iterations);
 int symtable_opt_test(void);
 
 /* ============================================================================
+ * SPECIAL VARIABLE API
+ * ============================================================================ */
+
+/**
+ * @brief Set the current line number for $LINENO
+ *
+ * @param lineno Current line number
+ */
+void symtable_set_lineno(int lineno);
+
+/**
+ * @brief Get the current line number
+ *
+ * @return Current line number
+ */
+int symtable_get_lineno(void);
+
+/**
+ * @brief Reset SECONDS counter (makes $SECONDS return 0)
+ */
+void symtable_reset_seconds(void);
+
+/**
+ * @brief Seed the RANDOM generator
+ *
+ * @param seed New seed value (0 uses time-based seed)
+ */
+void symtable_seed_random(unsigned int seed);
+
+/* ============================================================================
  * ARRAY VARIABLE API (Phase 1: Extended Language Support)
  * ============================================================================ */
 

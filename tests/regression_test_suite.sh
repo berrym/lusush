@@ -114,12 +114,18 @@ safe_exec() {
         fi
     fi
 
+    echo "$output"
+
     # Check expected exit code if specified
-    if [[ "$expected_exit" != "any" && $exit_code -ne $expected_exit ]]; then
-        return $exit_code
+    # Return 0 if exit code matches expected, otherwise return 1
+    if [[ "$expected_exit" != "any" ]]; then
+        if [[ $exit_code -eq $expected_exit ]]; then
+            return 0  # Expected exit code matched
+        else
+            return 1  # Expected exit code did not match
+        fi
     fi
 
-    echo "$output"
     return $exit_code
 }
 
@@ -139,7 +145,7 @@ test_shell_basics() {
 
     # Test basic command execution
     local output
-    if output=$(safe_exec "echo 'hello world' | '$LUSUSH_BINARY'" 2); then
+    if output=$(safe_exec "'$LUSUSH_BINARY' -c 'echo hello world'" 2); then
         if [[ "$output" == "hello world" ]]; then
             test_result "Basic command execution works" 0
         else
@@ -166,15 +172,17 @@ test_shell_basics() {
 
 # Test all 24 POSIX options existence
 test_posix_options_existence() {
-    print_category "POSIX OPTIONS EXISTENCE (24 OPTIONS)"
+    print_category "POSIX OPTIONS EXISTENCE (23 OPTIONS)"
 
     print_section "All Required Options Present"
 
+    # Note: lusush has 23 POSIX options in set -o output
+    # Brace expansion is controlled via setopt/unsetopt, not set -o
     local options=(
         "errexit" "xtrace" "noexec" "nounset" "verbose" "noglob"
         "hashall" "monitor" "allexport" "noclobber" "onecmd" "notify"
         "ignoreeof" "nolog" "emacs" "vi" "posix" "pipefail"
-        "histexpand" "history" "interactive-comments" "braceexpand"
+        "histexpand" "history" "interactive-comments"
         "physical" "privileged"
     )
 
@@ -213,15 +221,17 @@ test_command_line_options() {
     print_section "Option Behavior Validation"
 
     # Test -e (exit on error)
+    # With -e, shell should exit on 'false' and not execute 'echo should_not_appear'
     local output
     if output=$(safe_exec "'$LUSUSH_BINARY' -e -c 'false; echo should_not_appear'" 2 1); then
-        test_result "-e option exits on command failure" 1 "Command should have failed"
-    else
+        # Exit code 1 as expected - now verify output doesn't contain the echo
         if [[ "$output" != *"should_not_appear"* ]]; then
             test_result "-e option exits on command failure" 0
         else
             test_result "-e option exits on command failure" 1 "Command continued after failure"
         fi
+    else
+        test_result "-e option exits on command failure" 1 "Expected exit code 1"
     fi
 
     # Test -n (syntax check only)

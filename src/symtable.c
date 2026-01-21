@@ -33,6 +33,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <time.h>
 #include <unistd.h>
 
 // ============================================================================
@@ -44,6 +45,11 @@ static symtable_manager_t *global_manager = NULL;
 
 // Legacy compatibility structures
 static symtable_t dummy_symtable = {0, NULL, NULL};
+
+// Special variable tracking
+static time_t shell_start_time = 0;      // For $SECONDS
+static unsigned int random_seed = 0;     // For $RANDOM
+static int current_lineno = 0;           // For $LINENO
 
 // Constants
 #define DEFAULT_HT_FLAGS (HT_STR_NONE | HT_SEED_RANDOM)
@@ -569,6 +575,37 @@ int symtable_set_global_var(symtable_manager_t *manager, const char *name,
 char *symtable_get_var(symtable_manager_t *manager, const char *name) {
     if (!manager || !name) {
         return NULL;
+    }
+
+    // Handle special dynamic variables
+    if (strcmp(name, "RANDOM") == 0) {
+        // Initialize random seed on first use
+        if (random_seed == 0) {
+            random_seed = (unsigned int)time(NULL) ^ (unsigned int)getpid();
+        }
+        // Simple LCG random number generator (same as bash uses)
+        random_seed = random_seed * 1103515245 + 12345;
+        int value = (random_seed / 65536) % 32768;
+        char buffer[16];
+        snprintf(buffer, sizeof(buffer), "%d", value);
+        return strdup(buffer);
+    }
+
+    if (strcmp(name, "SECONDS") == 0) {
+        // Initialize start time on first use
+        if (shell_start_time == 0) {
+            shell_start_time = time(NULL);
+        }
+        time_t elapsed = time(NULL) - shell_start_time;
+        char buffer[32];
+        snprintf(buffer, sizeof(buffer), "%ld", (long)elapsed);
+        return strdup(buffer);
+    }
+
+    if (strcmp(name, "LINENO") == 0) {
+        char buffer[16];
+        snprintf(buffer, sizeof(buffer), "%d", current_lineno);
+        return strdup(buffer);
     }
 
     // Resolve nameref if applicable
@@ -1937,6 +1974,50 @@ void symtable_benchmark_opt_comparison(int iterations) {
  * @return 0 on success, -1 on failure
  */
 int symtable_opt_test(void) { return symtable_libht_test(); }
+
+// ============================================================================
+// SPECIAL VARIABLE SETTERS
+// ============================================================================
+
+/**
+ * @brief Set the current line number for $LINENO
+ *
+ * @param lineno Current line number
+ */
+void symtable_set_lineno(int lineno) {
+    current_lineno = lineno;
+}
+
+/**
+ * @brief Get the current line number
+ *
+ * @return Current line number
+ */
+int symtable_get_lineno(void) {
+    return current_lineno;
+}
+
+/**
+ * @brief Reset SECONDS counter
+ *
+ * Resets the shell start time to now, making $SECONDS return 0.
+ */
+void symtable_reset_seconds(void) {
+    shell_start_time = time(NULL);
+}
+
+/**
+ * @brief Seed the RANDOM generator
+ *
+ * @param seed New seed value (0 uses time-based seed)
+ */
+void symtable_seed_random(unsigned int seed) {
+    if (seed == 0) {
+        random_seed = (unsigned int)time(NULL) ^ (unsigned int)getpid();
+    } else {
+        random_seed = seed;
+    }
+}
 
 // ============================================================================
 // ARRAY VARIABLE IMPLEMENTATION (Phase 1: Extended Language Support)

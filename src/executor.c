@@ -11985,8 +11985,8 @@ static int execute_array_assignment(executor_t *executor,
                             // Get value after ]=
                             const char *value = bracket_end + 2;
 
-                            // Expand value if needed
-                            char *expanded = expand_variable(executor, value);
+                            // Expand value using full expansion (handles $'...' ANSI-C quoting)
+                            char *expanded = expand_if_needed(executor, value);
                             const char *final_value =
                                 expanded ? expanded : value;
 
@@ -12020,13 +12020,13 @@ static int execute_array_assignment(executor_t *executor,
                     if (is_associative) {
                         // Zsh-style: arr=(key1 val1 key2 val2 ...)
                         // Alternating key-value pairs
-                        char *expanded_key = expand_variable(executor, elem_str);
+                        char *expanded_key = expand_if_needed(executor, elem_str);
                         const char *key = expanded_key ? expanded_key : elem_str;
                         
                         // Get next element as value
                         node_t *value_elem = elem->next_sibling;
                         if (value_elem && value_elem->val.str) {
-                            char *expanded_val = expand_variable(executor, value_elem->val.str);
+                            char *expanded_val = expand_if_needed(executor, value_elem->val.str);
                             const char *val = expanded_val ? expanded_val : value_elem->val.str;
                             
                             symtable_array_set_assoc(array, key, val);
@@ -12037,8 +12037,8 @@ static int execute_array_assignment(executor_t *executor,
                         if (expanded_key) free(expanded_key);
                     } else {
                         // Indexed array - assign to next index
-                        // Expand the element and word-split the result
-                        char *expanded = expand_variable(executor, elem_str);
+                        // Expand the element using full expansion (handles $'...' ANSI-C quoting)
+                        char *expanded = expand_if_needed(executor, elem_str);
                         const char *final_value = expanded ? expanded : elem_str;
 
                         // Word split the expanded value if it contains spaces
