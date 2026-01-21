@@ -30,7 +30,7 @@ static int tests_passed = 0;
 
 #define ASSERT_EQ(a, b) do { \
     if ((a) != (b)) { \
-        printf("  FAIL: %s != %s (%d != %d) (line %d)\n", #a, #b, (int)(a), (int)(b), __LINE__); \
+        printf("  FAIL: %s != %s (line %d)\n", #a, #b, __LINE__); \
         return 0; \
     } \
 } while(0)

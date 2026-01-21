@@ -86,7 +86,6 @@ static int test_create_initializes_config_defaults(void) {
     ASSERT_NOT_NULL(dc);
 
     /* Check that default config values are set */
-    display_controller_config_t config;
     /* Before init, config should have default values from create */
     /* We can check this by examining the internal state */
 
