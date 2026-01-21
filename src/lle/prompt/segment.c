@@ -1021,9 +1021,11 @@ typedef struct {
     /* Async worker state */
     lle_async_worker_t *async_worker;
     pthread_mutex_t async_mutex;
-    bool async_pending;       /**< Async request in flight */
-    char async_cwd[PATH_MAX]; /**< CWD for pending request */
-    bool async_initialized;   /**< Async system initialized */
+    bool async_pending;         /**< Async request in flight */
+    char async_cwd[PATH_MAX];   /**< CWD for pending request */
+    bool async_initialized;     /**< Async system initialized */
+    uint64_t cache_generation;  /**< Incremented on each cache invalidation */
+    uint64_t pending_generation; /**< Generation when async request was queued */
 } segment_git_state_t;
 
 /* Forward declaration for async callback */
@@ -1274,6 +1276,15 @@ static void segment_git_async_callback(const lle_async_response_t *response,
 
     pthread_mutex_lock(&state->async_mutex);
 
+    /* Check if cache was invalidated while async request was in-flight.
+     * If the generation has changed, the cache was invalidated after this
+     * request was queued, so the response contains stale data. Discard it. */
+    if (state->pending_generation != state->cache_generation) {
+        state->async_pending = false;
+        pthread_mutex_unlock(&state->async_mutex);
+        return;
+    }
+
     if (response->result == LLE_SUCCESS) {
         const lle_git_status_data_t *git = &response->data.git_status;
 
@@ -1345,6 +1356,7 @@ static bool queue_async_git_fetch(segment_git_state_t *state) {
 
     if (lle_async_worker_submit(state->async_worker, req) == LLE_SUCCESS) {
         state->async_pending = true;
+        state->pending_generation = state->cache_generation;
         snprintf(state->async_cwd, sizeof(state->async_cwd), "%s", cwd);
         pthread_mutex_unlock(&state->async_mutex);
         return true;
@@ -1628,7 +1640,10 @@ static const char *segment_git_get_property(const lle_prompt_segment_t *self,
 static void segment_git_invalidate(lle_prompt_segment_t *self) {
     segment_git_state_t *state = self->state;
     if (state) {
+        pthread_mutex_lock(&state->async_mutex);
         state->cache_valid = false;
+        state->cache_generation++;  /* Invalidate any in-flight async requests */
+        pthread_mutex_unlock(&state->async_mutex);
     }
 }
 

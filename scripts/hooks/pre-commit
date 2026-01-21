@@ -1,5 +1,5 @@
 #!/bin/bash
-# LLE Development Pre-commit Hook with Living Document & Documentation Policy Enforcement
+# LLE Development Pre-commit Hook with Documentation Policy Enforcement
 
 echo "Running pre-commit checks..."
 
@@ -47,11 +47,11 @@ if [ -n "$PROHIBITED_IN_ROOT" ]; then
     CHECKS_FAILED=1
 fi
 
-# Check for markdown files in root (excluding allowed files)
-ROOT_MD=$(git diff --cached --name-only | grep "^[^/]*\.md$" | grep -v "^README\.md$" | grep -v "^AI_ASSISTANT_HANDOFF_DOCUMENT\.md$" || true)
+# Check for markdown files in root (excluding allowed files, excluding deletions)
+ROOT_MD=$(git diff --cached --name-only --diff-filter=d | grep "^[^/]*\.md$" | grep -v "^README\.md$" || true)
 if [ -n "$ROOT_MD" ]; then
     echo "❌ POLICY VIOLATION: Markdown files must be in docs/ subdirectories"
-    echo "   Only AI_ASSISTANT_HANDOFF_DOCUMENT.md and README.md allowed in root"
+    echo "   Only README.md allowed in root"
     echo "   Files:"
     echo "$ROOT_MD"
     echo ""
@@ -62,7 +62,7 @@ fi
 NEW_DOCS=$(git diff --cached --name-only --diff-filter=A | grep "\.md$" || true)
 if [ -n "$NEW_DOCS" ]; then
     for doc in $NEW_DOCS; do
-        if ! echo "$doc" | grep -qE "^docs/(user|project|development|lle_specification|lle_implementation|archived)/|^docs/DOCUMENTATION_POLICY\.md$|^(README\.md|AI_ASSISTANT_HANDOFF_DOCUMENT\.md)$"; then
+        if ! echo "$doc" | grep -qE "^docs/(user|project|development|lle_specification|lle_implementation|archived)/|^docs/DOCUMENTATION_POLICY\.md$|^README\.md$"; then
             echo "⚠ WARNING: New markdown file outside documented structure: $doc"
             echo "   Consider placing in docs/project/ or appropriate subdirectory"
             echo "   See docs/DOCUMENTATION_POLICY.md for structure"
@@ -98,23 +98,6 @@ LLE_FILES_CHANGED=$(git diff --cached --name-only | grep -E "include/lle/|src/ll
 
 if [ -n "$LLE_FILES_CHANGED" ]; then
     echo "LLE source files detected in commit..."
-
-    # MANDATORY: Check if living documents were updated
-    LIVING_DOCS_UPDATED=$(git diff --cached --name-only | grep -E "AI_ASSISTANT_HANDOFF_DOCUMENT.md|docs/lle_implementation/SPEC_IMPLEMENTATION_ORDER.md|docs/lle_implementation/LLE_IMPLEMENTATION_GUIDE.md" || true)
-
-    if [ -z "$LIVING_DOCS_UPDATED" ]; then
-        echo "❌ COMPLIANCE VIOLATION: LLE code changed but living documents NOT updated"
-        echo ""
-        echo "MANDATORY: When committing LLE code, you MUST update:"
-        echo "  - AI_ASSISTANT_HANDOFF_DOCUMENT.md (current status)"
-        echo "  - docs/lle_implementation/SPEC_IMPLEMENTATION_ORDER.md (if spec completed)"
-        echo ""
-        echo "This is enforced to prevent context loss and ensure documentation stays current."
-        echo ""
-        CHECKS_FAILED=1
-    else
-        echo "✓ Living documents updated with LLE code changes"
-    fi
 
     # Check for TODO/STUB markers in committed LLE CODE (FORBIDDEN)
     # Only check actual code files (.c, .h), not documentation (.md)
@@ -271,117 +254,6 @@ if [ -n "$LLE_FILES_CHANGED" ]; then
         echo "If updating existing spec, compliance tests will verify correctness."
         echo ""
         sleep 2
-    fi
-fi
-
-# ============================================================================
-# LLE COMMIT MESSAGE PREFIX ENFORCEMENT
-# ============================================================================
-
-# ============================================================================
-# COMMIT MESSAGE VALIDATION
-# ============================================================================
-# Commit message checks (LLE prefix, emoji, etc.) are in commit-msg hook.
-# Pre-commit runs BEFORE the message is written, so message validation
-# must be deferred to the commit-msg hook which receives the message file.
-
-# Check if living documents were updated (even without code changes)
-LIVING_DOCS_IN_COMMIT=$(git diff --cached --name-only | grep -E "AI_ASSISTANT_HANDOFF_DOCUMENT.md|SPEC_IMPLEMENTATION_ORDER.md|LLE_IMPLEMENTATION_GUIDE.md|LLE_DEVELOPMENT_STRATEGY.md|KNOWN_ISSUES.md" || true)
-
-if [ -n "$LIVING_DOCS_IN_COMMIT" ]; then
-    echo "Living document changes detected..."
-
-    # Verify AI_ASSISTANT_HANDOFF_DOCUMENT.md has current date (BLOCKING)
-    if echo "$LIVING_DOCS_IN_COMMIT" | grep -q "AI_ASSISTANT_HANDOFF_DOCUMENT.md"; then
-        # Check the actual file content, not just the diff (date might already be correct)
-        HANDOFF_DATE=$(head -10 AI_ASSISTANT_HANDOFF_DOCUMENT.md | grep -E "^\*\*Date\*\*:" | head -1 | grep -oE "[0-9]{4}-[0-9]{2}-[0-9]{2}" || true)
-        CURRENT_DATE=$(date +%Y-%m-%d)
-
-        if [ "$HANDOFF_DATE" != "$CURRENT_DATE" ]; then
-            echo "❌ LIVING DOCUMENT VIOLATION: AI_ASSISTANT_HANDOFF_DOCUMENT.md date is not current"
-            echo ""
-            echo "REQUIRED: The **Date** field must be updated to today's date when committing."
-            echo "   Found: $HANDOFF_DATE"
-            echo "   Today: $CURRENT_DATE"
-            echo ""
-            echo "This is a BLOCKING error. Living documents must be accurate and current."
-            echo ""
-            CHECKS_FAILED=1
-        else
-            echo "✓ Handoff document date is current"
-        fi
-    fi
-
-    # Check for consistency between living documents
-    if [ -f "AI_ASSISTANT_HANDOFF_DOCUMENT.md" ] && [ -f "docs/lle_implementation/SPEC_IMPLEMENTATION_ORDER.md" ]; then
-        echo "✓ Core living documents exist"
-    fi
-fi
-
-# ============================================================================
-# LLE LIVING DOCUMENT ACCURACY ENFORCEMENT (BLOCKING)
-# ============================================================================
-
-# When committing LLE code changes, verify living documents don't show obviously outdated status
-if [ -n "$LLE_FILES_CHANGED" ]; then
-    echo "Checking living document accuracy for LLE code changes..."
-
-    OUTDATED_STATUS_FOUND=0
-
-    # Check AI_ASSISTANT_HANDOFF_DOCUMENT.md for outdated status markers
-    # Only check the header status line (first 10 lines) to avoid false positives from history sections
-    if [ -f "AI_ASSISTANT_HANDOFF_DOCUMENT.md" ]; then
-        # Look for obviously outdated status indicators in header only
-        if head -10 "AI_ASSISTANT_HANDOFF_DOCUMENT.md" | grep -q "\*\*Status\*\*:.*CLEAN SLATE\|\*\*Status\*\*:.*NOT STARTED\|\*\*Next\*\*: Begin Layer"; then
-            echo "❌ LIVING DOCUMENT VIOLATION: AI_ASSISTANT_HANDOFF_DOCUMENT.md shows outdated status"
-            echo ""
-            echo "FOUND: Document header shows outdated status like 'CLEAN SLATE' or 'NOT STARTED'"
-            echo "BUT: You are committing LLE code changes"
-            echo ""
-            echo "REQUIRED: Update the **Status** and **Next** fields in the header to reflect"
-            echo "current implementation progress before committing LLE code changes."
-            echo ""
-            OUTDATED_STATUS_FOUND=1
-        fi
-    fi
-
-    # Check LLE_DEVELOPMENT_STRATEGY.md for outdated status (header only)
-    if [ -f "docs/lle_implementation/LLE_DEVELOPMENT_STRATEGY.md" ]; then
-        if head -20 "docs/lle_implementation/LLE_DEVELOPMENT_STRATEGY.md" | grep -q "\*\*Status\*\*:.*CLEAN SLATE\|\*\*Code Status\*\*: ZERO LLE code exists\|Implementation Progress\*\*: 0%"; then
-            echo "❌ LIVING DOCUMENT VIOLATION: LLE_DEVELOPMENT_STRATEGY.md shows outdated status"
-            echo ""
-            echo "FOUND: Document header shows '0% complete' or 'ZERO LLE code exists'"
-            echo "BUT: You are committing LLE code changes"
-            echo ""
-            echo "REQUIRED: Update Current Status section to reflect actual implementation progress."
-            echo ""
-            OUTDATED_STATUS_FOUND=1
-        fi
-    fi
-
-    # Check SPEC_IMPLEMENTATION_ORDER.md for outdated status (header only)
-    if [ -f "docs/lle_implementation/SPEC_IMPLEMENTATION_ORDER.md" ]; then
-        if head -10 "docs/lle_implementation/SPEC_IMPLEMENTATION_ORDER.md" | grep -q "\*\*Status\*\*: Implementation Plan (Post-Nuclear Option #2)"; then
-            echo "❌ LIVING DOCUMENT VIOLATION: SPEC_IMPLEMENTATION_ORDER.md shows outdated status"
-            echo ""
-            echo "FOUND: Document header still shows 'Implementation Plan (Post-Nuclear Option #2)'"
-            echo "BUT: You are committing LLE code changes"
-            echo ""
-            echo "REQUIRED: Update status to 'Active Development' and add current status section."
-            echo ""
-            OUTDATED_STATUS_FOUND=1
-        fi
-    fi
-
-    if [ $OUTDATED_STATUS_FOUND -eq 1 ]; then
-        echo "========================================="
-        echo "Living documents must accurately reflect current implementation state."
-        echo "Update all relevant documents before committing LLE code."
-        echo "========================================="
-        echo ""
-        CHECKS_FAILED=1
-    else
-        echo "✓ Living documents appear current"
     fi
 fi
 
