@@ -254,9 +254,39 @@ bool dc_apply_transient_prompt(const char *transient_prompt,
         write(STDOUT_FILENO, transient_prompt, strlen(transient_prompt));
     }
 
-    /* Step 5: Write command text */
+    /* Step 5: Write command text (with syntax highlighting if available) */
     if (command_text && command_text[0] != '\0') {
-        write(STDOUT_FILENO, command_text, strlen(command_text));
+        bool wrote_highlighted = false;
+
+        /* Try to get syntax-highlighted version from display controller */
+        display_controller_t *dc = display_integration_get_controller();
+        if (dc && dc->compositor && dc->compositor->command_layer) {
+            command_layer_t *cmd_layer = dc->compositor->command_layer;
+
+            /* Temporarily set the command text for highlighting */
+            command_layer_error_t set_result = command_layer_set_command(
+                cmd_layer, command_text, strlen(command_text));
+
+            if (set_result == COMMAND_LAYER_SUCCESS) {
+                char highlighted_buffer[COMMAND_LAYER_MAX_HIGHLIGHTED_SIZE];
+                command_layer_error_t highlight_result =
+                    command_layer_get_highlighted_text(
+                        cmd_layer, highlighted_buffer,
+                        sizeof(highlighted_buffer));
+
+                if (highlight_result == COMMAND_LAYER_SUCCESS &&
+                    highlighted_buffer[0] != '\0') {
+                    write(STDOUT_FILENO, highlighted_buffer,
+                          strlen(highlighted_buffer));
+                    wrote_highlighted = true;
+                }
+            }
+        }
+
+        /* Fallback to plain text if highlighting failed */
+        if (!wrote_highlighted) {
+            write(STDOUT_FILENO, command_text, strlen(command_text));
+        }
     }
 
     /* Step 6: Update screen buffer to reflect new state
