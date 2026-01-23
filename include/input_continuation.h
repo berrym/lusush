@@ -78,6 +78,7 @@ typedef struct {
 
     /* Control structure tracking (legacy flags - kept for compatibility) */
     bool in_function_definition;  /**< Inside function definition */
+    bool saw_posix_func_parens;   /**< Saw name() pattern, waiting for { */
     bool in_case_statement;       /**< Inside case statement */
     bool in_if_statement;         /**< Inside if statement */
     bool in_while_loop;           /**< Inside while loop */

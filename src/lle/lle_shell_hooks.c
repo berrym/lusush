@@ -93,38 +93,24 @@ static int call_hook_function(lle_hook_type_t hook_type, const char *arg) {
 }
 
 /**
- * @brief Call all functions in a hook array (Zsh compatibility)
+ * @brief Helper to call all functions in a specific array
  *
- * Zsh supports hook arrays like precmd_functions, preexec_functions, etc.
- * Each element in the array is a function name to be called.
- *
- * @param hook_type Type of hook (determines which array to check)
+ * @param executor Executor instance
+ * @param array_name Name of the array to iterate
  * @param arg Optional argument (command string for preexec)
- * @return Number of functions called, or 0 if array doesn't exist
+ * @return Number of functions called
  */
-static int call_hook_array(lle_hook_type_t hook_type, const char *arg) {
-    if (hook_type >= LLE_HOOK_COUNT) {
+static int call_functions_in_array(executor_t *executor, const char *array_name,
+                                   const char *arg) {
+    if (!executor || !array_name) {
         return 0;
     }
 
-    const char *array_name = g_hook_array_names[hook_type];
-    if (!array_name) {
-        return 0;
-    }
-
-    // Check if the hook array exists
     array_value_t *hook_array = symtable_get_array(array_name);
     if (!hook_array) {
         return 0;
     }
 
-    // Get the global executor
-    executor_t *executor = get_global_executor();
-    if (!executor) {
-        return 0;
-    }
-
-    // Get all function names from the array
     size_t count = 0;
     char **func_names = symtable_array_get_values(hook_array, &count);
     if (!func_names || count == 0) {
@@ -133,21 +119,61 @@ static int call_hook_array(lle_hook_type_t hook_type, const char *arg) {
 
     int called = 0;
 
-    // Call each function in order
     for (size_t i = 0; i < count; i++) {
         const char *func_name = func_names[i];
         if (func_name && func_name[0] != '\0') {
-            // Call the function via executor
             executor_call_hook(executor, func_name, arg);
             called++;
         }
     }
 
-    // Free the function names array
     for (size_t i = 0; i < count; i++) {
         free(func_names[i]);
     }
     free(func_names);
+
+    return called;
+}
+
+/**
+ * @brief Call all functions in hook arrays (Zsh compatibility)
+ *
+ * Zsh supports hook arrays like precmd_functions, preexec_functions, etc.
+ * Each element in the array is a function name to be called.
+ *
+ * When FEATURE_SIMPLE_HOOK_ARRAYS is enabled, also checks the simple
+ * hook name (e.g., "precmd") as an array, allowing precmd+=(fn) syntax.
+ *
+ * @param hook_type Type of hook (determines which array to check)
+ * @param arg Optional argument (command string for preexec)
+ * @return Number of functions called, or 0 if no arrays exist
+ */
+static int call_hook_array(lle_hook_type_t hook_type, const char *arg) {
+    if (hook_type >= LLE_HOOK_COUNT) {
+        return 0;
+    }
+
+    executor_t *executor = get_global_executor();
+    if (!executor) {
+        return 0;
+    }
+
+    int called = 0;
+
+    // First, check the standard array name (e.g., "precmd_functions")
+    const char *array_name = g_hook_array_names[hook_type];
+    if (array_name) {
+        called += call_functions_in_array(executor, array_name, arg);
+    }
+
+    // If FEATURE_SIMPLE_HOOK_ARRAYS is enabled, also check the simple
+    // hook name as an array (e.g., "precmd" array for precmd+=(fn) syntax)
+    if (shell_mode_allows(FEATURE_SIMPLE_HOOK_ARRAYS)) {
+        const char *simple_name = g_hook_names[hook_type];
+        if (simple_name) {
+            called += call_functions_in_array(executor, simple_name, arg);
+        }
+    }
 
     return called;
 }
@@ -193,6 +219,56 @@ static void check_periodic_hook(void) {
     }
 }
 
+/**
+ * @brief Execute PROMPT_COMMAND (Bash compatibility)
+ *
+ * Bash 5.1+ supports PROMPT_COMMAND as either:
+ * - A string: executed as a command before each prompt
+ * - An array: each element executed in order before each prompt
+ *
+ * This function checks for both forms and executes accordingly.
+ * Only active when FEATURE_PROMPT_COMMAND is enabled.
+ */
+static void execute_prompt_command(void) {
+    // Check feature flag
+    if (!shell_mode_allows(FEATURE_PROMPT_COMMAND)) {
+        return;
+    }
+
+    executor_t *executor = get_global_executor();
+    if (!executor) {
+        return;
+    }
+
+    // First check if PROMPT_COMMAND exists as an array (Bash 5.1+ style)
+    array_value_t *cmd_array = symtable_get_array("PROMPT_COMMAND");
+    if (cmd_array) {
+        size_t count = 0;
+        char **commands = symtable_array_get_values(cmd_array, &count);
+        if (commands && count > 0) {
+            for (size_t i = 0; i < count; i++) {
+                if (commands[i] && commands[i][0] != '\0') {
+                    // Execute each command in the array
+                    executor_execute_command_line(executor, commands[i]);
+                }
+            }
+            // Free the commands array
+            for (size_t i = 0; i < count; i++) {
+                free(commands[i]);
+            }
+            free(commands);
+        }
+        return; // Array takes precedence
+    }
+
+    // Fall back to string form (traditional Bash style)
+    char *cmd_str = symtable_get_global("PROMPT_COMMAND");
+    if (cmd_str && cmd_str[0] != '\0') {
+        executor_execute_command_line(executor, cmd_str);
+        free(cmd_str);
+    }
+}
+
 /* ============================================================================
  * EVENT HANDLERS
  * ============================================================================ */
@@ -201,29 +277,34 @@ static void check_periodic_hook(void) {
  * @brief Handler for POST_COMMAND events -> precmd hook
  *
  * Called after a command completes, before the next prompt is displayed.
- * Also checks and triggers the periodic hook if PERIOD has elapsed.
+ * Executes in order:
+ * 1. PROMPT_COMMAND (Bash compatibility, if enabled)
+ * 2. precmd function and precmd_functions array (Zsh style, if enabled)
+ * 3. periodic hook (if PERIOD has elapsed)
  */
 static void hook_precmd_handler(void *event_data, void *user_data) {
     (void)event_data;
     (void)user_data;
-
-    // Check feature flag
-    if (!shell_mode_allows(FEATURE_HOOK_FUNCTIONS)) {
-        return;
-    }
 
     // Prevent recursive calls
     if (executor_in_hook()) {
         return;
     }
 
-    g_current_hook = LLE_HOOK_PRECMD;
-    call_hook_function(LLE_HOOK_PRECMD, NULL);
-    call_hook_array(LLE_HOOK_PRECMD, NULL);
-    g_current_hook = LLE_HOOK_COUNT;
+    // Execute PROMPT_COMMAND first (Bash compatibility)
+    // This runs regardless of FEATURE_HOOK_FUNCTIONS
+    execute_prompt_command();
 
-    // Check and call periodic hook if PERIOD has elapsed
-    check_periodic_hook();
+    // Then execute Zsh-style hooks if enabled
+    if (shell_mode_allows(FEATURE_HOOK_FUNCTIONS)) {
+        g_current_hook = LLE_HOOK_PRECMD;
+        call_hook_function(LLE_HOOK_PRECMD, NULL);
+        call_hook_array(LLE_HOOK_PRECMD, NULL);
+        g_current_hook = LLE_HOOK_COUNT;
+
+        // Check and call periodic hook if PERIOD has elapsed
+        check_periodic_hook();
+    }
 }
 
 /**
@@ -291,8 +372,11 @@ void lle_shell_hooks_init(void) {
         return;
     }
 
-    // Check if feature is enabled
-    if (!shell_mode_allows(FEATURE_HOOK_FUNCTIONS)) {
+    // Check if any hook feature is enabled
+    // PROMPT_COMMAND (Bash) or HOOK_FUNCTIONS (Zsh) both need POST_COMMAND events
+    bool need_hooks = shell_mode_allows(FEATURE_HOOK_FUNCTIONS) ||
+                      shell_mode_allows(FEATURE_PROMPT_COMMAND);
+    if (!need_hooks) {
         return;
     }
 
@@ -303,18 +387,21 @@ void lle_shell_hooks_init(void) {
 
     lle_shell_event_hub_t *hub = g_lle_integration->event_hub;
 
-    // Register event handlers
-    // Note: precmd is triggered by POST_COMMAND (after command completes)
+    // Register POST_COMMAND handler for precmd hooks and PROMPT_COMMAND
+    // This runs for both Zsh-style hooks and Bash-style PROMPT_COMMAND
     lle_shell_event_hub_register(hub, LLE_SHELL_EVENT_POST_COMMAND,
                                   hook_precmd_handler, NULL, "precmd-hook");
 
-    // preexec is triggered by PRE_COMMAND (before command runs)
-    lle_shell_event_hub_register(hub, LLE_SHELL_EVENT_PRE_COMMAND,
-                                  hook_preexec_handler, NULL, "preexec-hook");
+    // The following only make sense if FEATURE_HOOK_FUNCTIONS is enabled
+    if (shell_mode_allows(FEATURE_HOOK_FUNCTIONS)) {
+        // preexec is triggered by PRE_COMMAND (before command runs)
+        lle_shell_event_hub_register(hub, LLE_SHELL_EVENT_PRE_COMMAND,
+                                      hook_preexec_handler, NULL, "preexec-hook");
 
-    // chpwd is triggered by DIRECTORY_CHANGED
-    lle_shell_event_hub_register(hub, LLE_SHELL_EVENT_DIRECTORY_CHANGED,
-                                  hook_chpwd_handler, NULL, "chpwd-hook");
+        // chpwd is triggered by DIRECTORY_CHANGED
+        lle_shell_event_hub_register(hub, LLE_SHELL_EVENT_DIRECTORY_CHANGED,
+                                      hook_chpwd_handler, NULL, "chpwd-hook");
+    }
 
     g_hooks_initialized = true;
 }

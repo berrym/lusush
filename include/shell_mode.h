@@ -116,10 +116,12 @@ typedef enum {
     FEATURE_RETURN_ANYWHERE,     /**< return from sourced scripts */
 
     /* Zsh-Specific (Phase 7) */
-    FEATURE_GLOB_QUALIFIERS, /**< Zsh glob qualifiers: *(.) *(/) */
-    FEATURE_HOOK_FUNCTIONS,  /**< precmd, preexec, chpwd hooks */
-    FEATURE_ZSH_PARAM_FLAGS, /**< Zsh-style parameter flags */
-    FEATURE_PLUGIN_SYSTEM,   /**< Dynamic plugin loading system */
+    FEATURE_GLOB_QUALIFIERS,      /**< Zsh glob qualifiers: *(.) *(/) */
+    FEATURE_HOOK_FUNCTIONS,       /**< precmd, preexec, chpwd hooks */
+    FEATURE_SIMPLE_HOOK_ARRAYS,   /**< precmd+=(fn) in addition to precmd_functions+=(fn) */
+    FEATURE_PROMPT_COMMAND,       /**< Bash PROMPT_COMMAND (string and array) */
+    FEATURE_ZSH_PARAM_FLAGS,      /**< Zsh-style parameter flags */
+    FEATURE_PLUGIN_SYSTEM,        /**< Dynamic plugin loading system */
 
     /* Sentinel - must be last */
     FEATURE_COUNT /**< Number of features (for array sizing) */

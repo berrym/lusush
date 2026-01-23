@@ -109,6 +109,8 @@ static const bool feature_matrix[SHELL_MODE_COUNT][FEATURE_COUNT] = {
         /* Zsh-Specific */
         [FEATURE_GLOB_QUALIFIERS]     = false,
         [FEATURE_HOOK_FUNCTIONS]      = false,
+        [FEATURE_SIMPLE_HOOK_ARRAYS]  = false,
+        [FEATURE_PROMPT_COMMAND]      = false, /* Not in POSIX */
         [FEATURE_ZSH_PARAM_FLAGS]     = false,
         [FEATURE_PLUGIN_SYSTEM]       = false,
     },
@@ -182,6 +184,8 @@ static const bool feature_matrix[SHELL_MODE_COUNT][FEATURE_COUNT] = {
         /* Zsh-Specific */
         [FEATURE_GLOB_QUALIFIERS]     = false,
         [FEATURE_HOOK_FUNCTIONS]      = false, /* Bash has PROMPT_COMMAND instead */
+        [FEATURE_SIMPLE_HOOK_ARRAYS]  = false, /* Bash uses PROMPT_COMMAND */
+        [FEATURE_PROMPT_COMMAND]      = true,  /* Bash 5.1+ supports string and array */
         [FEATURE_ZSH_PARAM_FLAGS]     = false,
         [FEATURE_PLUGIN_SYSTEM]       = false, /* Not a Bash feature */
     },
@@ -255,6 +259,8 @@ static const bool feature_matrix[SHELL_MODE_COUNT][FEATURE_COUNT] = {
         /* Zsh-Specific */
         [FEATURE_GLOB_QUALIFIERS]     = true,
         [FEATURE_HOOK_FUNCTIONS]      = true,
+        [FEATURE_SIMPLE_HOOK_ARRAYS]  = true,  /* Zsh supports precmd+=(fn) */
+        [FEATURE_PROMPT_COMMAND]      = false, /* Zsh uses precmd instead */
         [FEATURE_ZSH_PARAM_FLAGS]     = true,
         [FEATURE_PLUGIN_SYSTEM]       = false, /* Not a Zsh feature */
     },
@@ -328,6 +334,8 @@ static const bool feature_matrix[SHELL_MODE_COUNT][FEATURE_COUNT] = {
         /* Zsh-Specific - selective adoption */
         [FEATURE_GLOB_QUALIFIERS]     = true,  /* Powerful feature */
         [FEATURE_HOOK_FUNCTIONS]      = true,  /* Essential for prompts */
+        [FEATURE_SIMPLE_HOOK_ARRAYS]  = true,  /* precmd+=(fn) works intuitively */
+        [FEATURE_PROMPT_COMMAND]      = true,  /* Bash compat: string and array */
         [FEATURE_ZSH_PARAM_FLAGS]     = true,  /* Now implemented: ${(U)var} etc */
         [FEATURE_PLUGIN_SYSTEM]       = true,  /* Lusush extension */
     },
@@ -416,6 +424,8 @@ static const char *feature_names[FEATURE_COUNT] = {
     /* Zsh-Specific */
     [FEATURE_GLOB_QUALIFIERS]      = "glob_qualifiers",
     [FEATURE_HOOK_FUNCTIONS]       = "hook_functions",
+    [FEATURE_SIMPLE_HOOK_ARRAYS]   = "simple_hook_arrays",
+    [FEATURE_PROMPT_COMMAND]       = "prompt_command",
     [FEATURE_ZSH_PARAM_FLAGS]      = "zsh_param_flags",
     [FEATURE_PLUGIN_SYSTEM]        = "plugin_system",
 };

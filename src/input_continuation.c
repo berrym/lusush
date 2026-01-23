@@ -349,6 +349,12 @@ void continuation_analyze_line(const char *line, continuation_state_t *state) {
         // Handle parentheses, braces, brackets
         if (c == '(') {
             state->paren_count++;
+            // Check for POSIX function definition: name() or name ()
+            // We just accumulated a word and now see '(' followed by ')'
+            if (word_pos > 0 && *(p + 1) == ')') {
+                // This is name() pattern - mark that we're in a POSIX func def
+                state->saw_posix_func_parens = true;
+            }
         } else if (c == ')') {
             state->paren_count--;
         } else if (c == '{') {
@@ -506,12 +512,21 @@ void continuation_analyze_line(const char *line, continuation_state_t *state) {
 
             // Now handle the { or } character as a single-character keyword
             if (c == '{') {
-                // Only increment depth if not already in a function definition
-                // (function keyword already incremented depth)
-                if (!state->in_function_definition) {
+                // Check if this is a POSIX function definition: name() { ... }
+                // saw_posix_func_parens is set when we saw the () pattern
+                if (state->saw_posix_func_parens) {
+                    // This is a POSIX-style function definition
+                    state->in_function_definition = true;
+                    state->compound_command_depth++;
+                    context_stack_push(state, CONTEXT_FUNCTION);
+                    state->saw_posix_func_parens = false;
+                } else if (!state->in_function_definition) {
+                    // Regular brace group (not a function)
                     state->compound_command_depth++;
                     context_stack_push(state, CONTEXT_BRACE_GROUP);
                 }
+                // If already in_function_definition (from 'function' keyword),
+                // don't push again - the keyword handler already did
             } else if (c == '}') {
                 if (state->compound_command_depth > 0) {
                     state->compound_command_depth--;
@@ -524,6 +539,7 @@ void continuation_analyze_line(const char *line, continuation_state_t *state) {
                 }
                 if (state->compound_command_depth == 0) {
                     state->in_function_definition = false;
+                    state->saw_posix_func_parens = false;
                 }
             }
         } else {

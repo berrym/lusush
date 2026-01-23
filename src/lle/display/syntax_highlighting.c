@@ -27,6 +27,12 @@
 #include "alias.h"
 #include "builtins.h"
 
+/* Weak symbol for function lookup - overridden in full shell build */
+__attribute__((weak)) bool lle_shell_function_exists(const char *name) {
+    (void)name;
+    return false;  /* Default: no functions in standalone LLE */
+}
+
 /* ========================================================================== */
 /*                         DEFAULT COLOR SCHEME                               */
 /* ========================================================================== */
@@ -182,6 +188,39 @@ static bool is_block_ending_keyword(const char *word, size_t len) {
     for (int i = 0; block_ending_keywords[i]; i++) {
         if (strlen(block_ending_keywords[i]) == len &&
             strncmp(word, block_ending_keywords[i], len) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* ========================================================================== */
+/*                         SPECIAL VARIABLES                                  */
+/* ========================================================================== */
+
+/** @brief Hook array variable names that get special highlighting */
+static const char *hook_array_variables[] = {
+    "precmd_functions",   /* Zsh: functions called before prompt */
+    "preexec_functions",  /* Zsh: functions called before command exec */
+    "chpwd_functions",    /* Zsh: functions called after directory change */
+    "periodic_functions", /* Zsh: functions called periodically */
+    "precmd",             /* Simple hook array (FEATURE_SIMPLE_HOOK_ARRAYS) */
+    "preexec",            /* Simple hook array */
+    "chpwd",              /* Simple hook array */
+    "PROMPT_COMMAND",     /* Bash: command/array run before prompt */
+    NULL
+};
+
+/**
+ * @brief Check if a variable name is a hook array (special variable)
+ * @param name Variable name (without $ prefix)
+ * @param len Length of the variable name
+ * @return true if the variable is a hook array
+ */
+static bool is_hook_array_variable(const char *name, size_t len) {
+    for (int i = 0; hook_array_variables[i]; i++) {
+        if (strlen(hook_array_variables[i]) == len &&
+            strncmp(name, hook_array_variables[i], len) == 0) {
             return true;
         }
     }
@@ -415,6 +454,8 @@ lle_syntax_check_command(lle_syntax_highlighter_t *highlighter,
         type = LLE_TOKEN_COMMAND_BUILTIN;
     } else if (lookup_alias(command) != NULL) {
         type = LLE_TOKEN_COMMAND_ALIAS;
+    } else if (lle_shell_function_exists(command)) {
+        type = LLE_TOKEN_COMMAND_FUNCTION;
     } else if (command[0] == '/' || command[0] == '.') {
         /* Absolute or relative path - check if file exists */
         type = path_exists(command) ? LLE_TOKEN_COMMAND_VALID
@@ -574,7 +615,8 @@ int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
     highlighter->token_count = 0;
 
     size_t pos = 0;
-    bool expect_command = true; /* Next word is a command */
+    bool expect_command = true;      /* Next word is a command */
+    bool after_function_keyword = false; /* Previous token was 'function' keyword */
 
     while (pos < input_len) {
         /* Skip whitespace */
@@ -712,26 +754,58 @@ int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
                     pos++;
                     vtype = LLE_TOKEN_VARIABLE_SPECIAL;
                 }
-                /* ${...} or $(...) command substitution */
-                else if (next == '{' || next == '(') {
-                    char close = (next == '{') ? '}' : ')';
+                /* ${...} brace expansion - extract variable name for hook check */
+                else if (next == '{') {
+                    pos++; /* Skip { */
+                    size_t var_name_start = pos;
+                    /* Scan to find end of variable name (before : or } or other modifier) */
+                    while (pos < input_len && input[pos] != '}' &&
+                           input[pos] != ':' && input[pos] != '#' &&
+                           input[pos] != '%' && input[pos] != '/' &&
+                           input[pos] != '[') {
+                        pos++;
+                    }
+                    size_t var_name_len = pos - var_name_start;
+                    /* Check if it's a hook array variable */
+                    if (var_name_len > 0 &&
+                        is_hook_array_variable(input + var_name_start, var_name_len)) {
+                        vtype = LLE_TOKEN_VARIABLE_SPECIAL;
+                    }
+                    /* Continue to closing brace */
+                    int depth = 1;
+                    while (pos < input_len && depth > 0) {
+                        if (input[pos] == '{')
+                            depth++;
+                        else if (input[pos] == '}')
+                            depth--;
+                        pos++;
+                    }
+                }
+                /* $(...) command substitution */
+                else if (next == '(') {
                     int depth = 1;
                     pos++;
                     while (pos < input_len && depth > 0) {
-                        if (input[pos] == next)
+                        if (input[pos] == '(')
                             depth++;
-                        else if (input[pos] == close)
+                        else if (input[pos] == ')')
                             depth--;
                         pos++;
                     }
                 }
                 /* Simple $VAR */
                 else if (isalpha((unsigned char)next) || next == '_') {
+                    size_t var_name_start = pos;
                     pos++;
                     while (pos < input_len &&
                            (isalnum((unsigned char)input[pos]) ||
                             input[pos] == '_')) {
                         pos++;
+                    }
+                    /* Check if it's a hook array variable */
+                    size_t var_name_len = pos - var_name_start;
+                    if (is_hook_array_variable(input + var_name_start, var_name_len)) {
+                        vtype = LLE_TOKEN_VARIABLE_SPECIAL;
                     }
                 }
 
@@ -931,28 +1005,73 @@ int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
                 memcpy(word, input + token_start, copy_len);
                 word[copy_len] = '\0';
 
-                /* Check for VAR=value assignment prefix first */
-                if (is_assignment(input + token_start, word_len)) {
-                    type = LLE_TOKEN_ASSIGNMENT;
-                    /* Keep expect_command = true because command follows */
-                    /* e.g., "VAR=value command arg1 arg2" */
-                } else if (is_shell_keyword(input + token_start, word_len)) {
-                    type = LLE_TOKEN_KEYWORD;
-                    /* Block-ending keywords (done, fi, esac, etc.) don't expect
-                       a command after them. Block-starting keywords do. */
-                    if (is_block_ending_keyword(input + token_start,
-                                                word_len)) {
+                /* Check if this is a function name after 'function' keyword
+                 * e.g., "function foo" or "function foo()" */
+                if (after_function_keyword) {
+                    type = LLE_TOKEN_COMMAND_FUNCTION;
+                    after_function_keyword = false;
+                    expect_command = false;
+                }
+                /* Check for POSIX function definition: name() { ... }
+                 * Look ahead for () after the word */
+                else {
+                    size_t lookahead = pos;
+                    /* Skip optional whitespace between name and () */
+                    while (lookahead < input_len &&
+                           isspace((unsigned char)input[lookahead])) {
+                        lookahead++;
+                    }
+                    /* Check for () */
+                    bool is_posix_func_def = false;
+                    if (lookahead + 1 < input_len &&
+                        input[lookahead] == '(' && input[lookahead + 1] == ')') {
+                        is_posix_func_def = true;
+                    }
+
+                    if (is_posix_func_def) {
+                        type = LLE_TOKEN_COMMAND_FUNCTION;
+                        expect_command = false;
+                    }
+                    /* Check for VAR=value assignment prefix */
+                    else if (is_assignment(input + token_start, word_len)) {
+                        /* Find the '=' to get the variable name length */
+                        const char *eq = memchr(input + token_start, '=', word_len);
+                        if (eq) {
+                            size_t var_name_len = (size_t)(eq - (input + token_start));
+                            /* Check for hook array assignment (special highlight) */
+                            if (is_hook_array_variable(input + token_start, var_name_len)) {
+                                type = LLE_TOKEN_VARIABLE_SPECIAL;
+                            } else {
+                                type = LLE_TOKEN_ASSIGNMENT;
+                            }
+                        } else {
+                            type = LLE_TOKEN_ASSIGNMENT;
+                        }
+                        /* Keep expect_command = true because command follows */
+                        /* e.g., "VAR=value command arg1 arg2" */
+                    } else if (is_shell_keyword(input + token_start, word_len)) {
+                        type = LLE_TOKEN_KEYWORD;
+                        /* Check if this is the 'function' keyword */
+                        if (word_len == 8 &&
+                            strncmp(input + token_start, "function", 8) == 0) {
+                            after_function_keyword = true;
+                        }
+                        /* Block-ending keywords (done, fi, esac, etc.) don't expect
+                           a command after them. Block-starting keywords do. */
+                        if (is_block_ending_keyword(input + token_start,
+                                                    word_len)) {
+                            expect_command = false;
+                        } else {
+                            expect_command = true;
+                        }
+                    } else if (highlighter->validate_commands) {
+                        type = lle_syntax_check_command(highlighter, word);
                         expect_command = false;
                     } else {
-                        expect_command = true;
+                        type = LLE_TOKEN_COMMAND_VALID; /* Assume valid if not
+                                                           checking */
+                        expect_command = false;
                     }
-                } else if (highlighter->validate_commands) {
-                    type = lle_syntax_check_command(highlighter, word);
-                    expect_command = false;
-                } else {
-                    type = LLE_TOKEN_COMMAND_VALID; /* Assume valid if not
-                                                       checking */
-                    expect_command = false;
                 }
             } else {
                 /* Not expecting command - it's an argument */

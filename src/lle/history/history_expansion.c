@@ -127,15 +127,64 @@ static ssize_t find_expansion_marker(const char *str, size_t start_pos) {
         return -1;
 
     size_t len = strlen(str);
+    bool in_single_quote = false;
+    bool in_double_quote = false;
+    bool escaped = false;
+
+    /* Track quote state from beginning of string */
+    for (size_t i = 0; i < start_pos && i < len; i++) {
+        if (escaped) {
+            escaped = false;
+            continue;
+        }
+        if (str[i] == '\\' && !in_single_quote) {
+            escaped = true;
+            continue;
+        }
+        if (str[i] == '\'' && !in_double_quote) {
+            in_single_quote = !in_single_quote;
+        } else if (str[i] == '"' && !in_single_quote) {
+            in_double_quote = !in_double_quote;
+        }
+    }
+
     for (size_t i = start_pos; i < len; i++) {
-        if (str[i] == '!') {
-            /* Check if it's escaped */
+        char c = str[i];
+
+        /* Handle escape sequences */
+        if (escaped) {
+            escaped = false;
+            continue;
+        }
+        if (c == '\\' && !in_single_quote) {
+            escaped = true;
+            continue;
+        }
+
+        /* Track quote state */
+        if (c == '\'' && !in_double_quote) {
+            in_single_quote = !in_single_quote;
+            continue;
+        }
+        if (c == '"' && !in_single_quote) {
+            in_double_quote = !in_double_quote;
+            continue;
+        }
+
+        /* Skip if inside quotes - no history expansion inside quotes */
+        if (in_single_quote || in_double_quote) {
+            continue;
+        }
+
+        /* Check for expansion markers only outside quotes */
+        if (c == '!') {
+            /* Check if it's escaped (already handled above, but double-check
+             * for cases where escape wasn't at i-1 due to other chars) */
             if (i > 0 && str[i - 1] == '\\') {
                 continue; /* Escaped, not an expansion */
             }
-            /* Check if it's escaped or in quotes - basic implementation */
             return (ssize_t)i;
-        } else if (str[i] == '^' && i == 0) {
+        } else if (c == '^' && i == 0) {
             /* Quick substitution must be at start */
             return (ssize_t)i;
         }

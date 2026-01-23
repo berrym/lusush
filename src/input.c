@@ -1,10 +1,9 @@
 /**
  * @file input.c
- * @brief Lusush Input System using GNU Readline
+ * @brief Lusush Input System using LLE (Lusush Line Editor)
  *
  * This module provides unified input handling for both interactive and
- * non-interactive modes, with complete GNU readline integration for
- * interactive sessions.
+ * non-interactive modes, using LLE for interactive line editing.
  *
  * UTF-8 Support:
  * This module uses LLE's UTF-8 support to properly handle multi-byte
@@ -86,6 +85,7 @@ typedef struct {
     bool in_command_substitution;
     bool in_arithmetic;
     bool in_function_definition;
+    bool saw_posix_func_parens;   /* Saw name() pattern, waiting for { */
     bool in_case_statement;
     bool in_if_statement;
     bool in_while_loop;
@@ -281,6 +281,12 @@ static void analyze_line(const char *line, input_state_t *state) {
         // Handle parentheses, braces, brackets
         if (c == '(') {
             state->paren_count++;
+            // Check for POSIX function definition: name() or name ()
+            // We just accumulated a word and now see '(' followed by ')'
+            if (word_pos > 0 && *(p + 1) == ')') {
+                // This is name() pattern - mark that we're in a POSIX func def
+                state->saw_posix_func_parens = true;
+            }
         } else if (c == ')') {
             state->paren_count--;
         } else if (c == '{') {
@@ -429,17 +435,26 @@ static void analyze_line(const char *line, input_state_t *state) {
 
             // Now handle the { or } character as a single-character keyword
             if (c == '{') {
-                // Only increment depth if not already in a function definition
-                // (function keyword already incremented depth)
-                if (!state->in_function_definition) {
+                // Check if this is a POSIX function definition: name() { ... }
+                // saw_posix_func_parens is set when we saw the () pattern
+                if (state->saw_posix_func_parens) {
+                    // This is a POSIX-style function definition
+                    state->in_function_definition = true;
+                    state->compound_command_depth++;
+                    state->saw_posix_func_parens = false;
+                } else if (!state->in_function_definition) {
+                    // Regular brace group (not a function)
                     state->compound_command_depth++;
                 }
+                // If already in_function_definition (from 'function' keyword),
+                // don't increment again - the keyword handler already did
             } else if (c == '}') {
                 if (state->compound_command_depth > 0) {
                     state->compound_command_depth--;
                 }
                 if (state->compound_command_depth == 0) {
                     state->in_function_definition = false;
+                    state->saw_posix_func_parens = false;
                 }
             }
         } else {

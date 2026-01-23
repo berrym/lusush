@@ -1,26 +1,14 @@
 /**
  * @file lusush.c
- * @brief Lusush - A modern shell with GNU Readline integration
+ * @brief Lusush - A modern Unix shell with native line editing
  *
  * Main entry point and REPL (Read-Eval-Print Loop) for the Lusush shell.
  * Handles command line parsing, interactive mode, and script execution.
  *
  * @author Michael Berry <trismegustis@gmail.com>
  * @copyright Copyright (C) 2021-2026 Michael Berry
- * @license GPL-3.0-or-later
+ * @license MIT
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #include "lusush.h"

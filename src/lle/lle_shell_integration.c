@@ -29,6 +29,7 @@
 #include "lle/prompt/theme_loader.h"
 #include "lusush.h"
 #include "lusush_memory_pool.h"
+#include "shell_mode.h"
 #include "symtable.h"
 
 #include <stdio.h>
@@ -36,6 +37,46 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+
+/* ============================================================================
+ * LLE COMPLETION SYSTEM BRIDGE - Strong symbols for shell integration
+ * ============================================================================
+ */
+
+/**
+ * @brief Check if autocd feature is enabled (strong symbol)
+ *
+ * Overrides weak symbol in completion_types.c to provide actual
+ * shell mode query for FEATURE_AUTO_CD.
+ *
+ * @return true if FEATURE_AUTO_CD is enabled, false otherwise
+ */
+bool lle_shell_autocd_enabled(void) {
+    return shell_mode_allows(FEATURE_AUTO_CD);
+}
+
+/**
+ * @brief Check if a shell function exists by name (strong symbol)
+ *
+ * Overrides weak symbol in syntax_highlighting.c to provide actual
+ * function lookup from the executor's function table.
+ *
+ * @param name Function name to look up
+ * @return true if a function with this name is defined, false otherwise
+ */
+bool lle_shell_function_exists(const char *name) {
+    if (!name || !current_executor) {
+        return false;
+    }
+    function_def_t *func = current_executor->functions;
+    while (func) {
+        if (func->name && strcmp(func->name, name) == 0) {
+            return true;
+        }
+        func = func->next;
+    }
+    return false;
+}
 
 /* ============================================================================
  * GLOBAL STATE

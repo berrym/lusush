@@ -4,11 +4,6 @@
  * @author Michael Berry <trismegustis@gmail.com>
  * @copyright Copyright (C) 2021-2026 Michael Berry
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
  * Public API for registering custom completion sources programmatically.
  * This is Layer 2 of the completion extensibility architecture.
  *

@@ -361,16 +361,22 @@ int bin_cd(int argc __attribute__((unused)),
         return 1;
     }
 
-    if (argc == 1) {
-        // cd with no arguments - go to HOME
+    // Parse arguments - handle -- as option terminator
+    int arg_index = 1;
+    if (argc > 1 && strcmp(argv[1], "--") == 0) {
+        arg_index = 2;  // Skip past --
+    }
+
+    if (arg_index >= argc) {
+        // cd with no arguments (or just --) - go to HOME
         target_dir = getenv("HOME");
         if (!target_dir) {
             builtin_error("cd", SHELL_ERR_UNBOUND_VARIABLE, "HOME not set");
             free(current_dir);
             return 1;
         }
-    } else if (argc == 2) {
-        if (strcmp(argv[1], "-") == 0) {
+    } else if (arg_index == argc - 1) {
+        if (strcmp(argv[arg_index], "-") == 0) {
             // cd - : go to previous directory
             if (!previous_dir) {
                 builtin_error("cd", SHELL_ERR_UNBOUND_VARIABLE, "OLDPWD not set");
@@ -381,7 +387,7 @@ int bin_cd(int argc __attribute__((unused)),
             // Print the directory we're changing to (standard behavior)
             printf("%s\n", target_dir);
         } else {
-            target_dir = argv[1];
+            target_dir = argv[arg_index];
         }
     } else {
         builtin_error("cd", SHELL_ERR_TOO_MANY_ARGUMENTS, "usage: cd [pathname | -]");

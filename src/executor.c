@@ -12041,9 +12041,16 @@ static int execute_array_assignment(executor_t *executor,
                         char *expanded = expand_if_needed(executor, elem_str);
                         const char *final_value = expanded ? expanded : elem_str;
 
+                        // Only word split for unquoted elements (NODE_VAR)
+                        // Quoted strings (NODE_STRING_LITERAL, NODE_STRING_EXPANDABLE)
+                        // should be stored as single elements even if they contain spaces
+                        bool is_quoted = (elem->type == NODE_STRING_LITERAL ||
+                                          elem->type == NODE_STRING_EXPANDABLE);
+
                         // Word split the expanded value if it contains spaces
                         // This handles ${(s:,:)var} and ${(f)var} producing multiple words
-                        if (strchr(final_value, ' ') != NULL) {
+                        // but NOT quoted strings like "echo hello"
+                        if (!is_quoted && strchr(final_value, ' ') != NULL) {
                             // Split on spaces and add each word as separate element
                             char *copy = strdup(final_value);
                             if (copy) {

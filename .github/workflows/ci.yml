@@ -21,7 +21,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y meson ninja-build lcov
+          sudo apt-get install -y meson ninja-build lcov valgrind
 
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
@@ -47,7 +47,6 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           cd build
-          # Use --ignore-errors to handle line mismatch issues with gcov/lcov
           lcov --capture --directory . --output-file coverage.info --ignore-errors mismatch,gcov
           lcov --remove coverage.info '/usr/*' --output-file coverage.info --ignore-errors unused
           lcov --remove coverage.info '*/tests/*' --output-file coverage.info --ignore-errors unused
@@ -63,3 +62,199 @@ jobs:
           name: codecov-lusush
           fail_ci_if_error: false
           verbose: true
+
+  # Memory leak detection on Linux using Valgrind
+  memory-check-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y meson ninja-build valgrind
+
+      - name: Configure (release build for accurate leak detection)
+        run: |
+          meson setup build --buildtype=debugoptimized
+
+      - name: Build
+        run: |
+          meson compile -C build
+
+      - name: Run comprehensive memory check
+        id: valgrind
+        run: |
+          # Create a comprehensive test script
+          cat > /tmp/memcheck_tests.sh << 'EOF'
+          # Basic execution
+          echo "Testing basic execution"
+          x=hello
+          echo $x
+
+          # Arrays
+          arr=(one two three)
+          echo ${arr[0]} ${arr[@]}
+          echo ${#arr[@]}
+
+          # Arithmetic
+          (( y = 5 + 3 ))
+          echo $y
+
+          # Control structures
+          for i in 1 2 3; do echo $i; done
+          if true; then echo yes; fi
+          case foo in foo) echo matched;; esac
+
+          # Functions
+          myfunc() { echo "in function: $1"; }
+          myfunc test
+
+          # Command substitution
+          z=$(echo captured)
+          echo $z
+
+          # Pipes and redirections
+          echo pipe | cat
+          echo redirect > /tmp/lusush_test_redirect.txt
+          cat /tmp/lusush_test_redirect.txt
+          rm -f /tmp/lusush_test_redirect.txt
+
+          # Parameter expansion
+          str="hello world"
+          echo ${str^^}
+          echo ${str//world/there}
+
+          # Builtins
+          type echo
+          cd /tmp && pwd && cd -
+
+          # Extended test
+          [[ "foo" == "foo" ]] && echo "match"
+
+          # Exit cleanly
+          exit 0
+          EOF
+
+          # Run valgrind with comprehensive checks
+          valgrind \
+            --leak-check=full \
+            --show-leak-kinds=definite,indirect \
+            --errors-for-leak-kinds=definite \
+            --error-exitcode=1 \
+            --track-origins=yes \
+            --log-file=valgrind-report.txt \
+            ./build/lusush /tmp/memcheck_tests.sh
+
+          VALGRIND_EXIT=$?
+
+          echo "=== Valgrind Report ==="
+          cat valgrind-report.txt
+
+          # Extract summary for annotation
+          if grep -q "definitely lost: 0 bytes" valgrind-report.txt; then
+            echo "memory_status=clean" >> $GITHUB_OUTPUT
+          else
+            echo "memory_status=leaks" >> $GITHUB_OUTPUT
+          fi
+
+          exit $VALGRIND_EXIT
+
+      - name: Upload Valgrind report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: valgrind-report-linux
+          path: valgrind-report.txt
+
+  # Memory leak detection on macOS using leaks tool
+  memory-check-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew install meson ninja
+
+      - name: Configure (release build)
+        run: |
+          meson setup build --buildtype=debugoptimized
+
+      - name: Build
+        run: |
+          meson compile -C build
+
+      - name: Run comprehensive memory check
+        id: leaks
+        run: |
+          # Create test script (same as Linux)
+          cat > /tmp/memcheck_tests.sh << 'EOF'
+          echo "Testing basic execution"
+          x=hello
+          echo $x
+          arr=(one two three)
+          echo ${arr[0]} ${arr[@]}
+          (( y = 5 + 3 ))
+          echo $y
+          for i in 1 2 3; do echo $i; done
+          if true; then echo yes; fi
+          myfunc() { echo "in function: $1"; }
+          myfunc test
+          z=$(echo captured)
+          echo $z
+          echo pipe | cat
+          str="hello world"
+          echo ${str^^}
+          [[ "foo" == "foo" ]] && echo "match"
+          exit 0
+          EOF
+
+          # Run with leaks tool
+          # MallocStackLogging enables tracking, leaks tool analyzes at exit
+          export MallocStackLogging=1
+
+          # Run the shell and capture its PID
+          ./build/lusush /tmp/memcheck_tests.sh &
+          SHELL_PID=$!
+
+          # Wait for it to finish
+          wait $SHELL_PID
+          SHELL_EXIT=$?
+
+          # Note: leaks tool works best on running processes
+          # For exited processes, we use a different approach
+          # Run again with leaks wrapper
+          leaks --atExit -- ./build/lusush /tmp/memcheck_tests.sh > leaks-report.txt 2>&1 || true
+
+          echo "=== Leaks Report ==="
+          cat leaks-report.txt
+
+          # Check for leaks (0 leaks = success)
+          if grep -q "0 leaks for 0 total leaked bytes" leaks-report.txt; then
+            echo "memory_status=clean" >> $GITHUB_OUTPUT
+            exit 0
+          elif grep -q "leaks Report Version:" leaks-report.txt; then
+            # leaks tool ran but found issues
+            LEAK_COUNT=$(grep -o '[0-9]* leaks for' leaks-report.txt | grep -o '[0-9]*' | head -1)
+            if [ "$LEAK_COUNT" = "0" ] || [ -z "$LEAK_COUNT" ]; then
+              echo "memory_status=clean" >> $GITHUB_OUTPUT
+              exit 0
+            else
+              echo "memory_status=leaks" >> $GITHUB_OUTPUT
+              echo "::warning::macOS leaks detected: $LEAK_COUNT leaks found"
+              # Warning only for now - macOS leaks can have false positives
+              exit 0
+            fi
+          else
+            echo "memory_status=unknown" >> $GITHUB_OUTPUT
+            echo "::warning::Could not parse leaks output"
+            exit 0
+          fi
+
+      - name: Upload leaks report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: leaks-report-macos
+          path: leaks-report.txt

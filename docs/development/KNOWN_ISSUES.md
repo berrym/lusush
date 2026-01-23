@@ -1,10 +1,96 @@
 # Lusush Known Issues and Blockers
 
-**Date**: 2026-01-20 (Updated: Session 124)  
-**Status**: ANSI-C quoting improvements - investigating quote concatenation issues  
+**Date**: 2026-01-23 (Updated: Session 125)  
+**Status**: Syntax highlighting and history expansion fixes  
 **Implementation Status**: ANSI-C quoting, mapfile/readarray, nameref, coproc - all implemented  
 **Memory Status**: Zero memory leaks verified with valgrind  
 **Compatibility Test**: 100% pass rate on all 63 applicable tests
+
+---
+
+## Session 125: Syntax Highlighting & History Expansion Fixes
+
+**Date**: 2026-01-23
+
+### Features Implemented
+
+- **PROMPT_COMMAND support (bash 5.1+ style)**: Both string and array forms now supported
+  - String form: `PROMPT_COMMAND="echo hello"` - executed before each prompt
+  - Array form: `PROMPT_COMMAND=("echo hook1" "echo hook2")` - each element executed in order
+  - Fixed array literal word-splitting bug where quoted elements like `"echo hello"` were incorrectly split
+
+- **Hook function/array system enhancements**:
+  - Zsh-style hook arrays: `precmd_functions+=()`, `preexec_functions+=()`, `chpwd_functions+=()`, `periodic_functions+=()`
+  - Simple hook arrays (`FEATURE_SIMPLE_HOOK_ARRAYS`): `precmd+=()`, `preexec+=()`, `chpwd+=()` - shorthand syntax
+  - Fixed `lle_shell_hooks_init()` to register POST_COMMAND handler when either `FEATURE_HOOK_FUNCTIONS` or `FEATURE_PROMPT_COMMAND` is enabled
+
+- **Function name syntax highlighting**: All function definition forms now highlighted
+  - `function foo { }` (ksh style)
+  - `function foo() { }` (ksh/bash hybrid)  
+  - `foo() { }` (POSIX style)
+  - Calling defined functions highlights them with `LLE_TOKEN_COMMAND_FUNCTION`
+  - Added `lle_shell_function_exists()` weak/strong symbol pattern for shell integration
+
+- **Hook arrays syntax highlighting**: Special variable highlighting for shell hook arrays
+  - `precmd_functions`, `preexec_functions`, `chpwd_functions`, `periodic_functions`
+  - `precmd`, `preexec`, `chpwd` (simple hook arrays)
+  - `PROMPT_COMMAND` (bash-style)
+  - Works in `$VAR`, `${VAR}` expansions and assignments
+
+- **Function completions**: Added shell functions to completion sources
+  - New `LLE_COMPLETION_TYPE_FUNCTION` completion type
+  - Functions appear in command-position completions
+
+- **Directory completions with autocd**: Directories appear in empty-line completion menu when `FEATURE_AUTO_CD` enabled
+  - Added `lle_shell_autocd_enabled()` weak/strong symbol pattern for shell integration
+  - Directories shown at command position when autocd allows them as valid commands
+
+### Issue #70: History Expansion Triggered Inside Quoted Strings - FIXED
+**Severity**: HIGH  
+**Discovered**: 2026-01-23 (Session 125)  
+**Fixed**: 2026-01-23 (Session 125)  
+**Component**: src/lle/history/history_expansion.c
+
+**Description**:
+The shell would exit unexpectedly when entering commands containing `!` inside quoted strings during interactive function definition. For example:
+
+```bash
+hello() {
+echo "Hello! From precmd!"
+}
+```
+
+Pressing Enter after the `echo` line would cause the shell to exit silently.
+
+**Root Cause**:
+The `find_expansion_marker()` function in history expansion detected `!` characters as expansion markers without checking if they were inside quoted strings. The comment even noted "Check if it's escaped or in quotes - basic implementation" but the quote checking was never implemented.
+
+When `!"` appeared (as in `precmd!"`), it was interpreted as a history expansion for "last command ending with `"`", which failed and caused unexpected behavior.
+
+**Fix Applied**:
+Added proper quote state tracking to `find_expansion_marker()`:
+- Track `in_single_quote` and `in_double_quote` state while scanning
+- Single quotes only toggle when not inside double quotes (handles `"It's"`)
+- Double quotes only toggle when not inside single quotes (handles `'Say "hi"'`)
+- Escape sequences handled correctly (only outside single quotes)
+- `!` only recognized as expansion marker when outside all quotes
+
+**Files Changed**:
+- `src/lle/history/history_expansion.c`: `find_expansion_marker()` rewritten with quote tracking
+
+**Verification**:
+```bash
+echo "Hello!"                    # Works
+echo 'Hello!'                    # Works
+echo "It's exciting!"            # Works (nested single quote)
+echo 'Say "wow!"'                # Works (nested double quote)
+echo "nested 'single' quotes!"   # Works
+echo 'nested "double" quotes!'   # Works
+```
+
+**Status**: FIXED AND VERIFIED
+
+---
 
 ### Compatibility Test Summary (Session 120)
 

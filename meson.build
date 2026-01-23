@@ -5,7 +5,7 @@ project('lusush',
                           'warning_level=2'
                          ],
         version: '1.5.0',
-        license: 'GPL-3.0+')
+        license: 'MIT')
 
 # Import filesystem module for directory checks
 fs = import('fs')

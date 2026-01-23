@@ -8,7 +8,7 @@
  *
  * @author Michael Berry <trismegustis@gmail.com>
  * @copyright Copyright (C) 2021-2026 Michael Berry
- * @license GPL-3.0-or-later
+ * @license MIT
  */
 
 #ifndef SCREEN_BUFFER_H

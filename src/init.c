@@ -682,7 +682,7 @@ static int parse_opts(int argc, char **argv) {
                 printf("%s %s\n", LUSUSH_NAME, LUSUSH_VERSION_STRING);
                 printf("%s\n", LUSUSH_DESCRIPTION);
                 printf("Copyright (C) 2021-2026 Michael Berry. Licensed under "
-                       "GPL-3.0+.\n");
+                       "MIT.\n");
                 exit(EXIT_SUCCESS);
             } else {
                 fprintf(stderr, "%s: invalid option -- '%s'\n", argv[0], arg);
@@ -704,7 +704,7 @@ static int parse_opts(int argc, char **argv) {
                 printf("%s %s\n", LUSUSH_NAME, LUSUSH_VERSION_STRING);
                 printf("%s\n", LUSUSH_DESCRIPTION);
                 printf("Copyright (C) 2021-2026 Michael Berry. Licensed under "
-                       "GPL-3.0+.\n");
+                       "MIT.\n");
                 exit(EXIT_SUCCESS);
                 break;
             case 'c':

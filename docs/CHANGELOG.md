@@ -5,788 +5,302 @@ All notable changes to the Lusush Shell project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
----
+## [1.5.0-prerelease]
 
-## [1.5.0-prerelease] - 2026-01-08
+### Added
 
-### Major Features
+#### Session 125: Hook System and Syntax Highlighting (2026-01-23)
+- PROMPT_COMMAND support (bash 5.1+ style) - both string and array forms
+- Hook function/array system: `precmd_functions+=()`, `preexec_functions+=()`, `chpwd_functions+=()`, `periodic_functions+=()`
+- Simple hook arrays shorthand: `precmd+=()`, `preexec+=()`, `chpwd+=()` (FEATURE_SIMPLE_HOOK_ARRAYS)
+- Function name syntax highlighting for all definition forms (ksh, hybrid, POSIX)
+- Hook array variables highlighted as special variables
+- Function completions - shell functions appear in command-position completions
+- Directory completions with autocd - directories appear in empty-line completion when FEATURE_AUTO_CD enabled
+
+### Changed
+- License changed from GPL-3.0+ to MIT
+
+### Fixed
+- **Issue #70**: History expansion no longer triggers inside quoted strings (e.g., `echo "Hello!"` works correctly)
 
 #### Context-Aware Error Management System
 Rust-style structured error reporting with source locations, context chains, and intelligent suggestions:
-
-```
-error[E1001]: expected 'THEN', got 'FI'
-  --> script.sh:5:10
-   |
- 5 | if true; fi
-   |          ^~
-   = while: parsing if statement
-   = help: 'if' requires 'then' before 'fi'
-
-error[E1101]: echoo: command not found
-  --> ./script.sh:1:1
-   = help: did you mean 'echo', 'gecho', or 'gchroot'?
-```
-
-- **Structured Error Codes** - Hierarchical error codes (E1000-E1499) by category
-- **Source Location Tracking** - File, line, column for all errors
-- **Context Chains** - "while parsing X, in function Y" breadcrumbs
-- **"Did You Mean?" Suggestions** - Unicode-aware fuzzy matching with Damerau-Levenshtein
-- **Multi-Error Collection** - Parser collects multiple errors before stopping
-
-### Added
-- **shell_error.h/c** - Unified error management API with Rust-style display
-- **source_location_t** - Source location tracking in AST nodes
-- **Execution context stack** - Push/pop context for nested operations (loops, functions, etc.)
-- **Fast Damerau-Levenshtein pre-filter** - O(n*m) pre-filter before expensive Unicode fuzzy matching
-- **Builtin + PATH suggestions** - Command-not-found errors suggest from both sources
-- **Duplicate deduplication** - Same command from multiple sources shown only once
-
-### Changed
-- **Parser errors** - All ~30 parser errors migrated to structured system with error codes
-- **Executor errors** - Control structure errors include source location and context
-- **Builtin errors** - cd, export, and other builtins use structured error display
-- **Expansion errors** - Unbound variable and arithmetic errors have full context
-- **Autocorrect performance** - PATH scanning uses fast pre-filter (50 candidates max)
-- **Interactive autocorrect** - Only runs when stdin is TTY and prompts enabled
-
-### Technical Improvements
-- **Zero performance regression** - Fast path for successful execution unchanged
-- **16ms suggestion lookup** - Pre-filter eliminates 99% of PATH candidates quickly
-- **NFC normalization preserved** - Full Unicode-aware matching for final scoring
-- **57 tests passing** - Full test suite maintained
-
----
-
-## [1.5.0] - 2026-01-07
-
-### Major Features
+- Structured error codes (E1000-E1499) organized by category
+- Source location tracking (file, line, column) in AST nodes
+- Context chains ("while parsing X, in function Y" breadcrumbs)
+- "Did you mean?" suggestions with Unicode-aware Damerau-Levenshtein fuzzy matching
+- Multi-error collection (parser collects multiple errors before stopping)
+- Builtin + PATH suggestions for command-not-found errors
 
 #### Unified Configuration System
-Complete architectural overhaul of the configuration system with a single source of truth for all shell configuration:
+- TOML configuration format replacing legacy INI
+- XDG Base Directory compliance (`~/.config/lusush/config.toml`)
+- Config registry with centralized storage and change notification
+- Bidirectional sync between runtime commands and config registry
+- Legacy migration from `~/.lusushrc`
+- Two-file config pattern: `config.toml` (declarative) + `config.sh` (power-user escape hatch)
 
-- **TOML Configuration Format** - Human-readable configuration files replacing legacy INI format
-- **XDG Base Directory Compliance** - Configuration at `~/.config/lusush/config.toml`
-- **Config Registry** - Centralized configuration storage with change notification system
-- **Bidirectional Sync** - All runtime commands sync automatically with config registry
-- **Legacy Migration** - Automatic detection and migration from `~/.lusushrc`
-
-#### New Builtins: setopt/unsetopt
-User-friendly shell option control (Zsh-style):
-
-```bash
-setopt                    # List all options with current state
-setopt errexit            # Enable exit-on-error
-setopt extglob            # Enable extended globbing
-setopt -q extglob         # Query silently (exit status only)
-setopt -p                 # Print in re-usable format
-unsetopt xtrace           # Disable tracing
-```
-
-### Added
-- **TOML Parser** (`src/toml_parser.c`) - Generic TOML parser extracted from theme system
-- **Config Registry** (`src/config_registry.c`) - Unified configuration with change notifications
-- **setopt builtin** - Enable shell options and features with user-friendly syntax
-- **unsetopt builtin** - Disable shell options and features
-- **config migrate command** - Explicit migration from legacy format
-- **XDG path resolution** - Respects `$XDG_CONFIG_HOME` environment variable
-- **Two-file config pattern** - `config.toml` (declarative) + `config.sh` (power-user escape hatch)
-- **50 shell builtins** - Up from 48 with addition of setopt/unsetopt
-
-### Changed
-- **Configuration file location** - Now at `~/.config/lusush/config.toml` (XDG-compliant)
-- **Configuration format** - TOML replaces INI as primary format
-- **Runtime sync** - All `set -o`, `display`, and feature commands sync to config registry
-- **Syntax highlighting toggle** - `display lle syntax on/off` now works at runtime
-- **Documentation** - Complete rewrite of CONFIG_SYSTEM.md, USER_GUIDE.md, BUILTIN_COMMANDS.md
-
-### Fixed
-- **Feature persistence gap** - Feature flag overrides now persist via config registry
-- **Partial sync issues** - All subsystems now use unified registry API
-- **Display syntax toggle** - Fixed runtime toggle not affecting command layer
-- **Parameter shadowing** - Renamed `config` parameters to `init_config` in display APIs
-
-### Technical Improvements
-- **Single source of truth** - Config registry eliminates fragmented state storage
-- **Change notification bus** - Subsystems subscribe to config changes
-- **Sparse feature storage** - Only non-default feature overrides are saved
-- **Zero memory leaks** - Verified with macOS leaks tool
-- **57 tests passing** - Full test suite maintained
-
----
-
-## [1.4.0] - 2026-01-06
-
-### Major Features
+#### New Builtins
+- **setopt/unsetopt** - Zsh-style shell option control
+- **declare** - Array and integer variable support with `-a`, `-A`, `-i`, `-r`, `-x`, `-p` flags
+- **let** - Arithmetic evaluation builtin
 
 #### LLE (Lusush Line Editor)
-Complete replacement of GNU Readline with a native line editor:
-
-- **44 Emacs keybinding actions** - Full Emacs-style editing
-- **Context-aware completions** - All 45 shell builtins have specific completion logic
-- **Real-time syntax highlighting** - 45 token types with semantic coloring
-- **Multi-line editing** - Natural continuation for incomplete commands
-- **Kill ring** - Full cut/paste history
-- **Undo/redo** - Complete undo support
-- **Vi mode framework** - In development, targeting v1.4.0 release
+Native line editor replacing GNU Readline:
+- 44 Emacs keybinding actions
+- Context-aware completions for all builtins
+- Real-time syntax highlighting with 45+ token types
+- Multi-line editing with natural continuation
+- Kill ring and undo/redo support
+- Vi mode framework (in development)
 
 #### Multi-Mode Shell Architecture
-Run scripts from different shell environments:
+- POSIX mode (`set -o posix`) - Strict POSIX sh compliance
+- Bash mode (`set -o bash`) - Bash 4.x compatibility
+- Zsh mode (`set -o zsh`) - Zsh compatibility with glob qualifiers
+- Lusush mode (default) - All features enabled
+- 35 feature flags for fine-grained control
+- Shebang detection for automatic mode selection
 
-- **Lusush mode** (default) - All features enabled
-- **POSIX mode** - Strict POSIX sh compliance
-- **Bash mode** - Bash 4.x compatibility
-- **Zsh mode** - Zsh compatibility with glob qualifiers
+#### Extended Language Support
 
-Switch modes with `set -o posix`, `set -o bash`, `set -o zsh`, or `set -o lusush`.
-
-#### Extended Language Support (Phases 1-7)
-
-**Phase 1: Arrays and Arithmetic**
+**Arrays and Arithmetic**
 - Indexed arrays: `arr=(a b c)`, `${arr[0]}`, `${arr[@]}`
 - Associative arrays: `declare -A map`
 - Arithmetic command: `(( count++ ))`
-- `let` builtin
+- Array length: `${#arr[@]}`
 
-**Phase 2: Extended Tests**
-- Extended test: `[[ ]]`
+**Extended Tests**
+- Extended test command: `[[ ]]`
 - Pattern matching: `[[ $str == *.txt ]]`
-- Regex matching: `[[ $str =~ pattern ]]`
-- BASH_REMATCH array for captures
+- Regex matching: `[[ $str =~ pattern ]]` with BASH_REMATCH array
+- Logical operators with short-circuit evaluation
 
-**Phase 3: Process Substitution**
+**Process Substitution**
 - Input substitution: `<(command)`
 - Output substitution: `>(command)`
-- Proper FIFO management
 
-**Phase 4: Extended Parameter Expansion**
+**Extended Parameter Expansion**
 - Case modification: `${var^^}`, `${var,,}`
 - Pattern substitution: `${var//old/new}`
 - Indirect expansion: `${!var}`
 - Transformations: `${var@Q}`
 
-**Phase 5: Extended Globbing**
+**Extended Globbing**
 - Extended patterns: `?(pat)`, `*(pat)`, `+(pat)`, `!(pat)`
 
-**Phase 6: Control Flow Extensions**
+**Control Flow Extensions**
 - Case fall-through: `;&`, `;;&`
 - `select` loop
 - `time` keyword
 
-**Phase 7: Functions and Hooks**
+**Functions and Hooks**
 - Nameref variables: `local -n ref=$1`
 - Anonymous functions: `() { cmd; }`
 - Glob qualifiers: `*(.)`, `*(/)`, `*(@)`, `*(*)`
 - Hook functions: `precmd`, `preexec`, `chpwd`, `periodic`
-- Hook arrays: `precmd_functions`, etc.
+- Hook arrays: `precmd_functions+=()`, `preexec_functions+=()`, etc.
+- PROMPT_COMMAND array form (bash 5.1+ style)
 - Plugin system foundation
 
-### Added
-- 48 shell builtins with context-aware completion
-- Theme system with 6 built-in themes
-- Integrated debugger (breakpoints, stepping, profiling)
-- Modern configuration interface (`config` command)
+#### Syntax Highlighting Enhancements
+- Function name highlighting in all definition forms (ksh, hybrid, POSIX)
+- Hook array variables highlighted as special variables
+- Weak/strong symbol pattern for shell-dependent LLE features
 
 ### Changed
+- Configuration file location now XDG-compliant
+- All ~30 parser errors migrated to structured error system
+- Executor errors include source location and context
+- Builtin errors use structured error display
 - Removed GNU Readline dependency (LLE is native)
-- Rewrote all documentation for v1.4.0
 
 ### Fixed
+- History expansion no longer triggers inside quoted strings (Issue #70)
+- Feature persistence gap resolved via config registry
+- Display syntax toggle works at runtime
+- Parameter shadowing in display APIs
 - Zero memory leaks (verified with macOS leaks tool)
-- Proper AST sibling node cleanup
-- Variable expansion double-free
-- Arithmetic stack item leaks
-
----
-
-## [Unreleased] - Extended Language Support
-
-### Added - Phase 2: Extended Tests `[[ ]]`
-- **Extended test command `[[ ]]`** with Bash-compatible syntax
-  - String comparisons: `==`, `!=`, `<`, `>`
-  - Pattern matching with glob wildcards: `*`, `?`, `[...]`
-  - No word splitting or glob expansion inside `[[ ]]`
-
-- **Regex matching with `=~` operator**
-  - POSIX extended regular expressions
-  - Anchors: `^` (start), `$` (end)
-  - Character classes: `[a-z]`, `[0-9]`
-  - Capture groups with BASH_REMATCH array
-  - Alternation: `cat|dog`
-  - Optional quantifiers: `?`, `+`, `*`
-
-- **BASH_REMATCH array** for regex capture groups
-  - `${BASH_REMATCH[0]}` - full match
-  - `${BASH_REMATCH[1]}` - first capture group
-  - Up to 10 capture groups supported
-
-- **File tests** for extended test
-  - Existence: `-e`, `-f`, `-d`
-  - Permissions: `-r`, `-w`, `-x`
-  - Size: `-s` (non-empty)
-  - Type: `-L`, `-h` (symbolic link)
-
-- **String tests**: `-z` (empty), `-n` (non-empty)
-
-- **Numeric comparisons**: `-eq`, `-ne`, `-lt`, `-le`, `-gt`, `-ge`
-
-- **Logical operators** with short-circuit evaluation
-  - Negation: `!`
-  - AND: `&&`
-  - OR: `||`
-  - Parentheses grouping: `( expr )`
-
-- **New tokens**: `TOK_DOUBLE_LBRACKET`, `TOK_DOUBLE_RBRACKET`, `TOK_REGEX_MATCH`
-- **New node type**: `NODE_EXTENDED_TEST`
-- **Comprehensive test suite**: 100 tests in `tests/phase2_extended_test_test.sh`
-
-### Fixed
-- Variable expansion for expressions like `$i -lt 3` now correctly expands to `5 -lt 3`
-
-### Added - Phase 1: Arrays and Arithmetic Command
-- **Indexed array support** with Bash-compatible syntax
-  - Array literal creation: `arr=(one two three)`
-  - Element access: `${arr[0]}`, `${arr[1]}`
-  - All elements expansion: `${arr[@]}`, `${arr[*]}`
-  - Array length: `${#arr[@]}`
-  - Element string length: `${#arr[n]}`
-  - Element assignment: `arr[n]=value`
-  - Sparse array support with efficient binary search storage
-
-- **Arithmetic command `(( ))`** for conditional arithmetic
-  - Returns exit 0 for non-zero results, 1 for zero
-  - Comparison operators: `==`, `!=`, `<`, `>`, `<=`, `>=`
-  - Logical operators: `&&`, `||`
-  - Full arithmetic expression support
-  - Parameter expansion inside arithmetic: `(( ${#arr[@]} == 5 ))`
-
-- **`declare` builtin** with array and integer support
-  - `-a` for indexed arrays
-  - `-A` for associative arrays
-  - `-i` for integer variables (arithmetic evaluation on assignment)
-  - `-r` for readonly variables
-  - `-x` for export
-  - `-p` for printing declarations
-  - `typeset` alias for compatibility
-
-- **New tokens**: `TOK_DOUBLE_LPAREN`, `TOK_DOUBLE_RPAREN`, `TOK_PLUS_ASSIGN`
-- **New node types**: `NODE_ARITH_CMD`, `NODE_ARRAY_LITERAL`, `NODE_ARRAY_ACCESS`, `NODE_ARRAY_ASSIGN`
-- **Comprehensive test suite**: 52 tests in `tests/phase1_arrays_arithmetic_test.sh`
-
-### Added - Phase 0: Shell Mode Infrastructure
-- **Multi-mode architecture** for language compatibility
-  - POSIX mode: Strict POSIX sh compliance
-  - Bash mode: Bash 5.x compatibility
-  - Zsh mode: Zsh compatibility
-  - Lusush mode: Curated best of both (default)
-
-- **35 feature flags** for fine-grained control
-  - Per-feature enable/disable overrides
-  - Mode-specific defaults via feature matrix
-  - Runtime mode switching: `set -o bash`, `set -o zsh`
-
-- **Shebang detection** for automatic mode selection
-- **Debugger integration**: `mode`, `features`, `feature <name>` commands
-- **20 unit tests** for shell mode system
 
 ---
 
 ## [1.3.1] - 2025-10-01
 
-### Added - Configuration System Modernization
-- **Complete shell options integration with config system**
-  - All 24 POSIX shell options accessible via modern interface
-  - Dual interface support: `config set shell.errexit true` and traditional `set -e`
-  - Perfect bidirectional synchronization between both interfaces
-  - Mutual exclusivity handling for emacs/vi editing modes
+### Added
+- Complete shell options integration with config system (24 POSIX options)
+- Standardized dot notation configuration naming
+- Backward compatibility for legacy underscore config names
+- Enterprise-grade configuration documentation
 
-- **Standardized dot notation configuration naming**
-  - Migrated all config options to consistent namespace.option format
-  - Professional organization: `history.enabled`, `completion.fuzzy`, `prompt.style`
-  - Logical functional grouping: `behavior.*`, `network.*`, `scripts.*`, `shell.*`
-  - 50+ options reorganized with enterprise-appropriate naming conventions
+### Changed
+- All config options migrated to namespace.option format
+- Documentation updated to reflect 1.3.0-dev feature set
 
-- **Comprehensive backward compatibility system**
-  - Legacy underscore names supported with helpful deprecation warnings
-  - Complete mapping table for seamless migration
-  - Zero breaking changes for existing configurations
-  - Gradual adoption path for professional environments
-
-- **Enterprise-grade configuration documentation**
-  - New comprehensive CONFIG_SYSTEM.md with complete feature coverage
-  - Shell options integration examples and migration guides
-  - Enterprise deployment patterns and security configurations
-  - Professional troubleshooting and best practices documentation
-
-### Improved - Repository Organization and Documentation
-- **Complete documentation refresh** with current date (October 1, 2025)
-  - All documentation updated to reflect 1.3.0-dev feature set
-  - Cross-references verified and updated across all documents
-  - Professional presentation suitable for enterprise environments
-  - Beginner to expert progression in all major documentation
-
-- **Repository cleanup and professional organization**
-  - Removed development artifacts from repository root
-  - Moved important documentation to docs/ directory
-  - Clean root directory with only essential project files
-  - Professional project structure suitable for enterprise evaluation
-
-### Technical Improvements
-- **Enhanced config.c with shell option integration functions**
-  - Comprehensive mapping system for legacy option names
-  - Professional deprecation warnings with migration guidance
-  - Extended config show/get/set commands for shell options
-  - Complete POSIX compatibility preserved for traditional set commands
-
-- **Documentation accuracy verification**
-  - All code examples tested with current Lusush build
-  - Verified configuration examples across all documentation
-  - Consistent naming conventions applied throughout
-  - Professional error handling and user experience improvements
+---
 
 ## [1.3.0] - 2025-09-30
 
-### Added - Comprehensive POSIX Options Suite (24 Major Options)
-- **Complete POSIX shell option implementation** - Enterprise-grade shell behavior control:
-  - **Core execution options**: `-e` (errexit), `-x` (xtrace), `-n` (noexec), `-u` (nounset), `-v` (verbose)
-  - **File system options**: `-f` (noglob), `-h` (hashall), `-C` (noclobber), `-a` (allexport)
-  - **Job control options**: `-m` (monitor), `-b` (notify), `-t` (onecmd)
-  - **Interactive options**: `ignoreeof`, `nolog`, `emacs`, `vi`, `posix`
-  - **Advanced options**: `pipefail`, `histexpand`, `history`, `interactive-comments`, `braceexpand`
-  - **Security options**: `physical`, `privileged`
+### Added
 
-### Added - Advanced Directory Navigation
-- **Physical option** (`set -o physical`): Complete POSIX-compliant directory path handling
-  - Logical mode (default): Preserves symlinked paths as navigated
-  - Physical mode: Resolves all symbolic links to real directory paths
-  - PWD and OLDPWD management with proper symtable integration
-  - Logical path canonicalization with `.` and `..` resolution
-  - Compatible with bash/zsh behavior specifications
+#### POSIX Shell Options (24 options)
+- Core execution: `-e` (errexit), `-x` (xtrace), `-n` (noexec), `-u` (nounset), `-v` (verbose)
+- File system: `-f` (noglob), `-h` (hashall), `-C` (noclobber), `-a` (allexport)
+- Job control: `-m` (monitor), `-b` (notify), `-t` (onecmd)
+- Interactive: `ignoreeof`, `nolog`, `emacs`, `vi`, `posix`
+- Advanced: `pipefail`, `histexpand`, `history`, `interactive-comments`, `braceexpand`
+- Security: `physical`, `privileged`
 
-### Added - Enterprise Security Features
-- **Privileged option** (`set -o privileged`): Comprehensive restricted shell security
-  - Command execution restrictions: Block commands containing `/` (absolute/relative paths)
-  - Built-in command controls: Restrict `cd`, `exec`, `set` in privileged mode
-  - Environment variable protection: Block modifications to `PATH`, `IFS`, `ENV`, `SHELL`
-  - File system access controls: Block absolute path and parent directory redirections
-  - Shell option lockdown: Prevent configuration tampering in secure environments
-  - Enterprise-ready security for sandboxed environments and multi-tenant systems
+#### Physical Path Navigation
+- Logical mode (default): Preserves symlinked paths
+- Physical mode: Resolves all symbolic links
+- PWD/OLDPWD management with symtable integration
 
-### Added - Professional Printf Implementation
-- **Dynamic field width support**: Complete `%*s` and `%.*s` format specifiers
-- **POSIX-compliant formatting**: Full compatibility with system printf behavior
-- **Argument consumption**: Proper handling of width/precision arguments from parameter list
-- **Enterprise-quality validation**: Comprehensive format type support and error handling
+#### Privileged/Restricted Shell Mode
+- Command execution restrictions (block paths with `/`)
+- Built-in command controls
+- Environment variable protection (PATH, IFS, ENV, SHELL)
+- File system access controls
 
-### Added - Advanced Redirection Features
-- **Clobber override syntax**: Complete `>|` redirection for noclobber environments
-- **Professional integration**: Seamless operation with shell options and redirection systems
-- **POSIX compliance**: Full specification adherence with comprehensive error handling
+#### Enhanced Builtins
+- **read**: `-p` (prompt), `-r` (raw mode)
+- **test**: `!` (negation), `-a` (AND), `-o` (OR)
+- **type**: `-t` (type only), `-p` (path only), `-a` (show all)
+- **printf**: Dynamic field width (`%*s`, `%.*s`)
 
-### Added - Advanced Redirection and Pipeline Features
-- **Clobber override syntax (`>|`)** - Complete noclobber environment support:
-  - **Professional integration**: Seamless operation with existing redirection and shell option systems
-  - **POSIX compliance**: Full specification adherence with comprehensive error handling
-- **Pipeline failure detection (`-o pipefail`)** - Modern pipeline error handling:
-  - **Professional implementation**: Pipeline failure detection with proper error propagation
-  - **Enterprise functionality**: Robust error handling for complex pipeline operations
+#### Redirection Features
+- Clobber override syntax: `>|`
+- Pipeline failure detection: `-o pipefail`
 
-### Added - Professional Editing and History Management
-- **Editing mode control** - Complete emacs/vi mode switching:
-  - **Emacs mode**: Professional emacs-style command line editing with readline integration
-  - **Vi mode**: Professional vi-style command line editing with mutual exclusivity
-  - **Mode switching**: Runtime control with proper readline integration
-- **History management enhancements** - Advanced history control:
-  - **History expansion (`-o histexpand`)**: Enable history expansion (!! !n !string) with enterprise functionality
-  - **History recording (`-o history`)**: Command history recording management with professional integration
-  - **Function logging (`-o nolog`)**: Function definition history filtering with corruption fixes
-  - **Interactive comments (`-o interactive-comments`)**: Enable # comments in interactive mode
-
-### Added - POSIX Compliance and Strict Mode Features
-- **Strict POSIX compliance mode (`-o posix`)** - Enterprise-grade strict mode:
-  - **Function name validation**: Advanced function feature restrictions in strict mode
-  - **Compliance behaviors**: Function name validation and history file selection
-  - **Advanced feature restrictions**: Comprehensive behavior limitations for POSIX compliance
-- **Brace expansion control (`-o braceexpand`)** - Complete brace expansion management:
-  - **Pattern expansion**: Enable/disable brace expansion {a,b,c} with professional control
-  - **Runtime configuration**: Dynamic control over expansion behavior
-
-### Performance Enhancements
-- **Sub-millisecond response times**: All POSIX options maintain optimal performance
-- **Memory efficiency**: Enhanced buffer management with intelligent caching
-- **Cross-platform compatibility**: Verified working on Linux, macOS, BSD systems
-- **Zero regression policy**: All existing functionality preserved during enhancements
-
-### Added - Comprehensive POSIX Shell Options Suite
-- **Complete 24 major POSIX options** - Enterprise-grade shell behavior control:
-  - **Short flag options**: `-a` (allexport), `-b` (notify), `-C` (noclobber), `-e` (errexit), `-f` (noglob), `-h` (hashall), `-m` (monitor), `-n` (noexec), `-t` (onecmd), `-u` (nounset), `-v` (verbose), `-x` (xtrace)
-  - **Named options**: `ignoreeof`, `nolog`, `emacs`, `vi`, `posix`, `pipefail`, `histexpand`, `history`, `interactive-comments`, `braceexpand`, `physical`, `privileged`
-  - **Professional implementation**: All options working seamlessly together with runtime control via `set -o`/`set +o`
-  - **Zero regressions**: Complete preservation of existing functionality with enhanced capabilities
-
-### Added - Directory Navigation and Security Features
-- **Physical path navigation (`-o physical`)** - Enterprise directory security:
-  - **Logical mode (default)**: Preserve symlinked paths with proper canonicalization of `.` and `..` components
-  - **Physical mode**: Resolve all symbolic links for predictable, security-conscious navigation
-  - **PWD/OLDPWD management**: Complete symtable integration with accurate path tracking
-  - **POSIX compliance**: Full compatibility with bash/zsh behavior specifications
-
-- **Restricted shell security (`-o privileged`)** - Professional security controls:
-  - **Command execution restrictions**: Block commands containing `/` (absolute/relative paths)
-  - **Built-in command controls**: Restrict dangerous commands (`cd`, `exec`, `set`) in privileged mode
-  - **Environment variable protection**: Block modifications to `PATH`, `IFS`, `ENV`, `SHELL`
-  - **File system access controls**: Prevent redirection to absolute paths and parent directories
-  - **Enterprise-ready**: Suitable for sandboxed environments, containers, and multi-tenant systems
-
-### Added - Advanced Shell Behavior Options
-- **Exit behavior control**: 
-  - **One command mode (`-t`)**: Exit after executing single command for automation
-  - **Ignore EOF (`ignoreeof`)**: Interactive EOF handling with proper cleanup
-  - **Async notification (`-b`)**: Background job completion notification
-- **Development and debugging**:
-  - **No function logging (`nolog`)**: Function definition history filtering with corruption prevention
-  - **Interactive comments**: Enable `#` comments in interactive mode for better user experience
-
-### Developer Experience
-- **Comprehensive documentation**: All 24 POSIX options fully documented with examples
-- **Professional error messages**: Clear, actionable error reporting for all restrictions
-- **Enterprise debugging**: Enhanced debugging capabilities with option state visibility
-- **Development velocity**: Maintained exceptional development momentum with proven "simple fixes first" pattern
-- **Enhanced read builtin** - Complete POSIX option support:
-  - `-p` (prompt): Display custom prompts before reading input
-  - `-r` (raw mode): Disable backslash escape processing 
-  - Framework for `-t` (timeout), `-n` (nchars), `-s` (silent) options
-  - Professional error handling and usage messages
-- **Enhanced test builtin** - Complete logical operator support:
-  - `!` (negation): Full negation operator with proper precedence
-  - `-a` (logical AND): Multi-expression AND operations
-  - `-o` (logical OR): Multi-expression OR operations with correct precedence
-  - Complex expression evaluation with recursive parsing
-- **Enhanced type builtin** - Complete POSIX option compliance:
-  - `-t` (type only): Output command type (builtin, file, function, alias)
-  - `-p` (path only): Output executable path for external commands
-  - `-a` (show all): Display all command locations including multiple PATH entries
-  - Professional option parsing with -- terminator support
-
-### Fixed - Critical Infrastructure Improvements
-- **Tokenizer enhancement** - Fixed standalone `!` character parsing for test negation
-- **Export system completion** - Added missing setenv() calls for proper environment synchronization
-- **Option parsing consistency** - Standardized option handling across all enhanced built-ins
-
-### Improved - Development and Quality
-- **Professional error handling** - Comprehensive validation and user-friendly error messages
-- **POSIX compliance advancement** - Significant progress toward complete POSIX shell compliance
-- **Built-in command quality** - Enterprise-grade option support matching professional shells
-- **Development methodology validation** - "Simple fixes first" approach proven effective across multiple enhancements
-
-### Technical Details
-- **Zero regressions** - All existing functionality preserved while adding new capabilities
-- **Comprehensive testing** - Each enhancement thoroughly tested with edge cases and integration scenarios  
-- **Professional documentation** - Complete usage messages and help text for all enhanced commands
-- **Backward compatibility** - All changes maintain full compatibility with existing scripts and usage
+---
 
 ## [1.2.5] - 2025-09-16
 
 ### Fixed
-- **CRITICAL: Multiline parser issues completely resolved** - Fixed fundamental parser bugs that prevented production use
-- **Multiline function definitions** - Functions with newlines now work correctly via stdin/pipe input
-- **Multiline case statements** - Complex case statements with multiple patterns and commands now work
-- **Here document support** - Complete implementation of << and <<- syntax with variable expansion
-- **Function persistence** - Functions now persist correctly across commands using global executor
-- **Context tracking** - Input system properly tracks compound command depth and multiline states
+- Multiline parser issues (functions, case statements via stdin/pipe)
+- Here document support (`<<` and `<<-` with variable expansion)
+- Function persistence across commands
+- Context tracking for compound commands
 
-### Added  
-- **Enhanced function parameter system** - Functions support `function name(param1, param2="default")` syntax
-- **Advanced return values** - `return_value "string"` system for capturing function outputs
-- **Function introspection** - `debug functions` and `debug function <name>` commands working
-- **Comprehensive debugging** - Full debug command suite with breakpoints, tracing, profiling
-- **Multiline input accumulation** - Proper handling of complete constructs via stdin/pipe
-- **Here document detection** - Smart delimiter matching with whitespace handling
+### Added
+- Enhanced function parameter system with default values
+- Advanced return values via `return_value "string"`
+- Function introspection (`debug functions`, `debug function <name>`)
 
 ### Improved
-- **Shell compliance** - Improved from 70% to 85% (134/136 tests passing)
-- **Test success rate** - Achieved 98.5% success rate on comprehensive tests
-- **POSIX compatibility** - Maintained 85% comprehensive compliance (134/136 tests passing), 100% regression test success (49/49)
-- **Documentation accuracy** - Complete overhaul with tested examples and verified capabilities
-- **Cross-platform support** - Verified functionality on Linux, macOS, BSD systems
+- Shell compliance: 85% (134/136 tests passing)
+- Test success rate: 98.5%
+
+---
 
 ## [1.2.4] - 2025-09-15
 
-### Fixed
-- **Documentation accuracy restored** - All examples now tested and verified working
-
 ### Changed
-- **README.md complete overhaul** - Professional documentation reflecting actual capabilities
-- **Function examples updated** - All function syntax examples tested and verified
-- **Capability claims accurate** - All percentage claims backed by test results
-- **Marketing tone professional** - Removed hyperbole, focus on demonstrated capabilities
+- Complete documentation overhaul with tested examples
+- All function syntax examples verified working
+
+---
 
 ## [1.2.2] - 2025-09-11
 
 ### Added
-- **Complete repositioning as "The Shell Development Environment"**
-- **Advanced Scripting Guide** - Comprehensive 1000+ line guide for function systems and debugging
-- **Configuration Mastery Guide** - Complete 800+ line enterprise configuration reference
-- **Professional README.md** - Clear positioning emphasizing debugging, functions, and configuration
+- Advanced Scripting Guide (1000+ lines)
+- Configuration Mastery Guide (800+ lines)
 
 ### Changed
-- **Repository cleanup** - Removed all legacy test scripts, validation files, and outdated documentation
-- **Clear project identity** - Established as the premier shell development environment
-- **Documentation focus** - Streamlined to emphasize unique development capabilities
+- Repository cleanup (removed legacy test scripts and outdated docs)
+- All files updated to GPL-3.0+ license
+- Correct copyright attribution to Michael Berry
 
 ### Fixed
-- **License consistency** - All files now correctly reference GPL-3.0+ license
-- **Copyright consistency** - All files now properly attribute copyright to Michael Berry
-- **Version consistency** - Updated all version references to 1.2.2
-- **Version output** - Fixed `--version` and `-V` flags to show correct license and copyright
-- **Author attribution** - Replaced "Lusush Development Team" references with "Michael Berry"
-- **Theme authorship** - All built-in themes now properly attributed to Michael Berry
-- **Configuration syntax** - Corrected all documentation to use actual config commands
-- **Configuration options** - Updated guides to reflect real available configuration keys
-- **Command examples** - Fixed `config set key value` syntax throughout documentation
-- **Traditional configuration** - Added comprehensive documentation of shell script configuration methods
-- **Development disclaimers** - Added important notes about active development and potential changes
-- **Configuration documentation** - Fixed all config command syntax to match actual implementation
-- **Development status notes** - Added important disclaimers about active development status
+- License consistency across all files
+- Version consistency (all references to 1.2.2)
+- Theme authorship attribution
 
-### Removed
-- All legacy .sh test and validation scripts (14+ files)
-- Outdated development documentation (PHASE*, LINUX*, PRODUCTION* files)
-- Legacy directories (archive/, readline/, research/, scripts/, tools/)
-- Development artifacts and assessment documents
-- Redundant documentation in docs/ directory
-- Incorrect MIT license references throughout codebase - RESOLVED: Updated to GPL-3.0+
+---
 
-## [Unreleased]
-## [1.2.1] - 2025-01-16 (Enhanced)
+## [1.2.1] - 2025-01-16
 
-### Added (Original Release)
-- **Fish-like Autosuggestions** - Real-time command suggestions based on history with professional behavior
-- **Robust Syntax Highlighting with Line Wrapping Support** - Complete implementation with universal length support
-- **Terminal Dimension Detection** - Automatic terminal width/height detection for proper wrapping calculations
-- **Multi-line Display Management** - Intelligent clearing and redrawing of wrapped command lines
-- **Enhanced Buffer Management** - 256-character word buffers for handling long tokens safely
-- **Professional Visual Experience** - Enterprise-grade syntax highlighting without display corruption
-
-### Enhanced (January 2025 Improvements)
-- **Autosuggestion Clearing on Continuation Prompts** - Fixed autosuggestions not clearing when transitioning to multiline constructs (`loop>`, `if>`, etc.)
-- **History Navigation Artifacts** - Eliminated grey autosuggestion remnants during UP/DOWN arrow history navigation
-- **UP Arrow Key Binding** - Properly bound UP arrow (`\e[A`) to custom history function with autosuggestion clearing
-- **Enhanced Dismiss Function** - Added `lusush_dismiss_suggestion_with_display()` for proper state and visual clearing
-- **Architectural Improvements** - Clean separation between autosuggestion logic and display handling
-- **Professional Navigation Experience** - Smooth, artifact-free autosuggestion behavior in all scenarios
-
-### Improved
-- **Removed All Length-Based Safety Restrictions** - No more artificial limits on command length
-- **Enhanced Token Recognition** - Commands, keywords, strings, variables, operators of any length
-- **Cursor Position Mathematics** - Accurate positioning for wrapped lines and multi-line scenarios
-- **Enhanced Key Bindings** - Both UP and DOWN arrow keys now use enhanced clearing functions
-- **Zero Regressions** - All existing functionality preserved while fixing edge cases
-- **ANSI Escape Sequence Mastery** - Proper save/restore cursor, clear lines, move cursor operations
-- **Performance Optimization** - Sub-millisecond highlighting with intelligent wrapping calculations
-
-## [1.2.2] - 2025-01-16
-
-### Enhanced
-- **Autosuggestion System** - Improved clearing behavior and navigation experience
-- **History Navigation Artifacts** - Eliminated grey autosuggestion remnants during UP/DOWN arrow history navigation
-- **Enhanced Key Bindings** - Proper UP/DOWN arrow key handling with autosuggestion clearing
-- **Professional Navigation** - Smooth, artifact-free autosuggestion behavior in all scenarios
-- **Display Integration** - Removed unnecessary startup messages for cleaner user experience
+### Added
+- Fish-like autosuggestions based on history
+- Robust syntax highlighting with line wrapping support
+- Terminal dimension detection
+- Multi-line display management
 
 ### Fixed
-- **Autosuggestion Clearing on Continuation Prompts** - Fixed autosuggestions not clearing when transitioning to multiline constructs (`loop>`, `if>`, etc.)
-- **UP Arrow Key Binding** - Properly bound UP arrow (`\e[A`) to custom history function with autosuggestion clearing
-- **Enhanced Dismiss Function** - Added proper state and visual clearing for autosuggestions
-- **Startup Messages** - Removed verbose enhanced display mode messages
+- Autosuggestion clearing on continuation prompts
+- History navigation artifacts
+- UP/DOWN arrow key binding issues
 
-### Technical Improvements
-- **Clean Architecture** - Improved separation between autosuggestion logic and display handling
-- **Version Consistency** - Updated all version references to 1.2.2
-- **Code Quality** - Enhanced error handling and state management
-
-### Fixed
-- **70-character cursor position limit** - Removed, now handles unlimited cursor positions
-- **50-character string limit** - Removed, strings of any length now highlighted
-- **32-character word limit** - Removed, commands and tokens of any length supported
-- **20-character string wrapping limit** - Removed, proper line wrapping for all string lengths
-- **15-character variable limit** - Removed, variables of any length now highlighted
-- **12-character word wrapping limit** - Removed, words of any length properly wrapped and highlighted
-- **Complex construct blocking** - `for`, `while`, `if`, `case` statements now fully highlighted
-
-### Technical Achievements
-- **Universal Terminal Compatibility** - Works with any terminal width without corruption
-- **Memory Safety** - Enhanced buffer management prevents overflows with long tokens
-- **Display Stability** - Zero corruption or positioning issues with wrapped lines
-- **Cross-platform Consistency** - Reliable behavior across all Unix-like systems
+---
 
 ## [1.2.0] - 2025-01-10
 
 ### Added
-- **Real-time syntax highlighting** - Comprehensive word-boundary triggered highlighting
-- **Enhanced syntax detection** - Keywords, built-ins, variables, strings, numbers, operators
-- **Professional color scheme** - Enterprise-appropriate visual design
-- **Unix rub out highlighting technique** - Clean cursor management without display corruption
-- **Comprehensive word boundary detection** - Uses existing lusush helper functions
-- **Enhanced display mode** - `--enhanced-display` flag for full syntax highlighting
-- **String literal highlighting** - Support for both single and double quotes
-- **Variable highlighting** - `$VAR` and `${VAR}` syntax detection
-- **Number highlighting** - Integer and decimal number detection
-- **Operator highlighting** - Pipes, redirections, and command separators
-
-### Improved
-- **Performance optimization** - Sub-millisecond syntax highlighting response
-- **Memory management** - Zero memory leaks with comprehensive resource handling
-- **Error handling** - Robust fallback mechanisms for all display operations
-- **Cross-platform compatibility** - Verified on Linux, macOS, and BSD systems
-- **Documentation** - Comprehensive user and developer documentation
+- Real-time syntax highlighting
+- String literal highlighting (single and double quotes)
+- Variable highlighting (`$VAR`, `${VAR}`)
+- Number and operator highlighting
+- Enhanced display mode (`--enhanced-display`)
 
 ### Changed
-- **Removed Ferrari engine branding** - Replaced with professional terminology
-- **Enhanced readline integration** - Improved custom getc function for word boundaries
-- **Syntax detection architecture** - Leverages existing lusush detection functions
+- Removed artificial length limits on syntax highlighting
+- Enhanced readline integration
 
-### Technical Details
-- Uses `lusush_is_shell_keyword()` for keyword detection
-- Uses `lusush_is_shell_builtin()` for built-in command detection  
-- Uses `lusush_is_word_separator()` for proper word boundary detection
-- Implements ANSI cursor save/restore for clean highlighting
-- Maintains full POSIX compliance and existing functionality
-
-### Testing
-- All regression tests pass (8/8)
-- Zero crashes or memory issues detected
-- Performance benchmarks maintained
-- Cross-platform compatibility verified
+---
 
 ## [1.1.3] - 2025-01-10
 
 ### Added
-- **Display integration system** - Layered display architecture
-- **Enhanced display modes** - Advanced prompt and display management
-- **Git integration improvements** - Real-time branch and status display
-- **Professional themes** - 6 enterprise-grade theme options
-- **Advanced tab completion** - Context-aware completion system
+- Display integration system with layered architecture
+- Git integration for real-time branch/status display
+- 6 professional themes
+- Advanced context-aware tab completion
 
-### Improved
-- **Stability enhancements** - Resolved critical display issues
-- **Memory safety** - Comprehensive leak prevention
-- **Performance optimization** - Sub-millisecond response times
-- **Error handling** - Professional error reporting
-
-### Fixed
-- **Display corruption issues** - Clean terminal output
-- **Memory leaks** - Comprehensive resource management
-- **Recursion protection** - Safe function call handling
+---
 
 ## [1.1.2] - 2024-12-15
 
 ### Added
-- **Advanced tab completion** - Git-aware and context-sensitive
-- **SSH host completion** - Integration with SSH configuration
-- **Directory-only completion** - Smart completion for cd command
-- **Completion performance optimization** - Faster completion responses
+- Git-aware tab completion
+- SSH host completion
+- Directory-only completion for cd
 
-### Improved
-- **Tab completion reliability** - More robust completion system
-- **Completion display** - Better formatting and presentation
-- **Performance** - Optimized completion algorithms
+---
 
 ## [1.1.1] - 2024-12-01
 
 ### Added
-- **Professional theme system** - Multiple enterprise-grade themes
-- **Git branch integration** - Real-time git status in prompts
-- **Theme switching** - Dynamic theme changes with `theme` command
-- **Multi-line prompt support** - Complex prompt layouts
+- Professional theme system
+- Git branch integration in prompts
+- Dynamic theme switching
 
-### Improved
-- **Prompt generation** - More robust and flexible prompt system
-- **Color management** - Professional color schemes
-- **Git integration** - Better git status detection and display
-
-### Fixed
-- **Prompt display issues** - Clean multi-line prompt rendering
-- **Color handling** - Consistent color application
+---
 
 ## [1.1.0] - 2024-11-15
 
 ### Added
-- **GNU Readline integration** - Full readline support with history
-- **History management** - Persistent command history with deduplication
-- **Key bindings** - Standard shell key bindings and shortcuts
-- **Interactive mode improvements** - Enhanced user experience
+- GNU Readline integration with history
+- Persistent command history with deduplication
+- Standard shell key bindings
 
-### Improved
-- **Line editing** - Full readline editing capabilities
-- **History navigation** - Arrow keys and search functionality
-- **Input handling** - More responsive command input
-
-### Fixed
-- **Memory management** - Proper cleanup and resource handling
-- **Stability issues** - Resolved crashes and error conditions
+---
 
 ## [1.0.0] - 2024-10-01
 
 ### Added
-- **Initial stable release** - Complete shell functionality
-- **POSIX compliance** - Full standard shell operations
-- **Built-in commands** - Essential shell built-ins implemented
-- **Command execution** - Reliable command processing
-- **Multiline support** - Complex shell constructs (if, for, while, case)
-- **Job control** - Background and foreground process management
-- **Variable management** - Shell variable operations
-- **Configuration system** - Customizable shell behavior
-
-### Core Features
-- **Command parsing** - Robust command line parsing
-- **Process management** - Process creation and control
-- **I/O redirection** - Standard input/output redirection
-- **Pipe support** - Command pipelining
-- **Signal handling** - Proper signal management
-- **Error handling** - Comprehensive error reporting
-
-### Build System
-- **Meson build system** - Modern build configuration
-- **Cross-platform support** - Linux, macOS, BSD compatibility
-- **Package management** - Easy installation and deployment
+- Initial stable release
+- POSIX compliance
+- Essential built-in commands
+- Multiline support (if, for, while, case)
+- Job control
+- Variable management
+- I/O redirection and pipes
+- Signal handling
+- Meson build system
 
 ---
-
-## Release Notes
-
-### Version 1.2.0 Highlights
-
-This release represents a major advancement in shell user experience with the addition of comprehensive real-time syntax highlighting. Key achievements:
-
-- **Professional syntax highlighting** that rivals modern IDEs
-- **Zero performance impact** on shell operations
-- **Enterprise-ready visual design** appropriate for business environments
-- **Comprehensive syntax support** covering all major shell elements
-- **Rock-solid stability** with extensive testing and validation
-
-### Upgrade Notes
-
-- All existing configurations remain compatible
-- New `--enhanced-display` flag enables full syntax highlighting
-- Standard mode behavior unchanged for backward compatibility
-- All themes work with new syntax highlighting features
-
-### Development Focus
-
-Version 1.2.0 focuses on:
-- User experience improvements
-- Visual feedback and modern interface design
-- Performance optimization
-- Production-ready stability
-- Professional appearance for enterprise use
-
----
-
-## Contributing
-
-See [CONTRIBUTING.md] for information on how to contribute to Lusush Shell.
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
