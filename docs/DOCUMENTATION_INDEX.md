@@ -1,4 +1,4 @@
-# Lusush Documentation Index
+# Lush Documentation Index
 
 **Version**: 1.4.0  
 **The advanced interactive shell with LLE, multi-mode architecture, and integrated debugging**
@@ -31,7 +31,7 @@
 
 | Document | Description |
 |----------|-------------|
-| [Shell Modes](SHELL_MODES.md) | POSIX, Bash, Zsh, Lusush mode documentation |
+| [Shell Modes](SHELL_MODES.md) | POSIX, Bash, Zsh, Lush mode documentation |
 | [POSIX Compliance](SHELL_OPTIONS.md) | All 24 POSIX shell options |
 
 ### Extended Syntax
@@ -81,7 +81,7 @@
 
 | Document | Description |
 |----------|-------------|
-| [Feature Comparison](FEATURE_COMPARISON.md) | Lusush vs Bash, Zsh, Fish, other shells |
+| [Feature Comparison](FEATURE_COMPARISON.md) | Lush vs Bash, Zsh, Fish, other shells |
 
 ---
 
@@ -125,7 +125,7 @@
 
 ### Major Features
 
-- **LLE (Lusush Line Editor)**: Native line editor replacing readline
+- **LLE (Lush Line Editor)**: Native line editor replacing readline
   - Complete Emacs keybindings (42 actions)
   - Context-aware completions for all 45 builtins
   - Real-time syntax highlighting (30+ token types)
@@ -135,7 +135,7 @@
   - POSIX mode for strict compliance
   - Bash mode for bash script compatibility
   - Zsh mode for zsh script compatibility
-  - Lusush mode (default) with all features
+  - Lush mode (default) with all features
 
 - **Extended Language Support**: Modern shell syntax
   - Arrays (indexed and associative)

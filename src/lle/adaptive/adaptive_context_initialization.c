@@ -30,16 +30,16 @@
 /* Forward declarations from controller implementations */
 extern lle_result_t
 lle_initialize_native_controller(lle_adaptive_context_t *context,
-                                 lusush_memory_pool_t *memory_pool);
+                                 lush_memory_pool_t *memory_pool);
 extern lle_result_t
 lle_initialize_display_client_controller(lle_adaptive_context_t *context,
-                                         lusush_memory_pool_t *memory_pool);
+                                         lush_memory_pool_t *memory_pool);
 extern lle_result_t
 lle_initialize_multiplexer_controller(lle_adaptive_context_t *context,
-                                      lusush_memory_pool_t *memory_pool);
+                                      lush_memory_pool_t *memory_pool);
 extern lle_result_t
 lle_initialize_minimal_controller(lle_adaptive_context_t *context,
-                                  lusush_memory_pool_t *memory_pool);
+                                  lush_memory_pool_t *memory_pool);
 
 extern void lle_cleanup_native_controller(lle_native_controller_t *native);
 extern void
@@ -233,7 +233,7 @@ lle_assign_interface_functions(lle_adaptive_interface_t *interface) {
 lle_result_t lle_initialize_adaptive_context(
     lle_adaptive_context_t **context,
     const lle_terminal_detection_result_t *detection_result,
-    lusush_memory_pool_t *memory_pool) {
+    lush_memory_pool_t *memory_pool) {
 
     if (!context || !detection_result) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -442,7 +442,7 @@ bool lle_adaptive_should_shell_be_interactive(bool forced_interactive,
 
     /*
      * CRITICAL: Check if stdin is a pipe or regular file BEFORE calling
-     * comprehensive detection. Piped input (echo "cmd" | lusush) must
+     * comprehensive detection. Piped input (echo "cmd" | lush) must
      * NEVER be treated as interactive, even if stdout is a TTY.
      *
      * The comprehensive detection is designed for editor terminals

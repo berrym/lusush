@@ -1,6 +1,6 @@
 # Shell Options Reference
 
-**All shell options in Lusush v1.4.0**
+**All shell options in Lush v1.4.0**
 
 ---
 
@@ -18,7 +18,7 @@
 
 ## Overview
 
-Lusush supports all 24 POSIX shell options plus additional options for shell modes and feature control.
+Lush supports all 24 POSIX shell options plus additional options for shell modes and feature control.
 
 ### Checking Options
 
@@ -210,14 +210,14 @@ echo hello      # Parsed but not executed
 
 ## Shell Mode Options
 
-Lusush supports four shell modes, set with `set -o`:
+Lush supports four shell modes, set with `set -o`:
 
-### `lusush` (Default)
+### `lush` (Default)
 
-All features enabled. Best for interactive use and Lusush scripts.
+All features enabled. Best for interactive use and Lush scripts.
 
 ```bash
-set -o lusush   # Enable (usually default)
+set -o lush   # Enable (usually default)
 ```
 
 Features:
@@ -268,16 +268,16 @@ Enables:
 ### Modes at Startup
 
 ```bash
-lusush              # Lusush mode (default)
-lusush --posix      # POSIX mode
-lusush --bash       # Bash mode
-lusush --zsh        # Zsh mode
+lush              # Lush mode (default)
+lush --posix      # POSIX mode
+lush --bash       # Bash mode
+lush --zsh        # Zsh mode
 ```
 
 In scripts:
 
 ```bash
-#!/usr/bin/env lusush
+#!/usr/bin/env lush
 set -o posix    # POSIX mode for this script
 ```
 
@@ -387,7 +387,7 @@ set -euC
 ### Production Script Header
 
 ```bash
-#!/usr/bin/env lusush
+#!/usr/bin/env lush
 set -euo pipefail
 
 # Error handler
@@ -433,7 +433,7 @@ trap 'echo "Error on line $LINENO" >&2; exit 1' ERR
 
 | Option | Description |
 |--------|-------------|
-| `lusush` | All features (default) |
+| `lush` | All features (default) |
 | `posix` | Strict POSIX compliance |
 | `bash` | Bash compatibility |
 | `zsh` | Zsh compatibility |

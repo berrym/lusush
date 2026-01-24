@@ -310,7 +310,7 @@ typedef struct lle_completion_config {
  * @brief Load completion sources from config file
  *
  * Loads and parses the completions.toml file from the standard location
- * (~/.config/lusush/completions.toml). Each source is registered with
+ * (~/.config/lush/completions.toml). Each source is registered with
  * the completion system.
  *
  * @return LLE_SUCCESS on success (including if file doesn't exist)

@@ -4,26 +4,26 @@
 # BASH/ZSH COMPATIBILITY FEATURES TEST SUITE
 # =============================================================================
 #
-# This test suite validates shell compatibility features and lusush's shell
+# This test suite validates shell compatibility features and lush's shell
 # mode system. It is designed to:
 #
 # 1. PASS 100% on bash (for bash-specific features)
 # 2. PASS 100% on zsh (for zsh-specific features)
-# 3. Test lusush in different modes:
-#    - lusush (default): Curated best-of-both, tests shared features
-#    - lusush --bash:    Should pass 100% of bash-specific tests
-#    - lusush --zsh:     Should pass 100% of zsh-specific tests
-#    - lusush --posix:   Strict POSIX mode (separate test suite)
+# 3. Test lush in different modes:
+#    - lush (default): Curated best-of-both, tests shared features
+#    - lush --bash:    Should pass 100% of bash-specific tests
+#    - lush --zsh:     Should pass 100% of zsh-specific tests
+#    - lush --posix:   Strict POSIX mode (separate test suite)
 #
 # Usage:
-#   ./bash_zsh_compat_test.sh [shell_path] [--mode=bash|zsh|lusush|posix]
+#   ./bash_zsh_compat_test.sh [shell_path] [--mode=bash|zsh|lush|posix]
 #
 # Examples:
 #   ./bash_zsh_compat_test.sh /bin/bash           # Test bash baseline
 #   ./bash_zsh_compat_test.sh /bin/zsh            # Test zsh baseline
-#   ./bash_zsh_compat_test.sh ./build/lusush      # Test lusush default mode
-#   ./bash_zsh_compat_test.sh ./build/lusush --mode=bash  # Test lusush in bash mode
-#   ./bash_zsh_compat_test.sh ./build/lusush --mode=zsh   # Test lusush in zsh mode
+#   ./bash_zsh_compat_test.sh ./build/lush      # Test lush default mode
+#   ./bash_zsh_compat_test.sh ./build/lush --mode=bash  # Test lush in bash mode
+#   ./bash_zsh_compat_test.sh ./build/lush --mode=zsh   # Test lush in zsh mode
 #
 # Key differences between bash and zsh:
 # - Arrays: bash is 0-indexed, zsh is 1-indexed
@@ -40,9 +40,9 @@ set -uo pipefail
 # Get absolute path to shell binary to test
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-TEST_SHELL="${1:-$PROJECT_DIR/build/lusush}"
-TEST_MODE=""  # Empty = auto-detect, or bash/zsh/lusush/posix
-TEST_DIR="/tmp/lusush_compat_test_$$"
+TEST_SHELL="${1:-$PROJECT_DIR/build/lush}"
+TEST_MODE=""  # Empty = auto-detect, or bash/zsh/lush/posix
+TEST_DIR="/tmp/lush_compat_test_$$"
 TOTAL_TESTS=0
 PASSED_TESTS=0
 FAILED_TESTS=0
@@ -64,45 +64,45 @@ declare -a FAILURE_DETAILS=()
 SHELL_NAME=$(basename "$TEST_SHELL")
 IS_BASH=0
 IS_ZSH=0
-IS_LUSUSH=0
-IS_LUSUSH_BINARY=0  # True if the actual binary is lusush (for option syntax)
-LUSUSH_MODE=""  # bash, zsh, lusush, or posix when testing lusush
+IS_LUSH=0
+IS_LUSH_BINARY=0  # True if the actual binary is lush (for option syntax)
+LUSH_MODE=""  # bash, zsh, lush, or posix when testing lush
 
 case "$SHELL_NAME" in
     bash*) IS_BASH=1 ;;
     zsh*) IS_ZSH=1 ;;
-    lusush*)
-        IS_LUSUSH=1
-        IS_LUSUSH_BINARY=1  # Remember this is lusush binary
-        # If a mode was specified, lusush will emulate that shell
+    lush*)
+        IS_LUSH=1
+        IS_LUSH_BINARY=1  # Remember this is lush binary
+        # If a mode was specified, lush will emulate that shell
         if [[ -n "$TEST_MODE" ]]; then
-            LUSUSH_MODE="$TEST_MODE"
+            LUSH_MODE="$TEST_MODE"
             case "$TEST_MODE" in
                 bash)
-                    # In bash mode, lusush should behave like bash
+                    # In bash mode, lush should behave like bash
                     IS_BASH=1
-                    IS_LUSUSH=0  # Treat as bash for test selection
+                    IS_LUSH=0  # Treat as bash for test selection
                     ;;
                 zsh)
-                    # In zsh mode, lusush should behave like zsh
+                    # In zsh mode, lush should behave like zsh
                     IS_ZSH=1
-                    IS_LUSUSH=0  # Treat as zsh for test selection
+                    IS_LUSH=0  # Treat as zsh for test selection
                     ;;
                 posix)
                     # POSIX mode - very restricted
                     ;;
-                lusush)
-                    # Default lusush mode
+                lush)
+                    # Default lush mode
                     ;;
             esac
         fi
         ;;
 esac
 
-# Mode prefix to add to scripts when testing lusush in a specific mode
+# Mode prefix to add to scripts when testing lush in a specific mode
 MODE_PREFIX=""
-if [[ -n "$LUSUSH_MODE" ]]; then
-    MODE_PREFIX="set -o $LUSUSH_MODE"$'\n'
+if [[ -n "$LUSH_MODE" ]]; then
+    MODE_PREFIX="set -o $LUSH_MODE"$'\n'
 fi
 
 # Colors
@@ -163,7 +163,7 @@ run_script_test() {
     local expected="$3"
 
     local script_file="$TEST_DIR/test_$$.sh"
-    # Add mode prefix for lusush mode testing
+    # Add mode prefix for lush mode testing
     echo "${MODE_PREFIX}${script_content}" > "$script_file"
     chmod +x "$script_file"
 
@@ -189,7 +189,7 @@ run_script_sorted() {
     local expected="$3"
 
     local script_file="$TEST_DIR/test_$$.sh"
-    # Add mode prefix for lusush mode testing
+    # Add mode prefix for lush mode testing
     echo "${MODE_PREFIX}${script_content}" > "$script_file"
     chmod +x "$script_file"
 
@@ -215,7 +215,7 @@ run_script_contains() {
     local expected="$3"
 
     local script_file="$TEST_DIR/test_$$.sh"
-    # Add mode prefix for lusush mode testing
+    # Add mode prefix for lush mode testing
     echo "${MODE_PREFIX}${script_content}" > "$script_file"
     chmod +x "$script_file"
 
@@ -241,10 +241,10 @@ print_header "BASH/ZSH COMPATIBILITY TEST SUITE"
 # =============================================================================
 
 echo "Testing shell: $TEST_SHELL"
-if [[ -n "$LUSUSH_MODE" ]]; then
-    echo "Shell type: $SHELL_NAME in '$LUSUSH_MODE' mode (emulating: bash=$IS_BASH, zsh=$IS_ZSH)"
+if [[ -n "$LUSH_MODE" ]]; then
+    echo "Shell type: $SHELL_NAME in '$LUSH_MODE' mode (emulating: bash=$IS_BASH, zsh=$IS_ZSH)"
 else
-    echo "Shell type: $SHELL_NAME (bash=$IS_BASH, zsh=$IS_ZSH, lusush=$IS_LUSUSH)"
+    echo "Shell type: $SHELL_NAME (bash=$IS_BASH, zsh=$IS_ZSH, lush=$IS_LUSH)"
 fi
 echo "Test directory: $TEST_DIR"
 echo "Date: $(date -Iseconds)"
@@ -417,7 +417,7 @@ fi
 # =============================================================================
 print_section "6. EXTENDED GLOB - BASH STYLE"
 # Bash: uses shopt -s extglob with ?()/*()/+()/@()/!() syntax
-# Lusush: has extglob on by default, uses bash syntax
+# Lush: has extglob on by default, uses bash syntax
 # =============================================================================
 
 # Create test files
@@ -440,15 +440,15 @@ if [[ $IS_ZSH -eq 1 ]]; then
     skip_test "bash-extglob: @(pat|pat) alternation"
     skip_test "bash-extglob: !(pattern) negation"
 else
-    # Bash and lusush use same extglob syntax, but different option commands
-    # Note: IS_LUSUSH_BINARY tracks if we're running lusush binary (even in bash mode)
-    if [[ $IS_LUSUSH_BINARY -eq 1 ]]; then
-        # lusush uses setopt; in bash mode extglob is OFF by default (like real bash)
+    # Bash and lush use same extglob syntax, but different option commands
+    # Note: IS_LUSH_BINARY tracks if we're running lush binary (even in bash mode)
+    if [[ $IS_LUSH_BINARY -eq 1 ]]; then
+        # lush uses setopt; in bash mode extglob is OFF by default (like real bash)
         # so we need to enable it explicitly
-        if [[ -n "$LUSUSH_MODE" ]]; then
+        if [[ -n "$LUSH_MODE" ]]; then
             EXTGLOB_ENABLE="setopt extended_glob"
         else
-            EXTGLOB_ENABLE=""  # lusush default mode has extglob on
+            EXTGLOB_ENABLE=""  # lush default mode has extglob on
         fi
     else
         EXTGLOB_ENABLE="shopt -s extglob"
@@ -533,19 +533,19 @@ fi
 print_section "8. NULLGLOB"
 # Bash: shopt -s nullglob
 # Zsh: setopt null_glob (or NULL_GLOB)
-# Lusush: nullglob on by default
+# Lush: nullglob on by default
 # =============================================================================
 
-if [[ $IS_LUSUSH_BINARY -eq 1 ]]; then
-    # Lusush uses setopt; in bash/zsh mode nullglob follows that shell's default
-    if [[ -n "$LUSUSH_MODE" && "$LUSUSH_MODE" != "lusush" ]]; then
+if [[ $IS_LUSH_BINARY -eq 1 ]]; then
+    # Lush uses setopt; in bash/zsh mode nullglob follows that shell's default
+    if [[ -n "$LUSH_MODE" && "$LUSH_MODE" != "lush" ]]; then
         # In bash/zsh mode, need to enable nullglob explicitly
         run_script_test "nullglob: non-match returns empty" \
             'setopt null_glob
 echo nonexistent*.xyz' \
             ''
     else
-        # Lusush default mode has nullglob on
+        # Lush default mode has nullglob on
         run_script_test "nullglob: non-match returns empty" \
             'echo nonexistent*.xyz' \
             ''
@@ -893,16 +893,16 @@ print_section "SUMMARY"
 
 echo ""
 echo -e "${BLUE}===============================================================================${NC}"
-if [[ -n "$LUSUSH_MODE" ]]; then
-    echo -e "Test Results for: $SHELL_NAME (mode: $LUSUSH_MODE)"
+if [[ -n "$LUSH_MODE" ]]; then
+    echo -e "Test Results for: $SHELL_NAME (mode: $LUSH_MODE)"
 else
     echo -e "Test Results for: $SHELL_NAME"
 fi
 echo -e "  Total:            ${TOTAL_TESTS}"
 echo -e "  ${GREEN}Passed:           ${PASSED_TESTS}${NC}"
 if [[ $SKIPPED_TESTS -gt 0 ]]; then
-    if [[ -n "$LUSUSH_MODE" ]]; then
-        echo -e "  ${YELLOW}Skipped:          ${SKIPPED_TESTS}${NC} (not applicable to $LUSUSH_MODE mode)"
+    if [[ -n "$LUSH_MODE" ]]; then
+        echo -e "  ${YELLOW}Skipped:          ${SKIPPED_TESTS}${NC} (not applicable to $LUSH_MODE mode)"
     else
         echo -e "  ${YELLOW}Skipped:          ${SKIPPED_TESTS}${NC} (not applicable to $SHELL_NAME)"
     fi

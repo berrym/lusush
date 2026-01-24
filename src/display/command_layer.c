@@ -2,7 +2,7 @@
  * @file command_layer.c
  * @brief Command Layer - Real-Time Syntax Highlighting System
  *
- * Part of the Lusush Shell Layered Display Architecture.
+ * Part of the Lush Shell Layered Display Architecture.
  * Provides syntax highlighting for command input.
  *
  * @author Michael Berry <trismegustis@gmail.com>
@@ -11,12 +11,12 @@
  *
  * COMMAND LAYER IMPLEMENTATION
  *
- * This file implements the command layer of the Lusush Display System,
+ * This file implements the command layer of the Lush Display System,
  * providing real-time syntax highlighting for command input that works
  * universally with ANY prompt structure.
  *
  * Key Implementation Features:
- * - Real-time syntax highlighting using existing lusush functions
+ * - Real-time syntax highlighting using existing lush functions
  * - Universal compatibility with any prompt structure
  * - High-performance command processing (<5ms updates)
  * - Intelligent caching system for syntax highlighting results
@@ -25,7 +25,7 @@
  * - Integration with existing readline and syntax highlighting systems
  *
  * Architecture Integration:
- * - Leverages existing lusush_output_colored_line() for syntax highlighting
+ * - Leverages existing lush_output_colored_line() for syntax highlighting
  * - Coordinates with prompt layer through event system
  * - Maintains independence from prompt structure
  * - Provides positioning information for universal composition

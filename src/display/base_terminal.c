@@ -2,7 +2,7 @@
  * @file base_terminal.c
  * @brief Base Terminal Layer - Foundation Terminal Abstraction
  *
- * Part of the Lusush Shell Layered Display Architecture.
+ * Part of the Lush Shell Layered Display Architecture.
  * Provides low-level terminal access and capability detection.
  *
  * @author Michael Berry <trismegustis@gmail.com>
@@ -11,7 +11,7 @@
  *
  * BASE TERMINAL LAYER (Layer 1)
  *
- * This is the foundation layer of the Lusush Display System. It provides
+ * This is the foundation layer of the Lush Display System. It provides
  * low-level terminal abstraction and raw I/O operations that all higher
  * layers depend on.
  *

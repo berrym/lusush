@@ -10,7 +10,7 @@
 
 ## EXECUTIVE SUMMARY
 
-This specification defines the **Adaptive Terminal Integration System** for LLE, solving the critical gap between research-validated terminal architecture and real-world compatibility requirements. By combining proven solutions from the `feature/lusush-line-editor` branch with architectural rigor from core specifications, this system provides **universal compatibility** while maintaining **enterprise-grade reliability**.
+This specification defines the **Adaptive Terminal Integration System** for LLE, solving the critical gap between research-validated terminal architecture and real-world compatibility requirements. By combining proven solutions from the `feature/lush-line-editor` branch with architectural rigor from core specifications, this system provides **universal compatibility** while maintaining **enterprise-grade reliability**.
 
 **Key Innovation**: **Detection and Control Separation** - Interactive capability detection operates independently from terminal control method selection, enabling LLE to work optimally in any environment from traditional TTY terminals to modern editor interfaces and AI assistant environments.
 
@@ -384,9 +384,9 @@ typedef struct {
     lle_completion_t *completion;
     lle_input_processor_t *input_processor;
     
-    // Integration with Lusush systems
+    // Integration with Lush systems
     memory_pool_t *memory_pool;
-    lusush_display_context_t *display_context;
+    lush_display_context_t *display_context;
     
     // Performance monitoring
     lle_performance_monitor_t *performance_monitor;
@@ -520,9 +520,9 @@ lle_result_t lle_initialize_native_controller(lle_adaptive_context_t *context,
 ```c
 // Editor terminals and AI assistants - display layer integration
 typedef struct {
-    // Lusush display system integration
-    lusush_display_layer_t *display_layer;
-    lusush_composition_engine_t *composition_engine;
+    // Lush display system integration
+    lush_display_layer_t *display_layer;
+    lush_composition_engine_t *composition_engine;
     lle_display_content_generator_t *content_generator;
     
     // Enhanced capabilities despite non-TTY stdin
@@ -545,9 +545,9 @@ lle_result_t lle_initialize_display_client_controller(lle_adaptive_context_t *co
         return LLE_ERROR_MEMORY_ALLOCATION;
     }
     
-    // Initialize Lusush display system integration
-    lle_result_t result = lusush_display_layer_create(&client->display_layer,
-                                                     LUSUSH_LAYER_LLE_CONTENT,
+    // Initialize Lush display system integration
+    lle_result_t result = lush_display_layer_create(&client->display_layer,
+                                                     LUSH_LAYER_LLE_CONTENT,
                                                      context->display_context);
     if (result != LLE_SUCCESS) {
         free(client);
@@ -564,7 +564,7 @@ lle_result_t lle_initialize_display_client_controller(lle_adaptive_context_t *co
                                                  client->supports_color_output,
                                                  client->supports_cursor_positioning);
     if (result != LLE_SUCCESS) {
-        lusush_display_layer_destroy(client->display_layer);
+        lush_display_layer_destroy(client->display_layer);
         free(client);
         return result;
     }
@@ -574,7 +574,7 @@ lle_result_t lle_initialize_display_client_controller(lle_adaptive_context_t *co
                                                 context->detection_result);
     if (result != LLE_SUCCESS) {
         lle_display_content_generator_destroy(client->content_generator);
-        lusush_display_layer_destroy(client->display_layer);
+        lush_display_layer_destroy(client->display_layer);
         free(client);
         return result;
     }
@@ -1349,11 +1349,11 @@ lle_result_t lle_run_adaptive_integration_tests(void) {
 
 ## 8. INTEGRATION WITH EXISTING SYSTEMS
 
-### 8.1 Lusush Shell Integration
+### 8.1 Lush Shell Integration
 
 ```c
-// Integration points with existing Lusush shell
-lle_result_t lle_integrate_with_lusush_shell(void) {
+// Integration points with existing Lush shell
+lle_result_t lle_integrate_with_lush_shell(void) {
     // Initialize adaptive terminal integration
     lle_adaptive_interface_t *lle_interface = NULL;
     lle_config_t config = lle_get_default_config();
@@ -1370,30 +1370,30 @@ lle_result_t lle_integrate_with_lusush_shell(void) {
     // Configure shell based on recommendations
     if (recommendations.enable_lle) {
         // Enable LLE features based on terminal capabilities
-        lusush_set_line_editor(LUSUSH_LINE_EDITOR_LLE);
-        lusush_set_lle_interface(lle_interface);
+        lush_set_line_editor(LUSH_LINE_EDITOR_LLE);
+        lush_set_lle_interface(lle_interface);
         
         if (recommendations.enable_syntax_highlighting) {
-            lusush_enable_syntax_highlighting(true);
+            lush_enable_syntax_highlighting(true);
         }
         
         if (recommendations.enable_autosuggestions) {
-            lusush_enable_autosuggestions(true);
+            lush_enable_autosuggestions(true);
         }
         
         if (recommendations.enable_tab_completion) {
-            lusush_enable_enhanced_completion(true);
+            lush_enable_enhanced_completion(true);
         }
     } else {
         // Fall back to basic line editing
-        lusush_set_line_editor(LUSUSH_LINE_EDITOR_BASIC);
+        lush_set_line_editor(LUSH_LINE_EDITOR_BASIC);
     }
     
     return LLE_SUCCESS;
 }
 
 // Shell interactive detection replacement
-bool lusush_should_be_interactive_enhanced(lusush_shell_options_t *options) {
+bool lush_should_be_interactive_enhanced(lush_shell_options_t *options) {
     return lle_adaptive_should_shell_be_interactive(
         options->forced_interactive,
         options->has_script_file,
@@ -1548,7 +1548,7 @@ const lle_diagnostic_info_t *lle_get_diagnostic_info(lle_adaptive_interface_t *i
 4. Implement multiplexer controller
 
 **Phase 3: Integration and Testing (Week 5-6)**
-1. Integrate with existing Lusush shell systems
+1. Integrate with existing Lush shell systems
 2. Comprehensive testing across all terminal types
 3. Performance optimization and memory pool integration
 4. Production deployment preparation
@@ -1570,7 +1570,7 @@ const lle_diagnostic_info_t *lle_get_diagnostic_info(lle_adaptive_interface_t *i
 ### 10.3 Architectural Achievement
 
 This specification successfully combines:
-- **Proven Solutions** from `feature/lusush-line-editor` branch for real-world compatibility  
+- **Proven Solutions** from `feature/lush-line-editor` branch for real-world compatibility  
 - **Architectural Rigor** from research-validated specifications for enterprise reliability
 - **Innovative Design** separating detection from control for universal adaptability
 - **Complete Implementation** with ready-to-code interfaces and comprehensive testing

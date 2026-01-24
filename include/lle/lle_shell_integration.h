@@ -319,7 +319,7 @@ void lle_record_ctrl_g(void);
  * Syncs LLE editor mode with shell_opts.vi_mode/emacs_mode settings.
  * Called when user changes mode via `set -o vi` or `set -o emacs`.
  */
-void lusush_update_editing_mode(void);
+void lush_update_editing_mode(void);
 
 /**
  * @brief Shell-facing readline wrapper
@@ -330,6 +330,6 @@ void lusush_update_editing_mode(void);
  * @param prompt The prompt to display (or NULL for default prompt)
  * @return Newly allocated string with the input line, or NULL on EOF/error
  */
-char *lusush_readline_with_prompt(const char *prompt);
+char *lush_readline_with_prompt(const char *prompt);
 
 #endif /* LLE_SHELL_INTEGRATION_H */

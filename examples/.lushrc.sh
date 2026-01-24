@@ -1,12 +1,12 @@
-#!/usr/bin/env lusush
-# Example .lusushrc.sh script for LUSUSH Shell
+#!/usr/bin/env lush
+# Example .lushrc.sh script for LUSH Shell
 # This file is executed by interactive shells for shell-specific configuration
 # Provides traditional shell script configuration alongside the modern config system
 
 # ============================================================================
-# LUSUSH Shell Configuration Script
+# LUSH Shell Configuration Script
 # ============================================================================
-# This script demonstrates how to configure LUSUSH using traditional shell
+# This script demonstrates how to configure LUSH using traditional shell
 # commands while leveraging the modern config system. Advanced users can
 # combine both approaches for maximum flexibility.
 
@@ -161,7 +161,7 @@ if [ -f "$HOME/.cargo/env" ]; then
 fi
 
 # Configure modern shell features using config commands
-# These work alongside the .lusushrc configuration file
+# These work alongside the .lushrc configuration file
 
 # Enable advanced features if running interactively
 if [ -n "$PS1" ]; then
@@ -189,8 +189,8 @@ if [ -n "$PS1" ]; then
 fi
 
 # Load user-specific extensions
-if [ -d "$HOME/.lusush.d" ]; then
-    for script in "$HOME/.lusush.d"/*.sh; do
+if [ -d "$HOME/.lush.d" ]; then
+    for script in "$HOME/.lush.d"/*.sh; do
         if [ -r "$script" ]; then
             . "$script"
         fi
@@ -198,13 +198,13 @@ if [ -d "$HOME/.lusush.d" ]; then
 fi
 
 # Load project-specific configuration
-if [ -f "$PWD/.lusushrc.local" ]; then
-    . "$PWD/.lusushrc.local"
+if [ -f "$PWD/.lushrc.local" ]; then
+    . "$PWD/.lushrc.local"
 fi
 
 # Print startup message for interactive shells
 if [ -n "$PS1" ]; then
-    echo "LUSUSH configuration loaded from .lusushrc.sh"
+    echo "LUSH configuration loaded from .lushrc.sh"
     echo "Traditional shell commands and modern config system active"
     echo "Type 'config show' to see current configuration"
     echo "Type 'theme list' to see available themes"

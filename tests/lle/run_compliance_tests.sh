@@ -405,7 +405,7 @@ if [ -f "compliance/spec_09_history_compliance.c" ]; then
         ../../src/lle/history_core.c \
         ../../src/lle/memory_management.c \
         ../../src/lle/error_handling.c \
-        ../../src/lusush_memory_pool.c \
+        ../../src/lush_memory_pool.c \
         -I../../include \
         -std=c11 \
         -D_POSIX_C_SOURCE=200809L \

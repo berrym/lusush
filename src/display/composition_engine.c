@@ -2,7 +2,7 @@
  * @file composition_engine.c
  * @brief Composition Engine - Intelligent Layer Combination System
  *
- * Part of the Lusush Shell Layered Display Architecture.
+ * Part of the Lush Shell Layered Display Architecture.
  * Combines display layers with proper z-ordering and optimization.
  *
  * @author Michael Berry <trismegustis@gmail.com>

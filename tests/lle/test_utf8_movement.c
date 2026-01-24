@@ -25,10 +25,10 @@
 #include "lle/buffer_management.h"
 #include "lle/keybinding_actions.h"
 #include "lle/lle_editor.h"
-#include "lusush_memory_pool.h"
+#include "lush_memory_pool.h"
 
-/* External global_memory_pool (defined in lusush_memory_pool.c) */
-extern lusush_memory_pool_t *global_memory_pool;
+/* External global_memory_pool (defined in lush_memory_pool.c) */
+extern lush_memory_pool_t *global_memory_pool;
 
 /* Test result tracking */
 static int tests_run = 0;
@@ -59,7 +59,7 @@ static int tests_failed = 0;
 
 /* Helper: Create editor with test content */
 static lle_editor_t *create_editor_with_content(const char *content,
-                                                lusush_memory_pool_t *pool) {
+                                                lush_memory_pool_t *pool) {
     lle_editor_t *editor = NULL;
     lle_result_t result;
 
@@ -104,7 +104,7 @@ static void get_cursor_position(lle_editor_t *editor, size_t *byte_offset,
  * ============================================================================
  */
 
-static void test_forward_char_ascii(lusush_memory_pool_t *pool) {
+static void test_forward_char_ascii(lush_memory_pool_t *pool) {
     TEST_START("lle_forward_char: ASCII text");
 
     lle_editor_t *editor = create_editor_with_content("hello", pool);
@@ -144,7 +144,7 @@ static void test_forward_char_ascii(lusush_memory_pool_t *pool) {
     TEST_PASS();
 }
 
-static void test_forward_char_utf8_2byte(lusush_memory_pool_t *pool) {
+static void test_forward_char_utf8_2byte(lush_memory_pool_t *pool) {
     TEST_START("lle_forward_char: 2-byte UTF-8 (Latin extended)");
 
     /* "café" - é is 2 bytes (0xC3 0xA9) */
@@ -182,7 +182,7 @@ static void test_forward_char_utf8_2byte(lusush_memory_pool_t *pool) {
     TEST_PASS();
 }
 
-static void test_forward_char_utf8_3byte(lusush_memory_pool_t *pool) {
+static void test_forward_char_utf8_3byte(lush_memory_pool_t *pool) {
     TEST_START("lle_forward_char: 3-byte UTF-8 (CJK)");
 
     /* "中文" - each character is 3 bytes */
@@ -211,7 +211,7 @@ static void test_forward_char_utf8_3byte(lusush_memory_pool_t *pool) {
     TEST_PASS();
 }
 
-static void test_forward_char_utf8_4byte(lusush_memory_pool_t *pool) {
+static void test_forward_char_utf8_4byte(lush_memory_pool_t *pool) {
     TEST_START("lle_forward_char: 4-byte UTF-8 (Emoji)");
 
     /* "🔥🎯" - each emoji is 4 bytes */
@@ -236,7 +236,7 @@ static void test_forward_char_utf8_4byte(lusush_memory_pool_t *pool) {
     TEST_PASS();
 }
 
-static void test_forward_char_mixed(lusush_memory_pool_t *pool) {
+static void test_forward_char_mixed(lush_memory_pool_t *pool) {
     TEST_START("lle_forward_char: Mixed ASCII and multi-byte");
 
     /* "a中b🔥c" - mix of 1, 3, 1, 4, 1 bytes */
@@ -279,7 +279,7 @@ static void test_forward_char_mixed(lusush_memory_pool_t *pool) {
  * ============================================================================
  */
 
-static void test_backward_char_utf8(lusush_memory_pool_t *pool) {
+static void test_backward_char_utf8(lush_memory_pool_t *pool) {
     TEST_START("lle_backward_char: UTF-8 text");
 
     /* "hello中文🔥" */
@@ -333,7 +333,7 @@ static void test_backward_char_utf8(lusush_memory_pool_t *pool) {
  * ============================================================================
  */
 
-static void test_forward_word_ascii(lusush_memory_pool_t *pool) {
+static void test_forward_word_ascii(lush_memory_pool_t *pool) {
     TEST_START("lle_forward_word: ASCII words");
 
     lle_editor_t *editor = create_editor_with_content("hello world test", pool);
@@ -360,7 +360,7 @@ static void test_forward_word_ascii(lusush_memory_pool_t *pool) {
     TEST_PASS();
 }
 
-static void test_forward_word_utf8(lusush_memory_pool_t *pool) {
+static void test_forward_word_utf8(lush_memory_pool_t *pool) {
     TEST_START("lle_forward_word: UTF-8 words");
 
     /* "hello 中文 world" */
@@ -390,7 +390,7 @@ static void test_forward_word_utf8(lusush_memory_pool_t *pool) {
     TEST_PASS();
 }
 
-static void test_backward_word_ascii(lusush_memory_pool_t *pool) {
+static void test_backward_word_ascii(lush_memory_pool_t *pool) {
     TEST_START("lle_backward_word: ASCII words");
 
     lle_editor_t *editor = create_editor_with_content("hello world test", pool);
@@ -420,7 +420,7 @@ static void test_backward_word_ascii(lusush_memory_pool_t *pool) {
     TEST_PASS();
 }
 
-static void test_backward_word_utf8(lusush_memory_pool_t *pool) {
+static void test_backward_word_utf8(lush_memory_pool_t *pool) {
     TEST_START("lle_backward_word: UTF-8 words");
 
     /* "hello 中文 world" */
@@ -466,15 +466,15 @@ int main(void) {
     printf("========================================\n");
 
     /* Initialize global memory pool with default configuration */
-    lusush_pool_config_t config = lusush_pool_get_default_config();
+    lush_pool_config_t config = lush_pool_get_default_config();
 
-    if (lusush_pool_init(&config) != LUSUSH_POOL_SUCCESS) {
+    if (lush_pool_init(&config) != LUSH_POOL_SUCCESS) {
         fprintf(stderr, "FATAL: Failed to initialize memory pool\n");
         return 1;
     }
 
     /* Pass NULL as pool - lle_editor_create will use global_memory_pool */
-    lusush_memory_pool_t *pool = NULL;
+    lush_memory_pool_t *pool = NULL;
 
     /* Run all tests */
     test_forward_char_ascii(pool);

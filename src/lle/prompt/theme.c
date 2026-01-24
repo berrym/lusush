@@ -774,7 +774,7 @@ lle_theme_t *lle_theme_create_minimal(void) {
  * @return Pointer to newly allocated theme, or NULL on allocation failure
  */
 lle_theme_t *lle_theme_create_default(void) {
-    lle_theme_t *theme = lle_theme_create("default", "Default lusush theme",
+    lle_theme_t *theme = lle_theme_create("default", "Default lush theme",
                                           LLE_THEME_CATEGORY_MODERN);
     if (!theme) {
         return NULL;

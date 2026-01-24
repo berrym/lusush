@@ -75,7 +75,7 @@ static int tests_failed = 0;
     } while (0)
 
 /* Global memory pool for tests */
-static lusush_memory_pool_t *test_memory_pool = NULL;
+static lush_memory_pool_t *test_memory_pool = NULL;
 
 /* Test: Buffer insert operation */
 static void test_buffer_insert() {
@@ -269,7 +269,7 @@ int main(void) {
     printf("=================================================\n\n");
 
     /* Initialize memory pool for tests */
-    lusush_memory_pool_system_t pool_system;
+    lush_memory_pool_system_t pool_system;
     memset(&pool_system, 0, sizeof(pool_system));
     test_memory_pool = &pool_system;
 

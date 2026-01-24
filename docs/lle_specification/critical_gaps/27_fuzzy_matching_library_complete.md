@@ -26,7 +26,7 @@
 
 ### 1.1 Purpose
 
-The Fuzzy Matching Library provides **shared, production-tested similarity algorithms** used by multiple Lusush/LLE systems. This eliminates code duplication and ensures consistent fuzzy matching behavior across:
+The Fuzzy Matching Library provides **shared, production-tested similarity algorithms** used by multiple Lush/LLE systems. This eliminates code duplication and ensures consistent fuzzy matching behavior across:
 
 - Autocorrect system (`src/autocorrect.c`)
 - LLE Completion System (Spec 12)

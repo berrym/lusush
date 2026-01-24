@@ -2,7 +2,7 @@
  * @file display_controller.c
  * @brief Display Controller - High-Level Display Management System
  *
- * Part of the Lusush Shell Layered Display Architecture.
+ * Part of the Lush Shell Layered Display Architecture.
  * Manages display layers, caching, and terminal output coordination.
  *
  * @author Michael Berry <trismegustis@gmail.com>
@@ -12,7 +12,7 @@
  * DISPLAY CONTROLLER IMPLEMENTATION
  *
  * This file implements the high-level display controller that coordinates all
- * display layers of the Lusush layered display architecture. It provides
+ * display layers of the Lush layered display architecture. It provides
  * system-wide performance monitoring, intelligent caching, and optimization
  * for enterprise-grade shell display functionality.
  *
@@ -38,7 +38,7 @@
 #include "display_integration.h"
 #include "input_continuation.h"
 #include "lle/utf8_support.h"
-#include "lusush_memory_pool.h"
+#include "lush_memory_pool.h"
 
 // LLE Completion menu support (Spec 12 - Proper Architecture)
 #include "lle/completion/completion_menu_renderer.h"
@@ -69,7 +69,7 @@
 #if 1 // DC_DEBUG enabled temporarily for debugging
 #define DC_DEBUG(fmt, ...)                                                     \
     do {                                                                       \
-        FILE *_dbg = fopen("/tmp/lusush_dc_debug.log", "a");                   \
+        FILE *_dbg = fopen("/tmp/lush_dc_debug.log", "a");                   \
         if (_dbg) {                                                            \
             fprintf(_dbg, "[DC_DEBUG] %s:%d: " fmt "\n", __func__, __LINE__,   \
                     ##__VA_ARGS__);                                            \
@@ -1196,11 +1196,11 @@ static void dc_cleanup_expired_cache_entries(display_controller_t *controller) {
         if (!entry->is_valid) {
             // Remove invalid entry
             if (entry->display_content) {
-                lusush_pool_free(entry->display_content);
+                lush_pool_free(entry->display_content);
                 entry->display_content = NULL;
             }
             if (entry->state_hash) {
-                lusush_pool_free(entry->state_hash);
+                lush_pool_free(entry->state_hash);
                 entry->state_hash = NULL;
             }
 
@@ -1237,11 +1237,11 @@ static void dc_cleanup_expired_cache_entries(display_controller_t *controller) {
         if (age_ms > adaptive_ttl_ms) {
             // Entry has expired
             if (entry->display_content) {
-                lusush_pool_free(entry->display_content);
+                lush_pool_free(entry->display_content);
                 entry->display_content = NULL;
             }
             if (entry->state_hash) {
-                lusush_pool_free(entry->state_hash);
+                lush_pool_free(entry->state_hash);
                 entry->state_hash = NULL;
             }
             entry->is_valid = false;
@@ -1337,22 +1337,22 @@ dc_add_cache_entry(display_controller_t *controller, const char *state_hash,
         display_cache_entry_t *lru_entry =
             &controller->cache_entries[lru_index];
         if (lru_entry->display_content)
-            lusush_pool_free(lru_entry->display_content);
+            lush_pool_free(lru_entry->display_content);
         if (lru_entry->state_hash)
-            lusush_pool_free(lru_entry->state_hash);
+            lush_pool_free(lru_entry->state_hash);
 
         // Use this slot for new entry
         display_cache_entry_t *new_entry = lru_entry;
         memset(new_entry, 0, sizeof(display_cache_entry_t));
 
-        new_entry->display_content = lusush_pool_alloc(content_length + 1);
+        new_entry->display_content = lush_pool_alloc(content_length + 1);
         if (!new_entry->display_content) {
             return DISPLAY_CONTROLLER_ERROR_MEMORY_ALLOCATION;
         }
 
-        new_entry->state_hash = lusush_pool_alloc(strlen(state_hash) + 1);
+        new_entry->state_hash = lush_pool_alloc(strlen(state_hash) + 1);
         if (!new_entry->state_hash) {
-            lusush_pool_free(new_entry->display_content);
+            lush_pool_free(new_entry->display_content);
             return DISPLAY_CONTROLLER_ERROR_MEMORY_ALLOCATION;
         }
 
@@ -1369,14 +1369,14 @@ dc_add_cache_entry(display_controller_t *controller, const char *state_hash,
             &controller->cache_entries[controller->cache_count];
         memset(new_entry, 0, sizeof(display_cache_entry_t));
 
-        new_entry->display_content = lusush_pool_alloc(content_length + 1);
+        new_entry->display_content = lush_pool_alloc(content_length + 1);
         if (!new_entry->display_content) {
             return DISPLAY_CONTROLLER_ERROR_MEMORY_ALLOCATION;
         }
 
-        new_entry->state_hash = lusush_pool_alloc(strlen(state_hash) + 1);
+        new_entry->state_hash = lush_pool_alloc(strlen(state_hash) + 1);
         if (!new_entry->state_hash) {
-            lusush_pool_free(new_entry->display_content);
+            lush_pool_free(new_entry->display_content);
             return DISPLAY_CONTROLLER_ERROR_MEMORY_ALLOCATION;
         }
 
@@ -1614,8 +1614,8 @@ display_controller_init(display_controller_t *controller,
             "du", "free"};
 
         // Get current prompt for preheating (if available)
-        extern char *lusush_generate_prompt(void);
-        char *current_prompt = lusush_generate_prompt();
+        extern char *lush_generate_prompt(void);
+        char *current_prompt = lush_generate_prompt();
 
         if (current_prompt) {
             // Pre-generate cache entries for common commands with current
@@ -1668,7 +1668,7 @@ display_controller_init(display_controller_t *controller,
 
             // Note: Do not free current_prompt here - it's managed by readline
             // integration system Freeing it here causes double free corruption
-            // when lusush_readline_cleanup() runs
+            // when lush_readline_cleanup() runs
         }
     }
 
@@ -2442,11 +2442,11 @@ display_controller_cleanup(display_controller_t *controller) {
         // memory
         for (size_t i = 0; i < controller->cache_count; i++) {
             if (controller->cache_entries[i].display_content) {
-                lusush_pool_free(controller->cache_entries[i].display_content);
+                lush_pool_free(controller->cache_entries[i].display_content);
                 controller->cache_entries[i].display_content = NULL;
             }
             if (controller->cache_entries[i].state_hash) {
-                lusush_pool_free(controller->cache_entries[i].state_hash);
+                lush_pool_free(controller->cache_entries[i].state_hash);
                 controller->cache_entries[i].state_hash = NULL;
             }
             controller->cache_entries[i].is_valid = false;
@@ -2846,11 +2846,11 @@ display_controller_clear_cache(display_controller_t *controller) {
 
     for (size_t i = 0; i < controller->cache_count; i++) {
         if (controller->cache_entries[i].display_content) {
-            lusush_pool_free(controller->cache_entries[i].display_content);
+            lush_pool_free(controller->cache_entries[i].display_content);
             controller->cache_entries[i].display_content = NULL;
         }
         if (controller->cache_entries[i].state_hash) {
-            lusush_pool_free(controller->cache_entries[i].state_hash);
+            lush_pool_free(controller->cache_entries[i].state_hash);
             controller->cache_entries[i].state_hash = NULL;
         }
         controller->cache_entries[i].is_valid = false;
@@ -3304,12 +3304,12 @@ display_controller_set_theme_context(display_controller_t *controller,
         for (size_t i = 0; i < controller->cache_count; i++) {
             if (controller->cache_entries[i].is_valid) {
                 if (controller->cache_entries[i].display_content) {
-                    lusush_pool_free(
+                    lush_pool_free(
                         controller->cache_entries[i].display_content);
                     controller->cache_entries[i].display_content = NULL;
                 }
                 if (controller->cache_entries[i].state_hash) {
-                    lusush_pool_free(controller->cache_entries[i].state_hash);
+                    lush_pool_free(controller->cache_entries[i].state_hash);
                     controller->cache_entries[i].state_hash = NULL;
                 }
                 controller->cache_entries[i].is_valid = false;

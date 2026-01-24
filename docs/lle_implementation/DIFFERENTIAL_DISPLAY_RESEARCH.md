@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document details the exact proven mechanisms used by ZSH/ZLE, Fish, and Replxx for differential display updates. The goal is to understand how these editors track internal state, use terminal escape sequences, and integrate with their display systems—then determine how this applies to Lusush LLE.
+This document details the exact proven mechanisms used by ZSH/ZLE, Fish, and Replxx for differential display updates. The goal is to understand how these editors track internal state, use terminal escape sequences, and integrate with their display systems—then determine how this applies to Lush LLE.
 
 **Created**: 2026-01-01 (Session 95)
 **Purpose**: Research reference for future differential display work
@@ -293,7 +293,7 @@ All calculate visual width by:
 
 ---
 
-## 5. Lusush LLE Current Architecture
+## 5. Lush LLE Current Architecture
 
 ### What LLE Has
 
@@ -411,7 +411,7 @@ typedef struct {
 
 ---
 
-## 8. Recommendation for Lusush
+## 8. Recommendation for Lush
 
 ### Short Term
 
@@ -445,7 +445,7 @@ If differential updates become necessary (e.g., for very long lines or slow term
 - **Fish**: `src/screen.rs`, `src/termsize.rs`
 - **Replxx**: `src/replxx_impl.cxx`, `src/terminal.cxx`
 
-### Lusush Files
+### Lush Files
 
 - `src/display/display_controller.c` - Current render implementation
 - `src/display/screen_buffer.c` - Virtual screen buffer

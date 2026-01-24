@@ -391,10 +391,10 @@ void debug_handle_user_input(debug_context_t *ctx, const char *input) {
             new_mode = SHELL_MODE_BASH;
         } else if (strcmp(mode_name, "zsh") == 0) {
             new_mode = SHELL_MODE_ZSH;
-        } else if (strcmp(mode_name, "lusush") == 0) {
-            new_mode = SHELL_MODE_LUSUSH;
+        } else if (strcmp(mode_name, "lush") == 0) {
+            new_mode = SHELL_MODE_LUSH;
         } else {
-            debug_printf(ctx, "Unknown mode: %s (valid: posix, bash, zsh, lusush)\n", 
+            debug_printf(ctx, "Unknown mode: %s (valid: posix, bash, zsh, lush)\n", 
                          mode_name);
             free(cmd);
             return;
@@ -591,7 +591,7 @@ void debug_enter_interactive_mode(debug_context_t *ctx) {
                               "interactive debugging.\n");
             debug_printf(
                 ctx,
-                "Run lusush interactively for full debugging experience.\n");
+                "Run lush interactively for full debugging experience.\n");
             debug_printf(ctx, "Continuing execution...\n");
             ctx->step_mode = false;
             return;
@@ -605,7 +605,7 @@ void debug_enter_interactive_mode(debug_context_t *ctx) {
         "Common commands: c/continue, s/step, n/next, vars, help, q/quit\n");
 
     while (ctx->step_mode) {
-        debug_printf(ctx, "(lusush-debug) ");
+        debug_printf(ctx, "(lush-debug) ");
         fflush(ctx->debug_output);
 
         char input[256];
@@ -712,7 +712,7 @@ void debug_print_help(debug_context_t *ctx) {
     debug_printf(ctx, "\n");
     debug_printf(ctx, "Shell Mode Commands:\n");
     debug_printf(ctx, "  mode           - Show current shell mode\n");
-    debug_printf(ctx, "  mode <name>    - Set shell mode (posix, bash, zsh, lusush)\n");
+    debug_printf(ctx, "  mode <name>    - Set shell mode (posix, bash, zsh, lush)\n");
     debug_printf(ctx, "  features       - List all features and their status\n");
     debug_printf(ctx, "  feature <name> - Query a specific feature\n");
     debug_printf(ctx, "\n");

@@ -1,6 +1,6 @@
 # Feature Comparison
 
-**How Lusush compares to other shells**
+**How Lush compares to other shells**
 
 ---
 
@@ -16,14 +16,14 @@
 
 ## Overview
 
-Lusush v1.4.0 occupies a unique position in the shell landscape:
+Lush v1.4.0 occupies a unique position in the shell landscape:
 
 - **Native line editor (LLE)** - Not readline, not ZLE, built from scratch
-- **Multi-mode architecture** - Run POSIX, Bash, Zsh, or Lusush mode
+- **Multi-mode architecture** - Run POSIX, Bash, Zsh, or Lush mode
 - **Integrated debugging** - No other shell has this
 - **Modern features** - Hook system, extended syntax, context-aware completion
 
-This document compares Lusush with Bash, Zsh, Fish, and Dash.
+This document compares Lush with Bash, Zsh, Fish, and Dash.
 
 ---
 
@@ -31,7 +31,7 @@ This document compares Lusush with Bash, Zsh, Fish, and Dash.
 
 ### Core Features
 
-| Feature | Lusush | Bash | Zsh | Fish | Dash |
+| Feature | Lush | Bash | Zsh | Fish | Dash |
 |---------|:------:|:----:|:---:|:----:|:----:|
 | POSIX compliance | Yes | Yes | Yes | No | Yes |
 | Interactive use | Excellent | Good | Excellent | Excellent | Minimal |
@@ -40,7 +40,7 @@ This document compares Lusush with Bash, Zsh, Fish, and Dash.
 
 ### Line Editing
 
-| Feature | Lusush | Bash | Zsh | Fish | Dash |
+| Feature | Lush | Bash | Zsh | Fish | Dash |
 |---------|:------:|:----:|:---:|:----:|:----:|
 | Line editor | LLE (native) | Readline | ZLE | Native | None |
 | Emacs mode | Yes (44 actions) | Yes | Yes | Partial | No |
@@ -52,7 +52,7 @@ This document compares Lusush with Bash, Zsh, Fish, and Dash.
 
 ### Extended Syntax
 
-| Feature | Lusush | Bash | Zsh | Fish | Dash |
+| Feature | Lush | Bash | Zsh | Fish | Dash |
 |---------|:------:|:----:|:---:|:----:|:----:|
 | Indexed arrays | Yes | Yes | Yes | Yes | No |
 | Associative arrays | Yes | Yes | Yes | No | No |
@@ -67,7 +67,7 @@ This document compares Lusush with Bash, Zsh, Fish, and Dash.
 
 ### Hook System
 
-| Feature | Lusush | Bash | Zsh | Fish | Dash |
+| Feature | Lush | Bash | Zsh | Fish | Dash |
 |---------|:------:|:----:|:---:|:----:|:----:|
 | precmd | Yes | No | Yes | Yes | No |
 | preexec | Yes | No | Yes | Yes | No |
@@ -77,7 +77,7 @@ This document compares Lusush with Bash, Zsh, Fish, and Dash.
 
 ### Debugging
 
-| Feature | Lusush | Bash | Zsh | Fish | Dash |
+| Feature | Lush | Bash | Zsh | Fish | Dash |
 |---------|:------:|:----:|:---:|:----:|:----:|
 | Integrated debugger | **Yes** | No | No | No | No |
 | Breakpoints | Yes | No | No | No | No |
@@ -88,7 +88,7 @@ This document compares Lusush with Bash, Zsh, Fish, and Dash.
 
 ### Configuration
 
-| Feature | Lusush | Bash | Zsh | Fish | Dash |
+| Feature | Lush | Bash | Zsh | Fish | Dash |
 |---------|:------:|:----:|:---:|:----:|:----:|
 | Config command | Yes | No | No | Yes | No |
 | Startup files | Yes | Yes | Yes | Yes | Yes |
@@ -99,9 +99,9 @@ This document compares Lusush with Bash, Zsh, Fish, and Dash.
 
 ## Detailed Comparisons
 
-### Lusush vs Bash
+### Lush vs Bash
 
-**Lusush advantages:**
+**Lush advantages:**
 - Native line editor with syntax highlighting
 - Context-aware completion for all builtins
 - Integrated debugging (unique feature)
@@ -122,9 +122,9 @@ This document compares Lusush with Bash, Zsh, Fish, and Dash.
 - Arrays, `[[]]`, process substitution all work
 - Use `set -o bash` for compatibility
 
-### Lusush vs Zsh
+### Lush vs Zsh
 
-**Lusush advantages:**
+**Lush advantages:**
 - Simpler configuration (no Oh-My-Zsh needed)
 - Integrated debugging (unique feature)
 - Native syntax highlighting (no plugin)
@@ -140,13 +140,13 @@ This document compares Lusush with Bash, Zsh, Fish, and Dash.
 
 **Migration notes:**
 - Hook system is compatible (precmd, preexec, etc.)
-- Glob qualifiers work in Zsh/Lusush mode
+- Glob qualifiers work in Zsh/Lush mode
 - Use `set -o zsh` for compatibility
 - Most Zsh scripts work
 
-### Lusush vs Fish
+### Lush vs Fish
 
-**Lusush advantages:**
+**Lush advantages:**
 - POSIX compatible syntax
 - Bash/Zsh script compatibility
 - Integrated debugging (unique feature)
@@ -166,9 +166,9 @@ This document compares Lusush with Bash, Zsh, Fish, and Dash.
 - Completion is similar concept
 - Syntax highlighting is similar
 
-### Lusush vs Dash
+### Lush vs Dash
 
-**Lusush advantages:**
+**Lush advantages:**
 - Interactive features
 - Extended syntax
 - Debugging
@@ -183,8 +183,8 @@ This document compares Lusush with Bash, Zsh, Fish, and Dash.
 
 **Migration notes:**
 - POSIX scripts work in POSIX mode
-- Dash is for scripts, Lusush for development
-- Use Lusush to debug, Dash to run
+- Dash is for scripts, Lush for development
+- Use Lush to debug, Dash to run
 
 ---
 
@@ -194,12 +194,12 @@ This document compares Lusush with Bash, Zsh, Fish, and Dash.
 
 1. **Test your scripts:**
    ```bash
-   lusush --bash script.sh
+   lush --bash script.sh
    ```
 
 2. **Set mode in scripts:**
    ```bash
-   #!/usr/bin/env lusush
+   #!/usr/bin/env lush
    set -o bash
    ```
 
@@ -212,7 +212,7 @@ This document compares Lusush with Bash, Zsh, Fish, and Dash.
 
 1. **Test your scripts:**
    ```bash
-   lusush --zsh script.sh
+   lush --zsh script.sh
    ```
 
 2. **Migrate configuration:**
@@ -244,7 +244,7 @@ This document compares Lusush with Bash, Zsh, Fish, and Dash.
 
 ## When to Use What
 
-### Use Lusush When
+### Use Lush When
 
 - **Developing shell scripts** - The debugger changes everything
 - **Need Bash/Zsh compatibility** - Multi-mode handles both
@@ -262,7 +262,7 @@ This document compares Lusush with Bash, Zsh, Fish, and Dash.
 
 - **Heavy plugin use** - Larger ecosystem
 - **Complex Zsh configurations** - Already invested
-- **Obscure Zsh features** - Some aren't in Lusush
+- **Obscure Zsh features** - Some aren't in Lush
 
 ### Use Fish When
 
@@ -280,18 +280,18 @@ This document compares Lusush with Bash, Zsh, Fish, and Dash.
 
 ## Summary
 
-Lusush's unique position:
+Lush's unique position:
 
-| Capability | Unique to Lusush |
+| Capability | Unique to Lush |
 |------------|------------------|
 | LLE line editor | Native, not readline |
 | Integrated debugger | No other shell has this |
-| Multi-mode | POSIX/Bash/Zsh/Lusush in one |
+| Multi-mode | POSIX/Bash/Zsh/Lush in one |
 | Context-aware completions | 45 builtins with full completion |
 | Real-time syntax highlighting | 45 token types, built-in |
 | Hook system with arrays | Zsh-compatible, in a new shell |
 
-The integrated debugger alone makes Lusush worth using for anyone who writes shell scripts. The rest is the modern shell experience that should have existed years ago.
+The integrated debugger alone makes Lush worth using for anyone who writes shell scripts. The rest is the modern shell experience that should have existed years ago.
 
 ---
 

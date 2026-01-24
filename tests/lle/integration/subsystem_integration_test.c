@@ -21,7 +21,7 @@
 #include <string.h>
 
 /* External memory pool from mock */
-extern lusush_memory_pool_t *global_memory_pool;
+extern lush_memory_pool_t *global_memory_pool;
 
 /* Test counter */
 static int tests_run = 0;

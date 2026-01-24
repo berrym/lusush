@@ -1,4 +1,4 @@
-# Lusush Line Editor (LLE) Specification
+# Lush Line Editor (LLE) Specification
 
 **Version**: 3.0.0  
 **Date**: 2025-10-11  
@@ -7,7 +7,7 @@
 
 ## Overview
 
-This directory contains the specification for the Lusush Line Editor (LLE), a revolutionary buffer-oriented line editing system designed to replace GNU Readline with modern shell UX capabilities. The LLE represents a fundamental architectural shift from line-oriented to buffer-oriented command editing, with adaptive terminal integration providing universal compatibility across all environments.
+This directory contains the specification for the Lush Line Editor (LLE), a revolutionary buffer-oriented line editing system designed to replace GNU Readline with modern shell UX capabilities. The LLE represents a fundamental architectural shift from line-oriented to buffer-oriented command editing, with adaptive terminal integration providing universal compatibility across all environments.
 
 **CURRENT STATUS**: Specification Integration Validation Phase - 26 specifications created (8 validated, 5 requiring integration validation, 13 pending validation) with critical universal compatibility gap addressed through adaptive terminal integration architecture.
 
@@ -32,7 +32,7 @@ This directory contains the specification for the Lusush Line Editor (LLE), a re
 | [`05_libhashtable_integration_complete.md`](05_libhashtable_integration_complete.md) | ✅ VALIDATED | Hash table data structures |
 | [`06_input_parsing_complete.md`](06_input_parsing_complete.md) | ✅ VALIDATED | Universal input processing |
 | [`07_extensibility_framework_complete.md`](07_extensibility_framework_complete.md) | ⚠️ PENDING | Plugin and widget architecture |
-| [`08_display_integration_complete.md`](08_display_integration_complete.md) | ✅ VALIDATED | Lusush display system integration |
+| [`08_display_integration_complete.md`](08_display_integration_complete.md) | ✅ VALIDATED | Lush display system integration |
 | [`09_history_system_complete.md`](09_history_system_complete.md) | ✅ VALIDATED | Sophisticated history management |
 
 #### Critical Gap Specifications (5 documents - REQUIRE INTEGRATION VALIDATION)
@@ -72,9 +72,9 @@ LLE_EVENT_KEY_PRESS → LLE_EVENT_BUFFER_CHANGE → LLE_EVENT_SUGGESTION_UPDATE
 ```
 
 ### 3. Native Display Integration
-Direct rendering to Lusush's layered display system without terminal control conflicts:
+Direct rendering to Lush's layered display system without terminal control conflicts:
 ```c
-lle_render_to_lusush_display(editor) {
+lle_render_to_lush_display(editor) {
     render_prompt_layer(editor);
     render_command_layer(editor);
     render_suggestion_layer(editor);  // No readline conflicts!
@@ -210,4 +210,4 @@ The LLE design is based on comprehensive analysis of modern shell line editors:
 **Document Classification**: Core Architecture Specification  
 **Revision History**: Updated 2025-10-11 to reflect validation phase  
 **Next Review**: Upon validation completion  
-**Maintainer**: Lusush Development Team
+**Maintainer**: Lush Development Team

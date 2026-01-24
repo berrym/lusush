@@ -1,6 +1,6 @@
 /**
  * @file input.c
- * @brief Lusush Input System using LLE (Lusush Line Editor)
+ * @brief Lush Input System using LLE (Lush Line Editor)
  *
  * This module provides unified input handling for both interactive and
  * non-interactive modes, using LLE for interactive line editing.
@@ -20,7 +20,7 @@
 #include "init.h"
 #include "lle/lle_shell_integration.h"
 #include "lle/utf8_support.h"
-#include "lusush.h"
+#include "lush.h"
 #include "symtable.h"
 
 #include <ctype.h>
@@ -108,7 +108,7 @@ static bool is_control_keyword(const char *word);
 static bool is_terminator(const char *line);
 
 // Public function to get current continuation prompt
-const char *lusush_get_current_continuation_prompt(void);
+const char *lush_get_current_continuation_prompt(void);
 static char *convert_multiline_for_history(const char *input);
 
 // ============================================================================
@@ -667,7 +667,7 @@ static const char *get_continuation_prompt(input_state_t *state) {
  *
  * @return Prompt string to display (static string, do not free)
  */
-const char *lusush_get_current_continuation_prompt(void) {
+const char *lush_get_current_continuation_prompt(void) {
     if (!state_initialized) {
         return "$ "; // Return primary prompt if not in multiline mode
     }
@@ -859,7 +859,7 @@ char *ln_gets(void) {
         }
 
         // Get line using readline
-        line = lusush_readline_with_prompt(prompt);
+        line = lush_readline_with_prompt(prompt);
 
         // Print verbose output if -v is enabled and we got a line
         if (line && shell_opts.verbose) {

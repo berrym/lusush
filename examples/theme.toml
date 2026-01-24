@@ -1,6 +1,6 @@
-# Lusush Line Editor (LLE) Theme Configuration
+# Lush Line Editor (LLE) Theme Configuration
 #
-# Place this file at: ~/.config/lusush/themes/<name>.toml
+# Place this file at: ~/.config/lush/themes/<name>.toml
 # Activate with: display lle theme set <name>
 #
 # Colors can be specified as:

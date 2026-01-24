@@ -10,7 +10,7 @@
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-LUSUSH="$PROJECT_ROOT/build/lusush"
+LUSH="$PROJECT_ROOT/build/lush"
 PASSED=0
 FAILED=0
 SKIPPED=0
@@ -44,14 +44,14 @@ section() {
     echo -e "${BLUE}=== $1 ===${NC}"
 }
 
-# Helper function to run lusush with -c flag
+# Helper function to run lush with -c flag
 run_cmd() {
-    timeout 5 $LUSUSH -c "$1" 2>&1
+    timeout 5 $LUSH -c "$1" 2>&1
 }
 
-# Helper function to run lusush in interactive mode with piped input
+# Helper function to run lush in interactive mode with piped input
 run_interactive() {
-    echo "$1" | timeout 5 $LUSUSH -i 2>&1 | grep -v '^\$' | grep -v '^mberry@' | grep -v '^$'
+    echo "$1" | timeout 5 $LUSH -i 2>&1 | grep -v '^\$' | grep -v '^mberry@' | grep -v '^$'
 }
 
 # Setup test directory
@@ -302,55 +302,55 @@ fi
 
 # Test 20: Plugin header exists
 echo "Test 20: Plugin header file exists"
-if [ -f "$PROJECT_ROOT/include/lusush_plugin.h" ]; then
-    pass "lusush_plugin.h header exists"
+if [ -f "$PROJECT_ROOT/include/lush_plugin.h" ]; then
+    pass "lush_plugin.h header exists"
 else
-    fail "Plugin header should exist" "include/lusush_plugin.h" "not found"
+    fail "Plugin header should exist" "include/lush_plugin.h" "not found"
 fi
 
 # Test 21: Plugin source compiles
 echo "Test 21: Plugin source file compiles"
-if [ -f "$PROJECT_ROOT/src/lusush_plugin.c" ]; then
+if [ -f "$PROJECT_ROOT/src/lush_plugin.c" ]; then
     # Check that it compiled (object file exists or no compile errors)
-    if [ -f "$PROJECT_ROOT/build/lusush.p/src_lusush_plugin.c.o" ]; then
-        pass "lusush_plugin.c compiles successfully"
+    if [ -f "$PROJECT_ROOT/build/lush.p/src_lush_plugin.c.o" ]; then
+        pass "lush_plugin.c compiles successfully"
     else
-        pass "lusush_plugin.c exists (build check skipped)"
+        pass "lush_plugin.c exists (build check skipped)"
     fi
 else
-    fail "Plugin source should exist" "src/lusush_plugin.c" "not found"
+    fail "Plugin source should exist" "src/lush_plugin.c" "not found"
 fi
 
 # Test 22: Plugin API version defined
 echo "Test 22: Plugin API version macro"
-if grep -q "LUSUSH_PLUGIN_API_VERSION" "$PROJECT_ROOT/include/lusush_plugin.h" 2>/dev/null; then
-    pass "LUSUSH_PLUGIN_API_VERSION macro defined"
+if grep -q "LUSH_PLUGIN_API_VERSION" "$PROJECT_ROOT/include/lush_plugin.h" 2>/dev/null; then
+    pass "LUSH_PLUGIN_API_VERSION macro defined"
 else
-    fail "API version macro should exist" "LUSUSH_PLUGIN_API_VERSION" "not found"
+    fail "API version macro should exist" "LUSH_PLUGIN_API_VERSION" "not found"
 fi
 
 # Test 23: Plugin manager functions declared
 echo "Test 23: Plugin manager API declared"
-if grep -q "lusush_plugin_manager_create" "$PROJECT_ROOT/include/lusush_plugin.h" 2>/dev/null; then
+if grep -q "lush_plugin_manager_create" "$PROJECT_ROOT/include/lush_plugin.h" 2>/dev/null; then
     pass "Plugin manager API functions declared"
 else
-    fail "Plugin manager API should be declared" "lusush_plugin_manager_create" "not found"
+    fail "Plugin manager API should be declared" "lush_plugin_manager_create" "not found"
 fi
 
 # Test 24: Plugin define macro exists
-echo "Test 24: LUSUSH_PLUGIN_DEFINE macro"
-if grep -q "LUSUSH_PLUGIN_DEFINE" "$PROJECT_ROOT/include/lusush_plugin.h" 2>/dev/null; then
-    pass "LUSUSH_PLUGIN_DEFINE macro exists"
+echo "Test 24: LUSH_PLUGIN_DEFINE macro"
+if grep -q "LUSH_PLUGIN_DEFINE" "$PROJECT_ROOT/include/lush_plugin.h" 2>/dev/null; then
+    pass "LUSH_PLUGIN_DEFINE macro exists"
 else
-    fail "Plugin define macro should exist" "LUSUSH_PLUGIN_DEFINE" "not found"
+    fail "Plugin define macro should exist" "LUSH_PLUGIN_DEFINE" "not found"
 fi
 
 # Test 25: Plugin permissions enum
 echo "Test 25: Plugin permissions defined"
-if grep -q "lusush_plugin_permission_t" "$PROJECT_ROOT/include/lusush_plugin.h" 2>/dev/null; then
+if grep -q "lush_plugin_permission_t" "$PROJECT_ROOT/include/lush_plugin.h" 2>/dev/null; then
     pass "Plugin permission types defined"
 else
-    fail "Plugin permissions should be defined" "lusush_plugin_permission_t" "not found"
+    fail "Plugin permissions should be defined" "lush_plugin_permission_t" "not found"
 fi
 
 # ============================================================================
@@ -370,11 +370,11 @@ else
 fi
 
 # Test 27: Shell mode allows plugin feature
-echo "Test 27: Lusush mode enables plugin system"
+echo "Test 27: Lush mode enables plugin system"
 if grep -q '\[FEATURE_PLUGIN_SYSTEM\].*=.*true' "$PROJECT_ROOT/src/shell_mode.c" 2>/dev/null; then
-    pass "Plugin system enabled in Lusush mode"
+    pass "Plugin system enabled in Lush mode"
 else
-    skip "Plugin feature in Lusush mode" "Check shell_mode.c manually"
+    skip "Plugin feature in Lush mode" "Check shell_mode.c manually"
 fi
 
 # Test 28: Feature matrix includes all Phase 7 features

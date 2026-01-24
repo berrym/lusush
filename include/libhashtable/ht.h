@@ -8,7 +8,7 @@
  *
  * @author Michael Berry <trismegustis@gmail.com>
  * @copyright Copyright (C) 2023-2026 Michael Berry
- * @license MIT (relicensed for Lusush integration)
+ * @license MIT (relicensed for Lush integration)
  */
 
 #ifndef __HT_H__

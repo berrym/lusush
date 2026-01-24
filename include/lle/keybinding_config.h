@@ -6,7 +6,7 @@
  *
  * Provides user-customizable keybindings via configuration files.
  * Users can override default Emacs keybindings by creating:
- *   ~/.config/lusush/keybindings.toml
+ *   ~/.config/lush/keybindings.toml
  *
  * Example config:
  *   [bindings]
@@ -139,8 +139,8 @@ lle_action_registry_get_by_index(size_t index);
  * @brief Get user keybinding config file path
  *
  * Returns the path to the user's keybinding configuration file.
- * Checks $XDG_CONFIG_HOME/lusush/keybindings.toml first,
- * then falls back to ~/.config/lusush/keybindings.toml.
+ * Checks $XDG_CONFIG_HOME/lush/keybindings.toml first,
+ * then falls back to ~/.config/lush/keybindings.toml.
  *
  * @param buffer Output buffer for path
  * @param buffer_size Size of output buffer

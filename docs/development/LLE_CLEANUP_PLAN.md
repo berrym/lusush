@@ -179,7 +179,7 @@ src/lle/
 │   ├── terminal_error_handler.c
 │   ├── terminal_perf_monitor.c
 │   ├── terminal_signature_database.c
-│   └── terminal_lusush_client.c
+│   └── terminal_lush_client.c
 │
 ├── adaptive/            # Adaptive terminal (Spec 26)
 │   ├── adaptive_terminal_detection.c
@@ -240,7 +240,7 @@ src/lle/
 │   ├── history_search.c
 │   ├── history_interactive_search.c
 │   ├── history_expansion.c
-│   ├── history_lusush_bridge.c
+│   ├── history_lush_bridge.c
 │   ├── history_buffer_integration.c
 │   ├── history_buffer_bridge.c
 │   ├── history_events.c

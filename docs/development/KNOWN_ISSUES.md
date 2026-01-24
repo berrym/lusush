@@ -1,4 +1,4 @@
-# Lusush Known Issues and Blockers
+# Lush Known Issues and Blockers
 
 **Date**: 2026-01-23 (Updated: Session 125)  
 **Status**: Syntax highlighting and history expansion fixes  
@@ -101,11 +101,11 @@ echo 'nested "double" quotes!'   # Works
 | bash   | 63              | 63     | 24      | **100%** ✓ |
 | zsh    | 63              | 63     | 24      | **100%** ✓ |
 
-#### Lusush Results
+#### Lush Results
 
 | Mode | Applicable Tests | Passed | Failed | Pass Rate | Notes |
 |------|-----------------|--------|--------|-----------|-------|
-| `set -o lusush` (default) | 63 | 63 | 0 | **100%** ✓ | All tests passing |
+| `set -o lush` (default) | 63 | 63 | 0 | **100%** ✓ | All tests passing |
 | `set -o bash` | 63 | 63 | 0 | **100%** ✓ | Bash-compatible mode |
 | `set -o zsh` | 63 | 33 | 30 | **52%** | Zsh syntax not yet implemented |
 | `set -o posix` | 63 | 25 | 38 | **39%** | POSIX-only (expected) |
@@ -375,7 +375,7 @@ Add handling for `N<` pattern similar to how `N>` is handled, returning a `TOK_R
 **Component**: src/executor.c, src/redirection.c
 
 **Description**:
-When lusush is invoked inside a `$()` command substitution (subshell capture), file redirections produce empty files even though the same command works correctly when run directly.
+When lush is invoked inside a `$()` command substitution (subshell capture), file redirections produce empty files even though the same command works correctly when run directly.
 
 **Root Cause**:
 The switch from `exit()` to `_exit()` in forked child processes (to fix the pipeline infinite loop bug) caused stdio buffers not to be flushed. `_exit()` exits immediately without flushing buffers, so output redirected to files was lost.
@@ -413,10 +413,10 @@ Two issues were found:
 
 **Now Working** (matches bash/zsh behavior):
 ```bash
-$ ./build/lusush -c 'exec 3>/tmp/t.txt; exec 3>&-; echo test >&3'
+$ ./build/lush -c 'exec 3>/tmp/t.txt; exec 3>&-; echo test >&3'
 error[E1121]: 3: Bad file descriptor
 
-$ ./build/lusush -c 'echo test >&3; echo "exit: $?"'
+$ ./build/lush -c 'echo test >&3; echo "exit: $?"'
 error[E1121]: 3: Bad file descriptor
 
 exit: 1
@@ -434,7 +434,7 @@ exit: 1
 **Component**: src/builtins/builtins.c (bin_pwd)
 
 **Description**:
-The `pwd -P` option should print the physical path with all symlinks resolved, but lusush was returning the logical path instead.
+The `pwd -P` option should print the physical path with all symlinks resolved, but lush was returning the logical path instead.
 
 **Root Cause**:
 The `bin_pwd()` function only checked `shell_opts.physical_mode` global setting and completely ignored the `-P` and `-L` command-line options.
@@ -444,7 +444,7 @@ Added option parsing to `bin_pwd()` to handle `-P` (physical) and `-L` (logical)
 
 **Now Working** (matches bash/zsh behavior):
 ```bash
-$ ./build/lusush -c 'cd /tmp; pwd; pwd -P; pwd -L'
+$ ./build/lush -c 'cd /tmp; pwd; pwd -P; pwd -L'
 /tmp
 /private/tmp
 /tmp
@@ -550,7 +550,7 @@ The issue was observed once during transient prompt testing:
 2. Either accepted an autosuggestion and backspaced back to `ls`, OR dismissed an autosuggestion
 3. At some point, input stopped working entirely
 4. Cursor could not move, no characters accepted, Ctrl+G had no effect
-5. Required external kill of the lusush process
+5. Required external kill of the lush process
 
 **Symptoms**:
 - Shell appears frozen - no response to any keyboard input
@@ -806,7 +806,7 @@ Coprocess commands that read from stdin (like `cat`) block until they receive EO
 
 **Blocking Example**:
 ```bash
-#!/usr/bin/env lusush
+#!/usr/bin/env lush
 coproc cat              # Blocks - cat waits for stdin
 echo "never reached"
 ```
@@ -884,7 +884,7 @@ The brace expansion implementation requires a prefix before the brace group. Suf
 **Component**: src/builtins/builtins.c (bin_pushd, bin_popd, bin_dirs)
 
 **Description**:
-When running scripts with `lusush script.sh`, the pushd/popd/dirs builtins do not work correctly. The directory stack appears to reset or not persist between commands.
+When running scripts with `lush script.sh`, the pushd/popd/dirs builtins do not work correctly. The directory stack appears to reset or not persist between commands.
 
 **Working** (Interactive):
 ```bash
@@ -1154,7 +1154,7 @@ POSIX shell syntax allows `for var; do...done` without the `in` keyword, which i
 
 **Now Working**:
 ```bash
-$ ./build/lusush -c 'set -- a b c; for x; do echo $x; done'
+$ ./build/lush -c 'set -- a b c; for x; do echo $x; done'
 a
 b
 c
@@ -1179,7 +1179,7 @@ The ksh/bash-style function definition `function name { body; }` without parenth
 
 **Now Working**:
 ```bash
-$ ./build/lusush -c 'function foo { echo bar; }; foo'
+$ ./build/lush -c 'function foo { echo bar; }; foo'
 bar
 ```
 
@@ -1218,7 +1218,7 @@ Multiple leak sources fixed including pool malloc fallback tracking, history sys
 **Severity**: HIGH  
 **Discovered**: 2026-01-02 (Session 101 - Valgrind analysis)  
 **Fixed**: 2026-01-02 (Session 101)  
-**Component**: Multiple - parser.c, autocorrect.c, lusush.c, completion system  
+**Component**: Multiple - parser.c, autocorrect.c, lush.c, completion system  
 
 **Description**:
 Valgrind reported ~79KB of memory "definitely lost" during normal shell operation.
@@ -1504,7 +1504,7 @@ echo RESULT=$RESULT
 RESULT=$VAR
 ```
 
-**Actual (lusush)**:
+**Actual (lush)**:
 ```
 RESULT=value
 ```
@@ -1614,7 +1614,7 @@ A=1 B=2 C=3 cmd  # Multiple assignments still work correctly
 **Component**: src/tokenizer.c or src/executor.c
 
 **Description**:
-When multiple quoted strings are concatenated without spaces (a common shell idiom), lusush incorrectly outputs spaces between them instead of concatenating directly.
+When multiple quoted strings are concatenated without spaces (a common shell idiom), lush incorrectly outputs spaces between them instead of concatenating directly.
 
 **Not Working**:
 ```bash
@@ -1692,7 +1692,7 @@ Use ANSI-C quoting instead: `$'it\'s a test'`
 **Component**: src/builtins/printf.c
 
 **Description**:
-When `printf` is given more arguments than format specifiers, it should reuse the format string for remaining arguments. Lusush only processes arguments for the first iteration.
+When `printf` is given more arguments than format specifiers, it should reuse the format string for remaining arguments. Lush only processes arguments for the first iteration.
 
 **Not Working**:
 ```bash
@@ -1772,7 +1772,7 @@ The tokenizer stops scanning a word when it encounters `$` after `=`. The assign
 **Component**: src/executor.c (expand_if_needed)
 
 **Description**:
-Inside double quotes, `$'...'` should NOT be expanded - it should remain literal. However, lusush incorrectly expands ANSI-C quoting even when inside double quotes.
+Inside double quotes, `$'...'` should NOT be expanded - it should remain literal. However, lush incorrectly expands ANSI-C quoting even when inside double quotes.
 
 **Not Working**:
 ```bash
@@ -1888,7 +1888,7 @@ The array literal parsing may not properly handle `$'...'` tokens, or the expans
 **Component**: src/symtable.c or src/init.c
 
 **Description**:
-Several bash special variables that should have dynamic values are empty or unset in lusush.
+Several bash special variables that should have dynamic values are empty or unset in lush.
 
 **Not Working**:
 ```bash

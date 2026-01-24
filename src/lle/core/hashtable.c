@@ -70,7 +70,7 @@ void *lle_hashtable_key_copy_pooled(const void *key) {
 
     const char *key_str = (const char *)key;
     size_t key_len = strlen(key_str) + 1;
-    char *new_key = lusush_pool_alloc(key_len);
+    char *new_key = lush_pool_alloc(key_len);
     if (!new_key) {
         return NULL;
     }
@@ -103,7 +103,7 @@ void lle_hashtable_key_free_pooled(const void *key) {
 
     const char *key_str = (const char *)key;
     size_t key_len = strlen(key_str) + 1;
-    lusush_pool_free((void *)key);
+    lush_pool_free((void *)key);
 
     /* Update statistics */
     ctx->deallocations++;
@@ -131,7 +131,7 @@ void *lle_hashtable_value_copy_pooled(const void *value) {
 
     const char *value_str = (const char *)value;
     size_t value_len = strlen(value_str) + 1;
-    char *new_value = lusush_pool_alloc(value_len);
+    char *new_value = lush_pool_alloc(value_len);
     if (!new_value) {
         return NULL;
     }
@@ -164,7 +164,7 @@ void lle_hashtable_value_free_pooled(const void *value) {
 
     const char *value_str = (const char *)value;
     size_t value_len = strlen(value_str) + 1;
-    lusush_pool_free((void *)value);
+    lush_pool_free((void *)value);
 
     /* Update statistics */
     ctx->deallocations++;
@@ -216,7 +216,7 @@ void lle_hashtable_config_init_default(lle_hashtable_config_t *config) {
 
 lle_result_t
 lle_hashtable_config_create_pooled(lle_hashtable_config_t **config,
-                                   lusush_memory_pool_t *memory_pool,
+                                   lush_memory_pool_t *memory_pool,
                                    const char *name) {
     if (!config || !memory_pool) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -347,7 +347,7 @@ lle_result_t lle_hashtable_registry_remove(lle_hashtable_registry_t *registry,
  */
 
 lle_result_t lle_hashtable_factory_init(lle_hashtable_factory_t **factory,
-                                        lusush_memory_pool_t *memory_pool) {
+                                        lush_memory_pool_t *memory_pool) {
     if (!factory) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -405,7 +405,7 @@ void lle_hashtable_factory_destroy(lle_hashtable_factory_t *factory) {
 
 lle_result_t
 lle_hashtable_integrate_memory_pool(lle_hashtable_factory_t *factory,
-                                    lusush_memory_pool_t *memory_pool) {
+                                    lush_memory_pool_t *memory_pool) {
     if (!factory || !memory_pool) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -1010,7 +1010,7 @@ void lle_hashtable_reset_metrics(lle_strstr_hashtable_t *ht) {
  */
 
 lle_result_t lle_hashtable_system_init(lle_hashtable_system_t **system,
-                                       lusush_memory_pool_t *memory_pool) {
+                                       lush_memory_pool_t *memory_pool) {
     if (!system) {
         return LLE_ERROR_INVALID_PARAMETER;
     }

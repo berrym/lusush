@@ -36,7 +36,7 @@
 
 ### 1.1 Purpose
 
-The Extensibility Framework provides the foundational architecture for unlimited customization and enhancement of the Lusush Line Editor (LLE), enabling third-party plugins, user-defined widgets, dynamic feature registration, widget lifecycle hooks, custom keybindings, history editing callbacks, and completion source plugins with enterprise-grade security and performance.
+The Extensibility Framework provides the foundational architecture for unlimited customization and enhancement of the Lush Line Editor (LLE), enabling third-party plugins, user-defined widgets, dynamic feature registration, widget lifecycle hooks, custom keybindings, history editing callbacks, and completion source plugins with enterprise-grade security and performance.
 
 ### 1.2 Key Features
 

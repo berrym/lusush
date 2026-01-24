@@ -11,7 +11,7 @@
 3. [Internal State Authority Model](#3-internal-state-authority-model)
 4. [Terminal Capability Detection](#4-terminal-capability-detection)
 5. [Display Content Generation](#5-display-content-generation)
-6. [Lusush Display Layer Integration](#6-lusush-display-layer-integration)
+6. [Lush Display Layer Integration](#6-lush-display-layer-integration)
 7. [Input Event Processing](#7-input-event-processing)
 8. [Unix Terminal Interface](#8-unix-terminal-interface)
 9. [Error Handling and Recovery](#9-error-handling-and-recovery)
@@ -29,15 +29,15 @@ This specification defines the LLE Terminal State Abstraction Layer based on res
 ### 1.2 Key Features
 
 - **Internal State Authority**: LLE internal model is authoritative, never queries terminal state
-- **Display Layer Client**: Renders through Lusush display system, never directly controls terminal
+- **Display Layer Client**: Renders through Lush display system, never directly controls terminal
 - **One-time Capability Detection**: Environment/terminfo-based capability detection at initialization only
-- **Atomic Display Updates**: Generates complete display content for Lusush rendering system
-- **Terminal Abstraction**: All terminal interaction abstracted through Lusush display layer
+- **Atomic Display Updates**: Generates complete display content for Lush rendering system
+- **Terminal Abstraction**: All terminal interaction abstracted through Lush display layer
 
 ### 1.3 Critical Design Principles
 
 1. **NEVER query terminal state during operation** - Internal model is single source of truth
-2. **NEVER send direct escape sequences** - All terminal interaction through Lusush display
+2. **NEVER send direct escape sequences** - All terminal interaction through Lush display
 3. **NEVER assume terminal cursor position** - Calculate from internal buffer state
 4. **NEVER track terminal state changes** - Generate complete display content each update
 5. **Internal buffer state is authoritative** - Command buffer is single source of editing state
@@ -56,8 +56,8 @@ typedef struct lle_terminal_abstraction {
     // Display Content Generation System
     lle_display_generator_t *display_generator;
     
-    // Lusush Display Layer Integration
-    lle_lusush_display_client_t *display_client;
+    // Lush Display Layer Integration
+    lle_lush_display_client_t *display_client;
     
     // Terminal Capability Model (detected once at startup)
     lle_terminal_capabilities_t *capabilities;
@@ -81,7 +81,7 @@ typedef struct lle_terminal_abstraction {
 
 ```c
 lle_result_t lle_terminal_abstraction_init(lle_terminal_abstraction_t **abstraction,
-                                           lusush_display_context_t *lusush_display) {
+                                           lush_display_context_t *lush_display) {
     lle_terminal_abstraction_t *abs = NULL;
     lle_result_t result = LLE_SUCCESS;
     
@@ -127,9 +127,9 @@ lle_result_t lle_terminal_abstraction_init(lle_terminal_abstraction_t **abstract
         return result;
     }
     
-    // Step 6: Initialize as Lusush display layer client
-    result = lle_lusush_display_client_init(&abs->display_client,
-                                            lusush_display,
+    // Step 6: Initialize as Lush display layer client
+    result = lle_lush_display_client_init(&abs->display_client,
+                                            lush_display,
                                             abs->capabilities);
     if (result != LLE_SUCCESS) {
         lle_display_generator_destroy(abs->display_generator);
@@ -145,7 +145,7 @@ lle_result_t lle_terminal_abstraction_init(lle_terminal_abstraction_t **abstract
                                       abs->capabilities,
                                       abs->unix_interface);
     if (result != LLE_SUCCESS) {
-        lle_lusush_display_client_destroy(abs->display_client);
+        lle_lush_display_client_destroy(abs->display_client);
         lle_display_generator_destroy(abs->display_generator);
         lle_internal_state_destroy(abs->internal_state);
         lle_capabilities_destroy(abs->capabilities);
@@ -159,7 +159,7 @@ lle_result_t lle_terminal_abstraction_init(lle_terminal_abstraction_t **abstract
     if (result != LLE_SUCCESS) {
         // Cleanup all previous components
         lle_input_processor_destroy(abs->input_processor);
-        lle_lusush_display_client_destroy(abs->display_client);
+        lle_lush_display_client_destroy(abs->display_client);
         lle_display_generator_destroy(abs->display_generator);
         lle_internal_state_destroy(abs->internal_state);
         lle_capabilities_destroy(abs->capabilities);
@@ -172,7 +172,7 @@ lle_result_t lle_terminal_abstraction_init(lle_terminal_abstraction_t **abstract
     if (result != LLE_SUCCESS) {
         lle_error_context_destroy(abs->error_ctx);
         lle_input_processor_destroy(abs->input_processor);
-        lle_lusush_display_client_destroy(abs->display_client);
+        lle_lush_display_client_destroy(abs->display_client);
         lle_display_generator_destroy(abs->display_generator);
         lle_internal_state_destroy(abs->internal_state);
         lle_capabilities_destroy(abs->capabilities);
@@ -537,7 +537,7 @@ typedef struct lle_display_generator {
     
 } lle_display_generator_t;
 
-// Display content structure - what gets sent to Lusush display system
+// Display content structure - what gets sent to Lush display system
 typedef struct lle_display_content {
     // Complete display lines
     lle_display_line_t *lines;
@@ -696,16 +696,16 @@ static lle_result_t lle_generate_display_lines(lle_display_generator_t *generato
 
 ---
 
-## 6. Lusush Display Layer Integration
+## 6. Lush Display Layer Integration
 
 ### 6.1 Display Layer Client Architecture
 
 ```c
-// LLE as Lusush Display Layer Client - NEVER direct terminal control
-typedef struct lle_lusush_display_client {
-    // Lusush display system integration
-    lusush_display_context_t *display_context;
-    lusush_display_layer_t *lle_display_layer;
+// LLE as Lush Display Layer Client - NEVER direct terminal control
+typedef struct lle_lush_display_client {
+    // Lush display system integration
+    lush_display_context_t *display_context;
+    lush_display_layer_t *lle_display_layer;
     
     // LLE-specific layer configuration
     lle_layer_config_t layer_config;
@@ -717,17 +717,17 @@ typedef struct lle_lusush_display_client {
     uint64_t last_submission_time;
     uint64_t submission_count;
     
-} lle_lusush_display_client_t;
+} lle_lush_display_client_t;
 
-// Initialize as Lusush display layer client
-lle_result_t lle_lusush_display_client_init(lle_lusush_display_client_t **client,
-                                           lusush_display_context_t *display_context,
+// Initialize as Lush display layer client
+lle_result_t lle_lush_display_client_init(lle_lush_display_client_t **client,
+                                           lush_display_context_t *display_context,
                                            lle_terminal_capabilities_t *capabilities) {
     if (!client || !display_context || !capabilities) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    lle_lusush_display_client_t *display_client = calloc(1, sizeof(lle_lusush_display_client_t));
+    lle_lush_display_client_t *display_client = calloc(1, sizeof(lle_lush_display_client_t));
     if (!display_client) {
         return LLE_ERROR_MEMORY_ALLOCATION;
     }
@@ -736,21 +736,21 @@ lle_result_t lle_lusush_display_client_init(lle_lusush_display_client_t **client
     display_client->display_context = display_context;
     display_client->capabilities = capabilities;
     
-    // Register as display layer with Lusush
+    // Register as display layer with Lush
     lle_layer_config_t config = {
         .layer_name = "lle_editing",
-        .layer_priority = LUSUSH_LAYER_PRIORITY_EDITING, // Above prompt, below debug
+        .layer_priority = LUSH_LAYER_PRIORITY_EDITING, // Above prompt, below debug
         .supports_transparency = true,
         .requires_full_refresh = false,
         .color_capabilities = capabilities->detected_color_depth
     };
     
-    lusush_result_t result = lusush_display_register_layer(display_context,
+    lush_result_t result = lush_display_register_layer(display_context,
                                                           &config,
                                                           &display_client->lle_display_layer);
-    if (result != LUSUSH_SUCCESS) {
+    if (result != LUSH_SUCCESS) {
         free(display_client);
-        return lle_convert_lusush_error(result);
+        return lle_convert_lush_error(result);
     }
     
     display_client->layer_config = config;
@@ -759,64 +759,64 @@ lle_result_t lle_lusush_display_client_init(lle_lusush_display_client_t **client
     return LLE_SUCCESS;
 }
 
-// Submit display content to Lusush display system
-lle_result_t lle_lusush_display_client_submit_content(lle_lusush_display_client_t *client,
+// Submit display content to Lush display system
+lle_result_t lle_lush_display_client_submit_content(lle_lush_display_client_t *client,
                                                      lle_display_content_t *content) {
     if (!client || !content) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    // Convert LLE display content to Lusush display format
-    lusush_layer_content_t *lusush_content = NULL;
-    lle_result_t result = lle_convert_to_lusush_content(content, 
+    // Convert LLE display content to Lush display format
+    lush_layer_content_t *lush_content = NULL;
+    lle_result_t result = lle_convert_to_lush_content(content, 
                                                        client->capabilities,
-                                                       &lusush_content);
+                                                       &lush_content);
     if (result != LLE_SUCCESS) {
         return result;
     }
     
-    // Submit to Lusush display layer
-    lusush_result_t lusush_result = lusush_display_layer_update(client->lle_display_layer,
-                                                               lusush_content);
+    // Submit to Lush display layer
+    lush_result_t lush_result = lush_display_layer_update(client->lle_display_layer,
+                                                               lush_content);
     
     // Update tracking
     client->last_submission_time = lle_get_current_time_microseconds();
     client->submission_count++;
     
     // Cleanup converted content
-    lusush_layer_content_destroy(lusush_content);
+    lush_layer_content_destroy(lush_content);
     
-    if (lusush_result != LUSUSH_SUCCESS) {
-        return lle_convert_lusush_error(lusush_result);
+    if (lush_result != LUSH_SUCCESS) {
+        return lle_convert_lush_error(lush_result);
     }
     
     return LLE_SUCCESS;
 }
 
-// Convert LLE display content to Lusush format
-static lle_result_t lle_convert_to_lusush_content(lle_display_content_t *lle_content,
+// Convert LLE display content to Lush format
+static lle_result_t lle_convert_to_lush_content(lle_display_content_t *lle_content,
                                                   lle_terminal_capabilities_t *caps,
-                                                  lusush_layer_content_t **lusush_content) {
-    lusush_layer_content_t *content = calloc(1, sizeof(lusush_layer_content_t));
+                                                  lush_layer_content_t **lush_content) {
+    lush_layer_content_t *content = calloc(1, sizeof(lush_layer_content_t));
     if (!content) {
         return LLE_ERROR_MEMORY_ALLOCATION;
     }
     
     // Convert display lines
     content->line_count = lle_content->line_count;
-    content->lines = calloc(content->line_count, sizeof(lusush_display_line_t));
+    content->lines = calloc(content->line_count, sizeof(lush_display_line_t));
     if (!content->lines) {
         free(content);
         return LLE_ERROR_MEMORY_ALLOCATION;
     }
     
     for (size_t i = 0; i < lle_content->line_count; i++) {
-        // Convert each LLE display line to Lusush format
+        // Convert each LLE display line to Lush format
         lle_result_t result = lle_convert_display_line(&lle_content->lines[i],
                                                       caps,
                                                       &content->lines[i]);
         if (result != LLE_SUCCESS) {
-            lusush_layer_content_destroy(content);
+            lush_layer_content_destroy(content);
             return result;
         }
     }
@@ -830,7 +830,7 @@ static lle_result_t lle_convert_to_lusush_content(lle_display_content_t *lle_con
     content->generation_time = lle_content->generation_time;
     content->is_complete = lle_content->is_complete_refresh;
     
-    *lusush_content = content;
+    *lush_content = content;
     return LLE_SUCCESS;
 }
 ```
@@ -1198,7 +1198,7 @@ lle_result_t lle_error_context_handle_error(lle_error_context_t *ctx,
 
 - **Internal State Updates**: < 100μs average (no terminal interaction)
 - **Display Content Generation**: < 500μs average (pure computation)
-- **Lusush Display Submission**: < 1ms average (display layer coordination)  
+- **Lush Display Submission**: < 1ms average (display layer coordination)  
 - **Input Event Processing**: < 250μs average (buffer operations only)
 - **Memory Usage**: < 32KB for internal state model
 - **CPU Usage**: < 0.5% during idle, < 2% during active editing
@@ -1232,7 +1232,7 @@ typedef struct lle_test_suite {
     bool (*test_cursor_calculation_accuracy)(void);
     
     // Display Layer Client Tests  
-    bool (*test_lusush_display_integration)(void);
+    bool (*test_lush_display_integration)(void);
     bool (*test_display_content_generation)(void);
     bool (*test_no_direct_terminal_control)(void);
     
@@ -1260,7 +1260,7 @@ typedef struct lle_test_suite {
 
 1. **NO Terminal State Queries**: Validate that no terminal queries occur during operation
 2. **Internal State Authority**: Validate that internal model is single source of truth  
-3. **Display Layer Client Only**: Validate that all terminal interaction goes through Lusush
+3. **Display Layer Client Only**: Validate that all terminal interaction goes through Lush
 4. **Performance Compliance**: Validate sub-millisecond response times achieved
 5. **Memory Safety**: Validate no memory leaks or buffer overflows
 6. **Cross-Terminal Compatibility**: Validate works across different terminal types

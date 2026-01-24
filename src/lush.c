@@ -1,8 +1,8 @@
 /**
- * @file lusush.c
- * @brief Lusush - A modern Unix shell with native line editing
+ * @file lush.c
+ * @brief Lush - A modern Unix shell with native line editing
  *
- * Main entry point and REPL (Read-Eval-Print Loop) for the Lusush shell.
+ * Main entry point and REPL (Read-Eval-Print Loop) for the Lush shell.
  * Handles command line parsing, interactive mode, and script execution.
  *
  * @author Michael Berry <trismegustis@gmail.com>
@@ -11,7 +11,7 @@
  *
  */
 
-#include "lusush.h"
+#include "lush.h"
 
 #include "config.h"
 #include "display_integration.h"
@@ -82,7 +82,7 @@ void executor_update_job_status(executor_t *executor);
 static executor_t *global_executor = NULL;
 
 /**
- * @brief Main entry point for the Lusush shell
+ * @brief Main entry point for the Lush shell
  *
  * Initializes the shell environment, handles command-line options,
  * and runs the main read-eval-print loop (REPL) for interactive sessions
@@ -305,7 +305,7 @@ int parse_and_execute(const char *command) {
     // Print error messages to stderr if there were any errors
     // (Skip if error_message is NULL - means it was already displayed via structured system)
     if (executor_has_error(global_executor) && executor_error(global_executor)) {
-        fprintf(stderr, "lusush: %s\n", executor_error(global_executor));
+        fprintf(stderr, "lush: %s\n", executor_error(global_executor));
         fflush(stderr);
     }
 

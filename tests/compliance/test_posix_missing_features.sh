@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# POSIX Compliance Gap Analysis for Lusush Shell
+# POSIX Compliance Gap Analysis for Lush Shell
 # Tests for missing or incomplete POSIX features that need to be implemented
 
 set -e
 
-SHELL_PATH="./build/lusush"
+SHELL_PATH="./build/lush"
 TEST_COUNT=0
 PASSED_COUNT=0
 FAILED_COUNT=0
@@ -20,7 +20,7 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 echo -e "${CYAN}===============================================================================${NC}"
-echo -e "${CYAN}LUSUSH POSIX COMPLIANCE GAP ANALYSIS${NC}"
+echo -e "${CYAN}LUSH POSIX COMPLIANCE GAP ANALYSIS${NC}"
 echo -e "${CYAN}===============================================================================${NC}"
 echo "Testing shell: $SHELL_PATH"
 echo "Identifying missing or incomplete POSIX features"

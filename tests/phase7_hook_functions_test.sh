@@ -2,7 +2,7 @@
 # Phase 7 Hook Functions Test Suite
 # Tests precmd, preexec, and chpwd hook functions
 
-LUSUSH="./build/lusush"
+LUSH="./build/lush"
 PASSED=0
 FAILED=0
 
@@ -28,9 +28,9 @@ skip() {
     echo -e "${YELLOW}SKIP${NC}: $1"
 }
 
-# Helper function to run lusush in interactive mode with piped input
-run_lusush() {
-    echo "$1" | timeout 5 $LUSUSH -i 2>&1 | grep -v '^\$' | grep -v '^mberry@' | grep -v '^$'
+# Helper function to run lush in interactive mode with piped input
+run_lush() {
+    echo "$1" | timeout 5 $LUSH -i 2>&1 | grep -v '^\$' | grep -v '^mberry@' | grep -v '^$'
 }
 
 echo "========================================"
@@ -40,7 +40,7 @@ echo ""
 
 # Test 1: precmd function is called after command
 echo "Test 1: precmd hook called after command"
-OUTPUT=$(run_lusush '
+OUTPUT=$(run_lush '
 precmd() { echo "PRECMD_CALLED"; }
 echo "command1"
 ')
@@ -52,7 +52,7 @@ fi
 
 # Test 2: preexec function receives command as $1
 echo "Test 2: preexec hook receives command string"
-OUTPUT=$(run_lusush '
+OUTPUT=$(run_lush '
 preexec() { echo "PREEXEC: $1"; }
 echo hello
 ')
@@ -64,7 +64,7 @@ fi
 
 # Test 3: chpwd function is called after cd
 echo "Test 3: chpwd hook called after cd"
-OUTPUT=$(run_lusush '
+OUTPUT=$(run_lush '
 chpwd() { echo "CHPWD: $PWD"; }
 cd /tmp
 ')
@@ -76,7 +76,7 @@ fi
 
 # Test 4: Multiple hooks work together
 echo "Test 4: Multiple hooks defined simultaneously"
-OUTPUT=$(run_lusush '
+OUTPUT=$(run_lush '
 precmd() { echo "PRE"; }
 chpwd() { echo "CHG"; }
 cd /tmp
@@ -90,7 +90,7 @@ fi
 
 # Test 5: Hook function can access shell variables
 echo "Test 5: Hook functions can access shell variables"
-OUTPUT=$(run_lusush '
+OUTPUT=$(run_lush '
 MYVAR="hello_world"
 precmd() { echo "VAR=$MYVAR"; }
 echo trigger
@@ -103,7 +103,7 @@ fi
 
 # Test 6: Hook function can modify shell variables
 echo "Test 6: Hook functions can modify shell variables"
-OUTPUT=$(run_lusush '
+OUTPUT=$(run_lush '
 COUNTER=0
 precmd() { COUNTER=$((COUNTER + 1)); echo "COUNT=$COUNTER"; }
 echo first
@@ -117,7 +117,7 @@ fi
 
 # Test 7: chpwd hook gets correct PWD
 echo "Test 7: chpwd hook sees correct PWD after cd"
-OUTPUT=$(run_lusush '
+OUTPUT=$(run_lush '
 chpwd() { echo "NEW_PWD=$PWD"; }
 cd /tmp
 ')
@@ -129,7 +129,7 @@ fi
 
 # Test 8: Hook with return value
 echo "Test 8: Hook function return value"
-OUTPUT=$(run_lusush '
+OUTPUT=$(run_lush '
 precmd() { return 42; }
 echo test
 echo "Exit: $?"
@@ -143,7 +143,7 @@ fi
 
 # Test 9: Hook function can be undefined (unset -f)
 echo "Test 9: Hook function can be undefined"
-OUTPUT=$(run_lusush '
+OUTPUT=$(run_lush '
 precmd() { echo "HOOK_ACTIVE"; }
 echo first
 unset -f precmd
@@ -158,7 +158,7 @@ fi
 
 # Test 10: Hook function redefinition
 echo "Test 10: Hook function can be redefined"
-OUTPUT=$(run_lusush '
+OUTPUT=$(run_lush '
 precmd() { echo "VERSION1"; }
 echo test1
 precmd() { echo "VERSION2"; }
@@ -172,7 +172,7 @@ fi
 
 # Test 11: Recursive hook prevention
 echo "Test 11: Recursive hooks are prevented"
-OUTPUT=$(run_lusush '
+OUTPUT=$(run_lush '
 precmd() { echo "IN_PRECMD"; echo trigger_nested; }
 echo start
 ')
@@ -187,7 +187,7 @@ fi
 
 # Test 12: chpwd with cd failure should not trigger
 echo "Test 12: chpwd not triggered on cd failure"
-OUTPUT=$(run_lusush '
+OUTPUT=$(run_lush '
 chpwd() { echo "CHPWD_TRIGGERED"; }
 cd /nonexistent_directory_12345 2>/dev/null
 echo "done"

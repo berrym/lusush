@@ -1,5 +1,5 @@
 /*
- * Stub implementations for lusush dependencies
+ * Stub implementations for lush dependencies
  *
  * These stubs provide minimal implementations of functions needed by
  * continuation_prompt_layer tests but not directly relevant to testing

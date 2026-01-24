@@ -10,16 +10,16 @@
 # - Pipe stderr |& - pipe both stdout and stderr
 # - Append both &>> - append stdout and stderr to file
 #
-# Author: AI Assistant for Lusush Extended Language Implementation
+# Author: AI Assistant for Lush Extended Language Implementation
 # =============================================================================
 
 set -euo pipefail
 
-# Get absolute path to lusush binary
+# Get absolute path to lush binary
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-LUSUSH="${1:-$PROJECT_DIR/build/lusush}"
-TEST_DIR="/tmp/lusush_phase3_test_$$"
+LUSH="${1:-$PROJECT_DIR/build/lush}"
+TEST_DIR="/tmp/lush_phase3_test_$$"
 TOTAL_TESTS=0
 PASSED_TESTS=0
 FAILED_TESTS=0
@@ -71,14 +71,14 @@ test_result() {
     fi
 }
 
-# Helper to run lusush command and check output
+# Helper to run lush command and check output
 run_test() {
     local test_name="$1"
     local command="$2"
     local expected="$3"
 
     local output
-    output=$(echo "$command" | "$LUSUSH" 2>&1) || true
+    output=$(echo "$command" | "$LUSH" 2>&1) || true
 
     if [[ "$output" == "$expected" ]]; then
         test_result "$test_name" 0
@@ -94,7 +94,7 @@ run_contains_test() {
     local expected="$3"
 
     local output
-    output=$(echo "$command" | "$LUSUSH" 2>&1) || true
+    output=$(echo "$command" | "$LUSH" 2>&1) || true
 
     if [[ "$output" == *"$expected"* ]]; then
         test_result "$test_name" 0
@@ -108,7 +108,7 @@ run_success_test() {
     local test_name="$1"
     local command="$2"
 
-    if echo "$command" | "$LUSUSH" >/dev/null 2>&1; then
+    if echo "$command" | "$LUSH" >/dev/null 2>&1; then
         test_result "$test_name" 0
     else
         test_result "$test_name" 1
@@ -239,13 +239,13 @@ test_append_both() {
     rm -f "$testfile"
 
     # First append - stdout (use timeout to prevent hanging)
-    timeout 5 "$LUSUSH" -c 'echo "stdout line" &>> '"$testfile" 2>&1 || true
+    timeout 5 "$LUSH" -c 'echo "stdout line" &>> '"$testfile" 2>&1 || true
 
     # Second append - another stdout
-    timeout 5 "$LUSUSH" -c 'echo "stdout line 2" &>> '"$testfile" 2>&1 || true
+    timeout 5 "$LUSH" -c 'echo "stdout line 2" &>> '"$testfile" 2>&1 || true
 
     # Third append - stderr
-    timeout 5 "$LUSUSH" -c 'ls /nonexistent_abc_123 &>> '"$testfile" 2>&1 || true
+    timeout 5 "$LUSH" -c 'ls /nonexistent_abc_123 &>> '"$testfile" 2>&1 || true
 
     # Check file contents
     if [[ -f "$testfile" ]]; then
@@ -281,8 +281,8 @@ test_append_both() {
     rm -f "$testfile2"
 
     # Use &> to overwrite
-    timeout 5 "$LUSUSH" -c 'echo "first" &> '"$testfile2" 2>&1 || true
-    timeout 5 "$LUSUSH" -c 'echo "second" &> '"$testfile2" 2>&1 || true
+    timeout 5 "$LUSH" -c 'echo "first" &> '"$testfile2" 2>&1 || true
+    timeout 5 "$LUSH" -c 'echo "second" &> '"$testfile2" 2>&1 || true
 
     if [[ -f "$testfile2" ]]; then
         local content2
@@ -348,11 +348,11 @@ test_syntax() {
 main() {
     print_header "PHASE 3: PROCESS SUBSTITUTION AND EXTENDED PIPES TESTS"
 
-    echo -e "${CYAN}Lusush binary: $LUSUSH${NC}"
+    echo -e "${CYAN}Lush binary: $LUSH${NC}"
 
-    # Check if lusush exists
-    if [[ ! -x "$LUSUSH" ]]; then
-        echo -e "${RED}Error: Lusush binary not found or not executable: $LUSUSH${NC}"
+    # Check if lush exists
+    if [[ ! -x "$LUSH" ]]; then
+        echo -e "${RED}Error: Lush binary not found or not executable: $LUSH${NC}"
         exit 1
     fi
 

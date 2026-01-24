@@ -1,6 +1,6 @@
 /**
  * @file symtable.c
- * @brief Optimized Symbol Table Implementation for Lusush Shell
+ * @brief Optimized Symbol Table Implementation for Lush Shell
  *
  * This module provides a high-performance symbol table system that leverages
  * libhashtable's ht_strstr_t interface while maintaining full POSIX shell
@@ -25,7 +25,7 @@
 #include "symtable.h"
 
 #include "ht.h"
-#include "lusush.h"
+#include "lush.h"
 #include "shell_mode.h"
 
 #include <stdbool.h>

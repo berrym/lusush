@@ -20,12 +20,12 @@ extern "C" {
 #endif
 
 /* Mock memory pool type - simple stub */
-typedef struct lusush_memory_pool_system_t {
+typedef struct lush_memory_pool_system_t {
     int dummy;
-} lusush_memory_pool_system_t;
+} lush_memory_pool_system_t;
 
-typedef lusush_memory_pool_system_t lusush_memory_pool_t;
-typedef lusush_memory_pool_system_t lle_memory_pool_t;
+typedef lush_memory_pool_system_t lush_memory_pool_t;
+typedef lush_memory_pool_system_t lle_memory_pool_t;
 
 /* Mock optimizer type to satisfy performance.h dependencies */
 typedef struct lle_memory_optimizer {
@@ -33,13 +33,13 @@ typedef struct lle_memory_optimizer {
 } lle_memory_optimizer_t;
 
 /* Global memory pool instance */
-extern lusush_memory_pool_t *global_memory_pool;
+extern lush_memory_pool_t *global_memory_pool;
 
 /* Mock memory pool functions */
 void *lle_pool_alloc(size_t size);
 void lle_pool_free(void *ptr);
-void *lusush_pool_alloc(lusush_memory_pool_t *pool, size_t size);
-void lusush_pool_free(lusush_memory_pool_t *pool, void *ptr);
+void *lush_pool_alloc(lush_memory_pool_t *pool, size_t size);
+void lush_pool_free(lush_memory_pool_t *pool, void *ptr);
 
 /* LLE memory pool API */
 lle_memory_pool_t *lle_pool_create(void);

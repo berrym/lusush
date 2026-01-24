@@ -1,6 +1,6 @@
 /**
  * @file autocorrect.h
- * @brief Auto-Correction System for Lusush Shell
+ * @brief Auto-Correction System for Lush Shell
  *
  * Intelligent command spell checking and correction suggestions.
  * Provides "Did you mean...?" functionality with user confirmation prompts.

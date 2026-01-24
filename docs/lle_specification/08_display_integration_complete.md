@@ -33,15 +33,15 @@
 
 ### 1.1 Purpose
 
-The Display Integration system provides seamless integration between the Lusush Line Editor (LLE) and the existing Lusush layered display architecture, enabling real-time command editing with syntax highlighting, autosuggestions, and theme support while maintaining universal prompt compatibility and enterprise-grade performance.
+The Display Integration system provides seamless integration between the Lush Line Editor (LLE) and the existing Lush layered display architecture, enabling real-time command editing with syntax highlighting, autosuggestions, and theme support while maintaining universal prompt compatibility and enterprise-grade performance.
 
 ### 1.2 Key Features
 
-- **Seamless LLE Integration**: Direct integration with Lusush's proven layered display system
+- **Seamless LLE Integration**: Direct integration with Lush's proven layered display system
 - **Real-time Command Editing**: Live buffer updates with immediate visual feedback
 - **Universal Prompt Compatibility**: Works with ANY existing prompt structure without modification
 - **Performance Excellence**: Sub-millisecond display updates with intelligent caching
-- **Theme System Integration**: Complete compatibility with all existing Lusush themes
+- **Theme System Integration**: Complete compatibility with all existing Lush themes
 - **Memory Pool Integration**: Zero-allocation display operations with pool management
 - **Terminal Universality**: Consistent behavior across all terminal types and capabilities
 
@@ -54,15 +54,15 @@ implementations (JLine, ZSH ZLE, Fish, Rustyline).
 **Key Research Compliance Principles:**
 - **Internal State Authority**: LLE buffer and cursor state is authoritative
 - **No Terminal Queries**: Never queries terminal for state information  
-- **Display Layer Client**: Renders through lusush display system, not direct terminal
-- **Atomic Operations**: All display updates coordinated through lusush composition engine
+- **Display Layer Client**: Renders through lush display system, not direct terminal
+- **Atomic Operations**: All display updates coordinated through lush composition engine
 - **Terminal Abstraction**: Terminal differences handled through capability adapter pattern
 
 Reference: LLE_TERMINAL_STATE_MANAGEMENT_RESEARCH.md
 
 ### 1.4 Implementation Success Probability
 
-Based on research-validated architecture compliance and proven lusush display system 
+Based on research-validated architecture compliance and proven lush display system 
 integration, this specification achieves an estimated **90-92% implementation success 
 probability**, representing the highest confidence level for LLE implementation success.
 
@@ -71,7 +71,7 @@ probability**, representing the highest confidence level for LLE implementation 
 1. **Zero Regression Policy**: All existing display functionality preserved and enhanced
 2. **Universal Compatibility**: Works with any prompt structure or theme configuration
 3. **Performance Excellence**: Display updates must not degrade editor responsiveness
-4. **Memory Efficiency**: Complete integration with Lusush memory pool architecture
+4. **Memory Efficiency**: Complete integration with Lush memory pool architecture
 5. **Event-Driven Architecture**: Responsive to all LLE buffer and cursor changes
 
 ---
@@ -89,10 +89,10 @@ typedef struct lle_display_integration {
     lle_display_cache_t *display_cache;           // Intelligent display state caching
     lle_composition_manager_t *comp_manager;      // Display layer composition management
     
-    // Lusush system integration
-    display_controller_t *lusush_display;         // Existing Lusush display controller
+    // Lush system integration
+    display_controller_t *lush_display;         // Existing Lush display controller
     theme_manager_t *theme_system;                // Existing theme system
-    memory_pool_t *memory_pool;                   // Lusush memory pool
+    memory_pool_t *memory_pool;                   // Lush memory pool
     
     // Performance and coordination
     lle_display_metrics_t *perf_metrics;          // Display performance monitoring
@@ -115,17 +115,17 @@ typedef struct lle_display_integration {
 ### 2.2 Display Bridge Architecture
 
 ```c
-// Bridge between LLE buffer system and Lusush display layers
+// Bridge between LLE buffer system and Lush display layers
 typedef struct lle_display_bridge {
     // LLE system connections
     lle_buffer_t *active_buffer;                  // Currently active editing buffer
     lle_cursor_position_t *cursor_pos;            // Current cursor position
     lle_event_manager_t *lle_events;              // LLE event system
     
-    // Lusush display connections
-    command_layer_t *command_layer;               // Lusush command display layer
-    composition_engine_t *composition_engine;     // Lusush composition engine
-    layer_event_system_t *layer_events;           // Lusush layer event system
+    // Lush display connections
+    command_layer_t *command_layer;               // Lush command display layer
+    composition_engine_t *composition_engine;     // Lush composition engine
+    layer_event_system_t *layer_events;           // Lush layer event system
     
     // Bridge state management
     lle_display_sync_state_t sync_state;          // Synchronization state tracking
@@ -153,13 +153,13 @@ typedef struct lle_display_bridge {
 // Complete display integration system initialization with comprehensive setup
 lle_result_t lle_display_integration_init(lle_display_integration_t **integration,
                                           lle_editor_t *editor,
-                                          display_controller_t *lusush_display,
+                                          display_controller_t *lush_display,
                                           memory_pool_t *memory_pool) {
     lle_result_t result = LLE_SUCCESS;
     lle_display_integration_t *integ = NULL;
     
     // Step 1: Validate critical parameters
-    if (!integration || !editor || !lusush_display || !memory_pool) {
+    if (!integration || !editor || !lush_display || !memory_pool) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
@@ -177,12 +177,12 @@ lle_result_t lle_display_integration_init(lle_display_integration_t **integratio
     }
     
     // Step 4: Store core system references
-    integ->lusush_display = lusush_display;
+    integ->lush_display = lush_display;
     integ->memory_pool = memory_pool;
     integ->api_version = LLE_DISPLAY_API_VERSION;
     
     // Step 5: Initialize display bridge with comprehensive error checking
-    result = lle_display_create_bridge(&integ->display_bridge, editor, lusush_display, memory_pool);
+    result = lle_display_create_bridge(&integ->display_bridge, editor, lush_display, memory_pool);
     if (result != LLE_SUCCESS) {
         pthread_rwlock_destroy(&integ->integration_lock);
         memory_pool_free(memory_pool, integ);
@@ -209,7 +209,7 @@ lle_result_t lle_display_integration_init(lle_display_integration_t **integratio
     }
     
     // Step 8: Initialize composition manager for layer coordination
-    result = lle_composition_manager_init(&integ->comp_manager, lusush_display, memory_pool);
+    result = lle_composition_manager_init(&integ->comp_manager, lush_display, memory_pool);
     if (result != LLE_SUCCESS) {
         lle_display_cache_cleanup(integ->display_cache);
         lle_render_controller_cleanup(integ->render_controller);
@@ -233,7 +233,7 @@ lle_result_t lle_display_integration_init(lle_display_integration_t **integratio
     }
     
     // Step 10: Initialize event coordination system
-    result = lle_event_coordinator_init(&integ->event_coordinator, editor, lusush_display, memory_pool);
+    result = lle_event_coordinator_init(&integ->event_coordinator, editor, lush_display, memory_pool);
     if (result != LLE_SUCCESS) {
         lle_display_metrics_cleanup(integ->perf_metrics);
         lle_composition_manager_cleanup(integ->comp_manager);
@@ -246,7 +246,7 @@ lle_result_t lle_display_integration_init(lle_display_integration_t **integratio
     }
     
     // Step 11: Initialize terminal adapter for universal compatibility
-    result = lle_display_init_terminal_adapter(&integ->terminal_adapter, lusush_display, memory_pool);
+    result = lle_display_init_terminal_adapter(&integ->terminal_adapter, lush_display, memory_pool);
     if (result != LLE_SUCCESS) {
         lle_display_cleanup_event_coordinator(integ->event_coordinator);
         lle_display_metrics_cleanup(integ->perf_metrics);
@@ -307,8 +307,8 @@ lle_result_t lle_display_integration_init(lle_display_integration_t **integratio
         return result;
     }
     
-    // Step 15: Connect to existing Lusush theme system
-    integ->theme_system = lusush_display->theme_manager;
+    // Step 15: Connect to existing Lush theme system
+    integ->theme_system = lush_display->theme_manager;
     if (!integ->theme_system) {
         lle_display_state_cleanup(integ->current_state);
         lle_display_config_cleanup(integ->config);
@@ -337,7 +337,7 @@ lle_result_t lle_display_integration_init(lle_display_integration_t **integratio
 ### 3.2 Display Bridge Implementation
 
 ```c
-// Initialize display bridge for LLE-Lusush communication
+// Initialize display bridge for LLE-Lush communication
 lle_result_t lle_display_bridge_init(lle_display_bridge_t **bridge,
                                      lle_editor_t *editor,
                                      display_controller_t *display,
@@ -362,7 +362,7 @@ lle_result_t lle_display_bridge_init(lle_display_bridge_t **bridge,
     br->cursor_pos = &editor->cursor_position;
     br->lle_events = editor->event_manager;
     
-    // Step 4: Connect to Lusush display systems
+    // Step 4: Connect to Lush display systems
     br->command_layer = display->command_layer;
     br->composition_engine = display->composition_engine;
     br->layer_events = display->layer_event_system;
@@ -945,7 +945,7 @@ lle_result_t lle_display_on_cursor_move(lle_display_integration_t *integration,
 ### 5.2 Autosuggestion Integration
 
 ```c
-// Integration with Lusush autosuggestion system
+// Integration with Lush autosuggestion system
 lle_result_t lle_display_integrate_autosuggestions(lle_display_integration_t *integration,
                                                    lle_buffer_t *buffer,
                                                    lle_autosuggestion_context_t *suggestion_ctx) {
@@ -973,9 +973,9 @@ lle_result_t lle_display_integrate_autosuggestions(lle_display_integration_t *in
         return result;
     }
     
-    // Step 5: Generate autosuggestion through Lusush autosuggestion layer
+    // Step 5: Generate autosuggestion through Lush autosuggestion layer
     lle_autosuggestion_result_t suggestion_result;
-    result = lusush_autosuggestion_generate(integration->lusush_display->autosuggestion_layer,
+    result = lush_autosuggestion_generate(integration->lush_display->autosuggestion_layer,
                                             buffer_content, buffer_length,
                                             &suggestion_result);
     if (result != LLE_SUCCESS) {
@@ -1008,7 +1008,7 @@ lle_result_t lle_display_integrate_autosuggestions(lle_display_integration_t *in
     }
     
     // Step 9: Integrate rendered suggestion with command layer
-    result = lusush_command_layer_add_autosuggestion(integration->display_bridge->command_layer,
+    result = lush_command_layer_add_autosuggestion(integration->display_bridge->command_layer,
                                                      rendered_suggestion, rendered_length);
     if (result != LLE_SUCCESS) {
         memory_pool_free(integration->memory_pool, rendered_suggestion);
@@ -1742,7 +1742,7 @@ lle_result_t lle_display_adaptive_optimization(lle_display_integration_t *integr
 // Complete memory pool integration for zero-allocation display operations
 typedef struct lle_display_memory_manager {
     // Core memory pools
-    memory_pool_t *main_pool;                     // Primary Lusush memory pool
+    memory_pool_t *main_pool;                     // Primary Lush memory pool
     memory_pool_t *render_pool;                   // Dedicated rendering memory pool
     memory_pool_t *cache_pool;                    // Cache-specific memory pool
     memory_pool_t *event_pool;                    // Event processing memory pool
@@ -1903,12 +1903,12 @@ lle_result_t lle_display_memory_manager_init(lle_display_memory_manager_t **mana
 ### 9.1 Event Coordination Architecture
 
 ```c
-// Event coordination between LLE and Lusush display systems
+// Event coordination between LLE and Lush display systems
 typedef struct lle_event_coordinator {
     // Event system connections
     lle_event_manager_t *lle_events;              // LLE event system
-    layer_event_system_t *lusush_layer_events;    // Lusush layer events
-    display_controller_t *display_controller;     // Lusush display controller
+    layer_event_system_t *lush_layer_events;    // Lush layer events
+    display_controller_t *display_controller;     // Lush display controller
     
     // Event translation and routing
     lle_event_translator_t *event_translator;     // Event type translation
@@ -1954,7 +1954,7 @@ lle_result_t lle_event_coordinator_init(lle_event_coordinator_t **coordinator,
     
     // Step 3: Store system references
     coord->lle_events = editor->event_manager;
-    coord->lusush_layer_events = display->layer_event_system;
+    coord->lush_layer_events = display->layer_event_system;
     coord->display_controller = display;
     coord->memory_pool = memory_pool;
     
@@ -2042,13 +2042,13 @@ lle_result_t lle_event_coordinator_init(lle_event_coordinator_t **coordinator,
     // Step 11: Configure event routing
     lle_event_router_add_route(coord->event_router, 
                                LLE_EVENT_BUFFER_CHANGED,
-                               LUSUSH_LAYER_EVENT_CONTENT_CHANGED);
+                               LUSH_LAYER_EVENT_CONTENT_CHANGED);
     lle_event_router_add_route(coord->event_router,
                                LLE_EVENT_CURSOR_MOVED,
-                               LUSUSH_LAYER_EVENT_CURSOR_MOVED);
+                               LUSH_LAYER_EVENT_CURSOR_MOVED);
     lle_event_router_add_route(coord->event_router,
                                LLE_EVENT_SELECTION_CHANGED,
-                               LUSUSH_LAYER_EVENT_REDRAW_NEEDED);
+                               LUSH_LAYER_EVENT_REDRAW_NEEDED);
     
     // Step 12: Set initial state
     coord->coordination_state = LLE_COORDINATION_STATE_ACTIVE;
@@ -2092,16 +2092,16 @@ lle_result_t lle_event_coordinator_process_event(lle_event_coordinator_t *coordi
         return result;
     }
     
-    // Step 6: Translate LLE event to Lusush layer event
-    lusush_layer_event_t lusush_event;
-    result = lle_event_translator_translate(coordinator->event_translator, lle_event, &lusush_event);
+    // Step 6: Translate LLE event to Lush layer event
+    lush_layer_event_t lush_event;
+    result = lle_event_translator_translate(coordinator->event_translator, lle_event, &lush_event);
     if (result != LLE_SUCCESS) {
         pthread_mutex_unlock(&coordinator->coordination_mutex);
         return result;
     }
     
-    // Step 7: Route event to appropriate Lusush layer
-    result = lle_event_router_route_event(coordinator->event_router, &lusush_event);
+    // Step 7: Route event to appropriate Lush layer
+    result = lle_event_router_route_event(coordinator->event_router, &lush_event);
     if (result != LLE_SUCCESS) {
         pthread_mutex_unlock(&coordinator->coordination_mutex);
         return result;
@@ -2131,7 +2131,7 @@ lle_result_t lle_event_coordinator_process_event(lle_event_coordinator_t *coordi
 ### 10.1 Theme-Aware Display Integration
 
 ```c
-// Complete integration with Lusush theme system
+// Complete integration with Lush theme system
 lle_result_t lle_display_integrate_theme_system(lle_display_integration_t *integration,
                                                theme_manager_t *theme_manager) {
     lle_result_t result = LLE_SUCCESS;
@@ -2785,7 +2785,7 @@ lle_implementation_phase_t display_integration_phases[] = {
 
 ### **Display Command Extensions**
 
-The Display Integration system provides complete functional control through the existing `display` builtin command, following established Lusush architectural patterns for system management.
+The Display Integration system provides complete functional control through the existing `display` builtin command, following established Lush architectural patterns for system management.
 
 #### **Command Structure Integration**
 
@@ -2798,7 +2798,7 @@ typedef struct lle_display_command_integration {
     lle_display_completion_engine_t *completion_engine;
     
     // Integration with existing display system
-    display_controller_t            *lusush_display_controller;
+    display_controller_t            *lush_display_controller;
     lle_display_integration_t       *display_integration;
     
     // Command state management
@@ -2975,7 +2975,7 @@ int lle_handle_display_status_command(int argc, char **argv) {
 ```c
 // Display command help integration
 void lle_display_show_command_help(void) {
-    printf("Lusush Line Editor (LLE) Display Integration Commands\n\n");
+    printf("Lush Line Editor (LLE) Display Integration Commands\n\n");
     
     printf("System Control:\n");
     printf("  display lle enable [--force] [--performance]  Enable LLE display integration\n");
@@ -3020,7 +3020,7 @@ The command interface integration follows these architectural principles:
 - Extends existing `bin_display()` function without modification
 - LLE commands are accessed through `display lle <command>` structure
 - Maintains backward compatibility with existing display commands
-- Follows established Lusush command patterns and conventions
+- Follows established Lush command patterns and conventions
 
 #### **Functional Domain Separation**
 - Display command handles system functionality and performance
@@ -3034,7 +3034,7 @@ The command interface integration follows these architectural principles:
 - User-friendly error messages with suggestions
 - Context-aware command completion integration
 
-This integration ensures that LLE display functionality is accessed through the professional, established interface patterns that users expect from the Lusush shell system.
+This integration ensures that LLE display functionality is accessed through the professional, established interface patterns that users expect from the Lush shell system.
 
 // Critical success metrics for implementation
 lle_success_metric_t display_integration_success_metrics = {
@@ -3062,11 +3062,11 @@ lle_success_metric_t display_integration_success_metrics = {
 
 ## Conclusion
 
-This comprehensive Display Integration specification provides implementation-ready details for seamlessly integrating the Lusush Line Editor with the existing Lusush layered display architecture. The specification ensures:
+This comprehensive Display Integration specification provides implementation-ready details for seamlessly integrating the Lush Line Editor with the existing Lush layered display architecture. The specification ensures:
 
 ### **Key Achievements**
 
-1. **Seamless Integration**: Complete integration with proven Lusush display system
+1. **Seamless Integration**: Complete integration with proven Lush display system
 2. **Universal Compatibility**: Works with any prompt structure and terminal type
 3. **Performance Excellence**: Sub-millisecond display updates with intelligent caching
 4. **Enterprise Quality**: Comprehensive error handling and recovery mechanisms
@@ -3077,7 +3077,7 @@ This comprehensive Display Integration specification provides implementation-rea
 - **Complete Pseudo-Code**: Every function includes implementation-level detail
 - **Comprehensive Error Handling**: All error conditions and recovery procedures specified
 - **Performance Optimization**: Intelligent caching and adaptive tuning systems
-- **Memory Integration**: Complete integration with Lusush memory pool architecture
+- **Memory Integration**: Complete integration with Lush memory pool architecture
 - **Testing Framework**: Comprehensive validation and performance benchmarking
 
 ### **Next Steps**

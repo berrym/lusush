@@ -22,7 +22,7 @@
 #include <unistd.h>
 
 // ============================================================================
-// Mock implementations to avoid linking with full lusush
+// Mock implementations to avoid linking with full lush
 // ============================================================================
 
 typedef struct builtin_s {
@@ -50,7 +50,7 @@ char *lookup_alias(const char *name) {
 
 // Mock readline integration (need to include readline_integration.h for
 // typedef)
-void lusush_add_completion(lusush_completions_t *lc, const char *completion) {
+void lush_add_completion(lush_completions_t *lc, const char *completion) {
     (void)lc;
     (void)completion;
 }

@@ -1,4 +1,4 @@
-# Lusush Compatibility Specification
+# Lush Compatibility Specification
 
 **Status**: APPROVED  
 **Date**: 2026-01-12  
@@ -8,14 +8,14 @@
 
 ## Executive Summary
 
-Lusush implements **Pragmatic Compatibility (Level 2+)** with bash and zsh through:
+Lush implements **Pragmatic Compatibility (Level 2+)** with bash and zsh through:
 
-1. **Shell Profiles** - `set -o bash|zsh|lusush|posix` loads a profile (preset defaults)
+1. **Shell Profiles** - `set -o bash|zsh|lush|posix` loads a profile (preset defaults)
 2. **Syntax Bridging** - Both bash and zsh syntax available in ALL modes
 3. **User Choice** - Any feature can be customized after loading a profile
-4. **Unified Config** - All settings flow through lusush's config registry
+4. **Unified Config** - All settings flow through lush's config registry
 
-Lusush is NOT an emulator. It's a modern shell that speaks multiple dialects.
+Lush is NOT an emulator. It's a modern shell that speaks multiple dialects.
 
 ---
 
@@ -26,7 +26,7 @@ Lusush is NOT an emulator. It's a modern shell that speaks multiple dialects.
 **Both bash and zsh syntax are available in ALL modes.**
 
 Rationale:
-- User choice is non-negotiable in lusush's design philosophy
+- User choice is non-negotiable in lush's design philosophy
 - Syntax is just an interface; underlying implementation is unified
 - Features are additive, not mode-gated
 - Shell profile is a preset, not a restriction
@@ -38,7 +38,7 @@ echo ${var^^}       # Bash syntax for uppercase
 echo ${(U)var}      # Zsh syntax for uppercase - SAME result
 
 shopt -s extglob    # Bash syntax to enable extglob
-setopt extended_glob # Lusush/zsh syntax - SAME effect
+setopt extended_glob # Lush/zsh syntax - SAME effect
 
 declare -n ref=var  # Bash nameref syntax
 typeset -n ref=var  # Zsh nameref syntax - SAME effect
@@ -46,13 +46,13 @@ typeset -n ref=var  # Zsh nameref syntax - SAME effect
 
 ### Decision 2: Terminology - "Shell Profile" not "Shell Mode"
 
-The term "mode" implies emulation. What lusush actually provides is **profiles**:
+The term "mode" implies emulation. What lush actually provides is **profiles**:
 
 | Command | Meaning |
 |---------|---------|
 | `set -o bash` | Load bash profile (bash defaults) |
 | `set -o zsh` | Load zsh profile (zsh defaults) |
-| `set -o lusush` | Load lusush profile (curated best-of-both) |
+| `set -o lush` | Load lush profile (curated best-of-both) |
 | `set -o posix` | Load POSIX profile (strict compliance) |
 
 After loading a profile:
@@ -69,14 +69,14 @@ Each feature has its own clear execution path, guarded by the feature matrix. Th
 
 ### Decision 4: Single Parser, Multiple Syntaxes
 
-Lusush maintains ONE parser that recognizes multiple syntax forms:
+Lush maintains ONE parser that recognizes multiple syntax forms:
 - No separate "bash parser" or "zsh parser"
 - Parser handles syntax translation internally
 - Underlying feature implementation is unified
 
 ### Decision 5: Honest Limitations
 
-Lusush will:
+Lush will:
 - Clearly document what it does and doesn't support
 - Never claim to be bash or zsh
 - Never obscure limitations from users
@@ -160,7 +160,7 @@ config save                    # Persist for future sessions
 
 ### Currently Implemented
 
-| Feature | Bash Syntax | Zsh Syntax | Lusush Native | Status |
+| Feature | Bash Syntax | Zsh Syntax | Lush Native | Status |
 |---------|-------------|------------|---------------|--------|
 | Enable option | `shopt -s X` | `setopt X` | `setopt X` | **TODO: shopt** |
 | Disable option | `shopt -u X` | `unsetopt X` | `unsetopt X` | **TODO: shopt** |
@@ -198,7 +198,7 @@ config save                    # Persist for future sessions
 
 | Profile | Target | Notes |
 |---------|--------|-------|
-| `set -o lusush` | N/A | This IS lusush, no compatibility target |
+| `set -o lush` | N/A | This IS lush, no compatibility target |
 | `set -o bash` | 95%+ | Common bash scripts run unmodified |
 | `set -o zsh` | 90%+ | Common zsh scripts run unmodified |
 | `set -o posix` | 99%+ | Strict POSIX sh compliance |
@@ -253,7 +253,7 @@ All compatibility work is meaningless if core features are broken.
 
 ## Summary
 
-Lusush provides **pragmatic compatibility** through:
+Lush provides **pragmatic compatibility** through:
 
 - **Shell Profiles**: Preset defaults matching bash/zsh/POSIX
 - **Universal Syntax**: Both bash and zsh syntax work everywhere
@@ -261,7 +261,7 @@ Lusush provides **pragmatic compatibility** through:
 - **Honest Limitations**: Clear documentation of what works and what doesn't
 
 This approach:
-- Preserves lusush's identity as a modern, innovative shell
+- Preserves lush's identity as a modern, innovative shell
 - Respects users coming from bash or zsh
 - Maintains the unified config registry as a unique strength
 - Sets realistic, achievable compatibility goals

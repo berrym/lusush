@@ -29,7 +29,7 @@ static int tests_failed = 0;
         printf("FAIL: %s\n", msg);                                             \
     } while (0)
 
-/* Stubs for lusush core functions */
+/* Stubs for lush core functions */
 bool is_builtin(const char *name) {
     static const char *builtins[] = {
         "cd",       "echo", "exit",  "export", "alias",   "unalias",
@@ -133,7 +133,7 @@ static void test_builtins(void) {
     else
         TEST_FAIL("echo not detected as builtin");
 
-    /* Lusush-specific builtins */
+    /* Lush-specific builtins */
     TEST_START("builtin: config");
     if (get_first_command_type(h, "config") == LLE_TOKEN_COMMAND_BUILTIN)
         TEST_PASS();

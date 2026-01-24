@@ -11,7 +11,7 @@
  */
 
 #include "config.h"
-#include "lusush.h"
+#include "lush.h"
 #include "symtable.h"
 
 #include <getopt.h>

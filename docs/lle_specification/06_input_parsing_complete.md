@@ -24,7 +24,7 @@
 12. [Error Handling and Recovery](#12-error-handling-and-recovery)
 13. [Performance Optimization](#13-performance-optimization)
 14. [Integration with Event System](#14-integration-with-event-system)
-15. [Integration with Lusush Systems](#15-integration-with-lusush-systems)
+15. [Integration with Lush Systems](#15-integration-with-lush-systems)
 16. [Testing and Validation](#16-testing-and-validation)
 17. [Memory Management](#17-memory-management)
 
@@ -1643,4 +1643,4 @@ lle_result_t lle_input_parser_test_comprehensive(lle_input_parser_system_t *pars
 }
 ```
 
-This completes the comprehensive Input Parsing specification with implementation-ready pseudo-code, complete error handling, performance optimization, and integration with the LLE event system and Lusush display architecture.
+This completes the comprehensive Input Parsing specification with implementation-ready pseudo-code, complete error handling, performance optimization, and integration with the LLE event system and Lush display architecture.

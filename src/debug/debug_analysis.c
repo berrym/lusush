@@ -209,7 +209,7 @@ static void debug_analyze_style(debug_context_t *ctx, const char *file,
     if (strncmp(content, "#!", 2) != 0) {
         debug_add_analysis_issue(ctx, file, 1, "warning", "style",
                                  "Missing shebang",
-                                 "Add #!/bin/sh or #!/usr/bin/env lusush");
+                                 "Add #!/bin/sh or #!/usr/bin/env lush");
     }
 
     // Check for consistent indentation

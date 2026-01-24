@@ -1,6 +1,6 @@
 # Arena-Based Memory Management Implementation Plan
 
-**Project**: Lusush Line Editor (LLE)  
+**Project**: Lush Line Editor (LLE)  
 **Document**: Memory Management Architecture Redesign  
 **Version**: 1.1.0  
 **Date**: 2026-01-02  
@@ -77,14 +77,14 @@ This document describes the planned replacement of LLE's current manual memory m
 
 The current LLE memory system consists of two layers:
 
-**Lusush Memory Pool** (`src/lusush_memory_pool.c`):
+**Lush Memory Pool** (`src/lush_memory_pool.c`):
 - Pre-allocated slab allocator with 4 size classes (128B, 512B, 4KB, 16KB)
 - Thread-safe with mutex protection
 - Malloc fallback for sizes > 16KB
 - Well-designed and performant
 
 **LLE Memory Wrapper** (`src/lle/core/memory_management.c`):
-- Thin wrapper: `lle_pool_alloc()` / `lle_pool_free()` call lusush pool
+- Thin wrapper: `lle_pool_alloc()` / `lle_pool_free()` call lush pool
 - Allocation tracking table (4096 entries)
 - Complex GC infrastructure that is partially implemented but never actually invoked
 
@@ -163,11 +163,11 @@ Session Arena (freed on shell exit)
 
 ### 3.1 Arena Chunk
 
-Arenas allocate large chunks from the lusush pool, then sub-allocate from those chunks:
+Arenas allocate large chunks from the lush pool, then sub-allocate from those chunks:
 
 ```c
 /**
- * Arena chunk - contiguous memory region allocated from lusush pool
+ * Arena chunk - contiguous memory region allocated from lush pool
  * Forms a linked list for arenas that grow beyond initial size
  */
 typedef struct lle_arena_chunk_t {
@@ -236,7 +236,7 @@ lle_arena_t *lle_arena_create(lle_arena_t *parent,
  * This function:
  * 1. Recursively destroys all child arenas (depth-first)
  * 2. Unlinks from parent's child list
- * 3. Frees all chunks back to lusush_pool
+ * 3. Frees all chunks back to lush_pool
  * 4. Frees arena structure itself
  *
  * After this call, all pointers allocated from this arena are INVALID.
@@ -315,7 +315,7 @@ void lle_arena_print_stats(lle_arena_t *arena, int indent);
 
 ### 5.1 Chunk Allocation
 
-Arenas allocate chunks from the existing lusush pool:
+Arenas allocate chunks from the existing lush pool:
 
 ```c
 static lle_arena_chunk_t *arena_alloc_chunk(size_t min_size) {
@@ -327,8 +327,8 @@ static lle_arena_chunk_t *arena_alloc_chunk(size_t min_size) {
         total_size = 4096;
     }
     
-    /* Allocate from lusush pool - uses existing infrastructure */
-    lle_arena_chunk_t *chunk = lusush_pool_alloc(total_size);
+    /* Allocate from lush pool - uses existing infrastructure */
+    lle_arena_chunk_t *chunk = lush_pool_alloc(total_size);
     if (!chunk) {
         return NULL;
     }
@@ -341,7 +341,7 @@ static lle_arena_chunk_t *arena_alloc_chunk(size_t min_size) {
 }
 
 static void arena_free_chunk(lle_arena_chunk_t *chunk) {
-    lusush_pool_free(chunk);
+    lush_pool_free(chunk);
 }
 ```
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# LUSUSH COMPREHENSIVE SHELL COMPLIANCE TEST SUITE
+# LUSH COMPREHENSIVE SHELL COMPLIANCE TEST SUITE
 # ============================================================================
 #
 # A complete test suite for validating POSIX shell compliance and advanced
@@ -36,8 +36,8 @@ declare -a CATEGORY_SCORES
 CURRENT_CATEGORY_TESTS=0
 CURRENT_CATEGORY_PASSED=0
 
-# Shell to test (default to lusush)
-SHELL_UNDER_TEST=${1:-"./build/lusush"}
+# Shell to test (default to lush)
+SHELL_UNDER_TEST=${1:-"./build/lush"}
 
 # Test timeout (seconds)
 TEST_TIMEOUT=10
@@ -938,7 +938,7 @@ done"
 # ============================================================================
 
 main() {
-    print_header "LUSUSH COMPREHENSIVE SHELL COMPLIANCE TEST SUITE"
+    print_header "LUSH COMPREHENSIVE SHELL COMPLIANCE TEST SUITE"
 
     echo -e "${CYAN}Testing shell: ${WHITE}$SHELL_UNDER_TEST${NC}"
     echo -e "${CYAN}Started at: ${WHITE}$(date)${NC}\n"
@@ -1030,7 +1030,7 @@ calculate_final_score() {
     echo -e "  POSIX Baseline: ${WHITE}100%${NC} (reference)"
     echo -e "  Bash 5.x: ${WHITE}~98%${NC} (reference)"
     echo -e "  Zsh 5.x: ${WHITE}~95%${NC} (reference)"
-    echo -e "  Lusush: ${WHITE}$overall_score%${NC}"
+    echo -e "  Lush: ${WHITE}$overall_score%${NC}"
 
     echo
     if [ "$overall_score" -ge 95 ]; then

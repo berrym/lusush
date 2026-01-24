@@ -16,7 +16,7 @@
 #include "strings.h"
 
 #include "errors.h"
-#include "lusush.h"
+#include "lush.h"
 #include "symtable.h"
 
 #include <ctype.h>

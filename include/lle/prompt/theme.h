@@ -234,8 +234,8 @@ typedef enum lle_theme_category {
  */
 typedef enum lle_theme_source {
     LLE_THEME_SOURCE_BUILTIN, /**< Compiled into binary */
-    LLE_THEME_SOURCE_SYSTEM,  /**< /etc/lusush/themes/ */
-    LLE_THEME_SOURCE_USER,    /**< ~/.config/lusush/themes/ */
+    LLE_THEME_SOURCE_SYSTEM,  /**< /etc/lush/themes/ */
+    LLE_THEME_SOURCE_USER,    /**< ~/.config/lush/themes/ */
     LLE_THEME_SOURCE_RUNTIME  /**< Registered at runtime */
 } lle_theme_source_t;
 

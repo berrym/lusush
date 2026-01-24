@@ -2626,7 +2626,7 @@ lle_result_t lle_clear_screen(lle_editor_t *editor) {
     /* Get the global display integration instance */
     lle_display_integration_t *display_integration =
         lle_display_integration_get_global();
-    if (!display_integration || !display_integration->lusush_display) {
+    if (!display_integration || !display_integration->lush_display) {
         /* Fallback: use ANSI escape sequence if display controller not
          * available */
         printf("\033[H\033[2J");
@@ -2636,7 +2636,7 @@ lle_result_t lle_clear_screen(lle_editor_t *editor) {
 
     /* Clear screen through display controller */
     display_controller_error_t result =
-        display_controller_clear_screen(display_integration->lusush_display);
+        display_controller_clear_screen(display_integration->lush_display);
     if (result != DISPLAY_CONTROLLER_SUCCESS) {
         return LLE_ERROR_DISPLAY_INTEGRATION;
     }

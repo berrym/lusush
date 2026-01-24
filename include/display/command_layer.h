@@ -12,7 +12,7 @@
  * Key Features:
  * - Real-time syntax highlighting for shell commands
  * - Universal compatibility with any prompt structure
- * - Integration with existing lusush syntax highlighting functions
+ * - Integration with existing lush syntax highlighting functions
  * - High-performance command input processing (<5ms updates)
  * - Memory-safe command text management
  * - Intelligent cursor position tracking

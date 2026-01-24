@@ -38,7 +38,7 @@ char *get_input(FILE *in);
 /**
  * @brief Read a line of input using the line editor
  *
- * Reads input interactively using LLE (Lusush Line Editor) with
+ * Reads input interactively using LLE (Lush Line Editor) with
  * command-line editing, history, and completion support.
  *
  * @return Allocated string containing the input line, or NULL on EOF/error
@@ -88,6 +88,6 @@ char *ln_gets_complete(void);
  *
  * @return Continuation prompt string (e.g., "> ", "quote> ")
  */
-const char *lusush_get_current_continuation_prompt(void);
+const char *lush_get_current_continuation_prompt(void);
 
 #endif

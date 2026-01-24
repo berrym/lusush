@@ -10,7 +10,7 @@
 
 ## 📋 **DOCUMENT OVERVIEW**
 
-This specification provides comprehensive enterprise-grade deployment procedures for the Lusush Line Editor (LLE) system. All procedures use strictly POSIX-compliant shell scripting to ensure maximum portability across Unix/Linux environments, maintaining consistency with Lusush's architectural principles.
+This specification provides comprehensive enterprise-grade deployment procedures for the Lush Line Editor (LLE) system. All procedures use strictly POSIX-compliant shell scripting to ensure maximum portability across Unix/Linux environments, maintaining consistency with Lush's architectural principles.
 
 **Scope**: Complete production deployment framework covering installation, configuration, validation, monitoring, rollback, and maintenance procedures with enterprise-grade reliability and security.
 
@@ -78,9 +78,9 @@ DEPLOYMENT_ID=`date '+%Y%m%d_%H%M%S'`
 
 # Environment Configuration
 LLE_INSTALL_PREFIX="${LLE_INSTALL_PREFIX:-/usr/local}"
-LLE_CONFIG_DIR="${LLE_CONFIG_DIR:-${LLE_INSTALL_PREFIX}/etc/lusush}"
-LLE_DATA_DIR="${LLE_DATA_DIR:-${LLE_INSTALL_PREFIX}/var/lib/lusush}"
-LLE_LOG_DIR="${LLE_LOG_DIR:-${LLE_INSTALL_PREFIX}/var/log/lusush}"
+LLE_CONFIG_DIR="${LLE_CONFIG_DIR:-${LLE_INSTALL_PREFIX}/etc/lush}"
+LLE_DATA_DIR="${LLE_DATA_DIR:-${LLE_INSTALL_PREFIX}/var/lib/lush}"
+LLE_LOG_DIR="${LLE_LOG_DIR:-${LLE_INSTALL_PREFIX}/var/log/lush}"
 LLE_BACKUP_DIR="${LLE_BACKUP_DIR:-${LLE_DATA_DIR}/backups}"
 
 # Deployment Logging
@@ -183,7 +183,7 @@ execute_emergency_rollback() {
         
         # Restore previous binaries
         if [ -n "${BACKUP_BINARY_PATH}" ] && [ -f "${BACKUP_BINARY_PATH}" ]; then
-            cp "${BACKUP_BINARY_PATH}" "${LLE_INSTALL_PREFIX}/bin/lusush"
+            cp "${BACKUP_BINARY_PATH}" "${LLE_INSTALL_PREFIX}/bin/lush"
             log_info "Binary restored from backup"
         fi
         
@@ -206,7 +206,7 @@ validate_startup_performance() {
     log_info "Validating LLE startup performance..."
     
     start_time=`date '+%s%N'`
-    timeout 5 ${LLE_INSTALL_PREFIX}/bin/lusush -c "exit 0" 2>/dev/null
+    timeout 5 ${LLE_INSTALL_PREFIX}/bin/lush -c "exit 0" 2>/dev/null
     startup_result=$?
     end_time=`date '+%s%N'`
     
@@ -238,9 +238,9 @@ validate_response_performance() {
     cat > "${test_script}" << 'EOF'
 #!/bin/sh
 # Performance test script
-echo "display performance init" | ${LLE_INSTALL_PREFIX}/bin/lusush -i 2>/dev/null
-echo "display performance report" | ${LLE_INSTALL_PREFIX}/bin/lusush -i 2>/dev/null
-echo "exit" | ${LLE_INSTALL_PREFIX}/bin/lusush -i 2>/dev/null
+echo "display performance init" | ${LLE_INSTALL_PREFIX}/bin/lush -i 2>/dev/null
+echo "display performance report" | ${LLE_INSTALL_PREFIX}/bin/lush -i 2>/dev/null
+echo "exit" | ${LLE_INSTALL_PREFIX}/bin/lush -i 2>/dev/null
 EOF
     chmod +x "${test_script}"
     
@@ -276,7 +276,7 @@ validate_deployment_security() {
     log_info "Performing comprehensive security validation..."
     
     # Validate file permissions
-    binary_perms=`stat -c '%a' "${LLE_INSTALL_PREFIX}/bin/lusush" 2>/dev/null`
+    binary_perms=`stat -c '%a' "${LLE_INSTALL_PREFIX}/bin/lush" 2>/dev/null`
     if [ "${binary_perms}" != "755" ]; then
         log_error "Invalid binary permissions: ${binary_perms} (expected: 755)"
         return ${STATUS_ERROR}
@@ -317,11 +317,11 @@ validate_deployment_security() {
 }
 
 # Integration Validation Functions
-validate_lusush_integration() {
-    log_info "Validating LLE-Lusush integration..."
+validate_lush_integration() {
+    log_info "Validating LLE-Lush integration..."
     
     # Test basic integration
-    integration_test=`echo "echo 'integration test'" | ${LLE_INSTALL_PREFIX}/bin/lusush -i 2>&1`
+    integration_test=`echo "echo 'integration test'" | ${LLE_INSTALL_PREFIX}/bin/lush -i 2>&1`
     if echo "${integration_test}" | grep -q "integration test"; then
         log_info "Basic integration test: PASSED"
     else
@@ -330,7 +330,7 @@ validate_lusush_integration() {
     fi
     
     # Test display system integration
-    display_test=`echo -e "display enable\nexit" | ${LLE_INSTALL_PREFIX}/bin/lusush -i 2>&1`
+    display_test=`echo -e "display enable\nexit" | ${LLE_INSTALL_PREFIX}/bin/lush -i 2>&1`
     if [ $? -eq 0 ]; then
         log_info "Display system integration: PASSED"
     else
@@ -339,7 +339,7 @@ validate_lusush_integration() {
     fi
     
     # Test memory pool integration
-    memory_test=`echo -e "debug memory stats\nexit" | ${LLE_INSTALL_PREFIX}/bin/lusush -i 2>&1`
+    memory_test=`echo -e "debug memory stats\nexit" | ${LLE_INSTALL_PREFIX}/bin/lush -i 2>&1`
     if [ $? -eq 0 ]; then
         log_info "Memory pool integration: PASSED"
     else
@@ -347,7 +347,7 @@ validate_lusush_integration() {
         return ${STATUS_ERROR}
     fi
     
-    log_info "Lusush integration validation: PASSED"
+    log_info "Lush integration validation: PASSED"
     return ${STATUS_SUCCESS}
 }
 
@@ -403,7 +403,7 @@ execute_deployment() {
     
     # Phase 7: Integration Validation
     begin_phase "INTEGRATION_VALIDATION"
-    if ! validate_lusush_integration; then
+    if ! validate_lush_integration; then
         handle_critical_error "Integration validation failed" "INTEGRATION_001"
     fi
     end_phase $?
@@ -519,8 +519,8 @@ validate_prerequisites() {
     fi
     
     # Validate LLE binary exists and is executable
-    if [ ! -f "./lusush" ] || [ ! -x "./lusush" ]; then
-        log_error "LLE binary not found or not executable: ./lusush"
+    if [ ! -f "./lush" ] || [ ! -x "./lush" ]; then
+        log_error "LLE binary not found or not executable: ./lush"
         return ${STATUS_ERROR}
     fi
     
@@ -536,7 +536,7 @@ validate_prerequisites() {
     fi
     
     # Test LLE binary basic functionality
-    if ! ./lusush -c "exit 0" 2>/dev/null; then
+    if ! ./lush -c "exit 0" 2>/dev/null; then
         log_error "LLE binary basic test failed"
         return ${STATUS_ERROR}
     fi
@@ -568,9 +568,9 @@ create_deployment_backup() {
     mkdir -p "${backup_base_dir}/logs" || return ${STATUS_ERROR}
     
     # Backup existing binaries
-    if [ -f "${LLE_INSTALL_PREFIX}/bin/lusush" ]; then
-        cp "${LLE_INSTALL_PREFIX}/bin/lusush" "${backup_base_dir}/bin/"
-        backup_binary_path="${backup_base_dir}/bin/lusush"
+    if [ -f "${LLE_INSTALL_PREFIX}/bin/lush" ]; then
+        cp "${LLE_INSTALL_PREFIX}/bin/lush" "${backup_base_dir}/bin/"
+        backup_binary_path="${backup_base_dir}/bin/lush"
         log_info "Backed up existing binary to: ${backup_binary_path}"
     else
         log_info "No existing binary to backup"
@@ -650,12 +650,12 @@ execute_rollback() {
     
     # Rollback binary
     if [ -n "${BACKUP_BINARY_PATH}" ] && [ -f "${BACKUP_BINARY_PATH}" ]; then
-        cp "${BACKUP_BINARY_PATH}" "${LLE_INSTALL_PREFIX}/bin/lusush"
-        chmod 755 "${LLE_INSTALL_PREFIX}/bin/lusush"
+        cp "${BACKUP_BINARY_PATH}" "${LLE_INSTALL_PREFIX}/bin/lush"
+        chmod 755 "${LLE_INSTALL_PREFIX}/bin/lush"
         log_info "Binary rolled back successfully"
     else
         # Remove new binary if no backup exists
-        rm -f "${LLE_INSTALL_PREFIX}/bin/lusush"
+        rm -f "${LLE_INSTALL_PREFIX}/bin/lush"
         log_info "New binary removed (no previous version to restore)"
     fi
     
@@ -671,8 +671,8 @@ execute_rollback() {
     fi
     
     # Validate rollback
-    if [ -f "${LLE_INSTALL_PREFIX}/bin/lusush" ]; then
-        if ${LLE_INSTALL_PREFIX}/bin/lusush -c "exit 0" 2>/dev/null; then
+    if [ -f "${LLE_INSTALL_PREFIX}/bin/lush" ]; then
+        if ${LLE_INSTALL_PREFIX}/bin/lush -c "exit 0" 2>/dev/null; then
             log_info "Rollback validation: PASSED"
             audit_log "Rollback completed successfully (Deployment: ${DEPLOYMENT_ID})"
             return ${STATUS_SUCCESS}
@@ -712,8 +712,8 @@ install_lle_binaries() {
     fi
     
     # Install binary with atomic operation
-    temp_binary="${LLE_INSTALL_PREFIX}/bin/lusush.tmp.${DEPLOYMENT_ID}"
-    cp "./lusush" "${temp_binary}" || return ${STATUS_ERROR}
+    temp_binary="${LLE_INSTALL_PREFIX}/bin/lush.tmp.${DEPLOYMENT_ID}"
+    cp "./lush" "${temp_binary}" || return ${STATUS_ERROR}
     chmod 755 "${temp_binary}" || return ${STATUS_ERROR}
     
     # Test installed binary before finalizing
@@ -724,7 +724,7 @@ install_lle_binaries() {
     fi
     
     # Atomic installation (POSIX-compliant)
-    mv "${temp_binary}" "${LLE_INSTALL_PREFIX}/bin/lusush" || return ${STATUS_ERROR}
+    mv "${temp_binary}" "${LLE_INSTALL_PREFIX}/bin/lush" || return ${STATUS_ERROR}
     
     # Create installation record
     cat > "${LLE_DATA_DIR}/installation_info" << EOF
@@ -732,7 +732,7 @@ LLE Installation Record
 Installation Date: ${DEPLOYMENT_DATE}
 Deployment ID: ${DEPLOYMENT_ID}
 Version: ${DEPLOYMENT_VERSION}
-Binary Path: ${LLE_INSTALL_PREFIX}/bin/lusush
+Binary Path: ${LLE_INSTALL_PREFIX}/bin/lush
 Install User: ${DEPLOYMENT_USER}
 Install Group: ${DEPLOYMENT_GROUP}
 EOF
@@ -968,7 +968,7 @@ validate_production_readiness() {
     max_score=20
     
     # Binary functionality check (4 points)
-    if ${LLE_INSTALL_PREFIX}/bin/lusush -c "exit 0" 2>/dev/null; then
+    if ${LLE_INSTALL_PREFIX}/bin/lush -c "exit 0" 2>/dev/null; then
         readiness_score=`expr ${readiness_score} + 4`
         log_info "✓ Binary functionality: PASSED (4/4 points)"
     else
@@ -1000,7 +1000,7 @@ validate_production_readiness() {
     fi
     
     # Integration validation (3 points)
-    if validate_lusush_integration; then
+    if validate_lush_integration; then
         readiness_score=`expr ${readiness_score} + 3`
         log_info "✓ Integration validation: PASSED (3/3 points)"
     else
@@ -1092,7 +1092,7 @@ monitor_lle_health() {
     timestamp=`date '+%Y-%m-%d %H:%M:%S'`
     
     # Check if LLE is responsive
-    if ${LLE_INSTALL_PREFIX}/bin/lusush -c "exit 0" 2>/dev/null; then
+    if ${LLE_INSTALL_PREFIX}/bin/lush -c "exit 0" 2>/dev/null; then
         echo "[${timestamp}] [HEALTH] LLE responsive: OK" >> "${LLE_LOG_DIR}/health.log"
         return 0
     else
@@ -1107,7 +1107,7 @@ monitor_lle_performance() {
     
     # Measure startup time
     start_time=`date '+%s%N'`
-    ${LLE_INSTALL_PREFIX}/bin/lusush -c "exit 0" 2>/dev/null
+    ${LLE_INSTALL_PREFIX}/bin/lush -c "exit 0" 2>/dev/null
     end_time=`date '+%s%N'`
     
     startup_time_ns=`expr ${end_time} - ${start_time}`
@@ -1215,7 +1215,7 @@ generate_deployment_report() {
             <tr><td>Binary Installation</td><td class="success">✓ SUCCESS</td><td>LLE binary installed and validated</td></tr>
             <tr><td>Configuration</td><td class="success">✓ SUCCESS</td><td>Configuration deployed and validated</td></tr>
             <tr><td>Security Framework</td><td class="success">✓ SUCCESS</td><td>Security configuration active</td></tr>
-            <tr><td>Integration</td><td class="success">✓ SUCCESS</td><td>Lusush integration validated</td></tr>
+            <tr><td>Integration</td><td class="success">✓ SUCCESS</td><td>Lush integration validated</td></tr>
             <tr><td>Performance</td><td class="success">✓ SUCCESS</td><td>Performance targets met</td></tr>
             <tr><td>Monitoring</td><td class="success">✓ SUCCESS</td><td>Monitoring systems active</td></tr>
         </table>
@@ -1243,7 +1243,7 @@ generate_deployment_report() {
         <h2>File Locations</h2>
         <table>
             <tr><th>Component</th><th>Location</th></tr>
-            <tr><td>Binary</td><td>${LLE_INSTALL_PREFIX}/bin/lusush</td></tr>
+            <tr><td>Binary</td><td>${LLE_INSTALL_PREFIX}/bin/lush</td></tr>
             <tr><td>Configuration</td><td>${LLE_CONFIG_DIR}/lle.conf</td></tr>
             <tr><td>Security Config</td><td>${LLE_CONFIG_DIR}/security.conf</td></tr>
             <tr><td>Data Directory</td><td>${LLE_DATA_DIR}</td></tr>
@@ -1308,7 +1308,7 @@ Date: ${DEPLOYMENT_DATE}
 Status: SUCCESS
 
 Installation Paths:
-- Binary: ${LLE_INSTALL_PREFIX}/bin/lusush
+- Binary: ${LLE_INSTALL_PREFIX}/bin/lush
 - Configuration: ${LLE_CONFIG_DIR}/lle.conf
 - Data: ${LLE_DATA_DIR}
 - Logs: ${LLE_LOG_DIR}
@@ -1366,7 +1366,7 @@ fi
 
 echo ""
 echo "=== Current Status ==="
-if ${LLE_INSTALL_PREFIX}/bin/lusush -c "exit 0" 2>/dev/null; then
+if ${LLE_INSTALL_PREFIX}/bin/lush -c "exit 0" 2>/dev/null; then
     echo "LLE Status: OPERATIONAL"
 else
     echo "LLE Status: NOT RESPONDING"
@@ -1427,7 +1427,7 @@ deploy_lle_update() {
     tar -xzf "${update_package}" -C "${update_temp_dir}" || return ${STATUS_ERROR}
     
     # Validate update structure
-    if [ ! -f "${update_temp_dir}/lusush" ] || [ ! -f "${update_temp_dir}/lle.conf.template" ]; then
+    if [ ! -f "${update_temp_dir}/lush" ] || [ ! -f "${update_temp_dir}/lle.conf.template" ]; then
         log_error "Invalid update package structure"
         rm -rf "${update_temp_dir}"
         return ${STATUS_ERROR}
@@ -1547,9 +1547,9 @@ validate_user_experience() {
     cat > "${user_test_script}" << 'EOF'
 #!/bin/sh
 # Basic user experience test script
-echo "echo 'Hello LLE'" | ${LLE_INSTALL_PREFIX}/bin/lusush -i 2>&1
-echo "theme list" | ${LLE_INSTALL_PREFIX}/bin/lusush -i 2>&1
-echo "exit" | ${LLE_INSTALL_PREFIX}/bin/lusush -i 2>&1
+echo "echo 'Hello LLE'" | ${LLE_INSTALL_PREFIX}/bin/lush -i 2>&1
+echo "theme list" | ${LLE_INSTALL_PREFIX}/bin/lush -i 2>&1
+echo "exit" | ${LLE_INSTALL_PREFIX}/bin/lush -i 2>&1
 EOF
     
     chmod +x "${user_test_script}"
@@ -1570,19 +1570,19 @@ validate_binary_functionality() {
     echo "=== Binary Functionality Validation ==="
     
     # Test binary exists and is executable
-    if [ ! -x "${LLE_INSTALL_PREFIX}/bin/lusush" ]; then
-        echo "Binary not executable: ${LLE_INSTALL_PREFIX}/bin/lusush"
+    if [ ! -x "${LLE_INSTALL_PREFIX}/bin/lush" ]; then
+        echo "Binary not executable: ${LLE_INSTALL_PREFIX}/bin/lush"
         return 1
     fi
     
     # Test basic execution
-    if ! ${LLE_INSTALL_PREFIX}/bin/lusush -c "exit 0" 2>/dev/null; then
+    if ! ${LLE_INSTALL_PREFIX}/bin/lush -c "exit 0" 2>/dev/null; then
         echo "Basic execution test failed"
         return 1
     fi
     
     # Test version information
-    if ! ${LLE_INSTALL_PREFIX}/bin/lusush --version >/dev/null 2>&1; then
+    if ! ${LLE_INSTALL_PREFIX}/bin/lush --version >/dev/null 2>&1; then
         echo "Version information test: SKIPPED (not implemented)"
     else
         echo "Version information test: PASSED"
@@ -1608,7 +1608,7 @@ validate_configuration_integrity() {
     fi
     
     # Test configuration loading
-    if ! ${LLE_INSTALL_PREFIX}/bin/lusush -c "exit 0" 2>/dev/null; then
+    if ! ${LLE_INSTALL_PREFIX}/bin/lush -c "exit 0" 2>/dev/null; then
         echo "Configuration loading test failed"
         return 1
     fi
@@ -1723,9 +1723,9 @@ ${LLE_CONFIG_DIR}/monitor_lle.sh all
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `LLE_INSTALL_PREFIX` | `/usr/local` | Installation root directory |
-| `LLE_CONFIG_DIR` | `${LLE_INSTALL_PREFIX}/etc/lusush` | Configuration directory |
-| `LLE_DATA_DIR` | `${LLE_INSTALL_PREFIX}/var/lib/lusush` | Data directory |
-| `LLE_LOG_DIR` | `${LLE_INSTALL_PREFIX}/var/log/lusush` | Log directory |
+| `LLE_CONFIG_DIR` | `${LLE_INSTALL_PREFIX}/etc/lush` | Configuration directory |
+| `LLE_DATA_DIR` | `${LLE_INSTALL_PREFIX}/var/lib/lush` | Data directory |
+| `LLE_LOG_DIR` | `${LLE_INSTALL_PREFIX}/var/log/lush` | Log directory |
 | `LLE_BACKUP_DIR` | `${LLE_DATA_DIR}/backups` | Backup directory |
 | `MAX_STARTUP_TIME` | `1000` | Maximum startup time (μs) |
 | `MAX_RESPONSE_TIME` | `500` | Maximum response time (μs) |
@@ -1736,21 +1736,21 @@ ${LLE_CONFIG_DIR}/monitor_lle.sh all
 ```
 ${LLE_INSTALL_PREFIX}/
 ├── bin/
-│   └── lusush                          # LLE binary
-├── etc/lusush/
+│   └── lush                          # LLE binary
+├── etc/lush/
 │   ├── lle.conf                        # Main configuration
 │   ├── security.conf                   # Security configuration
 │   ├── monitoring.conf                 # Monitoring configuration
 │   ├── monitor_lle.sh                  # Monitoring script
 │   ├── validate_security.sh            # Security validation
 │   └── lle_status.sh                   # Status check script
-├── var/lib/lusush/
+├── var/lib/lush/
 │   ├── deployment_state                # Current deployment state
 │   ├── installation_info               # Installation record
 │   ├── rollback_*.data                 # Rollback data files
 │   └── backups/                        # Backup directory
 │       └── YYYYMMDD_HHMMSS/            # Timestamped backups
-└── var/log/lusush/
+└── var/log/lush/
     ├── deployment_*.log                # Deployment logs
     ├── deployment_audit.log            # Audit trail
     ├── performance.log                 # Performance monitoring
@@ -1773,7 +1773,7 @@ ${LLE_INSTALL_PREFIX}/
 2. **Configuration Deployment**: All configuration files deployed and validated
 3. **Security Framework**: Security configuration active and validated
 4. **Performance Validation**: All performance targets met (startup ≤1000μs, response ≤500μs)
-5. **Integration Testing**: Seamless integration with existing Lusush systems validated
+5. **Integration Testing**: Seamless integration with existing Lush systems validated
 6. **Monitoring Activation**: All monitoring systems operational
 7. **Backup Creation**: Complete backup and rollback capability established
 8. **Production Readiness**: ≥90% readiness score achieved
@@ -1818,11 +1818,11 @@ ${LLE_INSTALL_PREFIX}/
 **Resolution:**
 ```sh
 # Check file permissions
-ls -la ./lusush
+ls -la ./lush
 # Verify disk space
 df -h ${LLE_INSTALL_PREFIX}
 # Check dependencies
-ldd ./lusush
+ldd ./lush
 ```
 
 #### **Issue: Configuration Validation Failure**
@@ -1847,13 +1847,13 @@ free -m
 ```
 
 #### **Issue: Integration Testing Failure**
-**Symptoms:** LLE-Lusush integration validation fails
+**Symptoms:** LLE-Lush integration validation fails
 **Resolution:**
 ```sh
-# Test basic Lusush functionality
-${LLE_INSTALL_PREFIX}/bin/lusush -c "echo test"
+# Test basic Lush functionality
+${LLE_INSTALL_PREFIX}/bin/lush -c "echo test"
 # Check display system integration
-echo "display enable" | ${LLE_INSTALL_PREFIX}/bin/lusush -i
+echo "display enable" | ${LLE_INSTALL_PREFIX}/bin/lush -i
 ```
 
 ### **Emergency Procedures**
@@ -1898,11 +1898,11 @@ This comprehensive LLE Deployment Procedures Complete Specification provides ent
 - **Emergency Procedures**: Complete emergency rollback and recovery procedures
 
 ### **Enterprise Integration**
-- **Seamless Lusush Integration**: Native integration with existing Lusush systems
-- **Memory Pool Integration**: Complete integration with Lusush memory management
+- **Seamless Lush Integration**: Native integration with existing Lush systems
+- **Memory Pool Integration**: Complete integration with Lush memory management
 - **Display System Integration**: Seamless integration with layered display architecture
 - **Security Framework**: Enterprise-grade security with multi-layer defense
-- **Professional Standards**: Maintains Lusush enterprise-grade development standards
+- **Professional Standards**: Maintains Lush enterprise-grade development standards
 
 ### **Deployment Success Guarantee**
 This specification provides complete deployment procedures with guaranteed success through:

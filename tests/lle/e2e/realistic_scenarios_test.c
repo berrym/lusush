@@ -21,7 +21,7 @@
 #include <string.h>
 
 /* External global from test_memory_mock.c */
-extern lusush_memory_pool_t *global_memory_pool;
+extern lush_memory_pool_t *global_memory_pool;
 
 /* Test macros */
 #define TEST(name)                                                             \

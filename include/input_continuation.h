@@ -6,7 +6,7 @@
  * Engine (LLE) and the main input system. Handles shell construct detection,
  * quote tracking, bracket counting, and continuation line analysis.
  *
- * This is shared infrastructure used by multiple components of Lusush.
+ * This is shared infrastructure used by multiple components of Lush.
  *
  * @author Michael Berry <trismegustis@gmail.com>
  * @copyright Copyright (C) 2021-2026 Michael Berry

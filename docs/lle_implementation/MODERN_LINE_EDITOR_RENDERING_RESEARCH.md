@@ -774,9 +774,9 @@ void initialize_terminal() {
 Your LLE design already follows the best practices found in these implementations:
 
 ✅ **Internal State Authority** - Buffer is authoritative, never query terminal  
-✅ **Display Layer Integration** - Renders through Lusush display system  
+✅ **Display Layer Integration** - Renders through Lush display system  
 ✅ **One-Time Capability Detection** - At initialization only  
-✅ **Terminal Abstraction** - All terminal I/O through Lusush display layer  
+✅ **Terminal Abstraction** - All terminal I/O through Lush display layer  
 ✅ **Atomic Display Updates** - Complete content generation for rendering
 
 ### 7.2 Recommended Patterns from Research
@@ -792,16 +792,16 @@ typedef struct lle_screen_state {
     lle_result_t refresh(void) {
         generate_desired_display();
         diff_t changes = diff_displays(actual, desired);
-        submit_to_lusush_display(changes);
+        submit_to_lush_display(changes);
         update_actual_from_desired();
     }
 } lle_screen_state_t;
 ```
 
 **2. Terminfo Abstraction (Like Fish/Zsh)**:
-- Use existing Lusush display system for terminal abstraction
-- Let Lusush handle terminfo/termcap complexity
-- LLE generates display content, Lusush renders it
+- Use existing Lush display system for terminal abstraction
+- Let Lush handle terminfo/termcap complexity
+- LLE generates display content, Lush renders it
 
 **3. Layout-Based Rendering (Like Rustyline)**:
 ```c
@@ -822,7 +822,7 @@ LLE Buffer Management (editing logic)
           ↓
 LLE Display Generator (layout, content)
           ↓
-Lusush Display System (terminal abstraction)
+Lush Display System (terminal abstraction)
           ↓
 Terminal I/O (escape sequences, raw mode)
 ```

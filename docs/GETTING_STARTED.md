@@ -1,4 +1,4 @@
-# Getting Started with Lusush
+# Getting Started with Lush
 
 **Your first steps with the shell that does everything differently**
 
@@ -6,7 +6,7 @@
 
 ## Table of Contents
 
-1. [What is Lusush?](#what-is-lusush)
+1. [What is Lush?](#what-is-lush)
 2. [Installation](#installation)
 3. [First Steps](#first-steps)
 4. [The Line Editor (LLE)](#the-line-editor-lle)
@@ -18,25 +18,25 @@
 
 ---
 
-## What is Lusush?
+## What is Lush?
 
-Lusush is an advanced interactive shell that combines the familiarity of Bash and Zsh with capabilities found nowhere else.
+Lush is an advanced interactive shell that combines the familiarity of Bash and Zsh with capabilities found nowhere else.
 
-### Three Things That Set Lusush Apart
+### Three Things That Set Lush Apart
 
-**1. LLE - The Lusush Line Editor**
+**1. LLE - The Lush Line Editor**
 
-Every other shell wraps GNU Readline or implements something similar. Lusush built its own line editor from scratch. LLE provides Emacs-style editing, context-aware completions for all 45 builtins, real-time syntax highlighting, and the foundation for features that aren't possible with traditional line editing libraries.
+Every other shell wraps GNU Readline or implements something similar. Lush built its own line editor from scratch. LLE provides Emacs-style editing, context-aware completions for all 45 builtins, real-time syntax highlighting, and the foundation for features that aren't possible with traditional line editing libraries.
 
 **2. Multi-Mode Shell Architecture**
 
-Run in POSIX mode for strict compliance, Bash mode for compatibility with bash scripts, Zsh mode for zsh scripts, or Lusush mode (the default) which combines the best features from all three plus Lusush-specific extensions.
+Run in POSIX mode for strict compliance, Bash mode for compatibility with bash scripts, Zsh mode for zsh scripts, or Lush mode (the default) which combines the best features from all three plus Lush-specific extensions.
 
 **3. Integrated Interactive Debugging**
 
 No other shell offers this. Set breakpoints, step through scripts line by line, inspect variables at any point in execution, and profile performance - all from within the shell itself.
 
-### Who Should Use Lusush
+### Who Should Use Lush
 
 - **Script developers** who want debugging that actually works
 - **Power users** who want modern editing and completions
@@ -49,7 +49,7 @@ No other shell offers this. Set breakpoints, step through scripts line by line, 
 
 ### Build Requirements
 
-Lusush has minimal dependencies:
+Lush has minimal dependencies:
 
 ```bash
 # Ubuntu/Debian
@@ -65,47 +65,47 @@ brew install meson ninja
 sudo pacman -S base-devel meson ninja
 ```
 
-Note: Lusush does not require readline. LLE is a complete, native implementation.
+Note: Lush does not require readline. LLE is a complete, native implementation.
 
 ### Build from Source
 
 ```bash
 # Clone the repository
-git clone https://github.com/lusush/lusush.git
-cd lusush
+git clone https://github.com/lush/lush.git
+cd lush
 
 # Build with Meson
-meson setup builddir
-ninja -C builddir
+meson setup build
+ninja -C build
 
 # Verify the build
-./builddir/lusush --version
-# Output: lusush 1.4.0
+./build/lush --version
+# Output: lush 1.4.0
 ```
 
 ### Optional: Install System-Wide
 
 ```bash
 # Install to /usr/local (requires root)
-sudo ninja -C builddir install
+sudo ninja -C build install
 
 # Or install to custom location
-meson setup builddir --prefix=/home/user/.local
-ninja -C builddir install
+meson setup build --prefix=/home/user/.local
+ninja -C build install
 ```
 
 ---
 
 ## First Steps
 
-### Starting Lusush
+### Starting Lush
 
 ```bash
 # Start interactive session
-./builddir/lusush
+./build/lush
 
 # You'll see a prompt with context
-[user@hostname] ~/projects/lusush (main) $
+[user@hostname] ~/projects/lush (main) $
 ```
 
 The prompt shows your username, hostname, current directory, and git branch when applicable.
@@ -119,7 +119,7 @@ cd ~/projects          # Change directory
 ls -la                 # List files
 
 # Variables
-name="Lusush"
+name="Lush"
 echo "Welcome to $name"
 
 # Environment
@@ -229,13 +229,13 @@ LLE understands shell syntax and provides continuation prompts appropriately.
 
 ## Shell Modes
 
-Lusush can behave like different shells depending on what you need.
+Lush can behave like different shells depending on what you need.
 
 ### Available Modes
 
 | Mode | Description |
 |------|-------------|
-| `lusush` | Default. All features enabled. Best interactive experience. |
+| `lush` | Default. All features enabled. Best interactive experience. |
 | `posix` | Strict POSIX sh compliance. For portable scripts. |
 | `bash` | Bash compatibility. Arrays, `[[]]`, process substitution. |
 | `zsh` | Zsh compatibility. Extended globbing, parameter expansion. |
@@ -244,14 +244,14 @@ Lusush can behave like different shells depending on what you need.
 
 ```bash
 # Interactive - set mode
-set -o lusush      # Default mode (usually already set)
+set -o lush      # Default mode (usually already set)
 set -o posix       # Strict POSIX mode
 set -o bash        # Bash compatibility
 set -o zsh         # Zsh compatibility
 
 # In scripts - shebang detection
-#!/usr/bin/env lusush          # Lusush mode
-#!/usr/bin/env lusush --posix  # POSIX mode
+#!/usr/bin/env lush          # Lush mode
+#!/usr/bin/env lush --posix  # POSIX mode
 ```
 
 ### What Changes Between Modes
@@ -273,15 +273,15 @@ set -o zsh         # Zsh compatibility
 - Additional parameter expansion forms
 - Zsh-style option names
 
-**Lusush mode** (default) provides everything:
+**Lush mode** (default) provides everything:
 - All Bash features
 - All Zsh features
-- Lusush-specific extensions (hooks, enhanced debugging)
+- Lush-specific extensions (hooks, enhanced debugging)
 - Best interactive experience
 
 ### Recommendation
 
-Use **Lusush mode** for interactive work and scripts that will only run in Lusush. Use **POSIX mode** for scripts that must be portable. Use **Bash/Zsh modes** when running scripts from those environments.
+Use **Lush mode** for interactive work and scripts that will only run in Lush. Use **POSIX mode** for scripts that must be portable. Use **Bash/Zsh modes** when running scripts from those environments.
 
 ---
 
@@ -290,10 +290,10 @@ Use **Lusush mode** for interactive work and scripts that will only run in Lusus
 ### A Simple Script
 
 ```bash
-#!/usr/bin/env lusush
+#!/usr/bin/env lush
 
-# hello.sh - First lusush script
-echo "Hello from Lusush v1.4.0"
+# hello.sh - First lush script
+echo "Hello from Lush v1.4.0"
 
 # Variables work as expected
 name="World"
@@ -314,10 +314,10 @@ chmod +x hello.sh
 
 ### Using Extended Syntax
 
-Lusush mode enables modern shell features:
+Lush mode enables modern shell features:
 
 ```bash
-#!/usr/bin/env lusush
+#!/usr/bin/env lush
 
 # Arrays
 fruits=(apple banana cherry)
@@ -352,10 +352,10 @@ echo "${text//o/0}"     # hell0 w0rld
 
 ### Debugging Your Script
 
-This is where Lusush stands alone:
+This is where Lush stands alone:
 
 ```bash
-#!/usr/bin/env lusush
+#!/usr/bin/env lush
 
 # Enable debugging
 debug on
@@ -379,7 +379,7 @@ Run the script and watch the debugger trace execution, show variable values, and
 
 ## The Integrated Debugger
 
-No other shell has this. The debugger is built into Lusush, not bolted on.
+No other shell has this. The debugger is built into Lush, not bolted on.
 
 ### Quick Start
 
@@ -426,7 +426,7 @@ debug profile off
 ### In Scripts
 
 ```bash
-#!/usr/bin/env lusush
+#!/usr/bin/env lush
 
 # Selective debugging
 complex_function() {
@@ -450,7 +450,7 @@ For comprehensive debugging documentation, see [DEBUGGER_GUIDE.md](DEBUGGER_GUID
 
 ### The Config System
 
-Lusush uses a modern configuration system:
+Lush uses a modern configuration system:
 
 ```bash
 # View configuration
@@ -486,10 +486,10 @@ set -x                           # Same as shell.xtrace
 
 ### Startup Configuration
 
-Create `~/.lusushrc` for persistent configuration:
+Create `~/.lushrc` for persistent configuration:
 
 ```bash
-# ~/.lusushrc - Lusush startup configuration
+# ~/.lushrc - Lush startup configuration
 
 # Shell behavior
 config set shell.errexit false
@@ -511,7 +511,7 @@ mkcd() {
     mkdir -p "$1" && cd "$1"
 }
 
-# Hook functions (Lusush-specific)
+# Hook functions (Lush-specific)
 precmd() {
     # Runs before each prompt
     :
@@ -527,7 +527,7 @@ preexec() {
 
 ## Next Steps
 
-You now have a working Lusush installation with:
+You now have a working Lush installation with:
 - LLE for modern command-line editing
 - Tab completion that understands context
 - Syntax highlighting as you type
@@ -551,7 +551,7 @@ You now have a working Lusush installation with:
 1. **Explore completions**: Type partial commands and press Tab
 2. **Try the debugger**: `debug on`, run commands, `debug vars`
 3. **Test extended syntax**: Arrays, `[[]]`, `${var^^}`
-4. **Set up your profile**: Create `~/.lusushrc` with your preferences
+4. **Set up your profile**: Create `~/.lushrc` with your preferences
 5. **Read the LLE guide**: Master the keybindings
 
 ### Get Help
@@ -563,4 +563,4 @@ debug help        # Debugger help
 display help      # Display system help
 ```
 
-Welcome to Lusush. You're now using a shell that was built to be worth using.
+Welcome to Lush. You're now using a shell that was built to be worth using.

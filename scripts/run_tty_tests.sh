@@ -10,7 +10,7 @@ echo "NOTE: These tests MUST run in a real terminal (TTY)"
 echo "      They will fail if run via automation/CI"
 echo ""
 
-cd /home/mberry/Lab/c/lusush
+cd /home/mberry/Lab/c/lush
 
 echo "Test 1: editor_test_tty (basic editor operations)"
 echo "---------------------------------------------------"

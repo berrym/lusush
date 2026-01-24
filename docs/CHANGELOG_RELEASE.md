@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Lusush are documented in this file.
+All notable changes to Lush are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -9,13 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Major Release: LLE, Multi-Mode Architecture, Extended Language Support
 
-This release transforms Lusush from a POSIX shell with debugging into a full-featured
+This release transforms Lush from a POSIX shell with debugging into a full-featured
 interactive shell with Bash/Zsh compatibility, a native line editor, and comprehensive
 extended syntax support.
 
 ### Added
 
-#### LLE - Lusush Line Editor
+#### LLE - Lush Line Editor
 - Complete native line editor replacing GNU Readline dependency
 - Emacs editing mode with 42 keybinding actions
 - Context-aware tab completion for 45 shell builtins
@@ -30,7 +30,7 @@ extended syntax support.
 - **POSIX Mode**: Strict POSIX sh compliance
 - **Bash Mode**: Bash 5.x compatibility
 - **Zsh Mode**: Zsh compatibility
-- **Lusush Mode** (default): Curated best of Bash and Zsh
+- **Lush Mode** (default): Curated best of Bash and Zsh
 
 #### Extended Language Support
 
@@ -95,7 +95,7 @@ extended syntax support.
 
 - Shell description updated to reflect new capabilities
 - Build system no longer requires GNU Readline
-- Default mode is now Lusush mode (combines best of Bash/Zsh)
+- Default mode is now Lush mode (combines best of Bash/Zsh)
 
 ### Removed
 

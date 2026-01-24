@@ -327,15 +327,15 @@ lle_result_t lle_display_cache_init(lle_display_cache_t **cache,
     }
     memset(c, 0, sizeof(lle_display_cache_t));
 
-    /* Step 3: Store memory pool reference (cast from LLE to Lusush type) */
-    c->memory_pool = (lusush_memory_pool_t *)memory_pool;
+    /* Step 3: Store memory pool reference (cast from LLE to Lush type) */
+    c->memory_pool = (lush_memory_pool_t *)memory_pool;
 
     /* Step 4: Create LLE hashtable wrapper with memory pool integration (Spec
      * 05) */
     lle_hashtable_config_t config;
     lle_hashtable_config_init_default(&config);
     config.use_memory_pool = true;
-    config.memory_pool = (lusush_memory_pool_t *)memory_pool;
+    config.memory_pool = (lush_memory_pool_t *)memory_pool;
     config.random_seed = true;
     config.thread_safe = false; /* render_cache has its own rwlock */
     config.performance_monitoring = true;
@@ -344,7 +344,7 @@ lle_result_t lle_display_cache_init(lle_display_cache_t **cache,
     /* Use factory pattern to create hashtable */
     lle_hashtable_factory_t *factory = NULL;
     lle_result_t factory_result = lle_hashtable_factory_init(
-        &factory, (lusush_memory_pool_t *)memory_pool);
+        &factory, (lush_memory_pool_t *)memory_pool);
     if (factory_result != LLE_SUCCESS) {
         lle_pool_free(c);
         return factory_result;

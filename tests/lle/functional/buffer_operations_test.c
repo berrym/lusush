@@ -25,7 +25,7 @@ static int tests_passed = 0;
 static int tests_failed = 0;
 
 /* Global memory pool for tests */
-static lusush_memory_pool_t *test_pool = NULL;
+static lush_memory_pool_t *test_pool = NULL;
 
 #define TEST(name)                                                             \
     do {                                                                       \

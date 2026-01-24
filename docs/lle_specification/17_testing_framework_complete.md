@@ -1,6 +1,6 @@
 # Document 17: Testing Framework Complete Specification
 
-**Project**: Lusush Line Editor (LLE) - Advanced Command Line Editing  
+**Project**: Lush Line Editor (LLE) - Advanced Command Line Editing  
 **Document**: Testing Framework Complete Specification  
 **Version**: 1.0.0  
 **Date**: 2025-01-07  
@@ -404,13 +404,13 @@ LLE_REGISTER_TEST(error_recovery_scenarios, LLE_TEST_TYPE_UNIT,
 // Display system integration tests
 LLE_REGISTER_TEST(display_buffer_integration, LLE_TEST_TYPE_INTEGRATION,
                   LLE_TEST_PRIORITY_CRITICAL,
-                  "Validate seamless LLE-Lusush display integration") {
-    // Initialize both LLE and Lusush display systems
+                  "Validate seamless LLE-Lush display integration") {
+    // Initialize both LLE and Lush display systems
     lle_display_integration_t *integration = lle_display_integration_create();
     LLE_ASSERT_NOT_NULL(integration, "Display integration creation failed");
     
-    lusush_display_controller_t *lusush_display = lusush_display_controller_get_instance();
-    LLE_ASSERT_NOT_NULL(lusush_display, "Lusush display controller not available");
+    lush_display_controller_t *lush_display = lush_display_controller_get_instance();
+    LLE_ASSERT_NOT_NULL(lush_display, "Lush display controller not available");
     
     // Create test buffer with complex content
     lle_buffer_t *buffer = lle_buffer_create(1024);
@@ -421,7 +421,7 @@ LLE_REGISTER_TEST(display_buffer_integration, LLE_TEST_TYPE_INTEGRATION,
     uint64_t start_time = lle_get_microsecond_timestamp();
     
     lle_result_t result = lle_display_integration_render_buffer(
-        integration, buffer, lusush_display);
+        integration, buffer, lush_display);
     LLE_ASSERT_EQ(LLE_SUCCESS, result, "Buffer rendering failed");
     
     uint64_t render_duration = lle_get_microsecond_timestamp() - start_time;
@@ -436,11 +436,11 @@ LLE_REGISTER_TEST(display_buffer_integration, LLE_TEST_TYPE_INTEGRATION,
     
     // Test cursor position synchronization
     lle_cursor_position_t lle_cursor = lle_buffer_get_cursor_position(buffer);
-    lusush_cursor_info_t lusush_cursor = lusush_display_get_cursor_info(lusush_display);
+    lush_cursor_info_t lush_cursor = lush_display_get_cursor_info(lush_display);
     
-    LLE_ASSERT_EQ(lle_cursor.line, lusush_cursor.line, 
+    LLE_ASSERT_EQ(lle_cursor.line, lush_cursor.line, 
                  "Cursor line synchronization failed");
-    LLE_ASSERT_EQ(lle_cursor.column, lusush_cursor.column,
+    LLE_ASSERT_EQ(lle_cursor.column, lush_cursor.column,
                  "Cursor column synchronization failed");
     
     lle_buffer_destroy(buffer);
@@ -1797,7 +1797,7 @@ lle_result_t lle_generate_html_dashboard(
 ### 11.1 LLE System Integration Specifications
 
 ```c
-// Integration testing requirements with existing Lusush systems
+// Integration testing requirements with existing Lush systems
 typedef struct {
     // Memory pool integration requirements
     lle_memory_pool_integration_t memory_integration;
@@ -1847,7 +1847,7 @@ typedef struct {
 // Integration validation test
 LLE_REGISTER_TEST(complete_system_integration_validation, LLE_TEST_TYPE_INTEGRATION,
                   LLE_TEST_PRIORITY_CRITICAL,
-                  "Validate complete LLE integration with all Lusush systems") {
+                  "Validate complete LLE integration with all Lush systems") {
     // Initialize integration requirements
     lle_integration_requirements_t requirements = {
         .memory_integration = {

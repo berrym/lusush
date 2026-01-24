@@ -7,7 +7,7 @@
  * Part of Spec 09: History System (Phase 4 Day 13)
  *
  * Provides multiline command detection, formatting preservation, and
- * reconstruction for editing. Integrates with Lusush's existing multiline
+ * reconstruction for editing. Integrates with Lush's existing multiline
  * continuation system (input_continuation.h) and LLE buffer management.
  *
  * FEATURES:
@@ -18,7 +18,7 @@
  * - Integration with buffer system for seamless editing
  */
 
-#include "input_continuation.h" /* Lusush multiline infrastructure */
+#include "input_continuation.h" /* Lush multiline infrastructure */
 #include "lle/error_handling.h"
 #include "lle/history.h"
 #include "lle/memory_management.h"
@@ -169,7 +169,7 @@ lle_result_t lle_history_detect_multiline(const char *command,
 /**
  * @brief Detect multiline structure using continuation analysis
  *
- * Analyzes a command using Lusush's continuation system to detect
+ * Analyzes a command using Lush's continuation system to detect
  * unclosed quotes, brackets, function definitions, control structures,
  * and here-documents.
  *
@@ -195,7 +195,7 @@ lle_history_detect_multiline_structure(const char *command,
         return LLE_SUCCESS;
     }
 
-    /* Use Lusush continuation system to analyze structure */
+    /* Use Lush continuation system to analyze structure */
     continuation_state_t state;
     continuation_state_init(&state);
 

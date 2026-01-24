@@ -1,6 +1,6 @@
 /**
  * @file shell_error.h
- * @brief Unified error management system for lusush shell
+ * @brief Unified error management system for lush shell
  *
  * Provides structured error reporting with source locations, context chains,
  * multi-error collection, and rich user feedback. Inspired by Rust's compiler

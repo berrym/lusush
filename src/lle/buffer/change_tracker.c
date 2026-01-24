@@ -87,7 +87,7 @@ find_last_redoable_sequence(lle_change_tracker_t *tracker) {
  * @brief Free operation and its associated data
  */
 static void free_operation(lle_change_operation_t *op,
-                           lusush_memory_pool_t *pool) {
+                           lush_memory_pool_t *pool) {
     (void)pool; /* Reserved for future pool-based deallocation */
     if (!op) {
         return;
@@ -107,7 +107,7 @@ static void free_operation(lle_change_operation_t *op,
  * @brief Free sequence and all its operations
  */
 static void free_sequence(lle_change_sequence_t *seq,
-                          lusush_memory_pool_t *pool) {
+                          lush_memory_pool_t *pool) {
     if (!seq) {
         return;
     }
@@ -129,7 +129,7 @@ static void free_sequence(lle_change_sequence_t *seq,
  */
 
 lle_result_t lle_change_tracker_init(lle_change_tracker_t **tracker,
-                                     lusush_memory_pool_t *memory_pool,
+                                     lush_memory_pool_t *memory_pool,
                                      size_t max_undo_levels) {
     if (!tracker || !memory_pool) {
         return LLE_ERROR_INVALID_PARAMETER;

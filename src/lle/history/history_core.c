@@ -18,7 +18,7 @@
 #include <unistd.h>
 
 /* Note: lle_pool_alloc() and lle_pool_free() are provided by
- * memory_management.h They wrap the Lusush global pool. The memory_pool
+ * memory_management.h They wrap the Lush global pool. The memory_pool
  * parameter in our API is for future per-pool allocation support, but currently
  * uses the global pool.
  */

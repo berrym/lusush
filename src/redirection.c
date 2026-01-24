@@ -20,7 +20,7 @@
 #include "redirection.h"
 
 #include "executor.h"
-#include "lusush.h"
+#include "lush.h"
 #include "node.h"
 #include "shell_error.h"
 #include "symtable.h"
@@ -96,7 +96,7 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         return 1;
     }
 
-    if (getenv("LUSUSH_DEBUG_REDIR")) {
+    if (getenv("LUSH_DEBUG_REDIR")) {
         printf("DEBUG: handle_redirection_node called with type %d\n",
                redir_node->type);
     }
@@ -159,7 +159,7 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
     if (!is_privileged_redirection_allowed(target)) {
         fprintf(
             stderr,
-            "lusush: %s: restricted redirection target in privileged mode\n",
+            "lush: %s: restricted redirection target in privileged mode\n",
             target);
         free(target);
         return 1;
@@ -177,7 +177,7 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
                 // File exists and noclobber is enabled
                 fprintf(
                     stderr,
-                    "lusush: %s: cannot overwrite existing file (noclobber)\n",
+                    "lush: %s: cannot overwrite existing file (noclobber)\n",
                     target);
                 result = 1;
                 break;
@@ -749,7 +749,7 @@ static int setup_here_document_with_processing(executor_t *executor,
  */
 static int setup_here_string(executor_t *executor, const char *content) {
 
-    if (getenv("LUSUSH_DEBUG_REDIR")) {
+    if (getenv("LUSH_DEBUG_REDIR")) {
         printf("DEBUG: setup_here_string called with: '%s'\n", content);
     }
 
@@ -822,7 +822,7 @@ static char *expand_redirection_target(executor_t *executor,
         return NULL;
     }
 
-    if (getenv("LUSUSH_DEBUG_REDIR")) {
+    if (getenv("LUSH_DEBUG_REDIR")) {
         printf("DEBUG: expand_redirection_target called with: '%s'\n", target);
     }
 
@@ -835,7 +835,7 @@ static char *expand_redirection_target(executor_t *executor,
         result = strdup(target);
     }
 
-    if (getenv("LUSUSH_DEBUG_REDIR")) {
+    if (getenv("LUSH_DEBUG_REDIR")) {
         printf("DEBUG: expand_redirection_target result: '%s'\n",
                result ? result : "NULL");
     }

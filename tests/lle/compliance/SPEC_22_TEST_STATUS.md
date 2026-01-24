@@ -66,7 +66,7 @@ This global allocator requires:
 1. LLE memory manager initialization
 2. Primary/secondary pool setup
 3. Memory subsystem registration
-4. Integration with Lusush memory system
+4. Integration with Lush memory system
 
 Setting up this environment for standalone tests would require:
 - Initializing Spec 15 (Memory Management) subsystem
@@ -79,14 +79,14 @@ Setting up this environment for standalone tests would require:
 Instead of complex standalone setup, Spec 22 functionality should be tested via:
 
 ### 1. Integration Tests
-Run tests within full Lusush environment where memory system is initialized:
+Run tests within full Lush environment where memory system is initialized:
 - History editing workflows
 - Multiline command reconstruction
 - Cache performance validation
 - Session management
 
 ### 2. Manual Testing
-Interactive testing in running Lusush shell:
+Interactive testing in running Lush shell:
 - Edit multiline commands
 - Verify structure preservation
 - Test cache hit/miss behavior

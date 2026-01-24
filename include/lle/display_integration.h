@@ -6,7 +6,7 @@
  *
  * This header defines the complete type system for Spec 08: Display
  * Integration. It provides the integration layer between LLE's internal
- * buffer/cursor system and Lusush's existing layered display architecture.
+ * buffer/cursor system and Lush's existing layered display architecture.
  *
  * SPECIFICATION: docs/lle_specification/08_display_integration_complete.md
  * IMPLEMENTATION PLAN: docs/lle_implementation/SPEC_08_IMPLEMENTATION_PLAN.md
@@ -39,7 +39,7 @@
 #include "lle/memory_management.h"
 #include "lle/performance.h"
 
-/* Lusush Display System Dependencies */
+/* Lush Display System Dependencies */
 #include "display/display_controller.h"
 
 /* libhashtable Integration (Spec 05) - Use LLE wrapper */
@@ -193,7 +193,7 @@ typedef struct {
 /**
  * @brief Display bridge structure
  *
- * Bridges LLE buffer system with Lusush display layers.
+ * Bridges LLE buffer system with Lush display layers.
  * Coordinates event flow and state synchronization.
  */
 struct lle_display_bridge_t {
@@ -202,10 +202,10 @@ struct lle_display_bridge_t {
     lle_cursor_position_t *cursor_pos; /**< Current cursor position */
     void *lle_event_manager;           /**< LLE event system (opaque) */
 
-    /* Lusush display connections */
-    void *command_layer; /**< Lusush command display layer (opaque) */
-    composition_engine_t *composition_engine; /**< Lusush composition engine */
-    layer_event_system_t *layer_events;       /**< Lusush layer event system */
+    /* Lush display connections */
+    void *command_layer; /**< Lush command display layer (opaque) */
+    composition_engine_t *composition_engine; /**< Lush composition engine */
+    layer_event_system_t *layer_events;       /**< Lush layer event system */
     display_controller_t
         *display_controller; /**< Display controller for terminal info */
 
@@ -462,7 +462,7 @@ struct lle_display_cache_t {
     lle_display_cache_policy_t *policy; /**< Cache policy (LRU) */
     lle_cache_metrics_t *metrics;       /**< Cache metrics */
     pthread_rwlock_t cache_lock;        /**< Thread safety lock */
-    lusush_memory_pool_t *memory_pool;  /**< Lusush memory pool for cache */
+    lush_memory_pool_t *memory_pool;  /**< Lush memory pool for cache */
 };
 
 /**
@@ -537,11 +537,11 @@ struct lle_event_router_t {
 /**
  * @brief Event translator
  *
- * Translates between LLE and Lusush event formats.
+ * Translates between LLE and Lush event formats.
  */
 struct lle_event_translator_t {
     void *lle_event_system; /**< LLE event system reference (opaque) */
-    layer_event_system_t *lusush_events; /**< Lusush event system reference */
+    layer_event_system_t *lush_events; /**< Lush event system reference */
     lle_memory_pool_t *memory_pool;      /**< Memory pool for translations */
 };
 
@@ -569,7 +569,7 @@ typedef struct {
 /**
  * @brief Event coordinator
  *
- * Coordinates event flow between LLE and Lusush display systems.
+ * Coordinates event flow between LLE and Lush display systems.
  */
 struct lle_event_coordinator_t {
     lle_event_translator_t *translator; /**< Event translator */
@@ -791,9 +791,9 @@ typedef struct {
 /**
  * @brief LLE Display Integration (Main Structure)
  *
- * Master coordinator for LLE display integration with Lusush.
+ * Master coordinator for LLE display integration with Lush.
  * This is the top-level structure that manages all display integration
- * components and coordinates between LLE and Lusush display systems.
+ * components and coordinates between LLE and Lush display systems.
  */
 struct lle_display_integration_t {
     /* Core integration components */
@@ -802,11 +802,11 @@ struct lle_display_integration_t {
     lle_display_cache_t *display_cache;         /**< Display caching system */
     lle_composition_manager_t *comp_manager;    /**< Composition manager */
 
-    /* Lusush system integration */
+    /* Lush system integration */
     display_controller_t
-        *lusush_display;            /**< Existing Lusush display controller */
+        *lush_display;            /**< Existing Lush display controller */
     void *theme_system;             /**< Existing theme system (opaque) */
-    lle_memory_pool_t *memory_pool; /**< Lusush memory pool */
+    lle_memory_pool_t *memory_pool; /**< Lush memory pool */
 
     /* Performance and coordination */
     lle_display_metrics_t *perf_metrics; /**< Display performance monitoring */
@@ -839,7 +839,7 @@ struct lle_display_integration_t {
 lle_display_integration_t *lle_display_integration_get_global(void);
 lle_result_t
 lle_display_integration_init(lle_display_integration_t **integration,
-                             void *editor, display_controller_t *lusush_display,
+                             void *editor, display_controller_t *lush_display,
                              lle_memory_pool_t *memory_pool);
 lle_result_t
 lle_display_integration_cleanup(lle_display_integration_t *integration);

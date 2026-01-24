@@ -4,7 +4,7 @@
  *
  * Comprehensive implementation of shell builtin commands including cd, echo,
  * export, pwd, exit, jobs, fg, bg, history, config, debug, and many more.
- * Provides POSIX-compliant builtins alongside Lusush-specific extensions.
+ * Provides POSIX-compliant builtins alongside Lush-specific extensions.
  *
  * @author Michael Berry <trismegustis@gmail.com>
  * @copyright Copyright (C) 2021-2026 Michael Berry
@@ -40,8 +40,8 @@
 #include "lle/prompt/composer.h"
 #include "lle/prompt/theme.h"
 #include "lle/prompt/theme_loader.h"
-#include "lusush.h"
-#include "lusush_memory_pool.h"
+#include "lush.h"
+#include "lush_memory_pool.h"
 #include "posix_history.h"
 #include "signals.h"
 #include "symtable.h"
@@ -119,7 +119,7 @@ static void builtin_error(const char *builtin_name, shell_error_code_t code,
     } else {
         /* Fallback to simple error message */
         va_start(args, fmt);
-        fprintf(stderr, "lusush: %s: ", builtin_name);
+        fprintf(stderr, "lush: %s: ", builtin_name);
         vfprintf(stderr, fmt, args);
         fprintf(stderr, "\n");
         va_end(args);
@@ -2662,7 +2662,7 @@ int bin_continue(int argc, char **argv) {
 /**
  * @brief Set a string return value for the current function
  *
- * Lusush extension (not POSIX) that allows functions to return
+ * Lush extension (not POSIX) that allows functions to return
  * string values via command substitution. Not available in POSIX mode.
  *
  * @param argc Argument count
@@ -2683,7 +2683,7 @@ int bin_return_value(int argc, char **argv) {
 
     // Output the return value with a special marker that command substitution
     // can recognize
-    printf("__LUSUSH_RETURN__:%s:__END__\n", argv[1]);
+    printf("__LUSH_RETURN__:%s:__END__\n", argv[1]);
     fflush(stdout);
 
     // Return success
@@ -4506,7 +4506,7 @@ int bin_unsetopt(int argc, char **argv) {
  *
  * Option names accepted:
  *   - Bash names: extglob, nullglob, globstar, dotglob, etc.
- *   - Lusush names: extended_glob, null_glob, etc.
+ *   - Lush names: extended_glob, null_glob, etc.
  *
  * @param argc Argument count
  * @param argv Argument vector
@@ -5233,7 +5233,7 @@ int bin_debug(int argc __attribute__((unused)), char **argv) {
  * - stats: Show usage statistics
  * - diagnostics: Show system diagnostics
  * - performance: Performance monitoring commands
- * - lle: LLE (Lusush Line Editor) control commands
+ * - lle: LLE (Lush Line Editor) control commands
  * - help: Show usage information
  *
  * @param argc Argument count
@@ -5249,12 +5249,12 @@ int bin_display(int argc, char **argv) {
         printf("  config      - Show current configuration\n");
         printf("  stats       - Show performance statistics\n");
         printf("  diagnostics - Show detailed diagnostic information\n");
-        printf("  lle         - LLE (Lusush Line Editor) control commands\n");
+        printf("  lle         - LLE (Lush Line Editor) control commands\n");
         printf("  help        - Show this help message\n");
         printf("\nEnvironment Variables:\n");
-        printf("  LUSUSH_DISPLAY_DEBUG=1|0        - Enable/disable debug "
+        printf("  LUSH_DISPLAY_DEBUG=1|0        - Enable/disable debug "
                "output\n");
-        printf("  LUSUSH_DISPLAY_OPTIMIZATION=0-4 - Set optimization level\n");
+        printf("  LUSH_DISPLAY_OPTIMIZATION=0-4 - Set optimization level\n");
         return 0;
     }
 
@@ -5460,7 +5460,7 @@ int bin_display(int argc, char **argv) {
             return 0;
 
         } else if (strcmp(perf_cmd, "memory") == 0) {
-            lusush_pool_analyze_fallback_patterns();
+            lush_pool_analyze_fallback_patterns();
             return 0;
 
         } else if (strcmp(perf_cmd, "baseline") == 0) {
@@ -5590,9 +5590,9 @@ int bin_display(int argc, char **argv) {
         }
 
     } else if (strcmp(subcmd, "lle") == 0) {
-        // LLE (Lusush Line Editor) control commands
+        // LLE (Lush Line Editor) control commands
         if (argc < 3) {
-            printf("LLE (Lusush Line Editor) Commands\n");
+            printf("LLE (Lush Line Editor) Commands\n");
             printf("Usage: display lle <command> [options]\n");
             printf("\nStatus:\n");
             printf("  status           - Show LLE status and configuration\n");
@@ -5623,7 +5623,7 @@ int bin_display(int argc, char **argv) {
             printf("                      reload  - Reload from config file\n");
             printf("\nHistory:\n");
             printf(
-                "  history-import   - Import history from ~/.lusush_history\n");
+                "  history-import   - Import history from ~/.lush_history\n");
             printf("\nNote: Changes apply immediately. Use 'config save' to "
                    "persist.\n");
             return 0;
@@ -5635,8 +5635,8 @@ int bin_display(int argc, char **argv) {
             lle_editor_t *editor = lle_get_global_editor();
 
             printf("LLE Status:\n");
-            printf("  Line Editor: LLE (Lusush Line Editor)\n");
-            printf("  History file: ~/.lusush_history\n");
+            printf("  Line Editor: LLE (Lush Line Editor)\n");
+            printf("  History file: ~/.lush_history\n");
             printf("  Editor: %s\n",
                    editor ? "initialized" : "not initialized");
 
@@ -5678,7 +5678,7 @@ int bin_display(int argc, char **argv) {
                 lle_history_get_entry_count(editor->history_system, &count);
 
                 printf(
-                    "✓ Successfully imported history from ~/.lusush_history\n");
+                    "✓ Successfully imported history from ~/.lush_history\n");
                 printf("  Total entries in LLE history: %zu\n", count);
 
                 /* Save to LLE history file */
@@ -5686,7 +5686,7 @@ int bin_display(int argc, char **argv) {
                 if (home) {
                     char history_path[1024];
                     snprintf(history_path, sizeof(history_path),
-                             "%s/.lusush_history", home);
+                             "%s/.lush_history", home);
                     lle_history_save_to_file(editor->history_system,
                                              history_path);
                     printf("  Saved to: %s\n", history_path);
@@ -5717,7 +5717,7 @@ int bin_display(int argc, char **argv) {
                 }
 
                 printf("Reloading keybindings from "
-                       "~/.config/lusush/keybindings.toml...\n");
+                       "~/.config/lush/keybindings.toml...\n");
                 lle_keybinding_load_result_t load_result;
                 lle_result_t result = lle_keybinding_reload_user_config(
                     editor->keybinding_manager, &load_result);
@@ -5733,7 +5733,7 @@ int bin_display(int argc, char **argv) {
                     return 0;
                 } else if (result == LLE_ERROR_NOT_FOUND) {
                     printf("No keybindings config file found at "
-                           "~/.config/lusush/keybindings.toml\n");
+                           "~/.config/lush/keybindings.toml\n");
                     printf("Create this file to customize keybindings.\n");
                     printf("\nExample format:\n");
                     printf("  [bindings]\n");
@@ -5755,7 +5755,7 @@ int bin_display(int argc, char **argv) {
                 printf("LLE Available Actions\n");
                 printf("=====================\n");
                 printf("\nThese action names can be used in "
-                       "~/.config/lusush/keybindings.toml\n\n");
+                       "~/.config/lush/keybindings.toml\n\n");
 
                 const lle_action_registry_entry_t *entry;
                 size_t index = 0;
@@ -5850,7 +5850,7 @@ int bin_display(int argc, char **argv) {
                     printf("  actions  - List all available action names\n");
                     printf("  help     - Show this help message\n");
                     printf(
-                        "\nConfig file: ~/.config/lusush/keybindings.toml\n");
+                        "\nConfig file: ~/.config/lush/keybindings.toml\n");
                     printf("\nExample config:\n");
                     printf("  [bindings]\n");
                     printf("  \"C-a\" = \"end-of-line\"\n");
@@ -6153,7 +6153,7 @@ int bin_display(int argc, char **argv) {
             printf("===============\n");
 
             printf("\nSystem Status:\n");
-            printf("  Line Editor: LLE (Lusush Line Editor)\n");
+            printf("  Line Editor: LLE (Lush Line Editor)\n");
             printf("  Global editor: %s\n",
                    editor ? "initialized" : "not initialized");
 
@@ -6537,7 +6537,7 @@ int bin_display(int argc, char **argv) {
                     printf("Config sources: %zu\n", cfg->source_count);
                 } else {
                     printf("\nNo config file loaded.\n");
-                    printf("Create ~/.config/lusush/completions.toml to define "
+                    printf("Create ~/.config/lush/completions.toml to define "
                            "custom sources.\n");
                 }
 
@@ -6573,7 +6573,7 @@ int bin_display(int argc, char **argv) {
                 printf("  reload  - Reload custom sources from config file\n");
                 printf("  help    - Show this help message\n");
                 printf("\nConfig File:\n");
-                printf("  ~/.config/lusush/completions.toml\n");
+                printf("  ~/.config/lush/completions.toml\n");
                 printf("\nExample config:\n");
                 printf("  [sources.git-branches]\n");
                 printf("  description = \"Git branch names\"\n");
@@ -6625,9 +6625,9 @@ int bin_display(int argc, char **argv) {
         printf("\nConfiguration:\n");
         printf("  Environment variables can be used to control behavior:\n");
         printf(
-            "  - LUSUSH_LAYERED_DISPLAY=1|0     Enable/disable at startup\n");
-        printf("  - LUSUSH_DISPLAY_DEBUG=1|0       Enable debug output\n");
-        printf("  - LUSUSH_DISPLAY_OPTIMIZATION=0-4 Set optimization level\n");
+            "  - LUSH_LAYERED_DISPLAY=1|0     Enable/disable at startup\n");
+        printf("  - LUSH_DISPLAY_DEBUG=1|0       Enable debug output\n");
+        printf("  - LUSH_DISPLAY_OPTIMIZATION=0-4 Set optimization level\n");
         printf("\nOptimization Levels:\n");
         printf("  0 - Disabled (no optimization)\n");
         printf("  1 - Basic (basic caching only)\n");

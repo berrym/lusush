@@ -1,6 +1,6 @@
 # Configuration System
 
-**Configuring Lusush v1.5.0**
+**Configuring Lush v1.5.0**
 
 ---
 
@@ -20,10 +20,10 @@
 
 ## Overview
 
-Lusush v1.5.0 introduces a unified configuration system with:
+Lush v1.5.0 introduces a unified configuration system with:
 
 - **TOML format**: Human-readable, structured configuration
-- **XDG compliance**: Config stored in `~/.config/lusush/`
+- **XDG compliance**: Config stored in `~/.config/lush/`
 - **Unified registry**: Single source of truth for all settings
 - **Bidirectional sync**: Changes via commands sync to config files
 - **setopt/unsetopt**: Zsh-style feature control
@@ -58,10 +58,10 @@ config path
 
 ### XDG-Compliant Location (v1.5.0+)
 
-Lusush uses the XDG Base Directory specification:
+Lush uses the XDG Base Directory specification:
 
 ```
-~/.config/lusush/
+~/.config/lush/
 ├── config.toml          # Main configuration (TOML format)
 └── config.sh            # Optional shell script (sourced after config.toml)
 ```
@@ -73,11 +73,11 @@ The path respects `$XDG_CONFIG_HOME` if set.
 The primary configuration file uses TOML format:
 
 ```toml
-# ~/.config/lusush/config.toml
-# Lusush Shell Configuration
+# ~/.config/lush/config.toml
+# Lush Shell Configuration
 
 [shell]
-mode = "lusush"
+mode = "lush"
 errexit = false
 nounset = false
 xtrace = false
@@ -112,7 +112,7 @@ theme = "default"
 For advanced configuration that requires shell commands, create `config.sh`:
 
 ```bash
-# ~/.config/lusush/config.sh
+# ~/.config/lush/config.sh
 # Sourced after config.toml - for aliases, functions, and complex setup
 
 # Aliases
@@ -130,18 +130,18 @@ precmd() {
 }
 ```
 
-### Legacy Format (~/.lusushrc)
+### Legacy Format (~/.lushrc)
 
-For backward compatibility, Lusush still reads the legacy format:
+For backward compatibility, Lush still reads the legacy format:
 
 ```bash
-# ~/.lusushrc (legacy - will be migrated)
+# ~/.lushrc (legacy - will be migrated)
 config set shell.errexit true
 config set completion.enabled true
 alias ll='ls -la'
 ```
 
-If `~/.lusushrc` exists but no XDG config, Lusush will:
+If `~/.lushrc` exists but no XDG config, Lush will:
 1. Load the legacy config
 2. Print a migration notice
 3. On `config save`, write to the new XDG location
@@ -181,7 +181,7 @@ Boolean values: `true`, `false`, `on`, `off`, `1`, `0`
 Save current configuration to TOML file:
 
 ```bash
-config save              # Save to ~/.config/lusush/config.toml
+config save              # Save to ~/.config/lush/config.toml
 ```
 
 ### config path
@@ -195,10 +195,10 @@ config path
 Output:
 ```
 Configuration paths:
-  User config: /home/user/.config/lusush/config.toml
-  System config: /etc/lusush/lusushrc
-  XDG directory: /home/user/.config/lusush
-  Legacy path: /home/user/.lusushrc
+  User config: /home/user/.config/lush/config.toml
+  System config: /etc/lush/lushrc
+  XDG directory: /home/user/.config/lush
+  Legacy path: /home/user/.lushrc
   Format: TOML
   Status: XDG config active
 ```
@@ -208,7 +208,7 @@ Configuration paths:
 Explicitly migrate legacy config to XDG location:
 
 ```bash
-config migrate           # Convert ~/.lusushrc to ~/.config/lusush/config.toml
+config migrate           # Convert ~/.lushrc to ~/.config/lush/config.toml
 ```
 
 ### config reset
@@ -223,7 +223,7 @@ config reset             # Reset all settings
 
 ## setopt/unsetopt Commands
 
-Lusush v1.5.0 introduces Zsh-style `setopt` and `unsetopt` commands for controlling shell features:
+Lush v1.5.0 introduces Zsh-style `setopt` and `unsetopt` commands for controlling shell features:
 
 ### setopt
 
@@ -360,7 +360,7 @@ unsetopt process_substitution
 Control which shell compatibility mode is active:
 
 ```bash
-config get shell.mode           # lusush (default)
+config get shell.mode           # lush (default)
 config set shell.mode bash      # Bash compatibility
 config set shell.mode zsh       # Zsh compatibility
 config set shell.mode posix     # Strict POSIX
@@ -372,12 +372,12 @@ Or use `set -o`:
 set -o bash
 set -o zsh
 set -o posix
-set -o lusush
+set -o lush
 ```
 
 ### Feature Defaults by Mode
 
-| Feature | POSIX | Bash | Zsh | Lusush |
+| Feature | POSIX | Bash | Zsh | Lush |
 |---------|-------|------|-----|--------|
 | `extended_glob` | off | on | on | on |
 | `process_substitution` | off | on | on | on |
@@ -401,18 +401,18 @@ setopt extended_glob
 
 ### Automatic Migration
 
-If you have an existing `~/.lusushrc`:
+If you have an existing `~/.lushrc`:
 
-1. Lusush loads it on startup
-2. Displays: `Loading configuration from ~/.lusushrc (legacy location)`
-3. Displays: `Run 'config save' to migrate to ~/.config/lusush/config.toml`
+1. Lush loads it on startup
+2. Displays: `Loading configuration from ~/.lushrc (legacy location)`
+3. Displays: `Run 'config save' to migrate to ~/.config/lush/config.toml`
 
 Run `config save` to migrate:
 
 ```bash
 config save
-# Output: Configuration saved to /home/user/.config/lusush/config.toml
-# Output: You may remove the old ~/.lusushrc file
+# Output: Configuration saved to /home/user/.config/lush/config.toml
+# Output: You may remove the old ~/.lushrc file
 ```
 
 ### Manual Migration
@@ -431,7 +431,7 @@ config migrate
 
 ### What Stays in config.sh
 
-Move these to `~/.config/lusush/config.sh`:
+Move these to `~/.config/lush/config.sh`:
 
 - Aliases
 - Functions
@@ -452,12 +452,12 @@ Move these to `~/.config/lusush/config.sh`:
 | `SHELL` | Current shell path |
 | `TERM` | Terminal type |
 
-### Lusush Variables
+### Lush Variables
 
 | Variable | Description |
 |----------|-------------|
-| `LUSUSH_VERSION` | Version string |
-| `LUSUSH_DEBUG` | Enable debug output |
+| `LUSH_VERSION` | Version string |
+| `LUSH_DEBUG` | Enable debug output |
 
 ---
 
@@ -466,10 +466,10 @@ Move these to `~/.config/lusush/config.sh`:
 ### Recommended config.toml
 
 ```toml
-# ~/.config/lusush/config.toml
+# ~/.config/lush/config.toml
 
 [shell]
-mode = "lusush"
+mode = "lush"
 pipefail = true
 
 [shell.features]
@@ -492,7 +492,7 @@ fuzzy = true
 ### Recommended config.sh
 
 ```bash
-# ~/.config/lusush/config.sh
+# ~/.config/lush/config.sh
 
 # Aliases
 alias ll='ls -la'
@@ -526,7 +526,7 @@ precmd() {
 Set options explicitly at the start:
 
 ```bash
-#!/usr/bin/env lusush
+#!/usr/bin/env lush
 set -euo pipefail
 
 # Script body

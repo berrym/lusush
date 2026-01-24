@@ -16,13 +16,13 @@
 #include <stddef.h>
 
 /** @brief Legacy user configuration file name (in home directory) */
-#define USER_CONFIG_FILE ".lusushrc"
+#define USER_CONFIG_FILE ".lushrc"
 
 /** @brief System-wide configuration file path */
-#define SYSTEM_CONFIG_FILE "/etc/lusush/lusushrc"
+#define SYSTEM_CONFIG_FILE "/etc/lush/lushrc"
 
 /** @brief XDG config directory name (relative to XDG_CONFIG_HOME) */
-#define CONFIG_XDG_DIR "lusush"
+#define CONFIG_XDG_DIR "lush"
 
 /** @brief XDG config file name */
 #define CONFIG_XDG_FILE "config.toml"
@@ -44,7 +44,7 @@
  */
 typedef enum {
     CONFIG_FORMAT_UNKNOWN,  /**< Unknown or invalid format */
-    CONFIG_FORMAT_LEGACY,   /**< Legacy INI-like format (.lusushrc) */
+    CONFIG_FORMAT_LEGACY,   /**< Legacy INI-like format (.lushrc) */
     CONFIG_FORMAT_TOML      /**< TOML format (config.toml) */
 } config_format_t;
 
@@ -250,7 +250,7 @@ typedef struct {
     bool script_execution; /**< Enable script execution */
 
     /* Shell mode settings (Phase 0: Extended Language Support) */
-    int shell_mode;            /**< Shell mode: 0=posix, 1=bash, 2=zsh, 3=lusush */
+    int shell_mode;            /**< Shell mode: 0=posix, 1=bash, 2=zsh, 3=lush */
     bool shell_mode_strict;    /**< Disallow runtime mode changes */
 } config_values_t;
 
@@ -490,7 +490,7 @@ bool config_validate_lle_dedup_strategy(const char *value);
 /**
  * @brief Validate a shell mode value
  *
- * @param value Shell mode string to validate (posix, bash, zsh, lusush)
+ * @param value Shell mode string to validate (posix, bash, zsh, lush)
  * @return true if valid shell mode, false otherwise
  */
 bool config_validate_shell_mode(const char *value);
@@ -579,8 +579,8 @@ int config_create_user_config(void);
 /**
  * @brief Get the path to the user configuration file
  *
- * Returns the XDG config path (~/.config/lusush/config.toml) if it exists,
- * otherwise returns the legacy path (~/.lusushrc) if it exists.
+ * Returns the XDG config path (~/.config/lush/config.toml) if it exists,
+ * otherwise returns the legacy path (~/.lushrc) if it exists.
  * If neither exists, returns the XDG path for new config creation.
  *
  * @return Path string (caller must free), or NULL on error
@@ -597,7 +597,7 @@ char *config_get_system_config_path(void);
 /**
  * @brief Get the XDG config directory path
  *
- * Returns the path to ~/.config/lusush or $XDG_CONFIG_HOME/lusush.
+ * Returns the path to ~/.config/lush or $XDG_CONFIG_HOME/lush.
  * Creates the directory if it doesn't exist.
  *
  * @param buffer Buffer to receive the path
@@ -620,7 +620,7 @@ int config_get_xdg_config_path(char *buffer, size_t size);
 /**
  * @brief Get the legacy config file path
  *
- * Returns the path to ~/.lusushrc.
+ * Returns the path to ~/.lushrc.
  *
  * @param buffer Buffer to receive the path
  * @param size Size of the buffer
@@ -638,7 +638,7 @@ bool config_needs_migration(void);
 /**
  * @brief Migrate legacy config to XDG location
  *
- * Converts ~/.lusushrc to ~/.config/lusush/config.toml format.
+ * Converts ~/.lushrc to ~/.config/lush/config.toml format.
  *
  * @return 0 on success, -1 on error
  */

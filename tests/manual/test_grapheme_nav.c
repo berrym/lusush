@@ -1,14 +1,14 @@
 /**
  * Test grapheme navigation with complex emoji
  * Compile: gcc -o test_grapheme_nav test_grapheme_nav.c -I../../include
- * -L../../builddir/src/lle -llle -L../../builddir/src/pool -llusush_pool
+ * -L../../build/src/lle -llle -L../../build/src/pool -llush_pool
  */
 
 #include "lle/buffer_management.h"
 #include <stdio.h>
 #include <string.h>
 
-extern lusush_memory_pool_t *global_memory_pool;
+extern lush_memory_pool_t *global_memory_pool;
 
 int main(void) {
     printf("=== Grapheme Navigation Test ===\n\n");

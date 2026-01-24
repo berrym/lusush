@@ -23,7 +23,7 @@
 #include "lle/display_integration.h"
 #include "lle/error_handling.h"
 #include "lle/memory_management.h"
-#include "lusush_memory_pool.h"
+#include "lush_memory_pool.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,21 +36,21 @@
 static int mock_pool_dummy = 42;
 static lle_memory_pool_t *mock_pool = (lle_memory_pool_t *)&mock_pool_dummy;
 
-/* External memory pool from lusush_memory_pool.c for buffer operations */
-extern lusush_memory_pool_t *global_memory_pool;
+/* External memory pool from lush_memory_pool.c for buffer operations */
+extern lush_memory_pool_t *global_memory_pool;
 
 /* Test setup/teardown for memory pool */
 static void test_setup(void) {
-    lusush_pool_config_t config = lusush_pool_get_default_config();
-    lusush_pool_error_t result = lusush_pool_init(&config);
-    if (result != LUSUSH_POOL_SUCCESS) {
+    lush_pool_config_t config = lush_pool_get_default_config();
+    lush_pool_error_t result = lush_pool_init(&config);
+    if (result != LUSH_POOL_SUCCESS) {
         fprintf(stderr,
                 "Warning: Failed to initialize memory pool (error %d)\n",
                 result);
     }
 }
 
-static void test_teardown(void) { lusush_pool_shutdown(); }
+static void test_teardown(void) { lush_pool_shutdown(); }
 
 /* Test result tracking */
 static int tests_run = 0;

@@ -13,7 +13,7 @@
 #include "debug.h"
 #include "errors.h"
 #include "executor.h"
-#include "lusush.h"
+#include "lush.h"
 
 #include <stdarg.h>
 #include <stdio.h>

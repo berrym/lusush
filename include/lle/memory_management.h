@@ -25,8 +25,8 @@
 /* Include LLE error handling */
 #include "lle/error_handling.h"
 
-/* Include Lusush memory pool for integration */
-#include "lusush_memory_pool.h"
+/* Include Lush memory pool for integration */
+#include "lush_memory_pool.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,13 +37,13 @@ extern "C" {
  * ============================================================================
  */
 
-/* Lusush types from lusush_memory_pool.h are included via header */
-/* Spec uses lusush_memory_pool_t but actual Lusush uses
- * lusush_memory_pool_system_t */
+/* Lush types from lush_memory_pool.h are included via header */
+/* Spec uses lush_memory_pool_t but actual Lush uses
+ * lush_memory_pool_system_t */
 /* Create alias to match spec naming */
-typedef lusush_memory_pool_system_t lusush_memory_pool_t;
+typedef lush_memory_pool_system_t lush_memory_pool_t;
 
-typedef struct lusush_memory_system_t lusush_memory_system_t;
+typedef struct lush_memory_system_t lush_memory_system_t;
 typedef struct lle_input_event_t lle_input_event_t;
 typedef struct lle_display_event_t lle_display_event_t;
 typedef struct lle_system_event_t lle_system_event_t;
@@ -79,7 +79,7 @@ typedef struct lle_buffer_config_t lle_buffer_config_t;
 #define LLE_INPUT_EVENT_CACHE_SIZE 64
 #define LLE_DISPLAY_EVENT_CACHE_SIZE 64
 #define LLE_SYSTEM_EVENT_CACHE_SIZE 32
-#define LUSUSH_POOL_COUNT 4
+#define LUSH_POOL_COUNT 4
 
 /* Performance targets */
 #define LLE_ALLOCATION_TIME_TARGET_US 100
@@ -287,8 +287,8 @@ typedef struct lle_memory_error_handler_t lle_memory_error_handler_t;
 typedef struct lle_buffer_overflow_protection_t
     lle_buffer_overflow_protection_t;
 typedef struct lle_memory_encryption_t lle_memory_encryption_t;
-typedef struct lle_lusush_memory_integration_complete_t
-    lle_lusush_memory_integration_complete_t;
+typedef struct lle_lush_memory_integration_complete_t
+    lle_lush_memory_integration_complete_t;
 typedef struct lle_display_memory_coordination_t
     lle_display_memory_coordination_t;
 typedef struct lle_memory_test_framework_t lle_memory_test_framework_t;
@@ -317,8 +317,8 @@ typedef struct {
     bool enable_bounds_checking;
     bool enable_encryption;
     bool enable_poisoning;
-    bool share_with_lusush;
-    lusush_memory_pool_t *parent_pool;
+    bool share_with_lush;
+    lush_memory_pool_t *parent_pool;
 } lle_memory_pool_config_t;
 
 typedef struct {
@@ -398,10 +398,10 @@ void *lle_pool_allocate_aligned(lle_memory_pool_t *pool, size_t size,
 void *lle_pool_allocate_fast(lle_memory_pool_t *pool, size_t size);
 void lle_pool_free_fast(lle_memory_pool_t *pool, void *ptr);
 
-/* Lusush Memory Pool Integration Bridge */
+/* Lush Memory Pool Integration Bridge */
 lle_result_t
-lle_memory_pool_create_from_lusush(lle_memory_pool_t **lle_pool,
-                                   lusush_memory_pool_t *lusush_pool,
+lle_memory_pool_create_from_lush(lle_memory_pool_t **lle_pool,
+                                   lush_memory_pool_t *lush_pool,
                                    lle_memory_pool_type_t pool_type);
 void lle_memory_pool_destroy(lle_memory_pool_t *pool);
 
@@ -418,12 +418,12 @@ lle_result_t lle_memory_handle_low_memory(lle_memory_manager_t *manager);
 lle_result_t lle_memory_handle_error_state(lle_memory_manager_t *manager);
 lle_result_t lle_memory_shutdown_pools(lle_memory_manager_t *manager);
 
-/* Lusush Integration */
-lle_result_t lle_integrate_with_lusush_memory(lle_memory_manager_t *manager);
-lusush_memory_pool_t *lusush_get_memory_pools(void);
+/* Lush Integration */
+lle_result_t lle_integrate_with_lush_memory(lle_memory_manager_t *manager);
+lush_memory_pool_t *lush_get_memory_pools(void);
 lle_result_t
-lle_analyze_lusush_memory_config(lusush_memory_pool_t *lusush_pools,
-                                 lle_memory_config_t *lusush_config);
+lle_analyze_lush_memory_config(lush_memory_pool_t *lush_pools,
+                                 lle_memory_config_t *lush_config);
 lle_result_t
 lle_create_specialized_pool(lle_memory_manager_t *manager,
                             const lle_memory_pool_config_t *pool_config);
@@ -431,7 +431,7 @@ void lle_cleanup_partial_integration(lle_memory_manager_t *manager,
                                      size_t pool_index);
 lle_result_t
 lle_create_shared_memory_regions(lle_memory_manager_t *manager,
-                                 const lle_memory_config_t *lusush_config);
+                                 const lle_memory_config_t *lush_config);
 lle_result_t
 lle_initialize_cross_allocation_tables(lle_memory_manager_t *manager);
 lle_result_t lle_start_integration_monitoring(lle_memory_manager_t *manager);
@@ -660,17 +660,17 @@ lle_result_t lle_encrypt_data_in_place(void *data, size_t size, uint8_t *key,
 
 /* Complete Integration */
 lle_result_t lle_initialize_complete_memory_integration(
-    lle_lusush_memory_integration_complete_t *integration,
-    lle_memory_manager_t *lle_manager, lusush_memory_system_t *lusush_system);
+    lle_lush_memory_integration_complete_t *integration,
+    lle_memory_manager_t *lle_manager, lush_memory_system_t *lush_system);
 void lle_cleanup_integration_sync(
-    lle_lusush_memory_integration_complete_t *integration);
+    lle_lush_memory_integration_complete_t *integration);
 lle_result_t lle_establish_shared_memory_regions(
-    lle_lusush_memory_integration_complete_t *integration);
+    lle_lush_memory_integration_complete_t *integration);
 lle_result_t lle_configure_integration_mode(
-    lle_lusush_memory_integration_complete_t *integration,
+    lle_lush_memory_integration_complete_t *integration,
     lle_integration_mode_t mode);
 void lle_cleanup_shared_memory_regions(
-    lle_lusush_memory_integration_complete_t *integration);
+    lle_lush_memory_integration_complete_t *integration);
 
 /* Display Memory Coordination */
 void *

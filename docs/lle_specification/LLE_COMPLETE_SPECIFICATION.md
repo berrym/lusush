@@ -1,4 +1,4 @@
-# Lusush Line Editor (LLE) Complete Specification
+# Lush Line Editor (LLE) Complete Specification
 
 **Version**: 3.0.0  
 **Date**: 2025-10-11  
@@ -17,7 +17,7 @@
 6. [Event System Architecture](#6-event-system-architecture)
 7. [History Management System](#7-history-management-system)
 8. [Extensibility Architecture](#8-extensibility-architecture)
-9. [Integration with Lusush Display System](#9-integration-with-lusush-display-system)
+9. [Integration with Lush Display System](#9-integration-with-lush-display-system)
 10. [Performance Requirements](#10-performance-requirements)
 11. [API Specifications](#11-api-specifications)
 12. [Implementation Roadmap](#12-implementation-roadmap)
@@ -30,9 +30,9 @@
 
 ### 1.1 Vision Statement
 
-The Lusush Line Editor (LLE) represents a revolutionary approach to shell line editing that addresses the fundamental architectural limitations of GNU Readline through a **buffer-oriented, event-driven design** with **adaptive terminal integration** providing universal compatibility across all environments, from traditional TTY terminals to modern AI assistants and editor interfaces.
+The Lush Line Editor (LLE) represents a revolutionary approach to shell line editing that addresses the fundamental architectural limitations of GNU Readline through a **buffer-oriented, event-driven design** with **adaptive terminal integration** providing universal compatibility across all environments, from traditional TTY terminals to modern AI assistants and editor interfaces.
 
-**BREAKTHROUGH ACHIEVEMENT**: The Adaptive Terminal Integration system combines proven working solutions from the `feature/lusush-line-editor` branch with research-validated architectural rigor, solving the critical universal compatibility gap through detection-control separation and multi-tier integration modes.
+**BREAKTHROUGH ACHIEVEMENT**: The Adaptive Terminal Integration system combines proven working solutions from the `feature/lush-line-editor` branch with research-validated architectural rigor, solving the critical universal compatibility gap through detection-control separation and multi-tier integration modes.
 
 ### 1.2 Strategic Value Proposition
 
@@ -45,7 +45,7 @@ The Lusush Line Editor (LLE) represents a revolutionary approach to shell line e
 
 **Competitive Advantages:**
 1. **Universal Compatibility**: Works optimally in every environment where interaction is possible - traditional terminals, AI assistants, editor interfaces, testing frameworks
-2. **Proven Architecture**: Built on working solutions from `feature/lusush-line-editor` branch with research-validated enhancements
+2. **Proven Architecture**: Built on working solutions from `feature/lush-line-editor` branch with research-validated enhancements
 3. **Adaptive Control**: Multi-tier integration modes (NATIVE, ENHANCED, MULTIPLEXED, MINIMAL) choosing optimal method per environment
 4. **Detection-Control Separation**: Independent capability detection and control method selection for maximum flexibility
 5. **Zero Regression**: Maintains existing functionality while enabling comprehensive new capabilities
@@ -411,7 +411,7 @@ LLE Core System (Unix/Linux Optimized)
 │   ├── Advanced Completion Integration
 │   └── Dynamic Key Binding Management
 ├── Display Integration Layer (lle_display.h/c)
-│   ├── Lusush Layered Display Bridge
+│   ├── Lush Layered Display Bridge
 │   ├── Multi-line Render Pipeline
 │   ├── Cache Integration & Performance Optimization
 │   ├── Visual Layout Calculation Engine
@@ -448,7 +448,7 @@ LLE Core System (Unix/Linux Optimized)
 
 **5. Enterprise-Grade Reliability**
 - Comprehensive error handling with recovery mechanisms
-- Memory safety using Lusush's proven memory pool system
+- Memory safety using Lush's proven memory pool system
 - Performance monitoring and optimization hooks throughout
 
 ---
@@ -827,7 +827,7 @@ typedef struct {
     lle_buffer_cache_t *cache;       // Rendering cache
     bool cache_valid;                // Cache validity status
     
-    // Integration with Lusush memory pools
+    // Integration with Lush memory pools
     lle_memory_pool_t *memory_pool;  // Memory pool for allocations
     lle_buffer_stats_t *stats;       // Buffer operation statistics
 } lle_buffer_t;
@@ -1296,14 +1296,14 @@ lle_theme_t *lle_theme_create_from_file(const char *theme_file);
 
 ---
 
-## 8. Integration with Lusush Display System
+## 8. Integration with Lush Display System
 
 ### 8.1 Display Layer Integration
 
 ```c
 typedef struct {
-    // Lusush display integration
-    lle_lusush_display_t *lusush_display;    // Lusush display system handle
+    // Lush display integration
+    lle_lush_display_t *lush_display;    // Lush display system handle
     lle_display_layer_t *prompt_layer;       // Prompt display layer
     lle_display_layer_t *command_layer;      // Command input layer
     lle_display_layer_t *suggestion_layer;   // Autosuggestion layer
@@ -1325,7 +1325,7 @@ typedef struct {
 
 // Display integration operations
 lle_result_t lle_display_integration_init(lle_display_integration_t **integration,
-                                           lle_lusush_display_t *lusush_display);
+                                           lle_lush_display_t *lush_display);
 void lle_display_integration_destroy(lle_display_integration_t *integration);
 lle_result_t lle_display_render_current_state(lle_display_integration_t *integration,
                                                lle_buffer_t *buffer);
@@ -1401,7 +1401,7 @@ lle_editor_stats_t *lle_editor_get_statistics(lle_editor_t *editor);
 - Core buffer management system
 - Unix terminal abstraction layer
 - Basic event system architecture
-- Integration with Lusush display system
+- Integration with Lush display system
 - Basic text editing operations
 
 **Phase 2: Advanced Features (Months 4-6)**
@@ -1483,7 +1483,7 @@ lle_result_t lle_test_generate_report(lle_test_system_t *test_system,
 
 ## Conclusion
 
-The Lusush Line Editor (LLE) represents a fundamental advancement in shell line editing technology. Through research-driven design principles, buffer-oriented architecture, and native integration with Lusush's layered display system, LLE delivers modern shell UX capabilities while maintaining enterprise-grade reliability and performance.
+The Lush Line Editor (LLE) represents a fundamental advancement in shell line editing technology. Through research-driven design principles, buffer-oriented architecture, and native integration with Lush's layered display system, LLE delivers modern shell UX capabilities while maintaining enterprise-grade reliability and performance.
 
 The comprehensive specification provides complete guidance for implementing a production-ready line editor that eliminates the architectural limitations of GNU Readline while delivering sub-millisecond responsiveness and advanced features like Fish-style autosuggestions and real-time syntax highlighting.
 
@@ -1491,7 +1491,7 @@ The comprehensive specification provides complete guidance for implementing a pr
 - Research-based terminal abstraction avoiding VT100 fragility
 - Buffer-oriented design enabling advanced editing capabilities
 - Event-driven architecture with plugin extensibility
-- Native integration with Lusush's proven display system
+- Native integration with Lush's proven display system
 - Enterprise-grade reliability and performance standards
 
 This specification serves as the definitive blueprint for implementing the next generation of shell line editing technology.

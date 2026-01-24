@@ -30,8 +30,8 @@
 /* Mock memory pools - uses liblle.a implementations via linking */
 static int mock_pool_dummy = 42;
 static lle_memory_pool_t *mock_pool = (lle_memory_pool_t *)&mock_pool_dummy;
-static lusush_memory_pool_t *mock_lusush_pool =
-    (lusush_memory_pool_t *)&mock_pool_dummy;
+static lush_memory_pool_t *mock_lush_pool =
+    (lush_memory_pool_t *)&mock_pool_dummy;
 
 /* Helper functions */
 static uint64_t get_nanos(void) {
@@ -94,7 +94,7 @@ void stress_test_high_frequency_updates(void) {
 
     /* Create buffer */
     lle_buffer_t *buffer = NULL;
-    lle_buffer_create(&buffer, mock_lusush_pool, 0);
+    lle_buffer_create(&buffer, mock_lush_pool, 0);
     const char *text = "echo 'stress test'";
     lle_buffer_insert_text(buffer, 0, text, strlen(text));
 
@@ -185,7 +185,7 @@ void stress_test_large_buffers(void) {
 
     /* Create large buffer (10KB) */
     lle_buffer_t *buffer = NULL;
-    lle_buffer_create(&buffer, mock_lusush_pool, 0);
+    lle_buffer_create(&buffer, mock_lush_pool, 0);
 
     char *large_text = malloc(10240);
     memset(large_text, 'x', 10239);
@@ -250,7 +250,7 @@ void stress_test_cache_churn(void) {
     lle_render_pipeline_init(&pipeline, mock_pool);
 
     lle_buffer_t *buffer = NULL;
-    lle_buffer_create(&buffer, mock_lusush_pool, 0);
+    lle_buffer_create(&buffer, mock_lush_pool, 0);
 
     printf("Storing 1000 unique cache entries (forcing evictions)...\n");
 
@@ -444,7 +444,7 @@ void stress_test_error_recovery(void) {
     /* Test 5: System continues after errors */
     total_tests++;
     lle_buffer_t *buffer = NULL;
-    lle_buffer_create(&buffer, mock_lusush_pool, 0);
+    lle_buffer_create(&buffer, mock_lush_pool, 0);
     lle_buffer_insert_text(buffer, 0, "test", 4);
 
     context.buffer = buffer;
@@ -494,7 +494,7 @@ void stress_test_memory_leaks(void) {
 
         /* Do some work */
         lle_buffer_t *buffer = NULL;
-        lle_buffer_create(&buffer, mock_lusush_pool, 0);
+        lle_buffer_create(&buffer, mock_lush_pool, 0);
         lle_buffer_insert_text(buffer, 0, "test", 4);
 
         lle_render_context_t context = {0};

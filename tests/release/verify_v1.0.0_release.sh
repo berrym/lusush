@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# LUSUSH v1.0.0 Release Verification Script
+# LUSH v1.0.0 Release Verification Script
 # Comprehensive verification for production release readiness
 
 set -e
@@ -23,10 +23,10 @@ REQUIRED_ENHANCED_TESTS=26
 TOTAL_REQUIRED_TESTS=211
 
 # Configuration
-LUSUSH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-LUSUSH_BINARY="$LUSUSH_DIR/build/lusush"
+LUSH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+LUSH_BINARY="$LUSH_DIR/build/lush"
 TEMP_DIR=$(mktemp -d)
-TEST_CONFIG="$TEMP_DIR/test_lusushrc"
+TEST_CONFIG="$TEMP_DIR/test_lushrc"
 
 # Cleanup function
 cleanup() {
@@ -74,13 +74,13 @@ WARNING_TESTS=0
 # Clear screen and show header
 clear
 echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║${NC}                     ${YELLOW}LUSUSH v1.0.0 RELEASE VERIFICATION${NC}                     ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}                     ${YELLOW}LUSH v1.0.0 RELEASE VERIFICATION${NC}                     ${CYAN}║${NC}"
 echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
-echo -e "${BLUE}Verifying LUSUSH v1.0.0 production release readiness...${NC}"
+echo -e "${BLUE}Verifying LUSH v1.0.0 production release readiness...${NC}"
 echo -e "${BLUE}Expected Version: $EXPECTED_VERSION${NC}"
 echo -e "${BLUE}Release Date: $RELEASE_DATE${NC}"
-echo -e "${BLUE}Binary: $LUSUSH_BINARY${NC}"
+echo -e "${BLUE}Binary: $LUSH_BINARY${NC}"
 echo ""
 
 # ===============================================================================
@@ -89,16 +89,16 @@ echo ""
 show_section "1. BASIC SYSTEM VERIFICATION"
 
 # Check if binary exists
-if [ -f "$LUSUSH_BINARY" ]; then
-    show_result "Binary exists" "PASS" "$LUSUSH_BINARY"
+if [ -f "$LUSH_BINARY" ]; then
+    show_result "Binary exists" "PASS" "$LUSH_BINARY"
 else
-    show_result "Binary exists" "FAIL" "Binary not found at $LUSUSH_BINARY"
+    show_result "Binary exists" "FAIL" "Binary not found at $LUSH_BINARY"
     echo -e "${RED}CRITICAL: Please run 'ninja -C build' first${NC}"
     exit 1
 fi
 
 # Check version
-VERSION_OUTPUT=$("$LUSUSH_BINARY" --version 2>/dev/null || echo "failed")
+VERSION_OUTPUT=$("$LUSH_BINARY" --version 2>/dev/null || echo "failed")
 if echo "$VERSION_OUTPUT" | grep -q "$EXPECTED_VERSION"; then
     show_result "Version verification" "PASS" "Version: $EXPECTED_VERSION"
 else
@@ -106,15 +106,15 @@ else
 fi
 
 # Check basic execution
-if "$LUSUSH_BINARY" -c "echo 'basic test'" >/dev/null 2>&1; then
+if "$LUSH_BINARY" -c "echo 'basic test'" >/dev/null 2>&1; then
     show_result "Basic execution" "PASS" "Shell executes commands correctly"
 else
     show_result "Basic execution" "FAIL" "Shell fails to execute basic commands"
 fi
 
 # Check build system
-if [ -f "$LUSUSH_DIR/meson.build" ]; then
-    MESON_VERSION=$(grep "version:" "$LUSUSH_DIR/meson.build" | grep -o "'[^']*'" | tr -d "'")
+if [ -f "$LUSH_DIR/meson.build" ]; then
+    MESON_VERSION=$(grep "version:" "$LUSH_DIR/meson.build" | grep -o "'[^']*'" | tr -d "'")
     if [ "$MESON_VERSION" = "$EXPECTED_VERSION" ]; then
         show_result "Build system version" "PASS" "meson.build version: $MESON_VERSION"
     else
@@ -130,9 +130,9 @@ fi
 show_section "2. POSIX COMPLIANCE VERIFICATION"
 
 # Run POSIX regression tests
-if [ -f "$LUSUSH_DIR/tests/compliance/test_posix_regression.sh" ]; then
+if [ -f "$LUSH_DIR/tests/compliance/test_posix_regression.sh" ]; then
     echo -e "${BLUE}Running POSIX regression tests...${NC}"
-    POSIX_RESULT=$("$LUSUSH_DIR/tests/compliance/test_posix_regression.sh" 2>&1)
+    POSIX_RESULT=$("$LUSH_DIR/tests/compliance/test_posix_regression.sh" 2>&1)
 
     if echo "$POSIX_RESULT" | grep -q "NO REGRESSIONS DETECTED"; then
         PASSED_POSIX=$(echo "$POSIX_RESULT" | grep -o "Passed: [0-9]*" | grep -o "[0-9]*")
@@ -151,12 +151,12 @@ MISSING_COMMANDS=""
 for cmd in $POSIX_COMMANDS; do
     if [ "$cmd" = "[" ]; then
         # Special handling for [ command
-        if "$LUSUSH_BINARY" -c 'type "["' >/dev/null 2>&1; then
+        if "$LUSH_BINARY" -c 'type "["' >/dev/null 2>&1; then
             continue
         else
             MISSING_COMMANDS="$MISSING_COMMANDS $cmd"
         fi
-    elif "$LUSUSH_BINARY" -c "type $cmd" >/dev/null 2>&1; then
+    elif "$LUSH_BINARY" -c "type $cmd" >/dev/null 2>&1; then
         continue
     else
         MISSING_COMMANDS="$MISSING_COMMANDS $cmd"
@@ -175,29 +175,29 @@ fi
 show_section "3. FEATURE VERIFICATION"
 
 # Test configuration system
-if "$LUSUSH_BINARY" -c "config show" >/dev/null 2>&1; then
+if "$LUSH_BINARY" -c "config show" >/dev/null 2>&1; then
     show_result "Configuration system" "PASS" "Config command working"
 else
     show_result "Configuration system" "FAIL" "Config command not working"
 fi
 
 # Test hints system
-if "$LUSUSH_BINARY" -c "config get hints_enabled" 2>/dev/null | grep -q "true"; then
+if "$LUSH_BINARY" -c "config get hints_enabled" 2>/dev/null | grep -q "true"; then
     show_result "Hints system" "PASS" "Hints enabled and configurable"
 else
     show_result "Hints system" "WARN" "Hints may not be properly configured"
 fi
 
 # Test completion system
-if "$LUSUSH_BINARY" -c "config get completion_enabled" 2>/dev/null | grep -q "true"; then
+if "$LUSH_BINARY" -c "config get completion_enabled" 2>/dev/null | grep -q "true"; then
     show_result "Completion system" "PASS" "Completion enabled and configurable"
 else
     show_result "Completion system" "FAIL" "Completion not properly configured"
 fi
 
 # Test theme system
-if "$LUSUSH_BINARY" -c "theme list" >/dev/null 2>&1; then
-    THEME_COUNT=$("$LUSUSH_BINARY" -c "theme list" 2>/dev/null | grep -c "^  [a-z]" || echo "0")
+if "$LUSH_BINARY" -c "theme list" >/dev/null 2>&1; then
+    THEME_COUNT=$("$LUSH_BINARY" -c "theme list" 2>/dev/null | grep -c "^  [a-z]" || echo "0")
     if [ "$THEME_COUNT" -ge 6 ]; then
         show_result "Theme system" "PASS" "$THEME_COUNT themes available"
     else
@@ -208,7 +208,7 @@ else
 fi
 
 # Test network integration
-if "$LUSUSH_BINARY" -c "network" >/dev/null 2>&1; then
+if "$LUSH_BINARY" -c "network" >/dev/null 2>&1; then
     show_result "Network integration" "PASS" "Network command working"
 else
     show_result "Network integration" "WARN" "Network command may not be available"
@@ -220,9 +220,9 @@ fi
 show_section "4. COMPREHENSIVE TEST SUITE"
 
 # Run comprehensive shell compliance tests
-if [ -f "$LUSUSH_DIR/tests/compliance/test_shell_compliance_comprehensive.sh" ]; then
+if [ -f "$LUSH_DIR/tests/compliance/test_shell_compliance_comprehensive.sh" ]; then
     echo -e "${BLUE}Running comprehensive compliance tests...${NC}"
-    COMPREHENSIVE_RESULT=$("$LUSUSH_DIR/tests/compliance/test_shell_compliance_comprehensive.sh" 2>&1)
+    COMPREHENSIVE_RESULT=$("$LUSH_DIR/tests/compliance/test_shell_compliance_comprehensive.sh" 2>&1)
 
     if echo "$COMPREHENSIVE_RESULT" | grep -q "COMPREHENSIVE COMPLIANCE TESTING COMPLETE"; then
         show_result "Comprehensive compliance tests" "PASS" "All comprehensive tests completed"
@@ -234,9 +234,9 @@ else
 fi
 
 # Run enhanced features tests
-if [ -f "$LUSUSH_DIR/tests/debug/verify_enhanced_features.sh" ]; then
+if [ -f "$LUSH_DIR/tests/debug/verify_enhanced_features.sh" ]; then
     echo -e "${BLUE}Running enhanced features tests...${NC}"
-    ENHANCED_RESULT=$("$LUSUSH_DIR/tests/debug/verify_enhanced_features.sh" 2>&1)
+    ENHANCED_RESULT=$("$LUSH_DIR/tests/debug/verify_enhanced_features.sh" 2>&1)
 
     if echo "$ENHANCED_RESULT" | grep -q "ALL TESTS PASSED"; then
         ENHANCED_COUNT=$(echo "$ENHANCED_RESULT" | grep -o "([0-9]*/[0-9]*)" | tail -1 | grep -o "[0-9]*" | head -1)
@@ -249,9 +249,9 @@ else
 fi
 
 # Run hints system tests
-if [ -f "$LUSUSH_DIR/tests/enhanced/test_hints_system.sh" ]; then
+if [ -f "$LUSH_DIR/tests/enhanced/test_hints_system.sh" ]; then
     echo -e "${BLUE}Running hints system tests...${NC}"
-    HINTS_RESULT=$("$LUSUSH_DIR/tests/enhanced/test_hints_system.sh" 2>&1)
+    HINTS_RESULT=$("$LUSH_DIR/tests/enhanced/test_hints_system.sh" 2>&1)
 
     if echo "$HINTS_RESULT" | grep -q "HINTS SYSTEM TESTS COMPLETED SUCCESSFULLY"; then
         show_result "Hints system tests" "PASS" "All hints tests passed"
@@ -270,7 +270,7 @@ show_section "5. PERFORMANCE VERIFICATION"
 # Startup time test
 echo -e "${BLUE}Testing startup performance...${NC}"
 START_TIME=$(date +%s%N)
-"$LUSUSH_BINARY" -c "exit" >/dev/null 2>&1
+"$LUSH_BINARY" -c "exit" >/dev/null 2>&1
 END_TIME=$(date +%s%N)
 STARTUP_TIME=$((($END_TIME - $START_TIME) / 1000000)) # Convert to milliseconds
 
@@ -284,7 +284,7 @@ fi
 
 # Memory usage test - simplified for v1.0.0
 # Just verify the shell doesn't use excessive memory
-MEMORY_TEST=$("$LUSUSH_BINARY" -c "echo 'memory test passed'" 2>/dev/null)
+MEMORY_TEST=$("$LUSH_BINARY" -c "echo 'memory test passed'" 2>/dev/null)
 if echo "$MEMORY_TEST" | grep -q "memory test passed"; then
     show_result "Memory usage" "PASS" "Memory usage within reasonable limits"
 else
@@ -293,7 +293,7 @@ fi
 
 # Command execution performance
 START_TIME=$(date +%s%N)
-"$LUSUSH_BINARY" -c "echo 'performance test'" >/dev/null 2>&1
+"$LUSH_BINARY" -c "echo 'performance test'" >/dev/null 2>&1
 END_TIME=$(date +%s%N)
 EXEC_TIME=$((($END_TIME - $START_TIME) / 1000000))
 
@@ -314,9 +314,9 @@ show_section "6. DOCUMENTATION VERIFICATION"
 REQUIRED_DOCS="README.md CHANGELOG.md CONTRIBUTING.md PRODUCTION_READINESS.md docs/user/USER_MANUAL.md docs/DOCUMENTATION_INDEX.md"
 
 for doc in $REQUIRED_DOCS; do
-    if [ -f "$LUSUSH_DIR/$doc" ]; then
+    if [ -f "$LUSH_DIR/$doc" ]; then
         # Check if file is not empty
-        if [ -s "$LUSUSH_DIR/$doc" ]; then
+        if [ -s "$LUSH_DIR/$doc" ]; then
             show_result "Documentation: $doc" "PASS" "File exists and is not empty"
         else
             show_result "Documentation: $doc" "WARN" "File exists but is empty"
@@ -327,7 +327,7 @@ for doc in $REQUIRED_DOCS; do
 done
 
 # Check for outdated references
-OUTDATED_REFS=$(grep -r "setopt\|setprompt" "$LUSUSH_DIR/README.md" "$LUSUSH_DIR/docs/user/" 2>/dev/null | wc -l || echo "0")
+OUTDATED_REFS=$(grep -r "setopt\|setprompt" "$LUSH_DIR/README.md" "$LUSH_DIR/docs/user/" 2>/dev/null | wc -l || echo "0")
 if [ "$OUTDATED_REFS" -eq 0 ]; then
     show_result "Documentation cleanup" "PASS" "No outdated setopt/setprompt references"
 else
@@ -343,7 +343,7 @@ show_section "7. SECURITY VERIFICATION"
 echo -e "${BLUE}Running basic security checks...${NC}"
 
 # Test input validation
-if "$LUSUSH_BINARY" -c "echo '\x00\x01\x02'" >/dev/null 2>&1; then
+if "$LUSH_BINARY" -c "echo '\x00\x01\x02'" >/dev/null 2>&1; then
     show_result "Input validation" "PASS" "Handles special characters safely"
 else
     show_result "Input validation" "WARN" "May have input handling issues"
@@ -353,7 +353,7 @@ fi
 TEST_FILE="$TEMP_DIR/test_permissions"
 touch "$TEST_FILE"
 chmod 600 "$TEST_FILE"
-if "$LUSUSH_BINARY" -c "test -r '$TEST_FILE'" 2>/dev/null; then
+if "$LUSH_BINARY" -c "test -r '$TEST_FILE'" 2>/dev/null; then
     show_result "Permission handling" "PASS" "Respects file permissions"
 else
     show_result "Permission handling" "WARN" "Permission handling unclear"
@@ -361,7 +361,7 @@ fi
 
 # Check for buffer overflow protection
 LONG_INPUT=$(printf "A%.0s" {1..10000})
-if echo "$LONG_INPUT" | "$LUSUSH_BINARY" -c "read line" >/dev/null 2>&1; then
+if echo "$LONG_INPUT" | "$LUSH_BINARY" -c "read line" >/dev/null 2>&1; then
     show_result "Buffer overflow protection" "PASS" "Handles long input safely"
 else
     show_result "Buffer overflow protection" "WARN" "Long input handling unclear"
@@ -397,7 +397,7 @@ EOF
 
 chmod +x "$POSIX_SCRIPT"
 # Test POSIX features directly instead of script execution
-SCRIPT_OUTPUT=$("$LUSUSH_BINARY" -c '
+SCRIPT_OUTPUT=$("$LUSH_BINARY" -c '
 var="test"
 if [ "$var" = "test" ]; then
     echo "conditional works"
@@ -450,7 +450,7 @@ else
 fi
 
 # 3. Documentation complete
-if [ -f "$LUSUSH_DIR/docs/user/USER_MANUAL.md" ] && [ -f "$LUSUSH_DIR/PRODUCTION_READINESS.md" ]; then
+if [ -f "$LUSH_DIR/docs/user/USER_MANUAL.md" ] && [ -f "$LUSH_DIR/PRODUCTION_READINESS.md" ]; then
     PRODUCTION_CRITERIA=$((PRODUCTION_CRITERIA + 1))
     show_result "Documentation complete" "PASS" "All required documentation present"
 else
@@ -482,7 +482,7 @@ PRODUCTION_CRITERIA=$((PRODUCTION_CRITERIA + 1))
 show_result "Feature completeness" "PASS" "All major features implemented"
 
 # 9. Build system ready
-if [ -f "$LUSUSH_DIR/meson.build" ] && [ -f "$LUSUSH_DIR/build/build.ninja" ]; then
+if [ -f "$LUSH_DIR/meson.build" ] && [ -f "$LUSH_DIR/build/build.ninja" ]; then
     PRODUCTION_CRITERIA=$((PRODUCTION_CRITERIA + 1))
     show_result "Build system" "PASS" "Build system ready for production"
 else
@@ -518,7 +518,7 @@ if [ $FAILED_TESTS -eq 0 ] && [ $PRODUCTION_CRITERIA -ge 7 ]; then
     echo -e "${GREEN}║${NC}                          ${GREEN}✅ RELEASE APPROVED ✅${NC}                          ${GREEN}║${NC}"
     echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
-    echo -e "${GREEN}🎉 LUSUSH v1.0.0 IS READY FOR PRODUCTION RELEASE!${NC}"
+    echo -e "${GREEN}🎉 LUSH v1.0.0 IS READY FOR PRODUCTION RELEASE!${NC}"
     echo ""
     echo -e "${GREEN}✅ VERIFICATION SUMMARY:${NC}"
     echo -e "  • POSIX Compliance: 100% verified"
@@ -541,7 +541,7 @@ elif [ $FAILED_TESTS -le 1 ] && [ $WARNING_TESTS -le 8 ]; then
     echo -e "${YELLOW}║${NC}                        ${YELLOW}⚠️  CONDITIONAL APPROVAL ⚠️${NC}                        ${YELLOW}║${NC}"
     echo -e "${YELLOW}╚═══════════════════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
-    echo -e "${YELLOW}🔍 LUSUSH v1.0.0 can be released with minor caveats${NC}"
+    echo -e "${YELLOW}🔍 LUSH v1.0.0 can be released with minor caveats${NC}"
     echo ""
     echo -e "${YELLOW}⚠️  REVIEW REQUIRED:${NC}"
     echo -e "  • $WARNING_TESTS warnings need review"
@@ -556,7 +556,7 @@ else
     echo -e "${RED}║${NC}                          ${RED}❌ RELEASE BLOCKED ❌${NC}                          ${RED}║${NC}"
     echo -e "${RED}╚═══════════════════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
-    echo -e "${RED}🚫 LUSUSH v1.0.0 IS NOT READY FOR RELEASE${NC}"
+    echo -e "${RED}🚫 LUSH v1.0.0 IS NOT READY FOR RELEASE${NC}"
     echo ""
     echo -e "${RED}❌ CRITICAL ISSUES:${NC}"
     echo -e "  • $FAILED_TESTS tests failed"

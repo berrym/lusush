@@ -35,7 +35,7 @@
 
 ### 1.1 Purpose
 
-The LLE History System provides comprehensive command history management with forensic-grade capabilities, seamless integration with existing Lusush history systems, and advanced features including intelligent search, deduplication, context tracking, and real-time synchronization. This system enables sophisticated command recall, analysis, and workflow optimization while maintaining enterprise-grade security and performance.
+The LLE History System provides comprehensive command history management with forensic-grade capabilities, seamless integration with existing Lush history systems, and advanced features including intelligent search, deduplication, context tracking, and real-time synchronization. This system enables sophisticated command recall, analysis, and workflow optimization while maintaining enterprise-grade security and performance.
 
 ### 1.2 Key Features
 
@@ -44,19 +44,19 @@ The LLE History System provides comprehensive command history management with fo
 - **Multiline Command Support**: Full preservation and restoration of complex shell constructs with `original_multiline` field
 - **Buffer Integration**: Seamless loading of historical commands into editing buffer with complete structural restoration
 - **Intelligent Search and Retrieval**: Multi-modal search with fuzzy matching, context awareness, and scoring
-- **Seamless Lusush Integration**: Native integration with existing POSIX history and enhanced history systems  
-- **Real-time Synchronization**: Bidirectional sync between LLE history and Lusush history systems
+- **Seamless Lush Integration**: Native integration with existing POSIX history and enhanced history systems  
+- **Real-time Synchronization**: Bidirectional sync between LLE history and Lush history systems
 - **Advanced Deduplication**: Intelligent duplicate detection with context-aware preservation
 - **Performance Excellence**: Sub-millisecond history operations with intelligent caching
-- **Memory Pool Integration**: Zero-allocation history operations with Lusush memory pool architecture
+- **Memory Pool Integration**: Zero-allocation history operations with Lush memory pool architecture
 - **Enterprise Security**: Comprehensive privacy controls with selective history filtering and encryption
 
 ### 1.3 Critical Design Principles
 
-1. **Zero Regression Policy**: All existing Lusush history functionality preserved and enhanced
+1. **Zero Regression Policy**: All existing Lush history functionality preserved and enhanced
 2. **Forensic Completeness**: Every command interaction tracked with complete metadata context  
 3. **Performance Excellence**: History operations must not impact editor responsiveness
-4. **Memory Efficiency**: Complete integration with Lusush memory pool architecture
+4. **Memory Efficiency**: Complete integration with Lush memory pool architecture
 5. **Security by Design**: Enterprise-grade privacy and access controls throughout
 
 ---
@@ -79,9 +79,9 @@ typedef struct lle_history_system {
     lle_edit_session_manager_t *edit_session_manager; // Interactive editing session management
     lle_multiline_reconstruction_t *multiline_engine; // Multiline command reconstruction
     
-    // Lusush system integration
+    // Lush system integration
     posix_history_manager_t *posix_history;           // Existing POSIX history system
-    lle_history_bridge_t *lusush_bridge;              // Bridge to Lusush history systems
+    lle_history_bridge_t *lush_bridge;              // Bridge to Lush history systems
     lle_history_sync_manager_t *sync_manager;         // Real-time bidirectional synchronization
     
     // Storage and persistence  
@@ -92,7 +92,7 @@ typedef struct lle_history_system {
     // Performance and coordination
     lle_performance_monitor_t *perf_monitor;          // History performance monitoring
     lle_event_coordinator_t *event_coordinator;       // Event system coordination
-    memory_pool_t *memory_pool;                       // Lusush memory pool integration
+    memory_pool_t *memory_pool;                       // Lush memory pool integration
     
     // Security and configuration
     lle_history_security_t *security_manager;         // Privacy and access control
@@ -233,7 +233,7 @@ typedef struct lle_history_entry {
 /**
  * Initialize the LLE history core engine with forensic capabilities
  *
- * @param memory_pool Lusush memory pool for allocations
+ * @param memory_pool Lush memory pool for allocations
  * @param config History system configuration
  * @return Initialized history core or NULL on failure
  */
@@ -849,14 +849,14 @@ bool lle_command_lifecycle_record_completion(lle_command_lifecycle_t *lifecycle,
 
 ## 5. Integration Layer
 
-### 5.1 Lusush History Bridge
+### 5.1 Lush History Bridge
 
 ```c
 /**
- * Bridge between LLE history system and existing Lusush history
+ * Bridge between LLE history system and existing Lush history
  */
 typedef struct lle_history_bridge {
-    // Lusush system integration
+    // Lush system integration
     posix_history_manager_t *posix_history;           // POSIX history system
     lle_history_core_t *lle_history;                  // LLE history core
     
@@ -881,7 +881,7 @@ typedef struct lle_history_bridge {
 } lle_history_bridge_t;
 
 /**
- * Initialize history bridge between LLE and Lusush systems
+ * Initialize history bridge between LLE and Lush systems
  *
  * @param lle_history LLE history core
  * @param posix_history Existing POSIX history manager
@@ -1582,7 +1582,7 @@ bool lle_history_performance_monitor(lle_performance_monitor_t *perf_monitor) {
 
 ```c
 /**
- * Memory management integration with Lusush memory pool system
+ * Memory management integration with Lush memory pool system
  */
 typedef struct lle_history_memory_manager {
     // Primary memory pools
@@ -2162,7 +2162,7 @@ typedef struct lle_history_test_suite {
 bool test_history_entry_creation(void);
 bool test_history_search_operations(void);
 bool test_history_persistence(void);
-bool test_lusush_integration(void);
+bool test_lush_integration(void);
 
 // Performance benchmarks
 bool benchmark_add_operations(void);
@@ -2189,7 +2189,7 @@ bool benchmark_memory_usage(void);
 - Performance optimization framework
 
 **Phase 3: Integration Layer (Weeks 7-9)**
-- Create Lusush history bridge and synchronization
+- Create Lush history bridge and synchronization
 - Implement event system coordination
 - Develop configuration management system
 - Complete privacy and security controls
@@ -2205,7 +2205,7 @@ bool benchmark_memory_usage(void);
 - **Sub-millisecond Performance**: All operations under 250μs average
 - **Zero Data Loss**: Complete reliability with corruption recovery
 - **Enterprise Security**: Full privacy controls and audit capabilities
-- **Seamless Integration**: Perfect compatibility with existing Lusush systems
+- **Seamless Integration**: Perfect compatibility with existing Lush systems
 - **Forensic Completeness**: Complete command lifecycle tracking
 - **Memory Efficiency**: <1MB baseline memory usage with efficient scaling
 
@@ -2213,7 +2213,7 @@ bool benchmark_memory_usage(void);
 
 ## Conclusion
 
-This comprehensive history system specification provides forensic-grade command history management with enterprise-level performance, security, and reliability. The implementation-ready pseudo-code ensures guaranteed success while maintaining complete integration with existing Lusush systems.
+This comprehensive history system specification provides forensic-grade command history management with enterprise-level performance, security, and reliability. The implementation-ready pseudo-code ensures guaranteed success while maintaining complete integration with existing Lush systems.
 
 The system achieves the project's core objectives:
 - **Forensic Completeness**: Every command interaction tracked with complete metadata
@@ -2222,4 +2222,4 @@ The system achieves the project's core objectives:
 - **Enterprise Quality**: Professional-grade security, privacy, and audit capabilities
 - **Future-Proof Architecture**: Extensible design supporting unlimited enhancements
 
-This specification represents a critical component of the LLE epic project, establishing the foundation for sophisticated command history management that will position Lusush as the definitive professional shell environment.
+This specification represents a critical component of the LLE epic project, establishing the foundation for sophisticated command history management that will position Lush as the definitive professional shell environment.

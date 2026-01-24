@@ -4,7 +4,7 @@
  * @author Michael Berry <trismegustis@gmail.com>
  * @copyright Copyright (C) 2021-2026 Michael Berry
  *
- * Dependency-free TOML-subset parser for lusush configuration files.
+ * Dependency-free TOML-subset parser for lush configuration files.
  * This is a core utility used by the configuration system, theme parser,
  * and other components that need to parse TOML files.
  */

@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # =============================================================================
-# LUSUSH INTEGRATED DEBUGGER QUALITY ASSURANCE TEST SUITE
+# LUSH INTEGRATED DEBUGGER QUALITY ASSURANCE TEST SUITE
 # =============================================================================
 #
-# Comprehensive QA testing for Lusush's unique integrated debugger feature
+# Comprehensive QA testing for Lush's unique integrated debugger feature
 # This test validates the debugger's core functionality with simulated
 # interactive input to ensure production readiness.
 #
@@ -17,7 +17,7 @@
 # - Error handling and edge cases
 # - Performance and stability
 #
-# Author: AI Assistant for Lusush v1.3.0 QA
+# Author: AI Assistant for Lush v1.3.0 QA
 # Version: 1.0.0
 # Target: Complete validation of integrated debugger functionality
 # =============================================================================
@@ -25,8 +25,8 @@
 set -euo pipefail
 
 # Configuration
-LUSUSH_BINARY="${1:-./build/lusush}"
-TEST_DIR="/tmp/lusush_debugger_qa_$$"
+LUSH_BINARY="${1:-./build/lush}"
+TEST_DIR="/tmp/lush_debugger_qa_$$"
 TOTAL_TESTS=0
 PASSED_TESTS=0
 FAILED_TESTS=0
@@ -101,7 +101,7 @@ safe_debug_exec() {
     local output=""
     local exit_code=0
 
-    if output=$(timeout "$timeout_sec" bash -c "cat '$debug_cmd_file' | '$LUSUSH_BINARY' --debug '$script_file'" 2>&1); then
+    if output=$(timeout "$timeout_sec" bash -c "cat '$debug_cmd_file' | '$LUSH_BINARY' --debug '$script_file'" 2>&1); then
         exit_code=0
     else
         exit_code=$?
@@ -123,7 +123,7 @@ test_debugger_basics() {
 
     # Test debugger help command
     local output
-    if output=$(echo "help" | timeout 5s "$LUSUSH_BINARY" --debug -c "echo test" 2>&1); then
+    if output=$(echo "help" | timeout 5s "$LUSH_BINARY" --debug -c "echo test" 2>&1); then
         if [[ "$output" == *"Interactive Debug Commands"* ]]; then
             test_result "Debugger help command works" 0
         else
@@ -134,7 +134,7 @@ test_debugger_basics() {
     fi
 
     # Test debugger quit command
-    if output=$(echo "q" | timeout 5s "$LUSUSH_BINARY" --debug -c "echo test" 2>&1); then
+    if output=$(echo "q" | timeout 5s "$LUSH_BINARY" --debug -c "echo test" 2>&1); then
         if [[ "$output" == *"test"* ]]; then
             test_result "Debugger quit command continues execution" 0
         else
@@ -147,7 +147,7 @@ test_debugger_basics() {
     print_section "Basic Debug Commands"
 
     # Test continue command
-    if output=$(echo "c" | timeout 5s "$LUSUSH_BINARY" --debug -c "echo continue_test" 2>&1); then
+    if output=$(echo "c" | timeout 5s "$LUSH_BINARY" --debug -c "echo continue_test" 2>&1); then
         if [[ "$output" == *"continue_test"* ]]; then
             test_result "Continue command works" 0
         else
@@ -545,7 +545,7 @@ setup_test_env() {
     cd "$TEST_DIR"
 
     # Verify debugger is available
-    if ! "$LUSUSH_BINARY" --help 2>&1 | grep -q "debug\|Debug"; then
+    if ! "$LUSH_BINARY" --help 2>&1 | grep -q "debug\|Debug"; then
         echo -e "${YELLOW}WARNING: Debug option not found in help, testing anyway${NC}"
     fi
 }
@@ -578,7 +578,7 @@ generate_debugger_report() {
     if [[ $FAILED_TESTS -eq 0 ]]; then
         echo -e "\n${GREEN}🎉 ALL DEBUGGER TESTS PASSED! 🎉${NC}"
         echo -e "${GREEN}The integrated debugger is production-ready!${NC}"
-        echo -e "${GREEN}This unique feature sets Lusush apart from other shells.${NC}"
+        echo -e "${GREEN}This unique feature sets Lush apart from other shells.${NC}"
         exit_code=0
     elif [[ $pass_rate -ge 90 ]]; then
         echo -e "\n${GREEN}EXCELLENT DEBUGGER QUALITY${NC} - Very high success rate"
@@ -611,7 +611,7 @@ generate_debugger_report() {
     echo "✓ Integration with shell options and features"
 
     echo -e "\n${BLUE}Unique Value Proposition:${NC}"
-    echo "The integrated debugger is Lusush's truly unique feature that"
+    echo "The integrated debugger is Lush's truly unique feature that"
     echo "differentiates it from all other shells. This comprehensive testing"
     echo "validates its production readiness and core usability."
 
@@ -627,22 +627,22 @@ generate_debugger_report() {
     fi
 
     echo -e "\nDebugger QA completed at: $(date)"
-    echo -e "${BLUE}This validates Lusush's unique competitive advantage in the shell market.${NC}"
+    echo -e "${BLUE}This validates Lush's unique competitive advantage in the shell market.${NC}"
 
     return $exit_code
 }
 
 # Main execution
 main() {
-    print_header "LUSUSH INTEGRATED DEBUGGER COMPREHENSIVE QA"
+    print_header "LUSH INTEGRATED DEBUGGER COMPREHENSIVE QA"
     echo "Version: 1.0.0"
-    echo "Target: Lusush v1.3.0 Integrated Debugger Validation"
-    echo "Shell under test: $LUSUSH_BINARY"
+    echo "Target: Lush v1.3.0 Integrated Debugger Validation"
+    echo "Shell under test: $LUSH_BINARY"
     echo "Started at: $(date)"
 
     # Verify shell exists
-    if [[ ! -x "$LUSUSH_BINARY" ]]; then
-        echo -e "${RED}ERROR: Shell binary not found: $LUSUSH_BINARY${NC}"
+    if [[ ! -x "$LUSH_BINARY" ]]; then
+        echo -e "${RED}ERROR: Shell binary not found: $LUSH_BINARY${NC}"
         exit 1
     fi
 

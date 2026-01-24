@@ -1,5 +1,5 @@
 #include "posix_history.h"
-#include "lusush.h"
+#include "lush.h"
 
 #include <ctype.h>
 #include <errno.h>
@@ -16,7 +16,7 @@
  * @brief Enhanced POSIX-Compliant History Management Implementation
  *
  * This module implements the complete POSIX-compliant history management
- * system for Lusush shell, including the fc command and enhanced history
+ * system for Lush shell, including the fc command and enhanced history
  * builtin with bash/zsh compatibility.
  *
  * The implementation follows POSIX.1-2017 specifications for history
@@ -699,7 +699,7 @@ bool posix_history_create_temp_file(const char *content, char **filename) {
     }
 
     // Create temporary file
-    char template[] = "/tmp/lusush_fc_XXXXXX";
+    char template[] = "/tmp/lush_fc_XXXXXX";
     int fd = mkstemp(template);
     if (fd == -1) {
         posix_history_set_error("Failed to create temporary file");

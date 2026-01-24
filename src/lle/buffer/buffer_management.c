@@ -83,12 +83,12 @@ static uint64_t get_timestamp_us(void) {
  * - Sets proper timestamps
  *
  * @param buffer Pointer to receive created buffer
- * @param memory_pool Lusush memory pool for allocations
+ * @param memory_pool Lush memory pool for allocations
  * @param initial_capacity Initial buffer capacity (0 = use default)
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_buffer_create(lle_buffer_t **buffer,
-                               lusush_memory_pool_t *memory_pool,
+                               lush_memory_pool_t *memory_pool,
                                size_t initial_capacity) {
     /* Validate parameters */
     if (!buffer) {

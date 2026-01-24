@@ -1,20 +1,20 @@
 /**
- * @file history_lusush_bridge.c
- * @brief LLE History System - Lusush Integration Bridge
+ * @file history_lush_bridge.c
+ * @brief LLE History System - Lush Integration Bridge
  * @author Michael Berry <trismegustis@gmail.com>
  * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Specification: Spec 09 - History System (Phase 2 Day 5)
  * Version: 1.0.0
- * Status: Phase 2 Day 5 - Lusush Integration Bridge
+ * Status: Phase 2 Day 5 - Lush Integration Bridge
  *
  * Provides bidirectional synchronization between:
  * - LLE history core engine
  * - GNU Readline history API
  * - POSIX history manager
- * - Lusush history builtin
+ * - Lush history builtin
  *
- * This bridge ensures seamless integration with existing Lusush history
+ * This bridge ensures seamless integration with existing Lush history
  * systems while maintaining backward compatibility and zero data loss.
  */
 
@@ -146,7 +146,7 @@ static bool should_ignore_command(const char *command) {
  */
 
 /**
- * @brief Initialize Lusush history bridge
+ * @brief Initialize Lush history bridge
  *
  * Creates and initializes the bridge between LLE history and other history systems.
  * Optionally imports existing history from Readline and POSIX managers.

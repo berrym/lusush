@@ -14,7 +14,7 @@
 #include "lle/lle_shell_event_hub.h"
 #include "lle/lle_shell_integration.h"
 #include "executor.h"
-#include "lusush.h"
+#include "lush.h"
 #include "shell_mode.h"
 #include "symtable.h"
 

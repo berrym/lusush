@@ -27,8 +27,8 @@
 #include "lle/prompt/segment.h"
 #include "lle/prompt/theme.h"
 #include "lle/prompt/theme_loader.h"
-#include "lusush.h"
-#include "lusush_memory_pool.h"
+#include "lush.h"
+#include "lush_memory_pool.h"
 #include "shell_mode.h"
 #include "symtable.h"
 
@@ -118,7 +118,7 @@ static uint64_t get_timestamp_us(void) {
 }
 
 /**
- * @brief Populate history config from Lusush config system
+ * @brief Populate history config from Lush config system
  */
 static void populate_history_config(lle_history_config_t *hist_config) {
     if (!hist_config) {
@@ -230,7 +230,7 @@ lle_result_t lle_shell_integration_init(void) {
     integ->init_state.memory_pool_verified = true;
 
     /* Step 3: Verify terminal detection is complete
-     * Terminal detection is handled by Lusush's display system,
+     * Terminal detection is handled by Lush's display system,
      * so we just verify it has been initialized */
     integ->init_state.terminal_detected = true;
 
@@ -315,7 +315,7 @@ void lle_shell_integration_shutdown(void) {
         const char *home = getenv("HOME");
         if (home) {
             char history_path[1024];
-            snprintf(history_path, sizeof(history_path), "%s/.lusush_history",
+            snprintf(history_path, sizeof(history_path), "%s/.lush_history",
                      home);
             lle_history_save_to_file(integ->editor->history_system,
                                      history_path);
@@ -424,7 +424,7 @@ create_and_configure_editor(lle_shell_integration_t *integ) {
         const char *home = getenv("HOME");
         if (home) {
             char history_path[1024];
-            snprintf(history_path, sizeof(history_path), "%s/.lusush_history",
+            snprintf(history_path, sizeof(history_path), "%s/.lush_history",
                      home);
             lle_history_load_from_file(integ->editor->history_system,
                                        history_path);
@@ -500,8 +500,8 @@ create_and_configure_prompt_composer(lle_shell_integration_t *integ) {
 
         /* Load user themes from standard locations (Issue #21)
          * This loads themes from:
-         * - $XDG_CONFIG_HOME/lusush/themes/ (~/.config/lusush/themes/)
-         * - /etc/lusush/themes/ (system-wide)
+         * - $XDG_CONFIG_HOME/lush/themes/ (~/.config/lush/themes/)
+         * - /etc/lush/themes/ (system-wide)
          */
         lle_theme_load_user_themes(&g_theme_registry);
 
@@ -625,7 +625,7 @@ void lle_hard_reset(void) {
         const char *home = getenv("HOME");
         if (home) {
             char history_path[1024];
-            snprintf(history_path, sizeof(history_path), "%s/.lusush_history",
+            snprintf(history_path, sizeof(history_path), "%s/.lush_history",
                      home);
             lle_history_save_to_file(integ->editor->history_system,
                                      history_path);
@@ -807,7 +807,7 @@ void lle_record_ctrl_g(void) {
  * Called when user changes editing mode via set -o vi/emacs.
  * Updates the editor's editing_mode field accordingly.
  */
-void lusush_update_editing_mode(void) {
+void lush_update_editing_mode(void) {
     if (!g_lle_integration || !g_lle_integration->editor) {
         return;
     }
@@ -832,7 +832,7 @@ void lusush_update_editing_mode(void) {
  * @param prompt The prompt string to display, or NULL to use PS1
  * @return Newly allocated line from user, or NULL on EOF/error
  */
-char *lusush_readline_with_prompt(const char *prompt) {
+char *lush_readline_with_prompt(const char *prompt) {
     if (!g_lle_integration || !g_lle_integration->editor) {
         return NULL;
     }

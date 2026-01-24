@@ -1,6 +1,6 @@
 # Hooks and Plugins
 
-**Extending Lusush with hook functions and the plugin system**
+**Extending Lush with hook functions and the plugin system**
 
 ---
 
@@ -17,7 +17,7 @@
 
 ## Overview
 
-Lusush provides a hook system that lets you execute custom code at specific points in the shell's operation. This enables customization of shell behavior, integration with external tools, and creation of advanced workflows.
+Lush provides a hook system that lets you execute custom code at specific points in the shell's operation. This enables customization of shell behavior, integration with external tools, and creation of advanced workflows.
 
 ### Available Hooks
 
@@ -344,7 +344,7 @@ precmd() {
 
 ## Plugin System
 
-Lusush includes a plugin system foundation for extending shell functionality.
+Lush includes a plugin system foundation for extending shell functionality.
 
 ### Plugin Architecture
 
@@ -357,8 +357,8 @@ The plugin system provides:
 ### Plugin Location
 
 Plugins are loaded from:
-- `~/.lusush/plugins/`
-- `/usr/local/share/lusush/plugins/`
+- `~/.lush/plugins/`
+- `/usr/local/share/lush/plugins/`
 
 ### Plugin Structure
 
@@ -373,8 +373,8 @@ my_plugin/
 ### Loading Plugins
 
 ```bash
-# In ~/.lusushrc
-source ~/.lusush/plugins/my_plugin/init.sh
+# In ~/.lushrc
+source ~/.lush/plugins/my_plugin/init.sh
 
 # Or use plugin manager (future)
 # plugin load my_plugin
@@ -386,7 +386,7 @@ source ~/.lusush/plugins/my_plugin/init.sh
 Example plugin structure:
 
 ```bash
-# ~/.lusush/plugins/git_status/init.sh
+# ~/.lush/plugins/git_status/init.sh
 
 # Plugin: git_status
 # Description: Show git status in prompt

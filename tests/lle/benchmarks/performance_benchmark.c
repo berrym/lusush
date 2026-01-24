@@ -17,7 +17,7 @@
 #include <time.h>
 
 /* External global from test_memory_mock.c */
-extern lusush_memory_pool_t *global_memory_pool;
+extern lush_memory_pool_t *global_memory_pool;
 
 /* Helper to get nanoseconds */
 static uint64_t get_nanos(void) {

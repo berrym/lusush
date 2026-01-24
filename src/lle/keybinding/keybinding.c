@@ -55,7 +55,7 @@ struct lle_keybinding_manager {
     lle_strstr_hashtable_t *bindings;     /* Key sequence -> entry mapping */
     lle_keymap_mode_t current_mode;       /* Active keymap mode */
     lle_key_sequence_buffer_t seq_buffer; /* Multi-key sequence buffer */
-    lusush_memory_pool_t *pool;           /* Memory pool for allocations */
+    lush_memory_pool_t *pool;           /* Memory pool for allocations */
 
     /* Performance tracking */
     uint64_t total_lookups;
@@ -84,7 +84,7 @@ static uint64_t get_time_us(void) {
  * @param str Source string to duplicate
  * @return Pointer to duplicated string, or NULL on failure
  */
-static char *keybinding_strdup(lusush_memory_pool_t *pool, const char *str) {
+static char *keybinding_strdup(lush_memory_pool_t *pool, const char *str) {
     if (str == NULL) {
         return NULL;
     }
@@ -93,7 +93,7 @@ static char *keybinding_strdup(lusush_memory_pool_t *pool, const char *str) {
     char *copy;
 
     if (pool != NULL) {
-        copy = (char *)lusush_pool_alloc(len + 1);
+        copy = (char *)lush_pool_alloc(len + 1);
     } else {
         copy = (char *)malloc(len + 1);
     }
@@ -110,13 +110,13 @@ static char *keybinding_strdup(lusush_memory_pool_t *pool, const char *str) {
  * @param pool Memory pool used for allocation (NULL if malloc was used)
  * @param str String to free (may be NULL)
  */
-static void keybinding_free_string(lusush_memory_pool_t *pool, char *str) {
+static void keybinding_free_string(lush_memory_pool_t *pool, char *str) {
     if (str == NULL) {
         return;
     }
 
     if (pool != NULL) {
-        lusush_pool_free(str);
+        lush_pool_free(str);
     } else {
         free(str);
     }
@@ -127,7 +127,7 @@ static void keybinding_free_string(lusush_memory_pool_t *pool, char *str) {
  * @param pool Memory pool used for allocation
  * @param entry Keybinding entry to free (may be NULL)
  */
-static void free_keybinding_entry(lusush_memory_pool_t *pool,
+static void free_keybinding_entry(lush_memory_pool_t *pool,
                                   lle_keybinding_entry_t *entry) {
     if (entry == NULL) {
         return;
@@ -138,7 +138,7 @@ static void free_keybinding_entry(lusush_memory_pool_t *pool,
     }
 
     if (pool != NULL) {
-        lusush_pool_free(entry);
+        lush_pool_free(entry);
     } else {
         free(entry);
     }
@@ -207,7 +207,7 @@ static lle_result_t parse_special_key(const char *name,
  * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_keybinding_manager_create(lle_keybinding_manager_t **manager,
-                                           lusush_memory_pool_t *pool) {
+                                           lush_memory_pool_t *pool) {
     if (manager == NULL) {
         return LLE_ERROR_NULL_POINTER;
     }
@@ -215,7 +215,7 @@ lle_result_t lle_keybinding_manager_create(lle_keybinding_manager_t **manager,
     /* Allocate manager structure */
     lle_keybinding_manager_t *new_manager;
     if (pool != NULL) {
-        new_manager = (lle_keybinding_manager_t *)lusush_pool_alloc(
+        new_manager = (lle_keybinding_manager_t *)lush_pool_alloc(
             sizeof(lle_keybinding_manager_t));
     } else {
         new_manager = (lle_keybinding_manager_t *)malloc(
@@ -243,7 +243,7 @@ lle_result_t lle_keybinding_manager_create(lle_keybinding_manager_t **manager,
     lle_result_t result = lle_hashtable_factory_init(&factory, pool);
     if (result != LLE_SUCCESS) {
         if (pool != NULL) {
-            lusush_pool_free(new_manager);
+            lush_pool_free(new_manager);
         } else {
             free(new_manager);
         }
@@ -256,7 +256,7 @@ lle_result_t lle_keybinding_manager_create(lle_keybinding_manager_t **manager,
 
     if (result != LLE_SUCCESS) {
         if (pool != NULL) {
-            lusush_pool_free(new_manager);
+            lush_pool_free(new_manager);
         } else {
             free(new_manager);
         }
@@ -305,7 +305,7 @@ lle_result_t lle_keybinding_manager_destroy(lle_keybinding_manager_t *manager) {
 
     /* Free manager structure */
     if (manager->pool != NULL) {
-        lusush_pool_free(manager);
+        lush_pool_free(manager);
     } else {
         free(manager);
     }
@@ -517,7 +517,7 @@ lle_result_t lle_keybinding_manager_bind(lle_keybinding_manager_t *manager,
     /* Create keybinding entry */
     lle_keybinding_entry_t *entry;
     if (manager->pool != NULL) {
-        entry = (lle_keybinding_entry_t *)lusush_pool_alloc(
+        entry = (lle_keybinding_entry_t *)lush_pool_alloc(
             sizeof(lle_keybinding_entry_t));
     } else {
         entry =
@@ -571,7 +571,7 @@ lle_result_t lle_keybinding_manager_bind_context(
     /* Create keybinding entry */
     lle_keybinding_entry_t *entry;
     if (manager->pool != NULL) {
-        entry = (lle_keybinding_entry_t *)lusush_pool_alloc(
+        entry = (lle_keybinding_entry_t *)lush_pool_alloc(
             sizeof(lle_keybinding_entry_t));
     } else {
         entry =
@@ -1155,7 +1155,7 @@ lle_keybinding_manager_list_bindings(lle_keybinding_manager_t *manager,
     /* Allocate bindings array */
     lle_keybinding_info_t *bindings;
     if (manager->pool != NULL) {
-        bindings = (lle_keybinding_info_t *)lusush_pool_alloc(
+        bindings = (lle_keybinding_info_t *)lush_pool_alloc(
             sizeof(lle_keybinding_info_t) * count);
     } else {
         bindings = (lle_keybinding_info_t *)malloc(

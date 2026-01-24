@@ -29,7 +29,7 @@
 /* Forward declaration from native controller */
 extern lle_result_t
 lle_initialize_native_controller(lle_adaptive_context_t *context,
-                                 lusush_memory_pool_t *memory_pool);
+                                 lush_memory_pool_t *memory_pool);
 extern void lle_cleanup_native_controller(lle_native_controller_t *native);
 extern lle_result_t lle_native_read_line(lle_native_controller_t *native,
                                          const char *prompt, char **line);
@@ -80,7 +80,7 @@ struct lle_multiplexer_controller_t {
     lle_multiplexer_adapter_t *adapter;
 
     /* Memory management */
-    lusush_memory_pool_t *memory_pool;
+    lush_memory_pool_t *memory_pool;
 
     /* Statistics */
     uint64_t lines_read;
@@ -377,7 +377,7 @@ lle_multiplexer_adapter_needs_wrapping(lle_multiplexer_adapter_t *adapter,
  */
 lle_result_t
 lle_initialize_multiplexer_controller(lle_adaptive_context_t *context,
-                                      lusush_memory_pool_t *memory_pool) {
+                                      lush_memory_pool_t *memory_pool) {
 
     lle_multiplexer_controller_t *mux =
         calloc(1, sizeof(lle_multiplexer_controller_t));

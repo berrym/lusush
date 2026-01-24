@@ -8,13 +8,13 @@
  * See include/lle/arena.h for API documentation.
  *
  * Integration:
- * - Arenas allocate chunks from lusush_pool_alloc()
- * - Chunks are returned to lusush_pool_free() on destroy
+ * - Arenas allocate chunks from lush_pool_alloc()
+ * - Chunks are returned to lush_pool_free() on destroy
  * - No changes needed to the underlying pool system
  */
 
 #include "lle/arena.h"
-#include "lusush_memory_pool.h"
+#include "lush_memory_pool.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,7 +39,7 @@ static inline bool is_power_of_two(size_t n) {
 }
 
 /**
- * Allocate a new chunk from lusush pool
+ * Allocate a new chunk from lush pool
  *
  * @param min_data_size Minimum usable size needed in the chunk
  * @return New chunk, or NULL on failure
@@ -53,8 +53,8 @@ static lle_arena_chunk_t *arena_alloc_chunk(size_t min_data_size) {
         total_size = LLE_ARENA_MIN_CHUNK_SIZE;
     }
 
-    /* Allocate from lusush pool */
-    lle_arena_chunk_t *chunk = lusush_pool_alloc(total_size);
+    /* Allocate from lush pool */
+    lle_arena_chunk_t *chunk = lush_pool_alloc(total_size);
     if (!chunk) {
         return NULL;
     }
@@ -68,11 +68,11 @@ static lle_arena_chunk_t *arena_alloc_chunk(size_t min_data_size) {
 }
 
 /**
- * Free a chunk back to lusush pool
+ * Free a chunk back to lush pool
  */
 static void arena_free_chunk(lle_arena_chunk_t *chunk) {
     if (chunk) {
-        lusush_pool_free(chunk);
+        lush_pool_free(chunk);
     }
 }
 

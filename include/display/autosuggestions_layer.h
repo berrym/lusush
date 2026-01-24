@@ -301,7 +301,7 @@ const char *autosuggestions_layer_get_current_suggestion(
  * Set suggestion text directly (bypassing internal generation)
  *
  * This function allows external code (like lle_readline) to set the suggestion
- * text directly, bypassing the internal lusush_get_suggestion() generation.
+ * text directly, bypassing the internal lush_get_suggestion() generation.
  * This is used when the suggestion should come from LLE history rather than
  * the legacy GNU readline history.
  *

@@ -65,19 +65,19 @@ static int tests_failed = 0;
 static int mock_pool_dummy = 42;
 static lle_memory_pool_t *mock_pool = (lle_memory_pool_t *)&mock_pool_dummy;
 
-/* Stubs for Lusush functions */
-lusush_memory_pool_system_t *global_memory_pool = NULL;
+/* Stubs for Lush functions */
+lush_memory_pool_system_t *global_memory_pool = NULL;
 
-void *lusush_pool_alloc(size_t size) { return malloc(size); }
+void *lush_pool_alloc(size_t size) { return malloc(size); }
 
-void lusush_pool_free(void *ptr) { free(ptr); }
+void lush_pool_free(void *ptr) { free(ptr); }
 
-lusush_pool_config_t lusush_pool_get_default_config(void) {
-    lusush_pool_config_t config = {0};
+lush_pool_config_t lush_pool_get_default_config(void) {
+    lush_pool_config_t config = {0};
     return config;
 }
 
-lusush_pool_error_t lusush_pool_init(const lusush_pool_config_t *config) {
+lush_pool_error_t lush_pool_init(const lush_pool_config_t *config) {
     (void)config;
     return 0;
 }

@@ -360,7 +360,7 @@ struct lle_buffer_t {
 
     /* Memory management */
     lle_buffer_pool_t *pool;           /* Associated buffer pool */
-    lusush_memory_pool_t *memory_pool; /* Lusush memory pool reference */
+    lush_memory_pool_t *memory_pool; /* Lush memory pool reference */
 
     /* Security - Minimal Secure Mode (Spec 15 Phase 1) */
     bool secure_mode_enabled; /* Secure mode active flag */
@@ -487,7 +487,7 @@ struct lle_change_tracker_t {
     uint32_t next_operation_id; /* Next operation ID */
 
     /* Memory management */
-    lusush_memory_pool_t *memory_pool; /* Memory pool */
+    lush_memory_pool_t *memory_pool; /* Memory pool */
     size_t memory_used;                /* Memory used */
 };
 
@@ -519,7 +519,7 @@ struct lle_multiline_context_t {
     bool cache_valid;   /* Cache validity flag */
 
     /* Memory management */
-    lusush_memory_pool_t *memory_pool; /* Memory pool */
+    lush_memory_pool_t *memory_pool; /* Memory pool */
 };
 
 /**
@@ -530,7 +530,7 @@ struct lle_multiline_context_t {
  */
 struct lle_multiline_manager_t {
     /* Configuration */
-    lusush_memory_pool_t *memory_pool; /* Memory pool */
+    lush_memory_pool_t *memory_pool; /* Memory pool */
 
     /* Statistics */
     uint64_t analysis_count; /* Analysis operations */
@@ -552,12 +552,12 @@ struct lle_multiline_manager_t {
  * All buffer fields are initialized to safe default values.
  *
  * @param buffer Pointer to receive created buffer
- * @param memory_pool Lusush memory pool for allocations
+ * @param memory_pool Lush memory pool for allocations
  * @param initial_capacity Initial buffer capacity (0 = use default)
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_buffer_create(lle_buffer_t **buffer,
-                               lusush_memory_pool_t *memory_pool,
+                               lush_memory_pool_t *memory_pool,
                                size_t initial_capacity);
 
 /**
@@ -654,7 +654,7 @@ lle_result_t lle_buffer_validate(lle_buffer_t *buffer);
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_change_tracker_init(lle_change_tracker_t **tracker,
-                                     lusush_memory_pool_t *memory_pool,
+                                     lush_memory_pool_t *memory_pool,
                                      size_t max_undo_levels);
 
 /**
@@ -1190,7 +1190,7 @@ lle_cursor_manager_get_position(const lle_cursor_manager_t *manager,
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_multiline_context_init(lle_multiline_context_t **ctx,
-                                        lusush_memory_pool_t *memory_pool);
+                                        lush_memory_pool_t *memory_pool);
 
 /**
  * @brief Destroy multiline context
@@ -1283,7 +1283,7 @@ const char *lle_multiline_get_construct(const lle_multiline_context_t *ctx);
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_multiline_manager_init(lle_multiline_manager_t **manager,
-                                        lusush_memory_pool_t *memory_pool);
+                                        lush_memory_pool_t *memory_pool);
 
 /**
  * @brief Destroy multiline manager

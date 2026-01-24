@@ -1,6 +1,6 @@
 # Installation Guide
 
-**Building and installing Lusush v1.4.0**
+**Building and installing Lush v1.4.0**
 
 ---
 
@@ -22,16 +22,16 @@
 sudo apt install build-essential meson ninja-build
 
 # Clone and build
-git clone https://github.com/lusush/lusush.git
-cd lusush
-meson setup builddir
-ninja -C builddir
+git clone https://github.com/lush/lush.git
+cd lush
+meson setup build
+ninja -C build
 
 # Test
-./builddir/lusush --version
+./build/lush --version
 
 # Install (optional)
-sudo ninja -C builddir install
+sudo ninja -C build install
 ```
 
 ---
@@ -58,7 +58,7 @@ sudo ninja -C builddir install
 
 ### No Readline Required
 
-Lusush uses LLE (Lusush Line Editor), a native line editor. GNU Readline is not required.
+Lush uses LLE (Lush Line Editor), a native line editor. GNU Readline is not required.
 
 ---
 
@@ -72,13 +72,13 @@ sudo apt update
 sudo apt install build-essential meson ninja-build pkg-config git
 
 # Build
-git clone https://github.com/lusush/lusush.git
-cd lusush
-meson setup builddir
-ninja -C builddir
+git clone https://github.com/lush/lush.git
+cd lush
+meson setup build
+ninja -C build
 
 # Install
-sudo ninja -C builddir install
+sudo ninja -C build install
 ```
 
 ### Fedora/RHEL/CentOS
@@ -88,13 +88,13 @@ sudo ninja -C builddir install
 sudo dnf install gcc meson ninja-build pkgconf git
 
 # Build
-git clone https://github.com/lusush/lusush.git
-cd lusush
-meson setup builddir
-ninja -C builddir
+git clone https://github.com/lush/lush.git
+cd lush
+meson setup build
+ninja -C build
 
 # Install
-sudo ninja -C builddir install
+sudo ninja -C build install
 ```
 
 ### Arch Linux
@@ -104,13 +104,13 @@ sudo ninja -C builddir install
 sudo pacman -S base-devel meson ninja pkgconf git
 
 # Build
-git clone https://github.com/lusush/lusush.git
-cd lusush
-meson setup builddir
-ninja -C builddir
+git clone https://github.com/lush/lush.git
+cd lush
+meson setup build
+ninja -C build
 
 # Install
-sudo ninja -C builddir install
+sudo ninja -C build install
 ```
 
 ### macOS
@@ -120,13 +120,13 @@ sudo ninja -C builddir install
 brew install meson ninja git
 
 # Build
-git clone https://github.com/lusush/lusush.git
-cd lusush
-meson setup builddir
-ninja -C builddir
+git clone https://github.com/lush/lush.git
+cd lush
+meson setup build
+ninja -C build
 
 # Install
-ninja -C builddir install
+ninja -C build install
 ```
 
 Or with MacPorts:
@@ -142,13 +142,13 @@ sudo port install meson ninja git
 pkg install meson ninja pkgconf git
 
 # Build
-git clone https://github.com/lusush/lusush.git
-cd lusush
-meson setup builddir
-ninja -C builddir
+git clone https://github.com/lush/lush.git
+cd lush
+meson setup build
+ninja -C build
 
 # Install
-ninja -C builddir install
+ninja -C build install
 ```
 
 ### OpenBSD
@@ -158,13 +158,13 @@ ninja -C builddir install
 pkg_add meson ninja git
 
 # Build
-git clone https://github.com/lusush/lusush.git
-cd lusush
-meson setup builddir
-ninja -C builddir
+git clone https://github.com/lush/lush.git
+cd lush
+meson setup build
+ninja -C build
 
 # Install
-ninja -C builddir install
+ninja -C build install
 ```
 
 ---
@@ -175,40 +175,40 @@ ninja -C builddir install
 
 ```bash
 # Debug build (default)
-meson setup builddir --buildtype=debug
+meson setup build --buildtype=debug
 
 # Release build (optimized)
-meson setup builddir --buildtype=release
+meson setup build --buildtype=release
 
 # Release with debug info
-meson setup builddir --buildtype=debugoptimized
+meson setup build --buildtype=debugoptimized
 ```
 
 ### Installation Prefix
 
 ```bash
 # Custom prefix
-meson setup builddir --prefix=/usr/local
+meson setup build --prefix=/usr/local
 
 # User-local installation
-meson setup builddir --prefix=$HOME/.local
+meson setup build --prefix=$HOME/.local
 ```
 
 ### Reconfiguring
 
 ```bash
 # Change options on existing build
-meson configure builddir --buildtype=release
+meson configure build --buildtype=release
 
 # Or reconfigure entirely
-meson setup builddir --reconfigure --buildtype=release
+meson setup build --reconfigure --buildtype=release
 ```
 
 ### Feature Options
 
 ```bash
 # View all options
-meson configure builddir
+meson configure build
 ```
 
 ---
@@ -219,39 +219,39 @@ meson configure builddir
 
 ```bash
 # Check version
-lusush --version
-# Output: lusush 1.4.0
+lush --version
+# Output: lush 1.4.0
 
 # Test basic functionality
-lusush -c 'echo "Hello from Lusush"'
+lush -c 'echo "Hello from Lush"'
 
 # Test LLE
-lusush -c 'display lle diagnostics'
+lush -c 'display lle diagnostics'
 
 # Test debugger
-lusush -c 'debug help'
+lush -c 'debug help'
 ```
 
 ### Add to Available Shells
 
 ```bash
 # Add to /etc/shells (requires root)
-which lusush | sudo tee -a /etc/shells
+which lush | sudo tee -a /etc/shells
 ```
 
 ### Set as Default Shell
 
 ```bash
 # Change login shell
-chsh -s $(which lusush)
+chsh -s $(which lush)
 ```
 
 ### Create Configuration
 
 ```bash
 # Create startup file
-cat > ~/.lusushrc << 'EOF'
-# Lusush startup configuration
+cat > ~/.lushrc << 'EOF'
+# Lush startup configuration
 
 # Shell options
 config set shell.emacs true
@@ -318,10 +318,10 @@ xcode-select --install  # macOS
 
 ```bash
 # Check installation location
-which lusush
+which lush
 
 # If not found, check prefix
-meson configure builddir | grep prefix
+meson configure build | grep prefix
 
 # Add to PATH if needed
 export PATH="/usr/local/bin:$PATH"
@@ -342,11 +342,11 @@ export LANG=en_US.UTF-8
 
 ```bash
 # System install requires root
-sudo ninja -C builddir install
+sudo ninja -C build install
 
 # Or install to user directory
-meson setup builddir --prefix=$HOME/.local --reconfigure
-ninja -C builddir install
+meson setup build --prefix=$HOME/.local --reconfigure
+ninja -C build install
 ```
 
 ### Platform-Specific Issues
@@ -359,7 +359,7 @@ xcode-select --install
 
 **Linux: Old glibc**
 
-Lusush requires glibc 2.17+. On older systems, consider building statically or using a container.
+Lush requires glibc 2.17+. On older systems, consider building statically or using a container.
 
 ---
 
@@ -367,11 +367,11 @@ Lusush requires glibc 2.17+. On older systems, consider building statically or u
 
 ```bash
 # If installed with ninja install
-sudo ninja -C builddir uninstall
+sudo ninja -C build uninstall
 
 # Or manually
-sudo rm /usr/local/bin/lusush
-sudo rm -rf /usr/local/share/lusush
+sudo rm /usr/local/bin/lush
+sudo rm -rf /usr/local/share/lush
 ```
 
 ---
@@ -380,16 +380,16 @@ sudo rm -rf /usr/local/share/lusush
 
 ```bash
 # Download release
-curl -LO https://github.com/lusush/lusush/releases/download/v1.4.0/lusush-1.4.0.tar.gz
-tar xzf lusush-1.4.0.tar.gz
-cd lusush-1.4.0
+curl -LO https://github.com/lush/lush/releases/download/v1.4.0/lush-1.4.0.tar.gz
+tar xzf lush-1.4.0.tar.gz
+cd lush-1.4.0
 
 # Build
-meson setup builddir
-ninja -C builddir
+meson setup build
+ninja -C build
 
 # Install
-sudo ninja -C builddir install
+sudo ninja -C build install
 ```
 
 ---

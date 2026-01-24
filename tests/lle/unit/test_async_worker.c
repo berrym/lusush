@@ -292,7 +292,7 @@ TEST(git_status_detects_repo) {
     getcwd(cwd, sizeof(cwd));
 
     /* If we're in builddir, go up one level to the repo root */
-    char *builddir = strstr(cwd, "/builddir");
+    char *builddir = strstr(cwd, "/build");
     if (builddir) {
         *builddir = '\0';
     }
@@ -304,7 +304,7 @@ TEST(git_status_detects_repo) {
     wait_for_response(5000);
 
     pthread_mutex_lock(&callback_mutex);
-    /* Assuming tests run from lusush git repo */
+    /* Assuming tests run from lush git repo */
     ASSERT_TRUE(last_response.data.git_status.is_git_repo,
                 "Should detect git repo");
     ASSERT_TRUE(strlen(last_response.data.git_status.branch) > 0 ||

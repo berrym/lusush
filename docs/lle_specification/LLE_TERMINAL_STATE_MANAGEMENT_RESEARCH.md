@@ -325,34 +325,34 @@ lle_result_t lle_terminal_update_display(lle_terminal_state_t *state) {
 }
 ```
 
-### 4.2 Integration with Lusush Display System
+### 4.2 Integration with Lush Display System
 
-**CRITICAL INTEGRATION REQUIREMENT**: LLE must coordinate with Lusush's layered display system without conflicting terminal state management.
+**CRITICAL INTEGRATION REQUIREMENT**: LLE must coordinate with Lush's layered display system without conflicting terminal state management.
 
-**Solution**: LLE operates as a **Display Layer Client** of Lusush display system:
+**Solution**: LLE operates as a **Display Layer Client** of Lush display system:
 
 ```c
 // LLE integrates as display layer, not direct terminal controller
-typedef struct lle_lusush_integration {
+typedef struct lle_lush_integration {
     lle_terminal_state_t *internal_state;           // LLE internal state
-    lusush_display_layer_t *display_layer;          // Lusush display layer
-    lusush_display_context_t *display_context;      // Shared display context
-} lle_lusush_integration_t;
+    lush_display_layer_t *display_layer;          // Lush display layer
+    lush_display_context_t *display_context;      // Shared display context
+} lle_lush_integration_t;
 
-// LLE renders to Lusush display system, not directly to terminal
-lle_result_t lle_render_to_lusush_display(lle_lusush_integration_t *integration) {
+// LLE renders to Lush display system, not directly to terminal
+lle_result_t lle_render_to_lush_display(lle_lush_integration_t *integration) {
     // 1. Calculate LLE display content from internal state
     lle_display_content_t *content = 
         lle_calculate_display_content(integration->internal_state);
     
-    // 2. Submit to Lusush display layer
-    lusush_result_t result = 
-        lusush_display_layer_update(integration->display_layer, content);
+    // 2. Submit to Lush display layer
+    lush_result_t result = 
+        lush_display_layer_update(integration->display_layer, content);
     
-    // 3. Lusush handles actual terminal coordination
+    // 3. Lush handles actual terminal coordination
     // LLE never directly touches terminal
     
-    return lle_convert_lusush_result(result);
+    return lle_convert_lush_result(result);
 }
 ```
 
@@ -373,12 +373,12 @@ lle_result_t lle_render_to_lusush_display(lle_lusush_integration_t *integration)
 3. **Display Command Generation** (lle_display_commands.c)
    - Generate atomic display updates
    - Abstract terminal differences through capabilities
-   - Coordinate with Lusush display system
+   - Coordinate with Lush display system
 
-4. **Lusush Display Integration** (lle_lusush_display.c)
-   - Render LLE content to Lusush display layers
+4. **Lush Display Integration** (lle_lush_display.c)
+   - Render LLE content to Lush display layers
    - Coordinate with existing prompt/theme system
-   - Handle terminal events through Lusush
+   - Handle terminal events through Lush
 
 ### 4.4 Critical Success Requirements
 
@@ -386,7 +386,7 @@ lle_result_t lle_render_to_lusush_display(lle_lusush_integration_t *integration)
 
 1. **Never Query Terminal State**: Internal model is always authoritative
 2. **Never Send Direct Escape Sequences**: All terminal interaction through abstraction
-3. **Coordinate Through Lusush Display**: Never directly control terminal
+3. **Coordinate Through Lush Display**: Never directly control terminal
 4. **Handle All State Internally**: Buffer state, cursor position, display layout all internal
 5. **Generate Atomic Updates**: Terminal changes sent as single coordinated operation
 
@@ -407,14 +407,14 @@ lle_result_t lle_render_to_lusush_display(lle_lusush_integration_t *integration)
 
 **Key Feasibility Factors**:
 - Pattern proven in JLine, ZLE, Fish, Rustyline
-- Integration with Lusush display system eliminates direct terminal control
+- Integration with Lush display system eliminates direct terminal control
 - Existing termcap.c provides capability detection foundation
 - Internal state model avoids all synchronization failure modes
 
 ### 5.2 Integration Complexity Analysis
 
-**INTEGRATION WITH LUSUSH DISPLAY SYSTEM**: **MODERATE COMPLEXITY**
-- Lusush display system designed for layered rendering
+**INTEGRATION WITH LUSH DISPLAY SYSTEM**: **MODERATE COMPLEXITY**
+- Lush display system designed for layered rendering
 - LLE fits naturally as editing layer above prompt layer
 - Coordinate through established display layer APIs
 - No architectural conflicts identified
@@ -432,12 +432,12 @@ lle_result_t lle_render_to_lusush_display(lle_lusush_integration_t *integration)
 **High Confidence Factors**:
 - Research-proven architectural approach
 - Avoids all known failure patterns
-- Integrates with existing Lusush systems
+- Integrates with existing Lush systems
 - Internal state authority eliminates synchronization problems
 
 **Risk Mitigation**:
 - Prototype terminal abstraction layer first
-- Validate integration with Lusush display system early
+- Validate integration with Lush display system early
 - Test across multiple terminal types for capability handling
 - Incremental implementation with continuous validation
 
@@ -449,7 +449,7 @@ lle_result_t lle_render_to_lusush_display(lle_lusush_integration_t *integration)
 - Command sequence generation: 30 hours
 - Integration testing: 30 hours
 
-**LUSUSH DISPLAY INTEGRATION**: 60-80 hours
+**LUSH DISPLAY INTEGRATION**: 60-80 hours
 - Display layer coordination: 30 hours
 - Theme/prompt system integration: 25 hours
 - Event handling coordination: 25 hours
@@ -466,7 +466,7 @@ lle_result_t lle_render_to_lusush_display(lle_lusush_integration_t *integration)
 
 **KEY ARCHITECTURAL DECISIONS**:
 1. **Internal State Authority**: LLE internal model is authoritative, never query terminal
-2. **Lusush Display Integration**: Render through Lusush display system, not directly to terminal
+2. **Lush Display Integration**: Render through Lush display system, not directly to terminal
 3. **Capability-Based Commands**: Generate terminal commands through capability detection
 4. **Atomic Display Updates**: Send display changes as coordinated atomic operations
 
@@ -476,19 +476,19 @@ lle_result_t lle_render_to_lusush_display(lle_lusush_integration_t *integration)
 - Complete internal state model (buffer, cursor, display)
 - Display content generation from internal state
 - Terminal command abstraction through capabilities  
-- Integration with Lusush display layer system
+- Integration with Lush display layer system
 
 **MUST AVOID**:
 - Any terminal state queries or assumptions
 - Direct escape sequence emission
 - Timing-dependent terminal operations
-- Independent terminal control outside Lusush
+- Independent terminal control outside Lush
 
 ### 6.3 Next Steps for Implementation
 
 **IMMEDIATE PRIORITIES**:
 1. **Prototype Terminal State Model** (validate approach)
-2. **Test Lusush Display Integration** (confirm compatibility)
+2. **Test Lush Display Integration** (confirm compatibility)
 3. **Implement Basic Display Generation** (prove concept)
 4. **Validate Across Terminal Types** (test capability abstraction)
 

@@ -4,7 +4,7 @@
 # ADVANCED FEATURES INTEGRATION TEST
 # =============================================================================
 #
-# Tests advanced Lusush features including:
+# Tests advanced Lush features including:
 # - POSIX option combinations and interactions
 # - Security features (privileged mode)
 # - Advanced redirection features
@@ -13,15 +13,15 @@
 # - Error handling and edge cases
 #
 # This test validates the enterprise-grade features mentioned in the handoff
-# document that make Lusush production-ready.
+# document that make Lush production-ready.
 #
-# Author: AI Assistant for Lusush v1.3.0 QA
+# Author: AI Assistant for Lush v1.3.0 QA
 # =============================================================================
 
 set -euo pipefail
 
-LUSUSH="${1:-./build/lusush}"
-TEST_DIR="/tmp/lusush_advanced_test_$$"
+LUSH="${1:-./build/lush}"
+TEST_DIR="/tmp/lush_advanced_test_$$"
 TOTAL_TESTS=0
 PASSED_TESTS=0
 FAILED_TESTS=0
@@ -107,7 +107,7 @@ test_posix_option_combinations() {
     print_section "Strict Mode Combinations"
 
     # Test set -euo (common strict mode)
-    if echo 'set -euo pipefail; echo "strict mode works"' | "$LUSUSH" >/dev/null 2>&1; then
+    if echo 'set -euo pipefail; echo "strict mode works"' | "$LUSH" >/dev/null 2>&1; then
         test_result "set -euo pipefail combination works" 0
     else
         test_result "set -euo pipefail combination works" 1
@@ -115,12 +115,12 @@ test_posix_option_combinations() {
 
     # Test that -e and -u work together
     local result=0
-    echo 'set -eu; echo $UNDEFINED_VAR' | "$LUSUSH" >/dev/null 2>&1 && result=1
+    echo 'set -eu; echo $UNDEFINED_VAR' | "$LUSH" >/dev/null 2>&1 && result=1
     test_result "set -eu properly handles undefined variables" "$result"
 
     # Test trace with error exit
     local output
-    output=$(echo 'set -ex; echo "traced command"; false; echo "should not reach"' | "$LUSUSH" 2>&1)
+    output=$(echo 'set -ex; echo "traced command"; false; echo "should not reach"' | "$LUSH" 2>&1)
     if [[ "$output" == *"traced command"* ]] && [[ "$output" != *"should not reach"* ]]; then
         test_result "set -ex traces commands and exits on error" 0
     else
@@ -131,12 +131,12 @@ test_posix_option_combinations() {
 
     # Test pipefail option
     local result=0
-    echo 'set -o pipefail; false | true' | "$LUSUSH" >/dev/null 2>&1 && result=1
+    echo 'set -o pipefail; false | true' | "$LUSH" >/dev/null 2>&1 && result=1
     test_result "pipefail option detects pipeline failures" "$result"
 
     # Test pipefail with errexit
     local result=0
-    echo 'set -eo pipefail; false | echo "pipe"; echo "should not reach"' | "$LUSUSH" >/dev/null 2>&1 && result=1
+    echo 'set -eo pipefail; false | echo "pipe"; echo "should not reach"' | "$LUSH" >/dev/null 2>&1 && result=1
     test_result "pipefail with errexit exits on pipe failure" "$result"
 }
 
@@ -147,7 +147,7 @@ test_privileged_mode() {
     print_section "Command Execution Restrictions"
 
     # Test that privileged mode is available
-    if echo 'set -o privileged; echo "privileged mode set"' | "$LUSUSH" >/dev/null 2>&1; then
+    if echo 'set -o privileged; echo "privileged mode set"' | "$LUSH" >/dev/null 2>&1; then
         test_result "Privileged mode option is available" 0
     else
         test_result "Privileged mode option is available" 1
@@ -159,7 +159,7 @@ test_privileged_mode() {
     print_section "Security Option Integration"
 
     # Test that security options can be combined
-    if echo 'set -o privileged; set -o posix; echo "security combination works"' | "$LUSUSH" >/dev/null 2>&1; then
+    if echo 'set -o privileged; set -o posix; echo "security combination works"' | "$LUSH" >/dev/null 2>&1; then
         test_result "Security options can be combined" 0
     else
         test_result "Security options can be combined" 1
@@ -174,13 +174,13 @@ test_advanced_redirection() {
 
     # Test noclobber protection
     local result=0
-    if echo 'set -C; echo "new content" > existing_file.txt' | "$LUSUSH" >/dev/null 2>&1; then
+    if echo 'set -C; echo "new content" > existing_file.txt' | "$LUSH" >/dev/null 2>&1; then
         result=1
     fi
     test_result "Noclobber prevents file overwrite" "$result"
 
     # Test clobber override (>|) - this is mentioned in handoff as implemented
-    if echo 'set -C; echo "override content" >| /tmp/clobber_test_$$' | "$LUSUSH" 2>/dev/null; then
+    if echo 'set -C; echo "override content" >| /tmp/clobber_test_$$' | "$LUSH" 2>/dev/null; then
         if [[ -f "/tmp/clobber_test_$$" ]] && grep -q "override content" "/tmp/clobber_test_$$" 2>/dev/null; then
             test_result "Clobber override (>|) works with noclobber" 0
             rm -f "/tmp/clobber_test_$$"
@@ -195,7 +195,7 @@ test_advanced_redirection() {
 
     # Test redirection to invalid location fails appropriately
     local result=0
-    echo 'echo "test" > /root/invalid_location' | "$LUSUSH" >/dev/null 2>&1 && result=1
+    echo 'echo "test" > /root/invalid_location' | "$LUSH" >/dev/null 2>&1 && result=1
     test_result "Invalid redirection fails gracefully" "$result"
 }
 
@@ -207,7 +207,7 @@ test_printf_enhancements() {
 
     # Test printf with dynamic field width (%*s) - mentioned in handoff as implemented
     local output
-    output=$(echo 'printf "%*s\n" 10 "test"' | "$LUSUSH" 2>/dev/null)
+    output=$(echo 'printf "%*s\n" 10 "test"' | "$LUSH" 2>/dev/null)
     if [[ ${#output} -eq 11 ]] && [[ "$output" == *"test" ]]; then  # 10 chars + newline
         test_result "printf %*s dynamic field width works" 0
     else
@@ -216,7 +216,7 @@ test_printf_enhancements() {
 
     # Test printf with precision
     local output
-    output=$(echo 'printf "%.3s\n" "testing"' | "$LUSUSH" 2>/dev/null)
+    output=$(echo 'printf "%.3s\n" "testing"' | "$LUSH" 2>/dev/null)
     if [[ "$output" == "tes" ]]; then
         test_result "printf precision limiting works" 0
     else
@@ -227,7 +227,7 @@ test_printf_enhancements() {
 
     # Test various format specifiers
     local output
-    output=$(echo 'printf "%d %s %x\n" 42 "hello" 255' | "$LUSUSH" 2>/dev/null)
+    output=$(echo 'printf "%d %s %x\n" 42 "hello" 255' | "$LUSH" 2>/dev/null)
     if [[ "$output" == "42 hello ff" ]]; then
         test_result "printf format specifiers work correctly" 0
     else
@@ -242,14 +242,14 @@ test_job_control() {
     print_section "Monitor Mode"
 
     # Test monitor mode option
-    if echo 'set -m; echo "monitor mode enabled"' | "$LUSUSH" >/dev/null 2>&1; then
+    if echo 'set -m; echo "monitor mode enabled"' | "$LUSH" >/dev/null 2>&1; then
         test_result "Monitor mode (-m) can be enabled" 0
     else
         test_result "Monitor mode (-m) can be enabled" 1
     fi
 
     # Test background job notification option
-    if echo 'set -o notify; echo "notify mode enabled"' | "$LUSUSH" >/dev/null 2>&1; then
+    if echo 'set -o notify; echo "notify mode enabled"' | "$LUSH" >/dev/null 2>&1; then
         test_result "Background notification can be enabled" 0
     else
         test_result "Background notification can be enabled" 1
@@ -258,7 +258,7 @@ test_job_control() {
     print_section "Job Control Integration"
 
     # Test job control with other options
-    if echo 'set -bm; echo "job control options combined"' | "$LUSUSH" >/dev/null 2>&1; then
+    if echo 'set -bm; echo "job control options combined"' | "$LUSH" >/dev/null 2>&1; then
         test_result "Job control options can be combined" 0
     else
         test_result "Job control options can be combined" 1
@@ -272,14 +272,14 @@ test_physical_paths() {
     print_section "Physical vs Logical Path Resolution"
 
     # Test physical option is available
-    if echo 'set -o physical; echo "physical mode set"' | "$LUSUSH" >/dev/null 2>&1; then
+    if echo 'set -o physical; echo "physical mode set"' | "$LUSH" >/dev/null 2>&1; then
         test_result "Physical path option is available" 0
     else
         test_result "Physical path option is available" 1
     fi
 
     # Test that physical and logical modes can be toggled
-    if echo 'set -o physical; set +o physical; echo "path modes toggle"' | "$LUSUSH" >/dev/null 2>&1; then
+    if echo 'set -o physical; set +o physical; echo "path modes toggle"' | "$LUSH" >/dev/null 2>&1; then
         test_result "Physical/logical path modes can be toggled" 0
     else
         test_result "Physical/logical path modes can be toggled" 1
@@ -294,7 +294,7 @@ test_editing_modes() {
 
     # Test default emacs mode
     local output
-    output=$(echo 'set -o | grep emacs' | "$LUSUSH" 2>/dev/null)
+    output=$(echo 'set -o | grep emacs' | "$LUSH" 2>/dev/null)
     if [[ "$output" == *"set -o emacs"* ]]; then
         test_result "Emacs mode is default" 0
     else
@@ -303,7 +303,7 @@ test_editing_modes() {
 
     # Test vi mode switching
     local output
-    output=$(echo 'set -o vi; set -o | grep -E "(emacs|vi)"' | "$LUSUSH" 2>/dev/null)
+    output=$(echo 'set -o vi; set -o | grep -E "(emacs|vi)"' | "$LUSH" 2>/dev/null)
     if [[ "$output" == *"set -o vi"* ]] && [[ "$output" == *"set +o emacs"* ]]; then
         test_result "Vi/emacs mode mutual exclusivity works" 0
     else
@@ -313,7 +313,7 @@ test_editing_modes() {
     print_section "Editing Mode Integration"
 
     # Test mode switching persistence
-    if echo 'set -o vi; set -o emacs; set -o | grep emacs' | "$LUSUSH" 2>/dev/null | grep -q "set -o emacs"; then
+    if echo 'set -o vi; set -o emacs; set -o | grep emacs' | "$LUSH" 2>/dev/null | grep -q "set -o emacs"; then
         test_result "Editing mode changes persist" 0
     else
         test_result "Editing mode changes persist" 1
@@ -327,14 +327,14 @@ test_posix_compliance_mode() {
     print_section "POSIX Mode Features"
 
     # Test POSIX mode option
-    if echo 'set -o posix; echo "posix mode enabled"' | "$LUSUSH" >/dev/null 2>&1; then
+    if echo 'set -o posix; echo "posix mode enabled"' | "$LUSH" >/dev/null 2>&1; then
         test_result "POSIX compliance mode can be enabled" 0
     else
         test_result "POSIX compliance mode can be enabled" 1
     fi
 
     # Test POSIX mode integration with other options
-    if echo 'set -o posix; set -eu; echo "posix with strict options"' | "$LUSUSH" >/dev/null 2>&1; then
+    if echo 'set -o posix; set -eu; echo "posix with strict options"' | "$LUSH" >/dev/null 2>&1; then
         test_result "POSIX mode works with other strict options" 0
     else
         test_result "POSIX mode works with other strict options" 1
@@ -348,14 +348,14 @@ test_history_features() {
     print_section "History Control"
 
     # Test history option
-    if echo 'set -o history; echo "history enabled"' | "$LUSUSH" >/dev/null 2>&1; then
+    if echo 'set -o history; echo "history enabled"' | "$LUSH" >/dev/null 2>&1; then
         test_result "History option can be controlled" 0
     else
         test_result "History option can be controlled" 1
     fi
 
     # Test history expansion control
-    if echo 'set -o histexpand; set +o histexpand; echo "histexpand toggled"' | "$LUSUSH" >/dev/null 2>&1; then
+    if echo 'set -o histexpand; set +o histexpand; echo "histexpand toggled"' | "$LUSH" >/dev/null 2>&1; then
         test_result "History expansion can be toggled" 0
     else
         test_result "History expansion can be toggled" 1
@@ -365,7 +365,7 @@ test_history_features() {
 
     # Test interactive comments
     local output
-    output=$(echo 'echo "test" # this is a comment' | "$LUSUSH" 2>/dev/null)
+    output=$(echo 'echo "test" # this is a comment' | "$LUSH" 2>/dev/null)
     if [[ "$output" == "test" ]]; then
         test_result "Interactive comments are handled correctly" 0
     else
@@ -380,7 +380,7 @@ test_function_features() {
     print_section "Function Logging Control"
 
     # Test nolog option for function definitions
-    if echo 'set -o nolog; echo "nolog mode enabled"' | "$LUSUSH" >/dev/null 2>&1; then
+    if echo 'set -o nolog; echo "nolog mode enabled"' | "$LUSH" >/dev/null 2>&1; then
         test_result "Function definition logging can be controlled" 0
     else
         test_result "Function definition logging can be controlled" 1
@@ -390,7 +390,7 @@ test_function_features() {
 
     # Test basic function definition and execution
     local output
-    output=$(echo 'test_func() { echo "function works"; }; test_func' | "$LUSUSH" 2>/dev/null)
+    output=$(echo 'test_func() { echo "function works"; }; test_func' | "$LUSH" 2>/dev/null)
     if [[ "$output" == "function works" ]]; then
         test_result "Function definition and execution works" 0
     else
@@ -406,7 +406,7 @@ test_brace_expansion() {
 
     # Test brace expansion enabled (default)
     local output
-    output=$(echo 'echo {a,b,c}' | "$LUSUSH" 2>/dev/null)
+    output=$(echo 'echo {a,b,c}' | "$LUSH" 2>/dev/null)
     if [[ "$output" == "a b c" ]]; then
         test_result "Brace expansion works when enabled" 0
     else
@@ -415,7 +415,7 @@ test_brace_expansion() {
 
     # Test brace expansion disabled
     local output
-    output=$(echo 'set +o braceexpand; echo {a,b,c}' | "$LUSUSH" 2>/dev/null)
+    output=$(echo 'set +o braceexpand; echo {a,b,c}' | "$LUSH" 2>/dev/null)
     if [[ "$output" == "{a,b,c}" ]]; then
         test_result "Brace expansion can be disabled" 0
     else
@@ -426,12 +426,12 @@ test_brace_expansion() {
 # Main test execution
 main() {
     print_header "ADVANCED FEATURES INTEGRATION TEST"
-    echo "Testing shell: $LUSUSH"
+    echo "Testing shell: $LUSH"
     echo "Started at: $(date)"
 
     # Verify shell exists
-    if [[ ! -x "$LUSUSH" ]]; then
-        echo -e "${RED}ERROR: Shell binary not found: $LUSUSH${NC}"
+    if [[ ! -x "$LUSH" ]]; then
+        echo -e "${RED}ERROR: Shell binary not found: $LUSH${NC}"
         exit 1
     fi
 
@@ -459,7 +459,7 @@ main() {
 
     if [[ $FAILED_TESTS -eq 0 ]]; then
         echo -e "\n${GREEN}🎉 ALL ADVANCED FEATURES TESTS PASSED! 🎉${NC}"
-        echo -e "${GREEN}Lusush demonstrates excellent enterprise-grade functionality!${NC}"
+        echo -e "${GREEN}Lush demonstrates excellent enterprise-grade functionality!${NC}"
         exit_code=0
     else
         local pass_rate=$((PASSED_TESTS * 100 / TOTAL_TESTS))

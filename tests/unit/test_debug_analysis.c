@@ -55,7 +55,7 @@ static int tests_failed = 0;
 // Test Helper Functions
 // ============================================================================
 
-static const char *test_script_dir = "/tmp/lusush_test_scripts";
+static const char *test_script_dir = "/tmp/lush_test_scripts";
 
 static void setup_test_dir(void) {
     char cmd[256];

@@ -7,13 +7,13 @@
 # Tests the 24 implemented POSIX options with better error handling and timeout
 # protection. Focuses on core functionality validation.
 #
-# Author: AI Assistant for Lusush v1.3.0 QA
+# Author: AI Assistant for Lush v1.3.0 QA
 # =============================================================================
 
 set -euo pipefail
 
-LUSUSH_BINARY="${1:-$(realpath ./build/lusush)}"
-TEST_DIR="/tmp/lusush_focused_test_$$"
+LUSH_BINARY="${1:-$(realpath ./build/lush)}"
+TEST_DIR="/tmp/lush_focused_test_$$"
 TOTAL_TESTS=0
 PASSED_TESTS=0
 FAILED_TESTS=0
@@ -58,7 +58,7 @@ run_test() {
     local test_passed=false
 
     # Use timeout to prevent hanging
-    if actual_output=$(timeout 3s bash -c "echo '$test_command' | '$LUSUSH_BINARY' -c 'exec $LUSUSH_BINARY'" 2>&1); then
+    if actual_output=$(timeout 3s bash -c "echo '$test_command' | '$LUSH_BINARY' -c 'exec $LUSH_BINARY'" 2>&1); then
         actual_exit=0
     else
         actual_exit=$?
@@ -101,7 +101,7 @@ test_option_existence() {
 
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
 
-    if timeout 2s "$LUSUSH_BINARY" -c "set -o" 2>/dev/null | grep -q "$option"; then
+    if timeout 2s "$LUSH_BINARY" -c "set -o" 2>/dev/null | grep -q "$option"; then
         echo -e "  ${GREEN}✓${NC} $test_name"
         PASSED_TESTS=$((PASSED_TESTS + 1))
     else
@@ -117,7 +117,7 @@ test_cmdline_option() {
 
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
 
-    if timeout 2s "$LUSUSH_BINARY" "$option" -c "echo test" >/dev/null 2>&1; then
+    if timeout 2s "$LUSH_BINARY" "$option" -c "echo test" >/dev/null 2>&1; then
         echo -e "  ${GREEN}✓${NC} $test_name"
         PASSED_TESTS=$((PASSED_TESTS + 1))
     else
@@ -127,12 +127,12 @@ test_cmdline_option() {
 }
 
 print_header "FOCUSED POSIX OPTIONS VALIDATION"
-echo "Testing shell: $LUSUSH_BINARY"
+echo "Testing shell: $LUSH_BINARY"
 echo "Started at: $(date)"
 
 # Verify shell exists
-if [[ ! -x "$LUSUSH_BINARY" ]]; then
-    echo -e "${RED}ERROR: Shell binary not found: $LUSUSH_BINARY${NC}"
+if [[ ! -x "$LUSH_BINARY" ]]; then
+    echo -e "${RED}ERROR: Shell binary not found: $LUSH_BINARY${NC}"
     exit 1
 fi
 
@@ -146,7 +146,7 @@ cd "$TEST_DIR"
 print_section "Basic Shell Functionality"
 
 TOTAL_TESTS=$((TOTAL_TESTS + 1))
-if echo "echo hello" | timeout 2s "$LUSUSH_BINARY" >/dev/null 2>&1; then
+if echo "echo hello" | timeout 2s "$LUSH_BINARY" >/dev/null 2>&1; then
     echo -e "  ${GREEN}✓${NC} Shell executes basic commands"
     PASSED_TESTS=$((PASSED_TESTS + 1))
 else
@@ -160,7 +160,7 @@ fi
 
 print_section "Command Line Options (-a through -x)"
 
-# Test that command line options are accepted (only testing options lusush supports)
+# Test that command line options are accepted (only testing options lush supports)
 test_cmdline_option "-e"
 test_cmdline_option "-f"
 test_cmdline_option "-h"
@@ -174,7 +174,7 @@ test_cmdline_option "-t"
 
 # Test -e (exit on error) behavior
 TOTAL_TESTS=$((TOTAL_TESTS + 1))
-if ! timeout 2s "$LUSUSH_BINARY" -e -c "false; echo should_not_print" 2>/dev/null | grep -q "should_not_print"; then
+if ! timeout 2s "$LUSH_BINARY" -e -c "false; echo should_not_print" 2>/dev/null | grep -q "should_not_print"; then
     echo -e "  ${GREEN}✓${NC} -e option exits on command failure"
     PASSED_TESTS=$((PASSED_TESTS + 1))
 else
@@ -184,7 +184,7 @@ fi
 
 # Test -n (syntax check) behavior
 TOTAL_TESTS=$((TOTAL_TESTS + 1))
-if ! timeout 2s "$LUSUSH_BINARY" -n -c "echo should_not_execute" 2>/dev/null | grep -q "should_not_execute"; then
+if ! timeout 2s "$LUSH_BINARY" -n -c "echo should_not_execute" 2>/dev/null | grep -q "should_not_execute"; then
     echo -e "  ${GREEN}✓${NC} -n option performs syntax check only"
     PASSED_TESTS=$((PASSED_TESTS + 1))
 else
@@ -232,7 +232,7 @@ print_section "Functional Behavior Tests"
 
 # Test set -e functionality through set command
 TOTAL_TESTS=$((TOTAL_TESTS + 1))
-if ! timeout 2s "$LUSUSH_BINARY" -c "set -e; false; echo should_not_print" 2>/dev/null | grep -q "should_not_print"; then
+if ! timeout 2s "$LUSH_BINARY" -c "set -e; false; echo should_not_print" 2>/dev/null | grep -q "should_not_print"; then
     echo -e "  ${GREEN}✓${NC} set -e exits on command failure"
     PASSED_TESTS=$((PASSED_TESTS + 1))
 else
@@ -242,7 +242,7 @@ fi
 
 # Test set -u functionality
 TOTAL_TESTS=$((TOTAL_TESTS + 1))
-if ! timeout 2s "$LUSUSH_BINARY" -c "set -u; echo \$UNDEFINED_VAR" >/dev/null 2>&1; then
+if ! timeout 2s "$LUSH_BINARY" -c "set -u; echo \$UNDEFINED_VAR" >/dev/null 2>&1; then
     echo -e "  ${GREEN}✓${NC} set -u errors on undefined variables"
     PASSED_TESTS=$((PASSED_TESTS + 1))
 else
@@ -252,7 +252,7 @@ fi
 
 # Test option switching
 TOTAL_TESTS=$((TOTAL_TESTS + 1))
-if timeout 2s "$LUSUSH_BINARY" -c "set -o emacs; set -o vi; set -o | grep -q 'set -o vi'" 2>/dev/null; then
+if timeout 2s "$LUSH_BINARY" -c "set -o emacs; set -o vi; set -o | grep -q 'set -o vi'" 2>/dev/null; then
     echo -e "  ${GREEN}✓${NC} Option switching works (emacs/vi)"
     PASSED_TESTS=$((PASSED_TESTS + 1))
 else
@@ -262,7 +262,7 @@ fi
 
 # Test multiple options
 TOTAL_TESTS=$((TOTAL_TESTS + 1))
-if timeout 2s "$LUSUSH_BINARY" -c "set -eu; echo 'combined options work'" >/dev/null 2>&1; then
+if timeout 2s "$LUSH_BINARY" -c "set -eu; echo 'combined options work'" >/dev/null 2>&1; then
     echo -e "  ${GREEN}✓${NC} Multiple option combinations work"
     PASSED_TESTS=$((PASSED_TESTS + 1))
 else
@@ -278,7 +278,7 @@ print_section "Integration Tests"
 
 # Test that set -o shows option states
 TOTAL_TESTS=$((TOTAL_TESTS + 1))
-if timeout 2s "$LUSUSH_BINARY" -c "set -o" 2>/dev/null | grep -q "set.*hashall"; then
+if timeout 2s "$LUSH_BINARY" -c "set -o" 2>/dev/null | grep -q "set.*hashall"; then
     echo -e "  ${GREEN}✓${NC} set -o displays option states"
     PASSED_TESTS=$((PASSED_TESTS + 1))
 else
@@ -288,7 +288,7 @@ fi
 
 # Test invalid option handling
 TOTAL_TESTS=$((TOTAL_TESTS + 1))
-if ! timeout 2s "$LUSUSH_BINARY" -c "set -o invalid_option" >/dev/null 2>&1; then
+if ! timeout 2s "$LUSH_BINARY" -c "set -o invalid_option" >/dev/null 2>&1; then
     echo -e "  ${GREEN}✓${NC} Invalid options are properly rejected"
     PASSED_TESTS=$((PASSED_TESTS + 1))
 else
@@ -308,7 +308,7 @@ echo -e "${RED}Failed:${NC} $FAILED_TESTS"
 
 if [[ $FAILED_TESTS -eq 0 ]]; then
     echo -e "\n${GREEN}🎉 ALL TESTS PASSED! 🎉${NC}"
-    echo -e "${GREEN}Lusush demonstrates excellent POSIX compliance!${NC}"
+    echo -e "${GREEN}Lush demonstrates excellent POSIX compliance!${NC}"
     exit 0
 else
     PASS_RATE=$((PASSED_TESTS * 100 / TOTAL_TESTS))

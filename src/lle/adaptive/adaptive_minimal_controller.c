@@ -85,7 +85,7 @@ struct lle_minimal_controller_t {
     bool echo_enabled;
 
     /* Memory management */
-    lusush_memory_pool_t *memory_pool;
+    lush_memory_pool_t *memory_pool;
 
     /* Statistics */
     uint64_t lines_read;
@@ -467,7 +467,7 @@ lle_simple_input_processor_read_line(lle_simple_input_processor_t *processor,
  */
 lle_result_t
 lle_initialize_minimal_controller(lle_adaptive_context_t *context,
-                                  lusush_memory_pool_t *memory_pool) {
+                                  lush_memory_pool_t *memory_pool) {
 
     lle_minimal_controller_t *minimal =
         calloc(1, sizeof(lle_minimal_controller_t));

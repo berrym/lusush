@@ -133,7 +133,7 @@ struct lle_display_client_controller_t {
     size_t cursor_position;
 
     /* Memory management */
-    lusush_memory_pool_t *memory_pool;
+    lush_memory_pool_t *memory_pool;
 
     /* Statistics */
     uint64_t lines_read;
@@ -658,7 +658,7 @@ void lle_display_content_generator_destroy(
  */
 lle_result_t
 lle_initialize_display_client_controller(lle_adaptive_context_t *context,
-                                         lusush_memory_pool_t *memory_pool) {
+                                         lush_memory_pool_t *memory_pool) {
 
     lle_display_client_controller_t *client =
         calloc(1, sizeof(lle_display_client_controller_t));

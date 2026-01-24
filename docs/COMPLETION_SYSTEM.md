@@ -1,6 +1,6 @@
 # LLE Completion System
 
-**Context-aware tab completion for the Lusush Line Editor**
+**Context-aware tab completion for the Lush Line Editor**
 
 ---
 
@@ -90,7 +90,7 @@ After `$`, complete variable names:
 ```bash
 $ echo $HO<Tab>      # $HOME
 $ echo ${PA<Tab>     # ${PATH}
-$ echo $LUSUSH_<Tab> # All LUSUSH_* variables
+$ echo $LUSH_<Tab> # All LUSH_* variables
 ```
 
 Includes:

@@ -119,7 +119,7 @@ fi
 echo "Check 5: No direct terminal writes..."
 if grep -r "write.*STDOUT_FILENO\|write.*STDERR_FILENO" src/lle/*.c src/lle/*/*.c 2>/dev/null | grep -v "//"; then
     report_violation "Direct terminal writes detected" \
-        "LLE code MUST NOT write directly to terminal. Use Lusush display system."
+        "LLE code MUST NOT write directly to terminal. Use Lush display system."
 else
     report_pass "No direct terminal writes"
 fi

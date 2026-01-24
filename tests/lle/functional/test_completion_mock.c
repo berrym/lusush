@@ -2,7 +2,7 @@
  * Mock Shell Data for Completion Testing
  *
  * Provides minimal mock implementations of shell data structures
- * so completion tests can run standalone without full lusush.
+ * so completion tests can run standalone without full lush.
  */
 
 #include <stdbool.h>

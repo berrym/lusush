@@ -126,8 +126,8 @@ Time 0s:  User in /path/to/git_repo
           - cached_working_dir = "/path/to/git_repo"
 
 Time 0s:  Readline starts, needs prompt
-          - lusush_readline_with_prompt() called
-          - lusush_generate_prompt() called
+          - lush_readline_with_prompt() called
+          - lush_generate_prompt() called
           - build_prompt() called
           - getcwd() returns "/path/to/git_repo"
           - Cache hit (same dir, recent cache)
@@ -145,8 +145,8 @@ Time 2s:  User presses ENTER
           - Does NOT invalidate any caches
 
 Time 3s:  Next readline starts, needs prompt
-          - lusush_readline_with_prompt() called
-          - lusush_generate_prompt() called
+          - lush_readline_with_prompt() called
+          - lush_generate_prompt() called
           - build_prompt() called
           - getcwd() returns "/tmp" (NEW directory)
           - Compare: "/tmp" != "/path/to/git_repo"
@@ -289,7 +289,7 @@ void display_integration_post_command_update(const char *executed_command) {
 **Location**: `src/readline_integration.c`
 
 ```c
-char *lusush_readline_with_prompt(const char *prompt) {
+char *lush_readline_with_prompt(const char *prompt) {
     static char last_prompt_dir[PATH_MAX] = {0};
     char current_dir[PATH_MAX];
     

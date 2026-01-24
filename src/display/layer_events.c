@@ -2,7 +2,7 @@
  * @file layer_events.c
  * @brief Layer Events System - Inter-Layer Communication
  *
- * Part of the Lusush Shell Layered Display Architecture.
+ * Part of the Lush Shell Layered Display Architecture.
  * Handles event propagation between display layers.
  *
  * @author Michael Berry <trismegustis@gmail.com>

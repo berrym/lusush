@@ -136,11 +136,11 @@ static bool test_memory_pool_creation(void) {
  * ============================================================================
  */
 
-static bool test_lusush_integration(void) {
-    printf("Testing Lusush memory integration...\n");
+static bool test_lush_integration(void) {
+    printf("Testing Lush memory integration...\n");
 
     // Test that integration functions exist
-    // Full integration testing requires Lusush memory system
+    // Full integration testing requires Lush memory system
 
     return true;
 }
@@ -162,10 +162,10 @@ static bool test_structure_definitions(void) {
     TEST_ASSERT(sizeof(encryption) > 0,
                 "lle_memory_encryption_t should be defined");
 
-    // Test lle_lusush_memory_integration_complete_t structure
-    lle_lusush_memory_integration_complete_t integration = {0};
+    // Test lle_lush_memory_integration_complete_t structure
+    lle_lush_memory_integration_complete_t integration = {0};
     TEST_ASSERT(sizeof(integration) > 0,
-                "lle_lusush_memory_integration_complete_t should be defined");
+                "lle_lush_memory_integration_complete_t should be defined");
 
     // Test lle_memory_test_framework_t structure
     lle_memory_test_framework_t framework = {0};
@@ -236,7 +236,7 @@ int main(void) {
     test_lle_pool_alloc_multiple();
     test_lle_pool_alloc_sizes();
     test_memory_pool_creation();
-    test_lusush_integration();
+    test_lush_integration();
     test_structure_definitions();
     test_enumerations();
     test_constants();

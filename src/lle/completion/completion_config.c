@@ -4,7 +4,7 @@
  * @author Michael Berry <trismegustis@gmail.com>
  * @copyright Copyright (C) 2021-2026 Michael Berry
  *
- * Parses ~/.config/lusush/completions.toml and registers command-based
+ * Parses ~/.config/lush/completions.toml and registers command-based
  * completion sources using the custom source API (Layer 2).
  *
  * Config format:
@@ -76,18 +76,18 @@ static char *get_config_path(void) {
     char *path = NULL;
 
     if (config_home && config_home[0] != '\0') {
-        size_t len = strlen(config_home) + strlen("/lusush/") +
+        size_t len = strlen(config_home) + strlen("/lush/") +
                      strlen(CONFIG_FILENAME) + 1;
         path = malloc(len);
         if (path) {
-            snprintf(path, len, "%s/lusush/%s", config_home, CONFIG_FILENAME);
+            snprintf(path, len, "%s/lush/%s", config_home, CONFIG_FILENAME);
         }
     } else if (home && home[0] != '\0') {
-        size_t len = strlen(home) + strlen("/.config/lusush/") +
+        size_t len = strlen(home) + strlen("/.config/lush/") +
                      strlen(CONFIG_FILENAME) + 1;
         path = malloc(len);
         if (path) {
-            snprintf(path, len, "%s/.config/lusush/%s", home, CONFIG_FILENAME);
+            snprintf(path, len, "%s/.config/lush/%s", home, CONFIG_FILENAME);
         }
     }
 
@@ -746,7 +746,7 @@ static lle_result_t config_parser_callback(const char *section, const char *key,
  * @brief Load completion sources from config file
  *
  * Loads the completion configuration from the default path
- * (~/.config/lusush/completions.toml or XDG equivalent).
+ * (~/.config/lush/completions.toml or XDG equivalent).
  *
  * @return LLE_SUCCESS or error code (LLE_ERROR_NOT_FOUND is OK)
  */

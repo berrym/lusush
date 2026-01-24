@@ -1,15 +1,15 @@
 # Shell Modes
 
-**Running Lusush in different compatibility modes**
+**Running Lush in different compatibility modes**
 
-Lusush can operate in four distinct modes, each providing different feature sets and behaviors. This allows you to run scripts from different shell environments and choose the right balance between features and portability.
+Lush can operate in four distinct modes, each providing different feature sets and behaviors. This allows you to run scripts from different shell environments and choose the right balance between features and portability.
 
 ---
 
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Lusush Mode](#lusush-mode)
+2. [Lush Mode](#lush-mode)
 3. [POSIX Mode](#posix-mode)
 4. [Bash Mode](#bash-mode)
 5. [Zsh Mode](#zsh-mode)
@@ -25,7 +25,7 @@ Lusush can operate in four distinct modes, each providing different feature sets
 
 | Mode | Purpose | Feature Set |
 |------|---------|-------------|
-| **Lusush** | Default interactive mode | All features enabled |
+| **Lush** | Default interactive mode | All features enabled |
 | **POSIX** | Maximum portability | POSIX sh standard only |
 | **Bash** | Bash script compatibility | Bash 4.x features |
 | **Zsh** | Zsh script compatibility | Zsh features |
@@ -44,22 +44,22 @@ Modes do NOT affect:
 
 ---
 
-## Lusush Mode
+## Lush Mode
 
-**The default mode. Use this for interactive sessions and Lusush-native scripts.**
+**The default mode. Use this for interactive sessions and Lush-native scripts.**
 
-Lusush mode combines the best features from Bash, Zsh, and adds Lusush-specific capabilities.
+Lush mode combines the best features from Bash, Zsh, and adds Lush-specific capabilities.
 
 ### Enabling
 
 ```bash
-set -o lusush           # Enable
-set +o lusush           # Disable (switches to POSIX)
+set -o lush           # Enable
+set +o lush           # Disable (switches to POSIX)
 ```
 
 ### Features
 
-Everything works in Lusush mode:
+Everything works in Lush mode:
 
 **From Bash**
 - Indexed arrays: `arr=(a b c)`
@@ -78,7 +78,7 @@ Everything works in Lusush mode:
 - Hook arrays: `precmd_functions`, etc.
 - Extended globbing patterns
 
-**Lusush-Specific**
+**Lush-Specific**
 - Integrated debugging: `debug on`
 - Plugin system foundation
 - Enhanced display system
@@ -87,16 +87,16 @@ Everything works in Lusush mode:
 ### When to Use
 
 - Interactive shell sessions
-- Scripts that will only run in Lusush
+- Scripts that will only run in Lush
 - Scripts that need debugging features
 - Scripts that use hooks
 
 ### Example Script
 
 ```bash
-#!/usr/bin/env lusush
+#!/usr/bin/env lush
 
-# Uses Lusush-specific features
+# Uses Lush-specific features
 declare -A config
 config[debug]=true
 config[verbose]=false
@@ -117,14 +117,14 @@ done
 
 **Maximum portability. Scripts run on any POSIX-compliant shell.**
 
-POSIX mode restricts Lusush to the POSIX shell specification. Use this for scripts that must run on different systems and shells.
+POSIX mode restricts Lush to the POSIX shell specification. Use this for scripts that must run on different systems and shells.
 
 ### Enabling
 
 ```bash
 set -o posix            # Enable
 set +o posix            # Disable
-lusush --posix script.sh    # Run script in POSIX mode
+lush --posix script.sh    # Run script in POSIX mode
 ```
 
 ### Restrictions
@@ -165,7 +165,7 @@ POSIX mode retains:
 ### Example Script
 
 ```bash
-#!/usr/bin/env lusush
+#!/usr/bin/env lush
 set -o posix
 
 # POSIX-compliant: no arrays, no [[]]
@@ -196,7 +196,7 @@ Bash mode provides compatibility with Bash scripts, enabling Bash-specific featu
 ```bash
 set -o bash             # Enable
 set +o bash             # Disable
-lusush --bash script.sh     # Run script in Bash mode
+lush --bash script.sh     # Run script in Bash mode
 ```
 
 ### Features
@@ -227,20 +227,20 @@ Bash mode enables:
 
 Bash mode does NOT include:
 - Zsh glob qualifiers
-- Lusush hook system
+- Lush hook system
 - Zsh-specific parameter expansions
 - Plugin system
 
 ### When to Use
 
 - Running existing Bash scripts
-- Writing scripts for both Bash and Lusush
+- Writing scripts for both Bash and Lush
 - Teams migrating from Bash
 
 ### Example Script
 
 ```bash
-#!/usr/bin/env lusush
+#!/usr/bin/env lush
 set -o bash
 
 # Standard Bash script
@@ -274,7 +274,7 @@ Zsh mode enables Zsh-specific features and behaviors.
 ```bash
 set -o zsh              # Enable
 set +o zsh              # Disable
-lusush --zsh script.sh      # Run script in Zsh mode
+lush --zsh script.sh      # Run script in Zsh mode
 ```
 
 ### Features
@@ -310,7 +310,7 @@ Zsh mode includes everything in Bash mode, plus:
 ### Example Script
 
 ```bash
-#!/usr/bin/env lusush
+#!/usr/bin/env lush
 set -o zsh
 
 # Zsh-style script
@@ -334,7 +334,7 @@ precmd() {
 
 ## Feature Matrix
 
-| Feature | POSIX | Bash | Zsh | Lusush |
+| Feature | POSIX | Bash | Zsh | Lush |
 |---------|:-----:|:----:|:---:|:------:|
 | **Syntax** |
 | Basic shell syntax | Yes | Yes | Yes | Yes |
@@ -381,10 +381,10 @@ precmd() {
 
 ```bash
 # Check current mode
-set -o | grep -E "posix|bash|zsh|lusush"
+set -o | grep -E "posix|bash|zsh|lush"
 
 # Switch modes
-set -o lusush
+set -o lush
 set -o posix
 set -o bash
 set -o zsh
@@ -393,31 +393,31 @@ set -o zsh
 ### In Scripts
 
 ```bash
-#!/usr/bin/env lusush
+#!/usr/bin/env lush
 set -o bash   # Script runs in Bash mode
 ```
 
 ### Command Line
 
 ```bash
-lusush --posix script.sh
-lusush --bash script.sh
-lusush --zsh script.sh
-lusush script.sh         # Lusush mode (default)
+lush --posix script.sh
+lush --bash script.sh
+lush --zsh script.sh
+lush script.sh         # Lush mode (default)
 ```
 
 ### Config File
 
 ```bash
-# In ~/.lusushrc
-set -o lusush  # Default mode for interactive sessions
+# In ~/.lushrc
+set -o lush  # Default mode for interactive sessions
 ```
 
 ---
 
 ## Shebang Detection
 
-Lusush can detect the intended mode from script shebangs:
+Lush can detect the intended mode from script shebangs:
 
 | Shebang | Detected Mode |
 |---------|---------------|
@@ -427,11 +427,11 @@ Lusush can detect the intended mode from script shebangs:
 | `#!/usr/bin/env bash` | Bash |
 | `#!/bin/zsh` | Zsh |
 | `#!/usr/bin/env zsh` | Zsh |
-| `#!/usr/bin/env lusush` | Lusush |
-| `#!/usr/bin/env lusush --posix` | POSIX |
-| `#!/usr/bin/env lusush --bash` | Bash |
+| `#!/usr/bin/env lush` | Lush |
+| `#!/usr/bin/env lush --posix` | POSIX |
+| `#!/usr/bin/env lush --bash` | Bash |
 
-When sourcing scripts or running without explicit mode, Lusush examines the shebang and adjusts behavior accordingly.
+When sourcing scripts or running without explicit mode, Lush examines the shebang and adjusts behavior accordingly.
 
 ---
 
@@ -444,8 +444,8 @@ You can enable or disable individual features regardless of mode:
 set -o posix
 shopt -s arrays         # Enable arrays only
 
-# In Lusush mode, but disable process substitution
-set -o lusush
+# In Lush mode, but disable process substitution
+set -o lush
 shopt -u procsub        # Disable process substitution
 
 # Check feature status
@@ -470,8 +470,8 @@ shopt -s globqual       # Glob qualifiers
 
 ### Choosing a Mode
 
-1. **Interactive work**: Use Lusush mode (default)
-2. **New scripts for Lusush**: Use Lusush mode
+1. **Interactive work**: Use Lush mode (default)
+2. **New scripts for Lush**: Use Lush mode
 3. **Scripts for multiple systems**: Use POSIX mode
 4. **Existing Bash scripts**: Use Bash mode
 5. **Existing Zsh scripts**: Use Zsh mode
@@ -479,9 +479,9 @@ shopt -s globqual       # Glob qualifiers
 ### Script Portability
 
 ```bash
-#!/usr/bin/env lusush
+#!/usr/bin/env lush
 # Explicitly set mode at script start
-set -o posix  # or bash, zsh, lusush
+set -o posix  # or bash, zsh, lush
 
 # Script continues in that mode
 ```
@@ -490,9 +490,9 @@ set -o posix  # or bash, zsh, lusush
 
 ```bash
 # Test script in different modes
-lusush --posix script.sh && echo "POSIX OK"
-lusush --bash script.sh && echo "Bash OK"
-lusush script.sh && echo "Lusush OK"
+lush --posix script.sh && echo "POSIX OK"
+lush --bash script.sh && echo "Bash OK"
+lush script.sh && echo "Lush OK"
 ```
 
 ### Gradual Migration
@@ -501,18 +501,18 @@ When migrating scripts:
 
 1. Start in compatibility mode (bash or zsh)
 2. Test thoroughly
-3. Gradually adopt Lusush features
-4. Eventually switch to Lusush mode if desired
+3. Gradually adopt Lush features
+4. Eventually switch to Lush mode if desired
 
 ### Documentation
 
 Always document which mode your script requires:
 
 ```bash
-#!/usr/bin/env lusush
-# requires: lusush mode (uses hooks)
+#!/usr/bin/env lush
+# requires: lush mode (uses hooks)
 # or
-#!/usr/bin/env lusush --posix
+#!/usr/bin/env lush --posix
 # compatible: any POSIX shell
 ```
 

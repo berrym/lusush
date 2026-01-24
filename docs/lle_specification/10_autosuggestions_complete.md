@@ -32,7 +32,7 @@
 
 ### 1.1 Purpose
 
-The LLE Autosuggestions System provides Fish-style intelligent command prediction and completion suggestions that appear inline as the user types. This system leverages advanced pattern matching, historical command analysis, and context-aware intelligence to provide highly relevant suggestions that enhance productivity while maintaining sub-millisecond responsiveness and seamless integration with the Lusush display system.
+The LLE Autosuggestions System provides Fish-style intelligent command prediction and completion suggestions that appear inline as the user types. This system leverages advanced pattern matching, historical command analysis, and context-aware intelligence to provide highly relevant suggestions that enhance productivity while maintaining sub-millisecond responsiveness and seamless integration with the Lush display system.
 
 ### 1.2 Key Features
 
@@ -43,8 +43,8 @@ The LLE Autosuggestions System provides Fish-style intelligent command predictio
 - **Completion Menu Coordination**: Intelligent coordination with completion menu to avoid conflicts and enhance user experience
 - **Context-Aware Filtering**: Dynamic suggestion refinement based on current directory, git status, and command context
 - **Performance Excellence**: Sub-millisecond suggestion generation with intelligent caching and prefetching
-- **Display System Integration**: Seamless integration with Lusush layered display for consistent visual presentation
-- **Memory Pool Integration**: Zero-allocation suggestion operations with Lusush memory pool architecture
+- **Display System Integration**: Seamless integration with Lush layered display for consistent visual presentation
+- **Memory Pool Integration**: Zero-allocation suggestion operations with Lush memory pool architecture
 - **Extensible Architecture**: Plugin system for custom suggestion sources and intelligent algorithms
 
 ### 1.3 Critical Design Principles
@@ -53,7 +53,7 @@ The LLE Autosuggestions System provides Fish-style intelligent command predictio
 2. **Intelligence Over Noise**: High-quality relevant suggestions rather than overwhelming quantity
 3. **Context Sensitivity**: Suggestions must be contextually appropriate for current environment
 4. **Non-Intrusive Display**: Suggestions enhance workflow without disrupting user focus
-5. **Memory Efficiency**: Complete integration with Lusush memory pool architecture
+5. **Memory Efficiency**: Complete integration with Lush memory pool architecture
 6. **Extensibility**: Architecture supports custom suggestion sources and algorithms
 
 ---
@@ -96,13 +96,13 @@ typedef struct lle_autosuggestions_system {
     
     // Display and rendering
     lle_suggestion_renderer_t *renderer;              // Suggestion display and formatting
-    lle_display_coordinator_t *display_coordinator;   // Lusush display system integration
+    lle_display_coordinator_t *display_coordinator;   // Lush display system integration
     lle_visual_config_t *visual_config;               // Visual presentation configuration
     
     // Performance and coordination
     lle_suggestion_metrics_t *perf_metrics;           // Suggestion performance monitoring
     lle_event_coordinator_t *event_coordinator;       // Event system coordination
-    memory_pool_t *memory_pool;                       // Lusush memory pool integration
+    memory_pool_t *memory_pool;                       // Lush memory pool integration
     
     // Configuration and state
     lle_suggestion_config_t *config;                  // Autosuggestions configuration
@@ -1844,7 +1844,7 @@ lle_git_context_t *lle_analyze_git_context(lle_git_context_detector_t *detector,
 // Comprehensive suggestion display and rendering system
 typedef struct lle_suggestion_renderer {
     // Display system integration
-    lle_display_coordinator_t *display_coordinator;   // Lusush display system coordination
+    lle_display_coordinator_t *display_coordinator;   // Lush display system coordination
     lle_layered_display_t *display_system;            // Layered display system reference
     lle_autosuggestion_layer_t *suggestion_layer;     // Dedicated suggestion display layer
     
@@ -3391,9 +3391,9 @@ static const lle_implementation_phase_t AUTOSUGGESTIONS_IMPLEMENTATION_PHASES[] 
     {
         .phase_id = 4,
         .phase_name = "Display System Integration",
-        .description = "Implement visual rendering and Lusush display integration",
+        .description = "Implement visual rendering and Lush display integration",
         .estimated_duration_days = 7,
-        .prerequisites = {"Phase 3 complete", "Lusush layered display system"},
+        .prerequisites = {"Phase 3 complete", "Lush layered display system"},
         .deliverables = {
             "Suggestion rendering system",
             "Visual styling and theming",
@@ -3472,7 +3472,7 @@ typedef struct lle_autosuggestions_success_metrics {
     uint64_t max_recovery_time_us;                    // Maximum error recovery time (1000μs target)
     
     // Integration targets
-    bool seamless_lusush_integration;                 // Seamless integration with Lusush systems
+    bool seamless_lush_integration;                 // Seamless integration with Lush systems
     bool zero_regression_policy;                      // Zero regression in existing functionality
     bool theme_compatibility;                         // Full theme system compatibility
 } lle_autosuggestions_success_metrics_t;
@@ -3482,12 +3482,12 @@ typedef struct lle_autosuggestions_success_metrics {
 
 ## Conclusion
 
-This comprehensive autosuggestions specification provides implementation-ready details for creating a Fish-style intelligent suggestion system that integrates seamlessly with the Lusush Line Editor. The specification includes:
+This comprehensive autosuggestions specification provides implementation-ready details for creating a Fish-style intelligent suggestion system that integrates seamlessly with the Lush Line Editor. The specification includes:
 
 - **Complete architectural design** with intelligent prediction engines and multi-source suggestions
 - **Performance-optimized implementation** with sub-millisecond response times and advanced caching
 - **Comprehensive error handling** with automatic recovery strategies
-- **Full integration specifications** with Lusush display, memory, and event systems
+- **Full integration specifications** with Lush display, memory, and event systems
 - **Extensive testing framework** for validation and quality assurance
 - **Detailed implementation roadmap** with 9-week development timeline
 

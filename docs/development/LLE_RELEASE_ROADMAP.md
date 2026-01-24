@@ -8,7 +8,7 @@
 
 ## Philosophy
 
-Lusush development prioritizes **correctness over speed**. There is no external pressure 
+Lush development prioritizes **correctness over speed**. There is no external pressure 
 for releases - the goal is to build a truly great shell, not to ship quickly. Features 
 are implemented thoroughly, with proper architecture, testing, and documentation.
 
@@ -64,7 +64,7 @@ has proven itself through extended real-world use by the developer.
 
 ### Solution Architecture
 
-The fix required coordination between lusush's signal handler and LLE's input loop:
+The fix required coordination between lush's signal handler and LLE's input loop:
 
 1. **Signal Handler (`src/signals.c`)**:
    - Added `lle_readline_active` flag to track when LLE readline is running
@@ -114,7 +114,7 @@ developers and must be a first-class platform.
 ### Tasks
 
 - [ ] Set up macOS build environment (or VM/CI)
-- [ ] Compile lusush on macOS, fix build errors
+- [ ] Compile lush on macOS, fix build errors
 - [ ] Run LLE test suite on macOS
 - [ ] Manual testing of all interactive features
 - [ ] Fix any termios/terminal handling issues
@@ -261,7 +261,7 @@ they get directories. When they type `git <TAB>`, they get git subcommands.
 
 ### Scope
 
-Focus on lusush's own builtins first:
+Focus on lush's own builtins first:
 - `display` - complete subcommands (theme, lle, etc.)
 - `config` - complete config keys and values  
 - `history` - complete subcommands

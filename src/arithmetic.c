@@ -1,6 +1,6 @@
 /**
  * @file arithmetic.c
- * @brief POSIX-Compliant Arithmetic Expansion Module for Lusush Shell
+ * @brief POSIX-Compliant Arithmetic Expansion Module for Lush Shell
  *
  * This module provides arithmetic expansion using the shunting yard algorithm.
  * It handles $((...)) expressions with full support for:
@@ -17,7 +17,7 @@
  * Based on the shunting yard algorithm implementation from:
  * - Original: http://en.literateprograms.org/Shunting_yard_algorithm_(C)
  * - Modified by Mohammed Isam for Layla shell
- * - Further modernized for Lusush shell
+ * - Further modernized for Lush shell
  *
  * @author Michael Berry <trismegustis@gmail.com>
  * @copyright Copyright (C) 2021-2026 Michael Berry
@@ -26,7 +26,7 @@
 #include "arithmetic.h"
 
 #include "executor.h"
-#include "lusush.h"
+#include "lush.h"
 #include "symtable.h"
 
 #include <ctype.h>

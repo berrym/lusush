@@ -944,10 +944,10 @@ TEST(parse_complex_document) {
     toml_parser_t parser;
     test_ctx_t ctx = {0};
 
-    const char *input = "# Lusush Configuration\n"
+    const char *input = "# Lush Configuration\n"
                         "\n"
                         "[shell]\n"
-                        "mode = \"lusush\"\n"
+                        "mode = \"lush\"\n"
                         "errexit = false\n"
                         "\n"
                         "[shell.features]\n"
@@ -976,7 +976,7 @@ TEST(parse_complex_document) {
 
     /* Verify some values */
     ASSERT_STR_EQ(ctx.keys[0], "mode");
-    ASSERT_STR_EQ(ctx.values[0].data.string, "lusush");
+    ASSERT_STR_EQ(ctx.values[0].data.string, "lush");
 
     ASSERT_STR_EQ(ctx.keys[4], "size");
     ASSERT_EQ(ctx.values[4].data.integer, 10000);

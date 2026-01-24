@@ -1,7 +1,7 @@
-# Lusush User Guide
+# Lush User Guide
 
 **Version**: 1.5.0  
-**Complete feature reference for the Lusush shell**
+**Complete feature reference for the Lush shell**
 
 ---
 
@@ -24,27 +24,27 @@
 
 ## Overview
 
-Lusush v1.5.0 is an advanced interactive shell with three distinguishing capabilities:
+Lush v1.5.0 is an advanced interactive shell with three distinguishing capabilities:
 
-1. **LLE (Lusush Line Editor)**: A native line editor with Emacs keybindings, context-aware completions, and syntax highlighting - not a readline wrapper
-2. **Multi-Mode Architecture**: Run in POSIX, Bash, Zsh, or Lusush mode depending on your needs
+1. **LLE (Lush Line Editor)**: A native line editor with Emacs keybindings, context-aware completions, and syntax highlighting - not a readline wrapper
+2. **Multi-Mode Architecture**: Run in POSIX, Bash, Zsh, or Lush mode depending on your needs
 3. **Integrated Debugging**: Set breakpoints, step through code, inspect variables, and profile performance from within the shell
 
-### Starting Lusush
+### Starting Lush
 
 ```bash
 # Interactive shell
-lusush
+lush
 
 # Execute a command
-lusush -c "echo 'Hello'"
+lush -c "echo 'Hello'"
 
 # Run a script
-lusush script.sh
+lush script.sh
 
 # Specific mode
-lusush --posix script.sh
-lusush --bash script.sh
+lush --posix script.sh
+lush --bash script.sh
 ```
 
 ### Command Line Options
@@ -70,11 +70,11 @@ lusush --bash script.sh
 
 ## Shell Modes
 
-Lusush operates in one of four modes, each with different feature sets and behaviors.
+Lush operates in one of four modes, each with different feature sets and behaviors.
 
-### Lusush Mode (Default)
+### Lush Mode (Default)
 
-The recommended mode for interactive use and Lusush-specific scripts. All features enabled:
+The recommended mode for interactive use and Lush-specific scripts. All features enabled:
 
 - Extended syntax (arrays, `[[]]`, process substitution)
 - Bash and Zsh compatible features
@@ -83,7 +83,7 @@ The recommended mode for interactive use and Lusush-specific scripts. All featur
 - Integrated debugging
 
 ```bash
-set -o lusush    # Enable (usually default)
+set -o lush    # Enable (usually default)
 ```
 
 ### POSIX Mode
@@ -98,7 +98,7 @@ Strict POSIX sh compliance for maximum portability:
 
 ```bash
 set -o posix     # Enable POSIX mode
-lusush --posix   # Start in POSIX mode
+lush --posix   # Start in POSIX mode
 ```
 
 ### Bash Mode
@@ -131,7 +131,7 @@ set -o zsh       # Enable Zsh mode
 
 ### Mode Feature Matrix
 
-| Feature | POSIX | Bash | Zsh | Lusush |
+| Feature | POSIX | Bash | Zsh | Lush |
 |---------|-------|------|-----|--------|
 | Basic syntax | Yes | Yes | Yes | Yes |
 | Indexed arrays | No | Yes | Yes | Yes |
@@ -147,7 +147,7 @@ set -o zsh       # Enable Zsh mode
 
 ## Line Editing (LLE)
 
-LLE is Lusush's native line editor. It is not based on GNU Readline or any external library.
+LLE is Lush's native line editor. It is not based on GNU Readline or any external library.
 
 ### Emacs Mode
 
@@ -237,7 +237,7 @@ $ for i in 1 2 3; do
 
 ## Extended Syntax
 
-Lusush mode (and Bash/Zsh modes) support extended shell syntax beyond POSIX.
+Lush mode (and Bash/Zsh modes) support extended shell syntax beyond POSIX.
 
 ### Arrays
 
@@ -445,7 +445,7 @@ ls *.+(c|h)             # .c or .h files
 ls !(*.o|*.a)           # Not .o or .a files
 ```
 
-### Glob Qualifiers (Zsh/Lusush Mode)
+### Glob Qualifiers (Zsh/Lush Mode)
 
 Filter glob results by file attributes:
 
@@ -539,7 +539,7 @@ cmd -<Tab>          # Complete short options
 
 ## Hook System
 
-Lusush provides Zsh-style hook functions.
+Lush provides Zsh-style hook functions.
 
 ### Hook Functions
 
@@ -615,7 +615,7 @@ precmd_functions=(my_precmd_handler another_precmd_handler)
 
 ## Debugging
 
-Lusush is the only shell with integrated interactive debugging.
+Lush is the only shell with integrated interactive debugging.
 
 ### Enabling Debug Mode
 
@@ -654,7 +654,7 @@ debug profile off
 ### In Scripts
 
 ```bash
-#!/usr/bin/env lusush
+#!/usr/bin/env lush
 
 # Debug specific section
 debug on 2
@@ -674,7 +674,7 @@ For complete debugging documentation, see [DEBUGGER_GUIDE.md](DEBUGGER_GUIDE.md)
 
 ## Theme System
 
-Lusush includes a professional theme system.
+Lush includes a professional theme system.
 
 ### Available Themes
 
@@ -719,12 +719,12 @@ theme symbols auto      # Auto-detect (default)
 
 ### Config System
 
-Lusush v1.5.0 uses a unified TOML-based configuration system with XDG Base Directory compliance.
+Lush v1.5.0 uses a unified TOML-based configuration system with XDG Base Directory compliance.
 
 #### Config File Location
 
 ```
-~/.config/lusush/
+~/.config/lush/
 ├── config.toml          # Main configuration (TOML format)
 ├── config.sh            # Optional shell script (sourced after config.toml)
 └── themes/              # Theme files
@@ -779,15 +779,15 @@ set -o errexit
 
 Changes persist when you run `config save`.
 
-### TOML Configuration (~/.config/lusush/config.toml)
+### TOML Configuration (~/.config/lush/config.toml)
 
 Human-readable TOML format:
 
 ```toml
-# ~/.config/lusush/config.toml
+# ~/.config/lush/config.toml
 
 [shell]
-mode = "lusush"
+mode = "lush"
 errexit = false
 nounset = false
 xtrace = false
@@ -799,7 +799,7 @@ extended_glob = true
 [history]
 enabled = true
 size = 10000
-file = "~/.local/share/lusush/history"
+file = "~/.local/share/lush/history"
 no_dups = true
 
 [display]
@@ -816,12 +816,12 @@ fuzzy = true
 case_sensitive = false
 ```
 
-### Shell Script Configuration (~/.config/lusush/config.sh)
+### Shell Script Configuration (~/.config/lush/config.sh)
 
 Optional power-user escape hatch, sourced after config.toml:
 
 ```bash
-# ~/.config/lusush/config.sh
+# ~/.config/lush/config.sh
 
 # Aliases
 alias ll='ls -la'
@@ -843,11 +843,11 @@ setopt extglob
 
 ### Legacy Format Migration
 
-If you have an existing `~/.lusushrc` file, Lusush will load it and display a migration notice:
+If you have an existing `~/.lushrc` file, Lush will load it and display a migration notice:
 
 ```
-lusush: Loading configuration from ~/.lusushrc (legacy location)
-lusush: Run 'config save' to migrate to ~/.config/lusush/config.toml
+lush: Loading configuration from ~/.lushrc (legacy location)
+lush: Run 'config save' to migrate to ~/.config/lush/config.toml
 ```
 
 After running `config save`, your settings are migrated to the new location.
@@ -856,16 +856,16 @@ After running `config save`, your settings are migrated to the new location.
 
 ```bash
 export XDG_CONFIG_HOME=~/.config    # Config directory (default)
-export LUSUSH_THEME=dark
-export LUSUSH_DEBUG=1
-export LUSUSH_DISPLAY_OPTIMIZATION=2
+export LUSH_THEME=dark
+export LUSH_DEBUG=1
+export LUSH_DISPLAY_OPTIMIZATION=2
 ```
 
 ---
 
 ## Builtin Commands
 
-Lusush provides 50 builtin commands.
+Lush provides 50 builtin commands.
 
 ### POSIX Standard Builtins
 
@@ -886,7 +886,7 @@ declare    local      let        printf     source
 test       [          [[
 ```
 
-### Lusush-Specific Builtins
+### Lush-Specific Builtins
 
 ```
 config     display    debug      network    setopt
@@ -942,7 +942,7 @@ For complete builtin documentation, see [BUILTIN_COMMANDS.md](BUILTIN_COMMANDS.m
 
 ## POSIX Compliance
 
-Lusush implements all 24 POSIX shell options.
+Lush implements all 24 POSIX shell options.
 
 ### Shell Options Reference
 
@@ -997,7 +997,7 @@ config set shell.errexit false
 ### Script Structure
 
 ```bash
-#!/usr/bin/env lusush
+#!/usr/bin/env lush
 
 # Strict mode (recommended)
 set -euo pipefail
@@ -1030,7 +1030,7 @@ my_function() {
     echo "Processing: $arg"
 }
 
-# With nameref (Lusush mode)
+# With nameref (Lush mode)
 swap() {
     local -n ref1=$1
     local -n ref2=$2
@@ -1045,7 +1045,7 @@ swap() {
 For maximum portability, use POSIX mode:
 
 ```bash
-#!/usr/bin/env lusush
+#!/usr/bin/env lush
 set -o posix
 
 # POSIX-only constructs
@@ -1055,7 +1055,7 @@ set -o posix
 ### Debugging Scripts
 
 ```bash
-#!/usr/bin/env lusush
+#!/usr/bin/env lush
 
 # Debug the whole script
 debug on 2

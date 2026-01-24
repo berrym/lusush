@@ -48,7 +48,7 @@ extern "C" {
 /**
  * @brief Default history file name
  */
-#define POSIX_HISTORY_DEFAULT_FILE ".lusush_history"
+#define POSIX_HISTORY_DEFAULT_FILE ".lush_history"
 
 /**
  * @brief History number wraparound limit (POSIX allows implementation-defined)

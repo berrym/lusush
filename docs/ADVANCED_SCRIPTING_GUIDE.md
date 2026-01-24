@@ -1,6 +1,6 @@
 # Advanced Scripting Guide
 
-**Professional shell scripting with Lusush v1.4.0**
+**Professional shell scripting with Lush v1.4.0**
 
 ---
 
@@ -24,7 +24,7 @@
 ### Standard Header
 
 ```bash
-#!/usr/bin/env lusush
+#!/usr/bin/env lush
 
 # script.sh - Description of what the script does
 # Usage: script.sh [options] arguments
@@ -57,7 +57,7 @@ set -euo pipefail
 ### Script Organization
 
 ```bash
-#!/usr/bin/env lusush
+#!/usr/bin/env lush
 set -euo pipefail
 
 #----------------------------------------------------------
@@ -330,7 +330,7 @@ process_files() {
 }
 process_files "${my_files[@]}"
 
-# Pass by nameref (Lusush mode)
+# Pass by nameref (Lush mode)
 process_array() {
     local -n arr=$1
     for item in "${arr[@]}"; do
@@ -576,7 +576,7 @@ echo "Database host: $database_host"
 ### Command Timing
 
 ```bash
-# In ~/.lusushrc
+# In ~/.lushrc
 declare -A _cmd_stats
 
 preexec() {
@@ -635,7 +635,7 @@ chpwd() {
 ### Using the Debugger
 
 ```bash
-#!/usr/bin/env lusush
+#!/usr/bin/env lush
 set -euo pipefail
 
 # Enable debugging
@@ -653,7 +653,7 @@ debug off
 ### Profiling
 
 ```bash
-#!/usr/bin/env lusush
+#!/usr/bin/env lush
 
 debug profile on
 
@@ -777,7 +777,7 @@ xargs -I{} id {} < users.txt
 For maximum portability:
 
 ```bash
-#!/usr/bin/env lusush
+#!/usr/bin/env lush
 set -o posix
 
 # POSIX-only constructs
@@ -788,7 +788,7 @@ set -o posix
 
 ```bash
 # Check for feature before using
-if [[ -v BASH_VERSION ]] || [[ -v LUSUSH_VERSION ]]; then
+if [[ -v BASH_VERSION ]] || [[ -v LUSH_VERSION ]]; then
     # Use arrays
     declare -a items
 else

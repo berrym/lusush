@@ -2,7 +2,7 @@
  * @file fc.c
  * @brief POSIX fc Command Builtin Implementation using LLE History System
  *
- * This module implements the POSIX fc (fix command) builtin for Lusush shell.
+ * This module implements the POSIX fc (fix command) builtin for Lush shell.
  * The fc command provides POSIX-compliant history editing, listing, and
  * re-execution capabilities using LLE's history system.
  *

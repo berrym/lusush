@@ -21,9 +21,9 @@
  * - Incremental integration with fallback tracking and diagnostics
  *
  * Integration Functions:
- * - display_integration_redisplay() replaces lusush_safe_redisplay()
- * - display_integration_prompt_update() replaces lusush_prompt_update()
- * - display_integration_clear_screen() replaces lusush_clear_screen()
+ * - display_integration_redisplay() replaces lush_safe_redisplay()
+ * - display_integration_prompt_update() replaces lush_prompt_update()
+ * - display_integration_clear_screen() replaces lush_clear_screen()
  *
  * Strategic Benefits:
  * - Zero regression deployment of layered display architecture
@@ -279,42 +279,42 @@ bool display_integration_get_config(display_integration_config_t *config);
 // ============================================================================
 
 /**
- * Integrated display function - replacement for lusush_safe_redisplay().
+ * Integrated display function - replacement for lush_safe_redisplay().
  *
  * This function provides coordinated display using the layered architecture
  * when enabled, with graceful fallback to the existing display function.
  * It handles prompt rendering, syntax highlighting, and display composition
  * through the display controller system.
  *
- * Usage: Replace all calls to lusush_safe_redisplay() with this function.
+ * Usage: Replace all calls to lush_safe_redisplay() with this function.
  * Behavior: Seamless operation with enhanced capabilities when layered display
  *          is enabled, identical behavior when disabled.
  */
 void display_integration_redisplay(void);
 
 /**
- * Integrated prompt update function - replacement for lusush_prompt_update().
+ * Integrated prompt update function - replacement for lush_prompt_update().
  *
  * This function provides coordinated prompt updates using the layered
  * architecture when enabled, with graceful fallback to the existing
  * prompt update function. It ensures proper prompt rendering and
  * coordination with other display layers.
  *
- * Usage: Replace all calls to lusush_prompt_update() with this function.
+ * Usage: Replace all calls to lush_prompt_update() with this function.
  * Behavior: Enhanced prompt update coordination when layered display is
  *          enabled, identical behavior when disabled.
  */
 void display_integration_prompt_update(void);
 
 /**
- * Integrated clear screen function - replacement for lusush_clear_screen().
+ * Integrated clear screen function - replacement for lush_clear_screen().
  *
  * This function provides coordinated screen clearing using the layered
  * architecture when enabled, with graceful fallback to the existing
  * clear screen function. It ensures proper screen clearing and display
  * state reset across all layers.
  *
- * Usage: Replace all calls to lusush_clear_screen() with this function.
+ * Usage: Replace all calls to lush_clear_screen() with this function.
  * Behavior: Coordinated screen clearing when layered display is enabled,
  *          identical behavior when disabled.
  */
@@ -334,7 +334,7 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt);
  *
  * @return Newly allocated prompt string, or NULL on error
  */
-char *lusush_generate_prompt(void);
+char *lush_generate_prompt(void);
 
 /**
  * Update display after command execution completion.
@@ -644,13 +644,13 @@ bool display_integration_perf_monitor_set_active(bool enable,
  * Provides compile-time switching between original and integrated functions.
  */
 #ifdef DISPLAY_INTEGRATION_ENABLED
-#define LUSUSH_SAFE_REDISPLAY() display_integration_redisplay()
-#define LUSUSH_PROMPT_UPDATE() display_integration_prompt_update()
-#define LUSUSH_CLEAR_SCREEN() display_integration_clear_screen()
+#define LUSH_SAFE_REDISPLAY() display_integration_redisplay()
+#define LUSH_PROMPT_UPDATE() display_integration_prompt_update()
+#define LUSH_CLEAR_SCREEN() display_integration_clear_screen()
 #else
-#define LUSUSH_SAFE_REDISPLAY() lusush_safe_redisplay()
-#define LUSUSH_PROMPT_UPDATE() lusush_prompt_update()
-#define LUSUSH_CLEAR_SCREEN() lusush_clear_screen()
+#define LUSH_SAFE_REDISPLAY() lush_safe_redisplay()
+#define LUSH_PROMPT_UPDATE() lush_prompt_update()
+#define LUSH_CLEAR_SCREEN() lush_clear_screen()
 #endif
 
 /**

@@ -2,7 +2,7 @@
 # Phase 5: Control Flow Extensions Tests
 # Tests case fall-through (;&), case continue (;;&), select loop, and time keyword
 
-LUSUSH="${LUSUSH:-./build/lusush}"
+LUSH="${LUSH:-./build/lush}"
 PASSED=0
 FAILED=0
 
@@ -29,7 +29,7 @@ run_test() {
     local expected="$3"
 
     local result
-    result=$(echo "$script" | $LUSUSH 2>&1)
+    result=$(echo "$script" | $LUSH 2>&1)
 
     if [ "$result" = "$expected" ]; then
         pass "$name"
@@ -44,7 +44,7 @@ run_test_contains() {
     local expected="$3"
 
     local result
-    result=$(echo "$script" | $LUSUSH 2>&1)
+    result=$(echo "$script" | $LUSH 2>&1)
 
     if echo "$result" | grep -q "$expected"; then
         pass "$name"
@@ -202,7 +202,7 @@ echo
 echo "--- Select Loop ---"
 
 # Test select with valid input
-result=$(printf "2\n" | $LUSUSH -c '
+result=$(printf "2\n" | $LUSH -c '
 select opt in one two three; do
     echo "Selected: $opt"
     break
@@ -216,7 +216,7 @@ else
 fi
 
 # Test select sets REPLY
-result=$(printf "2\n" | $LUSUSH -c '
+result=$(printf "2\n" | $LUSH -c '
 select opt in a b c; do
     echo "REPLY=$REPLY"
     break
@@ -230,7 +230,7 @@ else
 fi
 
 # Test select with invalid input (sets variable to empty)
-result=$(printf "99\n2\n" | $LUSUSH -c '
+result=$(printf "99\n2\n" | $LUSH -c '
 select opt in a b c; do
     if [ -z "$opt" ]; then
         echo "invalid"
@@ -248,7 +248,7 @@ else
 fi
 
 # Test select with PS3
-result=$(printf "1\n" | $LUSUSH -c '
+result=$(printf "1\n" | $LUSH -c '
 PS3="Choose: "
 select opt in x; do
     break
@@ -268,7 +268,7 @@ echo
 echo "--- Time Keyword ---"
 
 # Test time basic
-result=$(echo 'time echo hello' | $LUSUSH 2>&1)
+result=$(echo 'time echo hello' | $LUSH 2>&1)
 if echo "$result" | grep -q "real" && echo "$result" | grep -q "user" && echo "$result" | grep -q "sys"; then
     pass "time shows real/user/sys"
 else
@@ -276,7 +276,7 @@ else
 fi
 
 # Test time -p (POSIX format)
-result=$(echo 'time -p echo hello' | $LUSUSH 2>&1)
+result=$(echo 'time -p echo hello' | $LUSH 2>&1)
 if echo "$result" | grep -qE "^real [0-9]"; then
     pass "time -p POSIX format"
 else
@@ -284,7 +284,7 @@ else
 fi
 
 # Test time with pipeline
-result=$(echo 'time echo test | cat' | $LUSUSH 2>&1)
+result=$(echo 'time echo test | cat' | $LUSH 2>&1)
 if echo "$result" | grep -q "real"; then
     pass "time with pipeline"
 else
@@ -292,7 +292,7 @@ else
 fi
 
 # Test time preserves exit status
-result=$($LUSUSH -c 'time false; echo $?' 2>&1 | tail -1)
+result=$($LUSH -c 'time false; echo $?' 2>&1 | tail -1)
 if [ "$result" = "1" ]; then
     pass "time preserves exit status"
 else

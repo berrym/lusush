@@ -2,7 +2,7 @@
  * @file prompt_layer.c
  * @brief Prompt Layer - Universal Prompt Rendering System
  *
- * Part of the Lusush Shell Layered Display Architecture.
+ * Part of the Lush Shell Layered Display Architecture.
  * Handles prompt generation, caching, and theme integration.
  *
  * @author Michael Berry <trismegustis@gmail.com>
@@ -11,7 +11,7 @@
  *
  * PROMPT LAYER IMPLEMENTATION
  *
- * This file implements the prompt layer for the Lusush Display System.
+ * This file implements the prompt layer for the Lush Display System.
  * The prompt layer provides universal prompt rendering that works with ANY
  * prompt structure without requiring parsing or modification.
  *
@@ -1082,7 +1082,7 @@ void prompt_layer_get_version(int *major, int *minor, int *patch) {
 // INTEGRATION HELPERS
 // ============================================================================
 
-prompt_layer_error_t prompt_layer_generate_from_lusush(prompt_layer_t *layer) {
+prompt_layer_error_t prompt_layer_generate_from_lush(prompt_layer_t *layer) {
     if (!layer || !validate_layer_memory(layer)) {
         return PROMPT_LAYER_ERROR_INVALID_PARAM;
     }
@@ -1091,7 +1091,7 @@ prompt_layer_error_t prompt_layer_generate_from_lusush(prompt_layer_t *layer) {
         return PROMPT_LAYER_ERROR_INVALID_STATE;
     }
 
-    DEBUG_PRINT("Generating prompt from Lusush system");
+    DEBUG_PRINT("Generating prompt from Lush system");
 
     // Generate prompt using LLE prompt composer
     lle_shell_update_prompt(); // This updates the global PS1 variable
@@ -1110,7 +1110,7 @@ prompt_layer_error_t prompt_layer_generate_from_lusush(prompt_layer_t *layer) {
         return result;
     }
 
-    DEBUG_PRINT("Generated prompt from Lusush: '%.50s%s'", ps1_value,
+    DEBUG_PRINT("Generated prompt from Lush: '%.50s%s'", ps1_value,
                 strlen(ps1_value) > 50 ? "..." : "");
 
     return PROMPT_LAYER_SUCCESS;

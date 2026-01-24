@@ -376,20 +376,20 @@ lle_result_t lle_keybinding_get_user_config_path(char *buffer,
     /* Try XDG_CONFIG_HOME first */
     const char *xdg_config = getenv("XDG_CONFIG_HOME");
     if (xdg_config && xdg_config[0]) {
-        int written = snprintf(buffer, buffer_size, "%s/lusush/%s", xdg_config,
+        int written = snprintf(buffer, buffer_size, "%s/lush/%s", xdg_config,
                                LLE_KEYBINDING_CONFIG_FILENAME);
         if (written > 0 && (size_t)written < buffer_size) {
             return LLE_SUCCESS;
         }
     }
 
-    /* Fall back to ~/.config/lusush/ */
+    /* Fall back to ~/.config/lush/ */
     const char *home = get_home_dir();
     if (!home) {
         return LLE_ERROR_SYSTEM_CALL;
     }
 
-    int written = snprintf(buffer, buffer_size, "%s/.config/lusush/%s", home,
+    int written = snprintf(buffer, buffer_size, "%s/.config/lush/%s", home,
                            LLE_KEYBINDING_CONFIG_FILENAME);
     if (written < 0 || (size_t)written >= buffer_size) {
         return LLE_ERROR_BUFFER_OVERFLOW;

@@ -13,7 +13,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  * This module contains ONLY data retrieval logic - NO terminal I/O.
- * It bridges LLE completion system to Lusush shell's existing data sources.
+ * It bridges LLE completion system to Lush shell's existing data sources.
  */
 
 #include "lle/completion/completion_sources.h"

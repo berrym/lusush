@@ -1569,7 +1569,7 @@ bool test_multiline_for_loop_reconstruction(void) {
 - **Error Handling**: Graceful degradation and recovery for all error scenarios
 - **Thread Safety**: Concurrent access support with rwlocks
 - **Integration Testing**: 100% pass rate on comprehensive test suite
-- **Backwards Compatibility**: Full compatibility with existing Lusush history
+- **Backwards Compatibility**: Full compatibility with existing Lush history
 
 ---
 
@@ -1581,7 +1581,7 @@ bool test_multiline_for_loop_reconstruction(void) {
 - **Design Requirement Fulfillment**: Direct implementation of `lle_history_edit_entry()` and `original_multiline` preservation
 - **Advanced Multiline Support**: Complete reconstruction of complex shell constructs with intelligent formatting
 - **Performance Excellence**: Optimized caching and sub-millisecond operation targets
-- **Enterprise Integration**: Seamless integration with existing Lusush memory pool and event systems
+- **Enterprise Integration**: Seamless integration with existing Lush memory pool and event systems
 - **Extensible Architecture**: Callback-based framework enabling unlimited customization
 
 **Critical Functionality Delivered:**

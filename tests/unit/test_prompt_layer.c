@@ -1255,20 +1255,20 @@ static int test_validate_with_content(void) {
 }
 
 /* ============================================================
- * GENERATE FROM LUSUSH TESTS
+ * GENERATE FROM LUSH TESTS
  * ============================================================ */
 
-static int test_generate_from_lusush_null_layer(void) {
-    prompt_layer_error_t result = prompt_layer_generate_from_lusush(NULL);
+static int test_generate_from_lush_null_layer(void) {
+    prompt_layer_error_t result = prompt_layer_generate_from_lush(NULL);
     ASSERT(result != PROMPT_LAYER_SUCCESS);
     return 1;
 }
 
-static int test_generate_from_lusush_uninitialized(void) {
+static int test_generate_from_lush_uninitialized(void) {
     prompt_layer_t *layer = prompt_layer_create();
     ASSERT_NOT_NULL(layer);
     
-    prompt_layer_error_t result = prompt_layer_generate_from_lusush(layer);
+    prompt_layer_error_t result = prompt_layer_generate_from_lush(layer);
     ASSERT(result != PROMPT_LAYER_SUCCESS);
     
     prompt_layer_destroy(layer);
@@ -1414,9 +1414,9 @@ int main(void) {
     RUN_TEST(test_validate_initialized_layer);
     RUN_TEST(test_validate_with_content);
 
-    printf("\n=== Generate From Lusush Tests ===\n");
-    RUN_TEST(test_generate_from_lusush_null_layer);
-    RUN_TEST(test_generate_from_lusush_uninitialized);
+    printf("\n=== Generate From Lush Tests ===\n");
+    RUN_TEST(test_generate_from_lush_null_layer);
+    RUN_TEST(test_generate_from_lush_uninitialized);
 
     printf("\n=== Run Tests Function Tests ===\n");
     RUN_TEST(test_run_tests_null_layer);

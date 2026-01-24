@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-The Lusush Line Editor (LLE) is a comprehensive in-house line editing solution designed to replace GNU Readline with a modern, buffer-oriented, event-driven architecture. As of December 2025, **LLE's core systems are substantially complete** and functional.
+The Lush Line Editor (LLE) is a comprehensive in-house line editing solution designed to replace GNU Readline with a modern, buffer-oriented, event-driven architecture. As of December 2025, **LLE's core systems are substantially complete** and functional.
 
 ### Current State
 
@@ -24,13 +24,13 @@ The Lusush Line Editor (LLE) is a comprehensive in-house line editing solution d
 
 - **Quality over popularity** - No compromises on doing things right
 - **Self-contained** - Minimize external dependencies (ncurses acceptable, external scripting languages not)
-- **Native extensibility** - Customization through lusush scripting, not Lua/Python
+- **Native extensibility** - Customization through lush scripting, not Lua/Python
 - **Specs as inspiration** - Original specifications preserved as vision; realistic milestones guide actual work
 - **No rush** - Get it right the first time
 
 ### Architectural Context
 
-LLE is a **client** of lusush's layered display system, not the display system itself. This has important implications:
+LLE is a **client** of lush's layered display system, not the display system itself. This has important implications:
 
 - **Runtime configuration**: Via `display lle ...` subcommands (not standalone `theme` command)
 - **The `theme` builtin is deprecated**: Legacy command predating readline adoption; will be removed once nothing depends on it
@@ -42,7 +42,7 @@ Two configuration formats currently coexist:
 
 | System | Format | Location | Purpose |
 |--------|--------|----------|---------|
-| Core lusush config | INI | `src/config.c` | Overall shell behavior, subsystem control |
+| Core lush config | INI | `src/config.c` | Overall shell behavior, subsystem control |
 | LLE prompt/theme | TOML-subset | `src/lle/prompt/theme_parser.c` | Theme files, prompt configuration |
 
 This coexistence is intentional for now. The TOML-subset parser is custom and dependency-free. Unification may be considered in the future if a compelling rationale emerges, but there are no current plans to change either system.
@@ -239,7 +239,7 @@ These are achievable next steps, ordered by priority and dependency.
 
 | Task | Priority | Status | Notes |
 |------|----------|--------|-------|
-| ~~Fix display stress test memory leak~~ | ~~Medium~~ | ✅ Fixed | Session 83: `pool_was_ever_initialized` flag in lusush_memory_pool.c |
+| ~~Fix display stress test memory leak~~ | ~~Medium~~ | ✅ Fixed | Session 83: `pool_was_ever_initialized` flag in lush_memory_pool.c |
 | Address any remaining freeze scenarios | High | Ongoing | Session 80 added watchdog and state machine |
 | Complete Vi mode if desired | Low | Partial | Keybindings exist, needs testing |
 | ~~Clean up dead code (broken diff updates)~~ | ~~Low~~ | ✅ Done | Session 92: Removed ~575 lines of broken differential display code |
@@ -250,11 +250,11 @@ These are achievable next steps, ordered by priority and dependency.
 
 **Already Implemented:**
 - ✅ LLE preferences in core config (`src/config.c`) - arrow modes, history, dedup, multiline, search, etc.
-- ✅ User theme files from XDG paths (`$XDG_CONFIG_HOME/lusush/themes/` or `~/.config/lusush/themes/`)
-- ✅ System theme files (`/etc/lusush/themes/`)
+- ✅ User theme files from XDG paths (`$XDG_CONFIG_HOME/lush/themes/` or `~/.config/lush/themes/`)
+- ✅ System theme files (`/etc/lush/themes/`)
 - ✅ Theme hot reload (`display lle theme reload`)
 - ✅ Theme export (`display lle theme export`)
-- ✅ User keybinding configuration (`~/.config/lusush/keybindings.toml`)
+- ✅ User keybinding configuration (`~/.config/lush/keybindings.toml`)
 - ✅ Keybinding hot reload (`display lle keybindings reload`)
 
 **Remaining Work:**
@@ -269,7 +269,7 @@ These are achievable next steps, ordered by priority and dependency.
 
 **Already Implemented:**
 - ✅ Custom completion source API (`include/lle/completion/custom_source.h`)
-- ✅ Config-based completion sources (`~/.config/lusush/completions.toml`)
+- ✅ Config-based completion sources (`~/.config/lush/completions.toml`)
 - ✅ Shell command execution with caching for completions
 - ✅ Display commands: `display lle completions [list|reload|help]`
 
@@ -277,7 +277,7 @@ These are achievable next steps, ordered by priority and dependency.
 
 | Task | Priority | Description |
 |------|----------|-------------|
-| User-defined widget registration | High | Define custom widgets from config/lusush script |
+| User-defined widget registration | High | Define custom widgets from config/lush script |
 | Widget hooks for shell events | Medium | Trigger custom code on directory change, command execution |
 | Segment customization | Medium | User-defined prompt segments |
 
@@ -290,7 +290,7 @@ These are achievable next steps, ordered by priority and dependency.
 | ~~Fix or remove differential updates~~ | ~~Medium~~ | ✅ Removed Session 92; full redraw is reliable and sufficient |
 | Advanced syntax highlighting rules | Medium | More shell construct coverage |
 | Improved autosuggestion algorithm | Low | Context-aware, not just history prefix |
-| Fish-style path abbreviation | Low | ~/D/p/lusush instead of ~/Documents/projects/lusush |
+| Fish-style path abbreviation | Low | ~/D/p/lush instead of ~/Documents/projects/lush |
 
 ### Phase 5: Integration Polish
 
@@ -299,7 +299,7 @@ These are achievable next steps, ordered by priority and dependency.
 | Task | Priority | Status |
 |------|----------|--------|
 | Remove GNU readline dependency | High | **COMPLETE** - LLE is now the only line editor |
-| Lusush scripting hooks | Medium | Future - When lusush scripting matures |
+| Lush scripting hooks | Medium | Future - When lush scripting matures |
 | Complete `display lle` command set | Low | Ongoing |
 
 **Milestone Completed (2025-12-31)**: GNU readline has been fully removed. LLE is now the sole line editing system. ~5,200+ lines of legacy code deleted, 7 source files and 7 header files removed.
@@ -311,9 +311,9 @@ These are achievable next steps, ordered by priority and dependency.
 These features are preserved from the original specifications as future possibilities. They are **not** current priorities but represent the ultimate potential of LLE.
 
 ### Native Scripting Extensibility
-- When lusush's own scripting language matures beyond POSIX
+- When lush's own scripting language matures beyond POSIX
 - User-defined functions callable from keybindings
-- Event handlers written in lusush script
+- Event handlers written in lush script
 - No external language dependencies (Lua/Python)
 
 ### Advanced Async Providers
@@ -355,9 +355,9 @@ These features are **intentionally not being implemented** for the reasons state
 | **Configuration Schema Validation** | Spec 13 | Useful for plugins; less needed without plugin system |
 
 These may be revisited if:
-1. Lusush gains significant user adoption
+1. Lush gains significant user adoption
 2. Community expresses strong need
-3. Native lusush scripting becomes powerful enough to serve as plugin language
+3. Native lush scripting becomes powerful enough to serve as plugin language
 
 ---
 

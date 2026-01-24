@@ -2,7 +2,7 @@
  * @file terminal_control.c
  * @brief Terminal Control Layer - ANSI Sequences and Capabilities
  *
- * Part of the Lusush Shell Layered Display Architecture.
+ * Part of the Lush Shell Layered Display Architecture.
  * Manages ANSI escape sequences and terminal capabilities.
  *
  * @author Michael Berry <trismegustis@gmail.com>

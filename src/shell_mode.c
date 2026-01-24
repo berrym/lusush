@@ -3,7 +3,7 @@
  * @brief Shell mode and feature flag system implementation
  *
  * Implements the multi-mode architecture that enables POSIX, Bash, Zsh, and
- * Lusush-native shell modes. Contains the feature matrix that defines which
+ * Lush-native shell modes. Contains the feature matrix that defines which
  * features are available in each mode.
  *
  * @author Michael Berry <trismegustis@gmail.com>
@@ -25,7 +25,7 @@ int strcasecmp(const char *s1, const char *s2);
 
 /** @brief Global shell mode state instance */
 shell_mode_state_t g_shell_mode_state = {
-    .current_mode = SHELL_MODE_LUSUSH,
+    .current_mode = SHELL_MODE_LUSH,
     .feature_overrides = {false},
     .feature_override_set = {false},
     .strict_mode = false
@@ -36,7 +36,7 @@ shell_mode_state_t g_shell_mode_state = {
  * ============================================================================
  *
  * This matrix defines the default value for each feature in each mode.
- * The Lusush mode cherry-picks the best defaults from Bash and Zsh.
+ * The Lush mode cherry-picks the best defaults from Bash and Zsh.
  */
 
 static const bool feature_matrix[SHELL_MODE_COUNT][FEATURE_COUNT] = {
@@ -265,8 +265,8 @@ static const bool feature_matrix[SHELL_MODE_COUNT][FEATURE_COUNT] = {
         [FEATURE_PLUGIN_SYSTEM]       = false, /* Not a Zsh feature */
     },
 
-    /* SHELL_MODE_LUSUSH - Curated best of both (DEFAULT) */
-    [SHELL_MODE_LUSUSH] = {
+    /* SHELL_MODE_LUSH - Curated best of both (DEFAULT) */
+    [SHELL_MODE_LUSH] = {
         /* Arrays - full support, 0-indexed like Bash (more intuitive) */
         [FEATURE_INDEXED_ARRAYS]      = true,
         [FEATURE_ASSOCIATIVE_ARRAYS]  = true,
@@ -337,7 +337,7 @@ static const bool feature_matrix[SHELL_MODE_COUNT][FEATURE_COUNT] = {
         [FEATURE_SIMPLE_HOOK_ARRAYS]  = true,  /* precmd+=(fn) works intuitively */
         [FEATURE_PROMPT_COMMAND]      = true,  /* Bash compat: string and array */
         [FEATURE_ZSH_PARAM_FLAGS]     = true,  /* Now implemented: ${(U)var} etc */
-        [FEATURE_PLUGIN_SYSTEM]       = true,  /* Lusush extension */
+        [FEATURE_PLUGIN_SYSTEM]       = true,  /* Lush extension */
     },
 };
 
@@ -349,7 +349,7 @@ static const char *mode_names[SHELL_MODE_COUNT] = {
     [SHELL_MODE_POSIX]  = "posix",
     [SHELL_MODE_BASH]   = "bash",
     [SHELL_MODE_ZSH]    = "zsh",
-    [SHELL_MODE_LUSUSH] = "lusush",
+    [SHELL_MODE_LUSH] = "lush",
 };
 
 /* ============================================================================
@@ -634,7 +634,7 @@ bool shell_feature_parse(const char *name, shell_feature_t *feature)
 
 void shell_mode_init(void)
 {
-    g_shell_mode_state.current_mode = SHELL_MODE_LUSUSH;
+    g_shell_mode_state.current_mode = SHELL_MODE_LUSH;
     g_shell_mode_state.strict_mode = false;
 
     for (int i = 0; i < FEATURE_COUNT; i++) {
@@ -713,8 +713,8 @@ bool shell_mode_detect_from_shebang(const char *shebang, shell_mode_t *mode)
         return true;
     }
 
-    if (strncmp(interpreter, "lusush", 6) == 0) {
-        *mode = SHELL_MODE_LUSUSH;
+    if (strncmp(interpreter, "lush", 6) == 0) {
+        *mode = SHELL_MODE_LUSH;
         return true;
     }
 

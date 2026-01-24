@@ -15,7 +15,7 @@
 
 #include "errors.h"
 
-#include "lusush.h"
+#include "lush.h"
 
 #include <errno.h>
 #include <stdarg.h>
@@ -187,6 +187,6 @@ void success_message(const char *fmt, ...) {
  */
 void sigsegv_handler(int signo) {
     error_abort(
-        "lusush: caught signal %d, terminating.\n\tAnd fix your damn code.\n",
+        "lush: caught signal %d, terminating.\n\tAnd fix your damn code.\n",
         signo);
 }

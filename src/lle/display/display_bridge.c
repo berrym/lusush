@@ -3,7 +3,7 @@
  * @brief LLE Display Bridge Implementation
  *
  * Implements the bridge between LLE's internal buffer/cursor system and
- * Lusush's layered display architecture. The bridge coordinates event flow
+ * Lush's layered display architecture. The bridge coordinates event flow
  * and state synchronization between the two systems.
  *
  * SPECIFICATION: docs/lle_specification/08_display_integration_complete.md
@@ -50,15 +50,15 @@ static void calculate_cursor_screen_position(const char *text,
 /* ========================================================================== */
 
 /**
- * @brief Initialize display bridge for LLE-Lusush communication
+ * @brief Initialize display bridge for LLE-Lush communication
  *
  * Creates and initializes a display bridge that connects the LLE editing
- * system with the Lusush display controller. The bridge manages event flow,
+ * system with the Lush display controller. The bridge manages event flow,
  * render request queuing, and state synchronization.
  *
  * @param bridge Output pointer to receive initialized bridge
  * @param editor LLE editor context (opaque pointer)
- * @param display Lusush display controller
+ * @param display Lush display controller
  * @param memory_pool Memory pool for allocations
  * @return LLE_SUCCESS on success, error code on failure
  *
@@ -97,7 +97,7 @@ lle_result_t lle_display_bridge_init(lle_display_bridge_t **bridge,
     br->active_buffer = NULL; /* Will be set when editor type is defined */
     br->cursor_pos = NULL;    /* Will be set when editor type is defined */
 
-    /* Step 4: Connect to Lusush display systems */
+    /* Step 4: Connect to Lush display systems */
     /* Store display controller reference for terminal info access */
     br->display_controller = display;
 
@@ -223,7 +223,7 @@ lle_result_t lle_display_bridge_cleanup(lle_display_bridge_t *bridge) {
  *
  * @param bridge Output pointer to receive initialized bridge
  * @param editor LLE editor context (opaque)
- * @param display Lusush display controller
+ * @param display Lush display controller
  * @param pool Memory pool for allocations
  * @return LLE_SUCCESS on success, error code on failure
  */
@@ -235,10 +235,10 @@ lle_result_t lle_display_create_bridge(lle_display_bridge_t **bridge,
 }
 
 /**
- * @brief Send rendered output to Lusush display system
+ * @brief Send rendered output to Lush display system
  *
  * This is the critical bridge function that takes LLE's rendered output
- * and sends it through Lusush's layered display system.
+ * and sends it through Lush's layered display system.
  *
  * Architecture:
  * 1. Calculate cursor screen position using incremental tracking (Replxx

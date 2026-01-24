@@ -1,4 +1,4 @@
-# Lusush Integrated Debugger Guide
+# Lush Integrated Debugger Guide
 
 **The only shell with built-in interactive debugging capabilities**
 
@@ -23,7 +23,7 @@
 
 ## Introduction
 
-Lusush is the first and only shell to include a complete integrated debugger. This unique capability allows you to debug shell scripts interactively without any external tools, making script development, troubleshooting, and learning significantly more effective.
+Lush is the first and only shell to include a complete integrated debugger. This unique capability allows you to debug shell scripts interactively without any external tools, making script development, troubleshooting, and learning significantly more effective.
 
 ### Why Integrated Debugging Matters
 
@@ -33,7 +33,7 @@ Lusush is the first and only shell to include a complete integrated debugger. Th
 - No breakpoints or step-by-step execution
 - Difficult to understand complex script flow
 
-**Lusush integrated debugger advantages:**
+**Lush integrated debugger advantages:**
 - Interactive debugging with professional commands
 - Real-time variable inspection with scope awareness
 - Step-by-step execution control
@@ -102,7 +102,7 @@ debug off
 ```bash
 # Create a simple test script
 cat > first_debug.sh << 'EOF'
-#!/usr/bin/env lusush
+#!/usr/bin/env lush
 counter=1
 echo "Starting loop"
 while [ $counter -le 3 ]; do
@@ -572,8 +572,8 @@ debug analyze myscript.sh
 
 **Debug commands not working:**
 ```bash
-# Ensure you're using Lusush
-./builddir/lusush
+# Ensure you're using Lush
+./build/lush
 debug help    # Should show debug commands
 ```
 
@@ -597,7 +597,7 @@ debug off       # Disable completely
 ```bash
 [DEBUG] TRACE: ../src/executor.c:427 - COMMAND: echo
 ```
-- **File location**: Where in Lusush source the trace originates
+- **File location**: Where in Lush source the trace originates
 - **Line number**: Specific line in source
 - **Command**: The shell command being executed
 
@@ -660,7 +660,7 @@ debug on
 ### Debugging a Deployment Script
 
 ```bash
-#!/usr/bin/env lusush
+#!/usr/bin/env lush
 
 # Enable debugging for troubleshooting
 if [ "$DEPLOY_DEBUG" = "1" ]; then
@@ -693,7 +693,7 @@ fi
 ### Educational Loop Debugging
 
 ```bash
-#!/usr/bin/env lusush
+#!/usr/bin/env lush
 
 # Teaching example: Understanding loop behavior
 debug on 2
@@ -720,7 +720,7 @@ debug off
 ### Performance Analysis Example
 
 ```bash
-#!/usr/bin/env lusush
+#!/usr/bin/env lush
 
 # Performance testing with profiling
 debug profile on
@@ -749,7 +749,7 @@ debug profile off
 
 ## Conclusion
 
-The Lusush integrated debugger is a powerful, unique tool that transforms shell script development. By providing interactive debugging capabilities directly within the shell, it enables more effective script development, troubleshooting, and learning.
+The Lush integrated debugger is a powerful, unique tool that transforms shell script development. By providing interactive debugging capabilities directly within the shell, it enables more effective script development, troubleshooting, and learning.
 
 ### Key Advantages
 
@@ -766,6 +766,6 @@ The Lusush integrated debugger is a powerful, unique tool that transforms shell 
 3. **Apply to your scripts**: Start debugging your own shell scripts
 4. **Explore advanced features**: Breakpoints, profiling, analysis
 
-The integrated debugger makes Lusush not just another shell, but a complete shell development environment. Whether you're developing new scripts, troubleshooting existing ones, or learning shell scripting, the debugger provides capabilities that simply aren't available anywhere else.
+The integrated debugger makes Lush not just another shell, but a complete shell development environment. Whether you're developing new scripts, troubleshooting existing ones, or learning shell scripting, the debugger provides capabilities that simply aren't available anywhere else.
 
 **Experience the future of shell scripting with integrated debugging.**

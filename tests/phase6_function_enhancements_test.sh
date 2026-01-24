@@ -3,7 +3,7 @@
 # Tests nameref variables (local -n), enhanced declare options (-g, -l, -u, -t),
 # and return from sourced scripts
 
-LUSUSH="${LUSUSH:-./build/lusush}"
+LUSH="${LUSH:-./build/lush}"
 PASSED=0
 FAILED=0
 
@@ -30,7 +30,7 @@ run_test() {
     local expected="$3"
 
     local result
-    result=$(echo "$script" | $LUSUSH 2>&1)
+    result=$(echo "$script" | $LUSH 2>&1)
 
     if [ "$result" = "$expected" ]; then
         pass "$name"
@@ -45,7 +45,7 @@ run_test_contains() {
     local expected="$3"
 
     local result
-    result=$(echo "$script" | $LUSUSH 2>&1)
+    result=$(echo "$script" | $LUSH 2>&1)
 
     if echo "$result" | grep -q "$expected"; then
         pass "$name"
@@ -59,7 +59,7 @@ run_test_exit_code() {
     local script="$2"
     local expected_code="$3"
 
-    echo "$script" | $LUSUSH >/dev/null 2>&1
+    echo "$script" | $LUSH >/dev/null 2>&1
     local actual_code=$?
 
     if [ "$actual_code" = "$expected_code" ]; then
@@ -186,7 +186,7 @@ cat > "$TMPDIR/return_no_arg.sh" << 'EOF'
 false
 return
 EOF
-result=$($LUSUSH -c "source $TMPDIR/return_no_arg.sh; echo \$?" 2>&1)
+result=$($LUSH -c "source $TMPDIR/return_no_arg.sh; echo \$?" 2>&1)
 if [ "$result" = "1" ]; then
     pass "Source return: no argument uses last exit status"
 else
@@ -197,7 +197,7 @@ fi
 cat > "$TMPDIR/return_zero.sh" << 'EOF'
 return 0
 EOF
-result=$($LUSUSH -c "source $TMPDIR/return_zero.sh; echo \$?" 2>&1)
+result=$($LUSH -c "source $TMPDIR/return_zero.sh; echo \$?" 2>&1)
 if [ "$result" = "0" ]; then
     pass "Source return: explicit return 0"
 else
@@ -238,7 +238,7 @@ code:7"
 cat > "$TMPDIR/return_large.sh" << 'EOF'
 return 300
 EOF
-result=$($LUSUSH -c "source $TMPDIR/return_large.sh; echo \$?" 2>&1)
+result=$($LUSH -c "source $TMPDIR/return_large.sh; echo \$?" 2>&1)
 expected=$((300 & 255))
 if [ "$result" = "$expected" ]; then
     pass "Source return: large value masked to 0-255"
@@ -250,7 +250,7 @@ fi
 cat > "$TMPDIR/return_neg.sh" << 'EOF'
 return -1
 EOF
-result=$($LUSUSH -c "source $TMPDIR/return_neg.sh; echo \$?" 2>&1)
+result=$($LUSH -c "source $TMPDIR/return_neg.sh; echo \$?" 2>&1)
 # -1 & 0xFF = 255
 if [ "$result" = "255" ]; then
     pass "Source return: negative value wraps to 255"

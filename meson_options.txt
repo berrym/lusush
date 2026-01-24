@@ -1,4 +1,4 @@
-# Lusush Shell Build Options
+# Lush Shell Build Options
 # Professional build configuration for enterprise deployment
 
 option('enable_debug',

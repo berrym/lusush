@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # ===============================================================================
-# LUSUSH POSIX BUILTIN COMPLIANCE TEST SUITE
+# LUSH POSIX BUILTIN COMPLIANCE TEST SUITE
 # ===============================================================================
 # Comprehensive test for all POSIX required builtins and their compliance
 # Tests both presence and correct behavior according to POSIX standards
 # ===============================================================================
 
-SHELL_PATH="$(pwd)/build/lusush"
-TEMP_DIR="/tmp/lusush_posix_builtin_tests"
+SHELL_PATH="$(pwd)/build/lush"
+TEMP_DIR="/tmp/lush_posix_builtin_tests"
 LOGFILE="$TEMP_DIR/posix_builtin_test.log"
 
 # Test counters
@@ -597,7 +597,7 @@ test_missing_builtins() {
 
 main() {
     echo "==============================================================================="
-    echo "LUSUSH POSIX BUILTIN COMPLIANCE TEST SUITE"
+    echo "LUSH POSIX BUILTIN COMPLIANCE TEST SUITE"
     echo "==============================================================================="
     echo "Testing shell: $SHELL_PATH"
     echo "Started at: $(date)"
@@ -657,7 +657,7 @@ main() {
 
     if [[ $FAILED_TESTS -eq 0 ]]; then
         echo -e "\n${GREEN}✓ ALL POSIX BUILTIN TESTS PASSED${NC}"
-        echo "Lusush demonstrates excellent POSIX builtin compliance!"
+        echo "Lush demonstrates excellent POSIX builtin compliance!"
     else
         echo -e "\n${YELLOW}⚠ SOME POSIX BUILTIN TESTS FAILED${NC}"
         echo "Check $LOGFILE for detailed failure information."

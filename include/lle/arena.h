@@ -14,7 +14,7 @@
  * - O(1) destruction (free all chunks)
  * - No individual frees needed
  * - Child arenas freed when parent freed
- * - Integrates with existing lusush_pool_alloc() for chunks
+ * - Integrates with existing lush_pool_alloc() for chunks
  *
  * Arena Hierarchy for LLE:
  *
@@ -72,7 +72,7 @@ extern "C" {
  * ============================================================================ */
 
 /**
- * Arena chunk - contiguous memory region allocated from lusush pool
+ * Arena chunk - contiguous memory region allocated from lush pool
  *
  * Forms a linked list for arenas that grow beyond initial size.
  * The chunk header is followed by usable memory in the flexible array.
@@ -136,7 +136,7 @@ typedef enum lle_arena_flags_t {
  * @param initial_size Initial chunk size in bytes (0 = default 4KB)
  * @return New arena, or NULL on allocation failure
  *
- * Performance: O(1) - single lusush_pool_alloc call
+ * Performance: O(1) - single lush_pool_alloc call
  *
  * The arena is automatically linked into parent's child list.
  * When the parent is destroyed, this arena will also be destroyed.
@@ -171,7 +171,7 @@ lle_arena_t *lle_arena_create_with_flags(lle_arena_t *parent, const char *name,
  * This function:
  * 1. Recursively destroys all child arenas (depth-first)
  * 2. Unlinks from parent's child list
- * 3. Frees all chunks back to lusush_pool
+ * 3. Frees all chunks back to lush_pool
  * 4. Frees the arena structure itself
  *
  * WARNING: After this call, ALL pointers allocated from this arena
@@ -215,7 +215,7 @@ void lle_arena_destroy_children(lle_arena_t *arena);
  * @return Pointer to allocated memory, or NULL on failure
  *
  * Performance: O(1) in common case (bump pointer)
- *              O(1) when new chunk needed (lusush_pool_alloc)
+ *              O(1) when new chunk needed (lush_pool_alloc)
  *
  * Memory is NOT zeroed by default (unless LLE_ARENA_FLAG_ZERO_ALLOC set).
  * Use lle_arena_calloc() for zeroed memory.

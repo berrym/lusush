@@ -1,10 +1,10 @@
-# Lusush Custom Completion Sources Configuration
+# Lush Custom Completion Sources Configuration
 # ================================================
 #
-# This file defines custom completion sources for the lusush shell.
+# This file defines custom completion sources for the lush shell.
 # Each source executes a shell command and uses its output as completions.
 #
-# Location: ~/.config/lusush/completions.toml
+# Location: ~/.config/lush/completions.toml
 #
 # Format:
 #   [sources.NAME]
@@ -231,6 +231,6 @@ cache_seconds = 10
 description = "Meson build targets"
 applies_to = ["meson compile", "ninja"]
 argument = 0
-command = "meson introspect --targets builddir 2>/dev/null | jq -r '.[].name' 2>/dev/null"
+command = "meson introspect --targets build 2>/dev/null | jq -r '.[].name' 2>/dev/null"
 suffix = " "
 cache_seconds = 15

@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # =============================================================================
-# LUSUSH INTEGRATED DEBUGGER CORE QA TEST
+# LUSH INTEGRATED DEBUGGER CORE QA TEST
 # =============================================================================
 #
-# Targeted QA testing for Lusush's unique integrated debugger feature
+# Targeted QA testing for Lush's unique integrated debugger feature
 # focusing on core functionality that actually works. This validates
 # the debugger's production readiness for v1.3.0 release.
 #
@@ -16,7 +16,7 @@
 # - Integration with shell execution
 # - Error handling
 #
-# Author: AI Assistant for Lusush v1.3.0 QA
+# Author: AI Assistant for Lush v1.3.0 QA
 # Version: 3.0.0 - Core functionality focus
 # Target: Validate debugger production readiness
 # =============================================================================
@@ -24,8 +24,8 @@
 set -euo pipefail
 
 # Configuration
-LUSUSH_BINARY="${1:-./build/lusush}"
-TEST_DIR="/tmp/lusush_debugger_core_$$"
+LUSH_BINARY="${1:-./build/lush}"
+TEST_DIR="/tmp/lush_debugger_core_$$"
 TOTAL_TESTS=0
 PASSED_TESTS=0
 FAILED_TESTS=0
@@ -88,7 +88,7 @@ test_debugger_core() {
 
     # Test debug help command
     local output
-    if output=$(echo "debug help" | "$LUSUSH_BINARY" 2>&1); then
+    if output=$(echo "debug help" | "$LUSH_BINARY" 2>&1); then
         if [[ "$output" == *"Debug command usage"* ]]; then
             test_result "Debug help command works and shows usage" 0
         else
@@ -101,7 +101,7 @@ test_debugger_core() {
     print_section "Debug Mode Control"
 
     # Test debug enable
-    if output=$(echo "debug on" | "$LUSUSH_BINARY" 2>&1); then
+    if output=$(echo "debug on" | "$LUSH_BINARY" 2>&1); then
         if [[ "$output" == *"Debug mode enabled"* ]]; then
             test_result "Debug mode can be enabled" 0
         else
@@ -112,7 +112,7 @@ test_debugger_core() {
     fi
 
     # Test debug disable
-    if output=$(echo "debug off" | "$LUSUSH_BINARY" 2>&1); then
+    if output=$(echo "debug off" | "$LUSH_BINARY" 2>&1); then
         if [[ "$output" == *"Debug mode disabled"* ]]; then
             test_result "Debug mode can be disabled" 0
         else
@@ -123,7 +123,7 @@ test_debugger_core() {
     fi
 
     # Test debug status
-    if output=$(echo "debug" | "$LUSUSH_BINARY" 2>&1); then
+    if output=$(echo "debug" | "$LUSH_BINARY" 2>&1); then
         test_result "Debug status command works" 0
     else
         test_result "Debug status command works" 1 "Debug status command failed"
@@ -139,7 +139,7 @@ test_debug_levels() {
     # Test basic debug levels
     local levels=(0 1 2 3 4)
     for level in "${levels[@]}"; do
-        if output=$(echo "debug level $level" | "$LUSUSH_BINARY" 2>&1); then
+        if output=$(echo "debug level $level" | "$LUSH_BINARY" 2>&1); then
             test_result "Debug level $level can be set" 0
         else
             test_result "Debug level $level can be set" 1 "Level $level setting failed"
@@ -147,7 +147,7 @@ test_debug_levels() {
     done
 
     # Test debug on with level
-    if output=$(echo "debug on 2" | "$LUSUSH_BINARY" 2>&1); then
+    if output=$(echo "debug on 2" | "$LUSH_BINARY" 2>&1); then
         if [[ "$output" == *"enabled"* ]]; then
             test_result "Debug can be enabled with specific level" 0
         else
@@ -166,7 +166,7 @@ test_debug_integration() {
 
     # Test debug with simple command
     local script='debug on; echo "test command"; debug off'
-    if output=$(echo "$script" | "$LUSUSH_BINARY" 2>&1); then
+    if output=$(echo "$script" | "$LUSH_BINARY" 2>&1); then
         if [[ "$output" == *"test command"* ]] && [[ "$output" == *"enabled"* ]]; then
             test_result "Debug works with command execution" 0
         else
@@ -178,7 +178,7 @@ test_debug_integration() {
 
     # Test debug with variable assignment
     local script='debug on; VAR="hello"; echo $VAR; debug off'
-    if output=$(echo "$script" | "$LUSUSH_BINARY" 2>&1); then
+    if output=$(echo "$script" | "$LUSH_BINARY" 2>&1); then
         if [[ "$output" == *"hello"* ]]; then
             test_result "Debug works with variable operations" 0
         else
@@ -197,7 +197,7 @@ test_func() {
 test_func
 debug off
 '
-    if output=$(echo "$script" | "$LUSUSH_BINARY" 2>&1); then
+    if output=$(echo "$script" | "$LUSH_BINARY" 2>&1); then
         if [[ "$output" == *"function executed"* ]]; then
             test_result "Debug works with function definitions and calls" 0
         else
@@ -216,7 +216,7 @@ test_debug_commands() {
 
     # Test debug vars
     local script='VAR1="test"; debug vars'
-    if output=$(echo "$script" | "$LUSUSH_BINARY" 2>&1); then
+    if output=$(echo "$script" | "$LUSH_BINARY" 2>&1); then
         test_result "Debug vars command executes without crashing" 0
     else
         test_result "Debug vars command executes without crashing" 1 "Debug vars crashed"
@@ -224,7 +224,7 @@ test_debug_commands() {
 
     # Test debug print
     local script='TESTVAR="value"; debug print TESTVAR'
-    if output=$(echo "$script" | "$LUSUSH_BINARY" 2>&1); then
+    if output=$(echo "$script" | "$LUSH_BINARY" 2>&1); then
         test_result "Debug print command executes without crashing" 0
     else
         test_result "Debug print command executes without crashing" 1 "Debug print crashed"
@@ -232,7 +232,7 @@ test_debug_commands() {
 
     # Test debug functions
     local script='test_func() { echo "test"; }; debug functions'
-    if output=$(echo "$script" | "$LUSUSH_BINARY" 2>&1); then
+    if output=$(echo "$script" | "$LUSH_BINARY" 2>&1); then
         test_result "Debug functions command executes without crashing" 0
     else
         test_result "Debug functions command executes without crashing" 1 "Debug functions crashed"
@@ -246,14 +246,14 @@ test_error_handling() {
     print_section "Invalid Commands and Parameters"
 
     # Test invalid debug subcommand
-    if output=$(echo "debug invalid_command" | "$LUSUSH_BINARY" 2>&1); then
+    if output=$(echo "debug invalid_command" | "$LUSH_BINARY" 2>&1); then
         test_result "Invalid debug commands don't crash the shell" 0
     else
         test_result "Invalid debug commands don't crash the shell" 1 "Shell crashed on invalid debug command"
     fi
 
     # Test invalid debug level
-    if output=$(echo "debug level abc" | "$LUSUSH_BINARY" 2>&1); then
+    if output=$(echo "debug level abc" | "$LUSH_BINARY" 2>&1); then
         test_result "Invalid debug level parameters don't crash the shell" 0
     else
         test_result "Invalid debug level parameters don't crash the shell" 1 "Shell crashed on invalid level"
@@ -261,7 +261,7 @@ test_error_handling() {
 
     # Test debug with syntax error in script
     local script='debug on; if [ 1 -eq 1; echo "missing fi"'
-    if output=$(echo "$script" | "$LUSUSH_BINARY" 2>&1); then
+    if output=$(echo "$script" | "$LUSH_BINARY" 2>&1); then
         test_result "Debug handles script syntax errors gracefully" 0
     else
         # Expected to fail due to syntax error, but shouldn't crash debugger
@@ -276,14 +276,14 @@ test_tracing() {
     print_section "Trace Control"
 
     # Test trace enable
-    if output=$(echo "debug trace on" | "$LUSUSH_BINARY" 2>&1); then
+    if output=$(echo "debug trace on" | "$LUSH_BINARY" 2>&1); then
         test_result "Debug trace can be enabled" 0
     else
         test_result "Debug trace can be enabled" 1 "Trace enable failed"
     fi
 
     # Test trace disable
-    if output=$(echo "debug trace off" | "$LUSUSH_BINARY" 2>&1); then
+    if output=$(echo "debug trace off" | "$LUSH_BINARY" 2>&1); then
         test_result "Debug trace can be disabled" 0
     else
         test_result "Debug trace can be disabled" 1 "Trace disable failed"
@@ -291,7 +291,7 @@ test_tracing() {
 
     # Test trace with command execution
     local script='debug trace on; echo "traced"; debug trace off'
-    if output=$(echo "$script" | "$LUSUSH_BINARY" 2>&1); then
+    if output=$(echo "$script" | "$LUSH_BINARY" 2>&1); then
         if [[ "$output" == *"traced"* ]]; then
             test_result "Tracing works with command execution" 0
         else
@@ -309,21 +309,21 @@ test_profiling() {
     print_section "Profile Control"
 
     # Test profile enable
-    if output=$(echo "debug profile on" | "$LUSUSH_BINARY" 2>&1); then
+    if output=$(echo "debug profile on" | "$LUSH_BINARY" 2>&1); then
         test_result "Debug profiling can be enabled" 0
     else
         test_result "Debug profiling can be enabled" 1 "Profile enable failed"
     fi
 
     # Test profile report
-    if output=$(echo "debug profile report" | "$LUSUSH_BINARY" 2>&1); then
+    if output=$(echo "debug profile report" | "$LUSH_BINARY" 2>&1); then
         test_result "Debug profile report works" 0
     else
         test_result "Debug profile report works" 1 "Profile report failed"
     fi
 
     # Test profile disable
-    if output=$(echo "debug profile off" | "$LUSUSH_BINARY" 2>&1); then
+    if output=$(echo "debug profile off" | "$LUSH_BINARY" 2>&1); then
         test_result "Debug profiling can be disabled" 0
     else
         test_result "Debug profiling can be disabled" 1 "Profile disable failed"
@@ -348,7 +348,7 @@ debug off
     local start_time end_time duration
     start_time=$(date +%s%N)
 
-    if output=$(echo "$script" | "$LUSUSH_BINARY" 2>&1); then
+    if output=$(echo "$script" | "$LUSH_BINARY" 2>&1); then
         end_time=$(date +%s%N)
         duration=$(( (end_time - start_time) / 1000000 ))  # Convert to milliseconds
 
@@ -428,8 +428,8 @@ generate_final_report() {
     echo "✓ Performance characteristics and overhead"
 
     echo -e "\n${BLUE}Unique Competitive Advantage:${NC}"
-    echo "Lusush's integrated debugger, accessible via the 'debug' builtin,"
-    echo "provides capabilities no other shell offers. This makes Lusush"
+    echo "Lush's integrated debugger, accessible via the 'debug' builtin,"
+    echo "provides capabilities no other shell offers. This makes Lush"
     echo "uniquely valuable for:"
     echo "• Shell script development and debugging"
     echo "• DevOps and automation troubleshooting"
@@ -455,15 +455,15 @@ generate_final_report() {
 
 # Main execution
 main() {
-    print_header "LUSUSH INTEGRATED DEBUGGER CORE QA"
+    print_header "LUSH INTEGRATED DEBUGGER CORE QA"
     echo "Version: 3.0.0 - Core Functionality Focus"
     echo "Target: Production readiness validation for unique debugger feature"
-    echo "Shell under test: $LUSUSH_BINARY"
+    echo "Shell under test: $LUSH_BINARY"
     echo "Started at: $(date)"
 
     # Verify shell exists
-    if [[ ! -x "$LUSUSH_BINARY" ]]; then
-        echo -e "${RED}ERROR: Shell binary not found: $LUSUSH_BINARY${NC}"
+    if [[ ! -x "$LUSH_BINARY" ]]; then
+        echo -e "${RED}ERROR: Shell binary not found: $LUSH_BINARY${NC}"
         exit 1
     fi
 

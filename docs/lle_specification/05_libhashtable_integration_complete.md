@@ -18,7 +18,7 @@
 6. [Thread Safety Enhancement](#6-thread-safety-enhancement)
 7. [Performance Optimization](#7-performance-optimization)
 8. [LLE-Specific Hashtable Types](#8-lle-specific-hashtable-types)
-9. [Integration with Lusush Systems](#9-integration-with-lusush-systems)
+9. [Integration with Lush Systems](#9-integration-with-lush-systems)
 10. [Error Handling and Recovery](#10-error-handling-and-recovery)
 11. [Testing and Validation](#11-testing-and-validation)
 12. [Implementation Roadmap](#12-implementation-roadmap)
@@ -35,13 +35,13 @@ This specification defines the comprehensive integration strategy for libhashtab
 
 - **Zero Core Modification**: libhashtable core remains unchanged to preserve proven reliability
 - **Enhancement Layer Approach**: LLE-specific features added through integration wrappers
-- **Memory Pool Integration**: Full integration with Lusush memory pool system
+- **Memory Pool Integration**: Full integration with Lush memory pool system
 - **Performance Excellence**: Sub-millisecond operations with intelligent optimization
 - **Enterprise Standards**: Professional code quality maintained throughout
 
 ### 1.3 Critical Success Factors
 
-1. **Proven Foundation**: libhashtable has zero issues in production Lusush code
+1. **Proven Foundation**: libhashtable has zero issues in production Lush code
 2. **Performance Validation**: Exceeds LLE's < 0.5ms operation requirements
 3. **Architectural Alignment**: Memory callback system enables perfect integration
 4. **Professional Quality**: Enterprise-grade implementation with proper error handling
@@ -73,7 +73,7 @@ This specification defines the comprehensive integration strategy for libhashtab
 - **Generic Design**: Callback-based architecture enables any integration pattern
 - **Memory Integration**: Custom allocation callbacks support memory pool integration
 - **Thread Safety Foundation**: Solid base for concurrent access wrappers
-- **Professional Standards**: Code quality matches Lusush enterprise development requirements
+- **Professional Standards**: Code quality matches Lush enterprise development requirements
 
 ### 2.2 Alternative Assessment Conclusion
 
@@ -113,7 +113,7 @@ typedef struct {
 
 ### 3.2 Performance Characteristics Validation
 
-**Measured Performance (Production Lusush):**
+**Measured Performance (Production Lush):**
 - **Insert Operations**: < 0.1ms average, meets LLE < 0.5ms requirement
 - **Lookup Operations**: < 0.05ms average, exceeds LLE requirements
 - **Memory Efficiency**: Minimal overhead with 75% load factor optimization
@@ -145,7 +145,7 @@ ht_strstr_insert(command_hash, argv[0], full_path);
 // LLE hashtable integration layer
 typedef struct lle_hashtable_system {
     // Core integration components
-    lusush_memory_pool_t *memory_pool;      // Memory pool reference
+    lush_memory_pool_t *memory_pool;      // Memory pool reference
     lle_hashtable_factory_t *factory;       // Hashtable factory
     lle_hashtable_monitor_t *monitor;       // Performance monitoring
     
@@ -164,7 +164,7 @@ typedef struct lle_hashtable_system {
 ```c
 typedef struct lle_hashtable_config {
     // Memory management
-    lusush_memory_pool_t *memory_pool;      // Lusush memory pool
+    lush_memory_pool_t *memory_pool;      // Lush memory pool
     bool use_memory_pool;                   // Enable memory pool integration
     
     // Hash configuration
@@ -196,7 +196,7 @@ typedef struct lle_hashtable_config {
 
 ```c
 typedef struct lle_hashtable_factory {
-    lusush_memory_pool_t *memory_pool;      // Memory pool reference
+    lush_memory_pool_t *memory_pool;      // Memory pool reference
     lle_hashtable_config_t *default_config; // Default configuration
     lle_hashtable_registry_t *registry;     // Registry for tracking
     
@@ -228,7 +228,7 @@ lle_result_t lle_hashtable_factory_create_generic(
 ```c
 // Memory pool integration wrapper
 typedef struct lle_hashtable_memory_context {
-    lusush_memory_pool_t *pool;             // Memory pool reference
+    lush_memory_pool_t *pool;             // Memory pool reference
     size_t allocations;                     // Allocation counter
     size_t deallocations;                   // Deallocation counter
     size_t bytes_allocated;                 // Total bytes allocated
@@ -246,7 +246,7 @@ void *lle_hashtable_key_copy_pooled(const void *key) {
     }
     
     size_t key_len = strlen((const char *)key) + 1;
-    char *new_key = lusush_memory_pool_alloc(ctx->pool, key_len);
+    char *new_key = lush_memory_pool_alloc(ctx->pool, key_len);
     if (!new_key) {
         return NULL;
     }
@@ -268,7 +268,7 @@ void lle_hashtable_key_free_pooled(const void *key) {
     }
     
     size_t key_len = strlen((const char *)key) + 1;
-    lusush_memory_pool_free(ctx->pool, (void *)key);
+    lush_memory_pool_free(ctx->pool, (void *)key);
     
     // Update statistics
     ctx->deallocations++;
@@ -283,7 +283,7 @@ void *lle_hashtable_value_copy_pooled(const void *value) {
     }
     
     size_t value_len = strlen((const char *)value) + 1;
-    char *new_value = lusush_memory_pool_alloc(ctx->pool, value_len);
+    char *new_value = lush_memory_pool_alloc(ctx->pool, value_len);
     if (!new_value) {
         return NULL;
     }
@@ -305,7 +305,7 @@ void lle_hashtable_value_free_pooled(const void *value) {
     }
     
     size_t value_len = strlen((const char *)value) + 1;
-    lusush_memory_pool_free(ctx->pool, (void *)value);
+    lush_memory_pool_free(ctx->pool, (void *)value);
     
     // Update statistics
     ctx->deallocations++;
@@ -318,14 +318,14 @@ void lle_hashtable_value_free_pooled(const void *value) {
 ```c
 lle_result_t lle_hashtable_integrate_memory_pool(
     lle_hashtable_factory_t *factory,
-    lusush_memory_pool_t *memory_pool
+    lush_memory_pool_t *memory_pool
 ) {
     if (!factory || !memory_pool) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
     // Register hashtable system with memory pool
-    lle_result_t result = lusush_memory_pool_register_subsystem(
+    lle_result_t result = lush_memory_pool_register_subsystem(
         memory_pool,
         "lle_hashtable_system",
         factory,
@@ -337,9 +337,9 @@ lle_result_t lle_hashtable_integrate_memory_pool(
     }
     
     // Set memory pool preferences for hashtables
-    lusush_memory_pool_set_alignment(memory_pool, LLE_HASHTABLE_MEMORY_ALIGNMENT);
-    lusush_memory_pool_set_growth_strategy(memory_pool, 
-                                           LUSUSH_MEMORY_GROWTH_EXPONENTIAL);
+    lush_memory_pool_set_alignment(memory_pool, LLE_HASHTABLE_MEMORY_ALIGNMENT);
+    lush_memory_pool_set_growth_strategy(memory_pool, 
+                                           LUSH_MEMORY_GROWTH_EXPONENTIAL);
     
     // Create default memory callbacks
     factory->memory_callbacks.key_copy = lle_hashtable_key_copy_pooled;
@@ -814,7 +814,7 @@ typedef struct lle_plugin_hashtable {
 
 lle_result_t lle_plugin_hashtable_create(
     lle_plugin_hashtable_t **pht,
-    lusush_memory_pool_t *memory_pool
+    lush_memory_pool_t *memory_pool
 ) {
     if (!pht) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -824,7 +824,7 @@ lle_result_t lle_plugin_hashtable_create(
     
     // Allocate from memory pool
     if (memory_pool) {
-        plugin_ht = lusush_memory_pool_alloc(memory_pool, sizeof(lle_plugin_hashtable_t));
+        plugin_ht = lush_memory_pool_alloc(memory_pool, sizeof(lle_plugin_hashtable_t));
     } else {
         plugin_ht = malloc(sizeof(lle_plugin_hashtable_t));
     }
@@ -839,7 +839,7 @@ lle_result_t lle_plugin_hashtable_create(
     plugin_ht->hashtable = ht_strstr_create(HT_STR_CASECMP | HT_SEED_RANDOM);
     if (!plugin_ht->hashtable) {
         if (memory_pool) {
-            lusush_memory_pool_free(memory_pool, plugin_ht);
+            lush_memory_pool_free(memory_pool, plugin_ht);
         } else {
             free(plugin_ht);
         }
@@ -850,7 +850,7 @@ lle_result_t lle_plugin_hashtable_create(
     if (pthread_rwlock_init(&plugin_ht->rwlock, NULL) != 0) {
         ht_strstr_destroy(plugin_ht->hashtable);
         if (memory_pool) {
-            lusush_memory_pool_free(memory_pool, plugin_ht);
+            lush_memory_pool_free(memory_pool, plugin_ht);
         } else {
             free(plugin_ht);
         }
@@ -968,7 +968,7 @@ lle_result_t lle_key_sequence_hashtable_lookup(
 
 ---
 
-## 9. Integration with Lusush Systems
+## 9. Integration with Lush Systems
 
 ### 9.1 Display System Integration
 
@@ -1005,22 +1005,22 @@ lle_result_t lle_integrate_hashtables_with_display_system(
 
 ```c
 lle_result_t lle_hashtable_memory_callback(
-    lusush_memory_pool_t *pool,
-    lusush_memory_event_t event,
+    lush_memory_pool_t *pool,
+    lush_memory_event_t event,
     void *context
 ) {
     lle_hashtable_system_t *ht_system = (lle_hashtable_system_t *)context;
     
     switch (event) {
-        case LUSUSH_MEMORY_EVENT_LOW:
+        case LUSH_MEMORY_EVENT_LOW:
             // Trigger hashtable cleanup on low memory
             return lle_hashtable_system_cleanup_unused(ht_system);
             
-        case LUSUSH_MEMORY_EVENT_PRESSURE:
+        case LUSH_MEMORY_EVENT_PRESSURE:
             // More aggressive cleanup under memory pressure
             return lle_hashtable_system_emergency_cleanup(ht_system);
             
-        case LUSUSH_MEMORY_EVENT_NORMAL:
+        case LUSH_MEMORY_EVENT_NORMAL:
             // Normal operation - no action needed
             return LLE_SUCCESS;
             
@@ -1231,7 +1231,7 @@ lle_result_t lle_hashtable_validate_integration(
 - ✅ All performance targets met or exceeded
 - ✅ Zero memory leaks with valgrind validation
 - ✅ Thread safety verified under concurrent load
-- ✅ Full integration with Lusush memory pool system
+- ✅ Full integration with Lush memory pool system
 - ✅ Comprehensive test suite with >95% coverage
 
 **Quality Requirements:**

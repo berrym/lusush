@@ -6,7 +6,7 @@
  * Usage:
  *   1. Compile and run: make -C tests/lle/manual test_fkey_manual &&
  * tests/lle/manual/test_fkey_manual
- *   2. Or in lusush: ./test_fkey_manual
+ *   2. Or in lush: ./test_fkey_manual
  *   3. Press F1-F12 keys and verify they're detected correctly
  *   4. Press Ctrl+C to exit
  *
@@ -14,15 +14,15 @@
  */
 
 #include "lle/terminal_abstraction.h"
-#include "lusush_memory_pool.h"
+#include "lush_memory_pool.h"
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-/* External memory pool reference (defined in lusush_memory_pool.c) */
-extern lusush_memory_pool_system_t *global_memory_pool;
+/* External memory pool reference (defined in lush_memory_pool.c) */
+extern lush_memory_pool_system_t *global_memory_pool;
 
 /* Global state for cleanup */
 static lle_unix_interface_t *g_interface = NULL;
@@ -131,9 +131,9 @@ int main(void) {
     signal(SIGINT, handle_sigint);
 
     /* Initialize memory pool system (required for parser initialization) */
-    lusush_pool_config_t pool_config = lusush_pool_get_default_config();
-    lusush_pool_error_t pool_result = lusush_pool_init(&pool_config);
-    if (pool_result != LUSUSH_POOL_SUCCESS) {
+    lush_pool_config_t pool_config = lush_pool_get_default_config();
+    lush_pool_error_t pool_result = lush_pool_init(&pool_config);
+    if (pool_result != LUSH_POOL_SUCCESS) {
         fprintf(stderr, "Failed to initialize memory pool: %d\n", pool_result);
         return 1;
     }

@@ -1,6 +1,6 @@
 /**
  * @file config.c
- * @brief Configuration System Implementation for Lusush Shell
+ * @brief Configuration System Implementation for Lush Shell
  *
  * Handles loading, parsing, and managing shell configuration files.
  * Supports TOML-style configuration with sections, type validation,
@@ -17,7 +17,7 @@
 #include "config_registry.h"
 #include "lle/lle_shell_integration.h"
 #include "lle/unicode_compare.h"
-#include "lusush.h"
+#include "lush.h"
 #include "shell_mode.h"
 #include "symtable.h"
 
@@ -135,11 +135,11 @@ static const config_enum_mapping_t shell_mode_mappings[] = {
     {"sh", SHELL_MODE_POSIX},  /* Alias for posix */
     {"bash", SHELL_MODE_BASH},
     {"zsh", SHELL_MODE_ZSH},
-    {"lusush", SHELL_MODE_LUSUSH},
+    {"lush", SHELL_MODE_LUSH},
     {NULL, 0} // Sentinel
 };
 static const config_enum_def_t shell_mode_enum = {
-    shell_mode_mappings, SHELL_MODE_LUSUSH};
+    shell_mode_mappings, SHELL_MODE_LUSH};
 
 // ============================================================================
 // CONFIGURATION OPTION DEFINITIONS
@@ -484,7 +484,7 @@ static config_option_t config_options[] = {
 
     // Shell mode settings (Phase 0: Extended Language Support)
     {"shell.mode", CONFIG_TYPE_ENUM, CONFIG_SECTION_SHELL, &config.shell_mode,
-     "Shell compatibility mode (posix, bash, zsh, lusush)",
+     "Shell compatibility mode (posix, bash, zsh, lush)",
      config_validate_shell_mode, &shell_mode_enum},
     {"shell.mode_strict", CONFIG_TYPE_BOOL, CONFIG_SECTION_SHELL,
      &config.shell_mode_strict, "Disallow runtime mode changes",
@@ -550,7 +550,7 @@ static const creg_section_t history_section = {
  * -------------------------------------------------------------------------- */
 static const creg_option_t shell_options[] = {
     {"mode", CREG_VALUE_STRING,
-     {.type = CREG_VALUE_STRING, .data.string = "lusush"},
+     {.type = CREG_VALUE_STRING, .data.string = "lush"},
      "Shell compatibility mode", true},
     {"errexit", CREG_VALUE_BOOLEAN,
      {.type = CREG_VALUE_BOOLEAN, .data.boolean = false},
@@ -705,7 +705,7 @@ static void shell_sync_to_runtime(void) {
         } else if (lle_unicode_strings_equal(sval, "zsh", &LLE_UNICODE_COMPARE_DEFAULT)) {
             config.shell_mode = SHELL_MODE_ZSH;
         } else {
-            config.shell_mode = SHELL_MODE_LUSUSH;
+            config.shell_mode = SHELL_MODE_LUSH;
         }
     }
 
@@ -729,12 +729,12 @@ static void shell_sync_to_runtime(void) {
  */
 static void shell_sync_from_runtime(void) {
     /* Map mode enum to string */
-    const char *mode_str = "lusush";
+    const char *mode_str = "lush";
     switch (config.shell_mode) {
     case SHELL_MODE_POSIX: mode_str = "posix"; break;
     case SHELL_MODE_BASH: mode_str = "bash"; break;
     case SHELL_MODE_ZSH: mode_str = "zsh"; break;
-    case SHELL_MODE_LUSUSH: mode_str = "lusush"; break;
+    case SHELL_MODE_LUSH: mode_str = "lush"; break;
     }
     config_registry_set_string("shell.mode", mode_str);
 
@@ -851,7 +851,7 @@ static void config_register_sections(void) {
  * @brief Handle legacy configuration keys that were removed or renamed
  *
  * This prevents warnings for deprecated configuration options in existing
- * .lusushrc files.
+ * .lushrc files.
  *
  * @param key The legacy configuration key
  * @param value The value being set (unused but required for API)
@@ -872,7 +872,7 @@ static bool config_handle_legacy_key(const char *key, const char *value
     // Legacy display configuration keys
     if (strcmp(key, "behavior.enhanced_display_mode") == 0) {
         // Legacy key - replaced by layered display system
-        // Silently ignore to maintain compatibility with existing .lusushrc
+        // Silently ignore to maintain compatibility with existing .lushrc
         // files
         return true;
     }
@@ -885,7 +885,7 @@ static bool config_handle_legacy_key(const char *key, const char *value
         if (strcmp(display_key, "system_mode") == 0 ||
             strcmp(display_key, "layered_display") == 0) {
             // Legacy display mode options - layered display is now exclusive
-            // Silently ignore to maintain compatibility with existing .lusushrc
+            // Silently ignore to maintain compatibility with existing .lushrc
             // files
             return true;
         }
@@ -1059,13 +1059,13 @@ void config_set_shell_option(const char *option_name, bool value) {
         shell_opts.emacs_mode = value;
         if (value) {
             shell_opts.vi_mode = false; // Mutually exclusive
-            lusush_update_editing_mode();
+            lush_update_editing_mode();
         }
     } else if (strcmp(opt_name, "vi") == 0) {
         shell_opts.vi_mode = value;
         if (value) {
             shell_opts.emacs_mode = false; // Mutually exclusive
-            lusush_update_editing_mode();
+            lush_update_editing_mode();
         }
     } else if (strcmp(opt_name, "posix") == 0) {
         shell_opts.posix_mode = value;
@@ -1150,9 +1150,9 @@ bool config_get_shell_option(const char *option_name) {
 
 // Traditional shell script file paths
 #define PROFILE_SCRIPT_FILE ".profile"
-#define LOGIN_SCRIPT_FILE ".lusush_login"
-#define RC_SCRIPT_FILE ".lusushrc.sh"
-#define LOGOUT_SCRIPT_FILE ".lusush_logout"
+#define LOGIN_SCRIPT_FILE ".lush_login"
+#define RC_SCRIPT_FILE ".lushrc.sh"
+#define LOGOUT_SCRIPT_FILE ".lush_logout"
 
 /**
  * @brief Check if script execution is enabled
@@ -1195,7 +1195,7 @@ char *config_get_profile_script_path(void) {
 /**
  * @brief Get the path to the login script file
  *
- * Returns the full path to ~/.lusush_login.
+ * Returns the full path to ~/.lush_login.
  *
  * @return Allocated path string, or NULL on failure (caller must free)
  */
@@ -1217,7 +1217,7 @@ char *config_get_login_script_path(void) {
 /**
  * @brief Get the path to the RC script file
  *
- * Returns the full path to ~/.lusushrc.sh.
+ * Returns the full path to ~/.lushrc.sh.
  *
  * @return Allocated path string, or NULL on failure (caller must free)
  */
@@ -1239,7 +1239,7 @@ char *config_get_rc_script_path(void) {
 /**
  * @brief Get the path to the logout script file
  *
- * Returns the full path to ~/.lusush_logout.
+ * Returns the full path to ~/.lush_logout.
  *
  * @return Allocated path string, or NULL on failure (caller must free)
  */
@@ -1328,7 +1328,7 @@ int config_execute_script_file(const char *path) {
 /**
  * @brief Execute startup scripts for interactive shells
  *
- * Executes ~/.lusushrc.sh if it exists and script execution is enabled.
+ * Executes ~/.lushrc.sh if it exists and script execution is enabled.
  *
  * @return 0 on success, -1 if any script fails
  */
@@ -1339,7 +1339,7 @@ int config_execute_startup_scripts(void) {
 
     int result = 0;
 
-    // Execute .lusushrc.sh if it exists (lusush-specific RC script)
+    // Execute .lushrc.sh if it exists (lush-specific RC script)
     char *rc_path = config_get_rc_script_path();
     if (rc_path && config_script_exists(rc_path)) {
         if (config_execute_script_file(rc_path) != 0) {
@@ -1354,7 +1354,7 @@ int config_execute_startup_scripts(void) {
 /**
  * @brief Execute login scripts for login shells
  *
- * Executes ~/.profile and ~/.lusush_login if they exist
+ * Executes ~/.profile and ~/.lush_login if they exist
  * and script execution is enabled.
  *
  * @return 0 on success, -1 if any script fails
@@ -1375,7 +1375,7 @@ int config_execute_login_scripts(void) {
     }
     free(profile_path);
 
-    // Execute .lusush_login if it exists (lusush-specific login script)
+    // Execute .lush_login if it exists (lush-specific login script)
     char *login_path = config_get_login_script_path();
     if (login_path && config_script_exists(login_path)) {
         if (config_execute_script_file(login_path) != 0) {
@@ -1390,7 +1390,7 @@ int config_execute_login_scripts(void) {
 /**
  * @brief Execute logout scripts when shell exits
  *
- * Executes ~/.lusush_logout if it exists and script execution is enabled.
+ * Executes ~/.lush_logout if it exists and script execution is enabled.
  *
  * @return 0 on success, -1 if script fails
  */
@@ -1401,7 +1401,7 @@ int config_execute_logout_scripts(void) {
 
     int result = 0;
 
-    // Execute .lusush_logout if it exists
+    // Execute .lush_logout if it exists
     char *logout_path = config_get_logout_script_path();
     if (logout_path && config_script_exists(logout_path)) {
         if (config_execute_script_file(logout_path) != 0) {
@@ -1415,9 +1415,9 @@ int config_execute_logout_scripts(void) {
 
 // Configuration file template - uses dotted notation for all options
 const char *CONFIG_FILE_TEMPLATE =
-    "# LUSUSH Configuration File\n"
+    "# LUSH Configuration File\n"
     "# Generated by: config reset-defaults\n"
-    "# This file configures the behavior of the lusush shell\n"
+    "# This file configures the behavior of the lush shell\n"
     "# Lines starting with # are comments\n"
     "# Uses dotted notation (e.g., history.enabled = true)\n"
     "\n"
@@ -1441,13 +1441,13 @@ const char *CONFIG_FILE_TEMPLATE =
     "# Add timestamps to history\n"
     "history.timestamps = false\n"
     "\n"
-    "# History file path (default: ~/.lusush_history)\n"
-    "# history.file = ~/.lusush_history\n"
+    "# History file path (default: ~/.lush_history)\n"
+    "# history.file = ~/.lush_history\n"
     "\n"
     "# "
     "=========================================================================="
     "==\n"
-    "# LLE (Lusush Line Editor) SETTINGS\n"
+    "# LLE (Lush Line Editor) SETTINGS\n"
     "# "
     "=========================================================================="
     "==\n"
@@ -1493,8 +1493,8 @@ const char *CONFIG_FILE_TEMPLATE =
     "#   readline-compat - GNU Readline compatible mode\n"
     "lle.storage_mode = dual\n"
     "\n"
-    "# LLE history file path (default: ~/.lusush_history)\n"
-    "# lle.history_file = ~/.lusush_history\n"
+    "# LLE history file path (default: ~/.lush_history)\n"
+    "# lle.history_file = ~/.lush_history\n"
     "\n"
     "# Sync LLE history with GNU Readline\n"
     "lle.sync_with_readline = true\n"
@@ -1869,10 +1869,10 @@ int config_init(void) {
         // Print migration notice if loading legacy config
         if (config_ctx.needs_migration) {
             fprintf(stderr,
-                    "lusush: Loading configuration from %s (legacy location)\n",
+                    "lush: Loading configuration from %s (legacy location)\n",
                     config_ctx.user_config_path);
             fprintf(stderr,
-                    "lusush: Run 'config save' to migrate to %s\n",
+                    "lush: Run 'config save' to migrate to %s\n",
                     xdg_path);
         }
     }
@@ -1909,7 +1909,7 @@ void config_set_defaults(void) {
     config.lle_search_fuzzy_matching = false;
     config.lle_search_case_sensitive = false;
     config.lle_storage_mode = LLE_STORAGE_MODE_DUAL;
-    config.lle_history_file = NULL; // Will default to ~/.lusush_history
+    config.lle_history_file = NULL; // Will default to ~/.lush_history
     config.lle_sync_with_readline = true;
     config.lle_export_to_bash_history = true;
     config.lle_enable_forensic_tracking = true;
@@ -2008,7 +2008,7 @@ void config_set_defaults(void) {
     config.script_execution = true;
 
     // Shell mode defaults (Phase 0: Extended Language Support)
-    config.shell_mode = SHELL_MODE_LUSUSH;  // Curated best of Bash/Zsh
+    config.shell_mode = SHELL_MODE_LUSH;  // Curated best of Bash/Zsh
     config.shell_mode_strict = false;        // Allow runtime mode changes
 
     // Line editor - LLE is always enabled (sole line editor)
@@ -2078,7 +2078,7 @@ static int mkdir_recursive(const char *path) {
 /**
  * @brief Get the XDG config directory path
  *
- * Returns ~/.config/lusush or $XDG_CONFIG_HOME/lusush.
+ * Returns ~/.config/lush or $XDG_CONFIG_HOME/lush.
  *
  * @param buffer Buffer to receive the path
  * @param size Size of the buffer
@@ -2131,7 +2131,7 @@ int config_get_xdg_config_path(char *buffer, size_t size) {
 /**
  * @brief Get the legacy config file path
  *
- * Returns the path to ~/.lusushrc.
+ * Returns the path to ~/.lushrc.
  *
  * @param buffer Buffer to receive the path
  * @param size Size of the buffer
@@ -2182,7 +2182,7 @@ bool config_needs_migration(void) {
 /**
  * @brief Ensure XDG config directory exists
  *
- * Creates ~/.config/lusush if it doesn't exist.
+ * Creates ~/.config/lush if it doesn't exist.
  *
  * @return 0 on success, -1 on error
  */
@@ -2203,7 +2203,7 @@ static int ensure_xdg_dir_exists(void) {
 /**
  * @brief Migrate legacy config to XDG location
  *
- * Converts ~/.lusushrc to ~/.config/lusush/config.toml format.
+ * Converts ~/.lushrc to ~/.config/lush/config.toml format.
  * This is a placeholder - full implementation requires the registry.
  *
  * @return 0 on success, -1 on error
@@ -2238,10 +2238,10 @@ int config_migrate_to_xdg(void) {
     config_ctx.format = CONFIG_FORMAT_TOML;
     config_ctx.needs_migration = false;
 
-    fprintf(stderr, "lusush: Configuration saved to %s\n", xdg_path);
-    fprintf(stderr, "lusush: You may remove the old %s file\n",
+    fprintf(stderr, "lush: Configuration saved to %s\n", xdg_path);
+    fprintf(stderr, "lush: You may remove the old %s file\n",
             config_ctx.legacy_config_path ? config_ctx.legacy_config_path
-                                          : "~/.lusushrc");
+                                          : "~/.lushrc");
 
     return 0;
 }
@@ -2289,7 +2289,7 @@ char *config_get_user_config_path(void) {
 /**
  * @brief Get the path to the system configuration file
  *
- * Returns the path to /etc/lusush/lusushrc.
+ * Returns the path to /etc/lush/lushrc.
  *
  * @return Allocated path string (caller must free)
  */
@@ -2317,8 +2317,8 @@ int config_load_system(void) {
  * @brief Save user configuration to file
  *
  * When saving, always uses the XDG TOML location for new saves.
- * This enables automatic migration from legacy ~/.lusushrc to
- * ~/.config/lusush/config.toml format.
+ * This enables automatic migration from legacy ~/.lushrc to
+ * ~/.config/lush/config.toml format.
  *
  * @return 0 on success, -1 on failure
  */
@@ -2350,13 +2350,13 @@ int config_save_user(void) {
         if (result == 0) {
             /* Update context to point to new location */
             if (config_ctx.needs_migration) {
-                fprintf(stderr, "lusush: Configuration saved to %s\n",
+                fprintf(stderr, "lush: Configuration saved to %s\n",
                         xdg_path);
                 fprintf(stderr,
-                        "lusush: You may remove the old %s file\n",
+                        "lush: You may remove the old %s file\n",
                         config_ctx.legacy_config_path
                             ? config_ctx.legacy_config_path
-                            : "~/.lusushrc");
+                            : "~/.lushrc");
                 config_ctx.needs_migration = false;
             }
 
@@ -2413,7 +2413,7 @@ int config_save_file(const char *path) {
     }
 
     // Write header comment
-    fprintf(file, "# Lusush Configuration File\n");
+    fprintf(file, "# Lush Configuration File\n");
     fprintf(file, "# This file is automatically generated by 'config save'\n");
     fprintf(file, "# Lines starting with # are comments\n");
     fprintf(
@@ -2823,7 +2823,7 @@ void config_apply_settings(void) {
 /**
  * @brief Create a user configuration file with default values
  *
- * Writes the default configuration template to ~/.lusushrc.
+ * Writes the default configuration template to ~/.lushrc.
  *
  * @return 0 on success, -1 on failure
  */
@@ -2986,7 +2986,7 @@ bool config_validate_lle_dedup_strategy(const char *value) {
  */
 bool config_validate_shell_mode(const char *value) {
     return (strcmp(value, "posix") == 0 || strcmp(value, "bash") == 0 ||
-            strcmp(value, "zsh") == 0 || strcmp(value, "lusush") == 0 ||
+            strcmp(value, "zsh") == 0 || strcmp(value, "lush") == 0 ||
             strcmp(value, "sh") == 0);  /* sh is alias for posix */
 }
 
@@ -3180,7 +3180,7 @@ void builtin_config(int argc, char **argv) {
         printf("  get key            - Get configuration value\n");
         printf("  reload             - Reload configuration files\n");
         printf("  save               - Save current configuration\n");
-        printf("  migrate            - Migrate legacy ~/.lusushrc to XDG location\n");
+        printf("  migrate            - Migrate legacy ~/.lushrc to XDG location\n");
         printf("  path               - Show configuration file paths\n");
         printf("  reset-defaults     - Write default configuration\n");
         return;
@@ -3278,7 +3278,7 @@ void builtin_config(int argc, char **argv) {
         if (config_save_user() == 0) {
             printf("Configuration saved to %s\n",
                    config_ctx.user_config_path ? config_ctx.user_config_path
-                                               : "~/.lusushrc");
+                                               : "~/.lushrc");
         } else {
             printf("Error: Failed to save configuration\n");
         }
@@ -3478,10 +3478,10 @@ void config_set_value(const char *key, const char *value) {
                     new_mode = SHELL_MODE_BASH;
                 } else if (strcmp(value, "zsh") == 0) {
                     new_mode = SHELL_MODE_ZSH;
-                } else if (strcmp(value, "lusush") == 0) {
-                    new_mode = SHELL_MODE_LUSUSH;
+                } else if (strcmp(value, "lush") == 0) {
+                    new_mode = SHELL_MODE_LUSH;
                 } else {
-                    printf("Invalid shell mode: %s (use posix/bash/zsh/lusush)\n", value);
+                    printf("Invalid shell mode: %s (use posix/bash/zsh/lush)\n", value);
                     return;
                 }
                 if (!shell_mode_set(new_mode)) {
@@ -3619,7 +3619,7 @@ void config_set_value(const char *key, const char *value) {
  * Prints all configuration sections and their values to stdout.
  */
 void config_show_all(void) {
-    printf("LUSUSH Configuration:\n\n");
+    printf("LUSH Configuration:\n\n");
 
     printf("[history]\n");
     config_show_section(CONFIG_SECTION_HISTORY);

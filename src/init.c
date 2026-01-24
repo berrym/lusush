@@ -28,14 +28,14 @@
 #include "shell_mode.h"
 
 #include "lle/completion/ssh_hosts.h"
-#include "lusush.h"
+#include "lush.h"
 #include "signals.h"
 #include "symtable.h"
 
 #include "display_integration.h"
 #include "lle/adaptive_terminal_integration.h"
 #include "lle/lle_shell_integration.h"
-#include "lusush_memory_pool.h"
+#include "lush_memory_pool.h"
 #include "version.h"
 
 #include <errno.h>
@@ -120,10 +120,10 @@ static void process_shebang(FILE *file) {
             //   #!/bin/zsh       -> SHELL_MODE_ZSH
             //   #!/bin/sh        -> SHELL_MODE_POSIX
             //   #!/usr/bin/env bash -> SHELL_MODE_BASH
-            //   #!/usr/bin/env lusush -> SHELL_MODE_LUSUSH (default)
+            //   #!/usr/bin/env lush -> SHELL_MODE_LUSH (default)
             shell_mode_t detected;
             if (shell_mode_detect_from_shebang(line, &detected)) {
-                if (detected != SHELL_MODE_LUSUSH) {
+                if (detected != SHELL_MODE_LUSH) {
                     // Only switch if not already the default mode
                     shell_mode_set(detected);
                 }
@@ -308,7 +308,7 @@ int init(int argc, char **argv, FILE **in) {
     bool stdin_is_terminal = isatty(STDIN_FILENO);
 
     // Debug: Show TTY detection details
-    const char *debug_env = getenv("LUSUSH_DEBUG");
+    const char *debug_env = getenv("LUSH_DEBUG");
     if (debug_env &&
         (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0)) {
         fprintf(stderr, "[INIT] TTY Detection: STDIN_FILENO=%d, isatty()=%s\n",
@@ -390,7 +390,7 @@ int init(int argc, char **argv, FILE **in) {
         *in = stdin;
 
         // Debug: Show interactive detection
-        const char *debug_env = getenv("LUSUSH_DEBUG");
+        const char *debug_env = getenv("LUSH_DEBUG");
         if (debug_env &&
             (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0)) {
             fprintf(
@@ -409,7 +409,7 @@ int init(int argc, char **argv, FILE **in) {
         *in = stdin;
 
         // Debug: Show non-interactive detection
-        const char *debug_env = getenv("LUSUSH_DEBUG");
+        const char *debug_env = getenv("LUSH_DEBUG");
         if (debug_env &&
             (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0)) {
             fprintf(stderr,
@@ -434,21 +434,21 @@ int init(int argc, char **argv, FILE **in) {
         display_integration_create_default_config(&display_config);
 
         // Configure based on environment and user preferences
-        const char *layered_display_env = getenv("LUSUSH_LAYERED_DISPLAY");
+        const char *layered_display_env = getenv("LUSH_LAYERED_DISPLAY");
         if (layered_display_env) {
             // v1.3.0: Layered display is now exclusive - environment variable
             // ignored Layered display is always enabled
         }
 
         // Enable debug mode if requested
-        const char *display_debug_env = getenv("LUSUSH_DISPLAY_DEBUG");
+        const char *display_debug_env = getenv("LUSH_DISPLAY_DEBUG");
         if (display_debug_env && (strcmp(display_debug_env, "1") == 0 ||
                                   strcmp(display_debug_env, "true") == 0)) {
             display_config.debug_mode = true;
         }
 
         // Set optimization level based on environment
-        const char *optimization_env = getenv("LUSUSH_DISPLAY_OPTIMIZATION");
+        const char *optimization_env = getenv("LUSH_DISPLAY_OPTIMIZATION");
         if (optimization_env) {
             int opt_level = atoi(optimization_env);
             if (opt_level >= DISPLAY_OPTIMIZATION_DISABLED &&
@@ -459,17 +459,17 @@ int init(int argc, char **argv, FILE **in) {
         }
 
         // Initialize memory pool system FIRST - required by LLE and display
-        lusush_pool_config_t pool_config =
-            lusush_pool_get_display_optimized_config();
-        pool_config.enable_debugging = (getenv("LUSUSH_MEMORY_DEBUG") != NULL);
+        lush_pool_config_t pool_config =
+            lush_pool_get_display_optimized_config();
+        pool_config.enable_debugging = (getenv("LUSH_MEMORY_DEBUG") != NULL);
 
-        lusush_pool_error_t pool_result = lusush_pool_init(&pool_config);
-        if (pool_result != LUSUSH_POOL_SUCCESS) {
-            if (display_config.debug_mode || getenv("LUSUSH_MEMORY_DEBUG")) {
+        lush_pool_error_t pool_result = lush_pool_init(&pool_config);
+        if (pool_result != LUSH_POOL_SUCCESS) {
+            if (display_config.debug_mode || getenv("LUSH_MEMORY_DEBUG")) {
                 fprintf(
                     stderr,
                     "Warning: Failed to initialize memory pool system: %s\n",
-                    lusush_pool_error_string(pool_result));
+                    lush_pool_error_string(pool_result));
                 fprintf(stderr,
                         "Continuing with standard malloc/free operations\n");
             }
@@ -479,9 +479,9 @@ int init(int argc, char **argv, FILE **in) {
              * By registering pool shutdown BEFORE LLE init, the LLE atexit
              * handler (registered later) will run BEFORE pool shutdown,
              * ensuring LLE can safely save history using pool memory. */
-            atexit(lusush_pool_shutdown);
+            atexit(lush_pool_shutdown);
 
-            if (display_config.debug_mode || getenv("LUSUSH_MEMORY_DEBUG")) {
+            if (display_config.debug_mode || getenv("LUSH_MEMORY_DEBUG")) {
                 fprintf(stderr,
                         "Memory pool system initialized successfully\n");
             }
@@ -507,7 +507,7 @@ int init(int argc, char **argv, FILE **in) {
             // enable
             if (!display_integration_init(&display_config)) {
                 if (display_config.debug_mode ||
-                    getenv("LUSUSH_DISPLAY_DEBUG")) {
+                    getenv("LUSH_DISPLAY_DEBUG")) {
                     fprintf(stderr, "Warning: Failed to initialize display "
                                     "integration, using standard display\n");
                 }
@@ -522,7 +522,7 @@ int init(int argc, char **argv, FILE **in) {
             }
         } else {
             // Non-interactive mode: no display integration needed
-            if (getenv("LUSUSH_DISPLAY_DEBUG")) {
+            if (getenv("LUSH_DISPLAY_DEBUG")) {
                 fprintf(stderr,
                         "Display integration skipped (non-interactive mode)\n");
             }
@@ -579,7 +579,7 @@ int init(int argc, char **argv, FILE **in) {
                 char *home = symtable_get_global_default("HOME", "");
                 if (home && *home) {
                     char histfile[1024];
-                    snprintf(histfile, sizeof(histfile), "%s/.lusush_history",
+                    snprintf(histfile, sizeof(histfile), "%s/.lush_history",
                              home);
                     posix_history_set_filename(global_posix_history, histfile);
                     posix_history_load(global_posix_history, histfile, false);
@@ -602,7 +602,7 @@ int init(int argc, char **argv, FILE **in) {
     dirstack_init();
 
     // Completion is handled automatically by readline integration
-    // No need to set callbacks - they're integrated in lusush_readline_init()
+    // No need to set callbacks - they're integrated in lush_readline_init()
 
     // Hints system is not implemented in readline integration yet
     // TODO: Implement hints for readline if needed
@@ -679,8 +679,8 @@ static int parse_opts(int argc, char **argv) {
             if (strcmp(arg, "--help") == 0) {
                 usage(EXIT_SUCCESS);
             } else if (strcmp(arg, "--version") == 0) {
-                printf("%s %s\n", LUSUSH_NAME, LUSUSH_VERSION_STRING);
-                printf("%s\n", LUSUSH_DESCRIPTION);
+                printf("%s %s\n", LUSH_NAME, LUSH_VERSION_STRING);
+                printf("%s\n", LUSH_DESCRIPTION);
                 printf("Copyright (C) 2021-2026 Michael Berry. Licensed under "
                        "MIT.\n");
                 exit(EXIT_SUCCESS);
@@ -701,8 +701,8 @@ static int parse_opts(int argc, char **argv) {
                 shell_opts.hash_commands = true;
                 break;
             case 'V':
-                printf("%s %s\n", LUSUSH_NAME, LUSUSH_VERSION_STRING);
-                printf("%s\n", LUSUSH_DESCRIPTION);
+                printf("%s %s\n", LUSH_NAME, LUSH_VERSION_STRING);
+                printf("%s\n", LUSH_DESCRIPTION);
                 printf("Copyright (C) 2021-2026 Michael Berry. Licensed under "
                        "MIT.\n");
                 exit(EXIT_SUCCESS);
@@ -799,7 +799,7 @@ static int parse_opts(int argc, char **argv) {
  * @param err Exit code (EXIT_SUCCESS or EXIT_FAILURE)
  */
 static void usage(int err) {
-    printf("Usage: %s [OPTIONS] [SCRIPT]\n", LUSUSH_NAME);
+    printf("Usage: %s [OPTIONS] [SCRIPT]\n", LUSH_NAME);
     printf("A POSIX-compliant shell with modern features\n\n");
     printf("Options:\n");
     printf("      --help       Show this help message and exit\n");

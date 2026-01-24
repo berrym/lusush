@@ -3,7 +3,7 @@
  * @brief Unit tests for shell mode system (Phase 0: Extended Language Support)
  *
  * Tests the multi-mode architecture including:
- * - Mode switching (POSIX, Bash, Zsh, Lusush)
+ * - Mode switching (POSIX, Bash, Zsh, Lush)
  * - Feature matrix queries
  * - Per-feature overrides
  * - Shebang detection
@@ -67,9 +67,9 @@
 TEST(init_default_mode) {
     shell_mode_init();
     
-    /* Default mode should be LUSUSH */
-    ASSERT_EQ(shell_mode_get(), SHELL_MODE_LUSUSH, 
-              "Default mode should be LUSUSH");
+    /* Default mode should be LUSH */
+    ASSERT_EQ(shell_mode_get(), SHELL_MODE_LUSH, 
+              "Default mode should be LUSH");
     
     /* Should not be in strict mode by default */
     ASSERT(!shell_mode_is_strict(), "Strict mode should be disabled by default");
@@ -82,8 +82,8 @@ TEST(mode_names) {
                   "Bash mode name incorrect");
     ASSERT_STR_EQ(shell_mode_name(SHELL_MODE_ZSH), "zsh",
                   "Zsh mode name incorrect");
-    ASSERT_STR_EQ(shell_mode_name(SHELL_MODE_LUSUSH), "lusush",
-                  "Lusush mode name incorrect");
+    ASSERT_STR_EQ(shell_mode_name(SHELL_MODE_LUSH), "lush",
+                  "Lush mode name incorrect");
 }
 
 /* ============================================================================
@@ -107,9 +107,9 @@ TEST(mode_switching) {
     ASSERT(shell_mode_set(SHELL_MODE_ZSH), "Failed to set Zsh mode");
     ASSERT_EQ(shell_mode_get(), SHELL_MODE_ZSH, "Mode should be Zsh");
     
-    /* Switch back to Lusush mode */
-    ASSERT(shell_mode_set(SHELL_MODE_LUSUSH), "Failed to set Lusush mode");
-    ASSERT_EQ(shell_mode_get(), SHELL_MODE_LUSUSH, "Mode should be Lusush");
+    /* Switch back to Lush mode */
+    ASSERT(shell_mode_set(SHELL_MODE_LUSH), "Failed to set Lush mode");
+    ASSERT_EQ(shell_mode_get(), SHELL_MODE_LUSH, "Mode should be Lush");
 }
 
 TEST(strict_mode) {
@@ -122,8 +122,8 @@ TEST(strict_mode) {
     /* Attempting to change mode should fail */
     ASSERT(!shell_mode_set(SHELL_MODE_BASH), 
            "Mode change should fail in strict mode");
-    ASSERT_EQ(shell_mode_get(), SHELL_MODE_LUSUSH, 
-              "Mode should remain LUSUSH after failed change");
+    ASSERT_EQ(shell_mode_get(), SHELL_MODE_LUSH, 
+              "Mode should remain LUSH after failed change");
     
     /* Disable strict mode */
     shell_mode_set_strict(false);
@@ -209,27 +209,27 @@ TEST(zsh_mode_features) {
            "Zsh should allow anonymous functions");
 }
 
-TEST(lusush_mode_features) {
+TEST(lush_mode_features) {
     shell_mode_init();
-    /* Lusush is the default mode */
+    /* Lush is the default mode */
     
-    /* Lusush cherry-picks best features */
+    /* Lush cherry-picks best features */
     ASSERT(shell_mode_allows(FEATURE_INDEXED_ARRAYS),
-           "Lusush should allow indexed arrays");
+           "Lush should allow indexed arrays");
     ASSERT(shell_mode_allows(FEATURE_EXTENDED_TEST),
-           "Lusush should allow [[ ]]");
+           "Lush should allow [[ ]]");
     
     /* 0-indexed like Bash */
     ASSERT(shell_mode_allows(FEATURE_ARRAY_ZERO_INDEXED),
-           "Lusush should use 0-indexed arrays (like Bash)");
+           "Lush should use 0-indexed arrays (like Bash)");
     
     /* Word splitting off like Zsh (safer) */
     ASSERT(!shell_mode_allows(FEATURE_WORD_SPLIT_DEFAULT),
-           "Lusush should have word splitting off (like Zsh)");
+           "Lush should have word splitting off (like Zsh)");
     
     /* Anonymous functions like Zsh */
     ASSERT(shell_mode_allows(FEATURE_ANONYMOUS_FUNCTIONS),
-           "Lusush should allow anonymous functions (like Zsh)");
+           "Lush should allow anonymous functions (like Zsh)");
 }
 
 /* ============================================================================
@@ -403,16 +403,16 @@ TEST(shebang_sh_posix) {
     ASSERT_EQ(mode, SHELL_MODE_POSIX, "Mode should be POSIX");
 }
 
-TEST(shebang_lusush) {
+TEST(shebang_lush) {
     shell_mode_t mode;
     
-    ASSERT(shell_mode_detect_from_shebang("#!/usr/bin/lusush", &mode),
-           "Should detect lusush shebang");
-    ASSERT_EQ(mode, SHELL_MODE_LUSUSH, "Mode should be LUSUSH");
+    ASSERT(shell_mode_detect_from_shebang("#!/usr/bin/lush", &mode),
+           "Should detect lush shebang");
+    ASSERT_EQ(mode, SHELL_MODE_LUSH, "Mode should be LUSH");
     
-    ASSERT(shell_mode_detect_from_shebang("#!/usr/bin/env lusush", &mode),
-           "Should detect env lusush shebang");
-    ASSERT_EQ(mode, SHELL_MODE_LUSUSH, "Mode should be LUSUSH");
+    ASSERT(shell_mode_detect_from_shebang("#!/usr/bin/env lush", &mode),
+           "Should detect env lush shebang");
+    ASSERT_EQ(mode, SHELL_MODE_LUSH, "Mode should be LUSH");
 }
 
 TEST(shebang_invalid) {
@@ -435,7 +435,7 @@ TEST(shebang_invalid) {
 TEST(mode_bounds) {
     /* Verify enum bounds are correct */
     ASSERT(SHELL_MODE_POSIX >= 0, "POSIX mode should be non-negative");
-    ASSERT(SHELL_MODE_LUSUSH < SHELL_MODE_COUNT, "LUSUSH should be within count");
+    ASSERT(SHELL_MODE_LUSH < SHELL_MODE_COUNT, "LUSH should be within count");
     ASSERT_EQ(SHELL_MODE_COUNT, 4, "Should have 4 modes");
     
     /* Verify mode names work for all modes */
@@ -466,7 +466,7 @@ int main(void) {
     RUN_TEST(posix_mode_features);
     RUN_TEST(bash_mode_features);
     RUN_TEST(zsh_mode_features);
-    RUN_TEST(lusush_mode_features);
+    RUN_TEST(lush_mode_features);
     
     printf("\nFeature Override Tests:\n");
     RUN_TEST(feature_enable_override);
@@ -482,7 +482,7 @@ int main(void) {
     RUN_TEST(shebang_bash);
     RUN_TEST(shebang_zsh);
     RUN_TEST(shebang_sh_posix);
-    RUN_TEST(shebang_lusush);
+    RUN_TEST(shebang_lush);
     RUN_TEST(shebang_invalid);
     
     printf("\nMode Bounds Tests:\n");

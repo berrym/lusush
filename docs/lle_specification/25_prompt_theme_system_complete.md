@@ -33,7 +33,7 @@
 
 ### 1.1 Purpose
 
-The Prompt and Theme System provides a unified, first-class architecture for prompt generation and theming in the Lusush Line Editor (LLE). This specification supersedes the separate prompt.c and themes.c implementations, unifying them into a cohesive, event-driven, extensible system where user-created themes and prompts are equal citizens with built-in defaults.
+The Prompt and Theme System provides a unified, first-class architecture for prompt generation and theming in the Lush Line Editor (LLE). This specification supersedes the separate prompt.c and themes.c implementations, unifying them into a cohesive, event-driven, extensible system where user-created themes and prompts are equal citizens with built-in defaults.
 
 ### 1.2 Key Features
 
@@ -164,13 +164,13 @@ User Action (cd, command, etc.)
 ```
 Priority (highest to lowest):
 
-1. Shell Variable Override ($LUSUSH_PROMPT)
+1. Shell Variable Override ($LUSH_PROMPT)
    └── Immediate effect, no file needed
    
-2. User Config File (~/.config/lusush/prompt.toml)
+2. User Config File (~/.config/lush/prompt.toml)
    └── Full control, persistent
    
-3. System Config (/etc/lusush/prompt.toml)
+3. System Config (/etc/lush/prompt.toml)
    └── System-wide defaults
    
 4. Built-in Defaults (compiled in)
@@ -402,8 +402,8 @@ typedef enum lle_theme_category {
  */
 typedef enum lle_theme_source {
     LLE_THEME_SOURCE_BUILTIN,        // Compiled into binary
-    LLE_THEME_SOURCE_SYSTEM,         // /etc/lusush/themes/
-    LLE_THEME_SOURCE_USER,           // ~/.config/lusush/themes/
+    LLE_THEME_SOURCE_SYSTEM,         // /etc/lush/themes/
+    LLE_THEME_SOURCE_USER,           // ~/.config/lush/themes/
     LLE_THEME_SOURCE_RUNTIME         // Registered at runtime
 } lle_theme_source_t;
 
@@ -3020,9 +3020,9 @@ from TOML files to shell variables to runtime API.
 ```
 Priority (highest to lowest):
 1. Runtime API calls (lle_prompt_set_*)
-2. Shell variable: $LUSUSH_PROMPT
-3. User config: ~/.config/lusush/prompt.toml
-4. System config: /etc/lusush/prompt.toml
+2. Shell variable: $LUSH_PROMPT
+3. User config: ~/.config/lush/prompt.toml
+4. System config: /etc/lush/prompt.toml
 5. Built-in defaults
 ```
 
@@ -3049,9 +3049,9 @@ typedef struct {
     lle_config_source_t theme_source;
     
     // Shell variable overrides
-    char *ps1_override;       // From $PS1 or $LUSUSH_PS1
-    char *ps2_override;       // From $PS2 or $LUSUSH_PS2
-    char *rprompt_override;   // From $RPROMPT or $LUSUSH_RPROMPT
+    char *ps1_override;       // From $PS1 or $LUSH_PS1
+    char *ps2_override;       // From $PS2 or $LUSH_PS2
+    char *rprompt_override;   // From $RPROMPT or $LUSH_RPROMPT
     
     // Async configuration
     struct {
@@ -3108,8 +3108,8 @@ typedef enum {
 ### 10.3 TOML Configuration Format
 
 ```toml
-# ~/.config/lusush/prompt.toml
-# Lusush Prompt Configuration
+# ~/.config/lush/prompt.toml
+# Lush Prompt Configuration
 
 # Theme selection
 theme = "powerline"
@@ -3316,8 +3316,8 @@ lle_prompt_result_t lle_prompt_config_apply_shell_vars(
         return LLE_PROMPT_ERROR_INVALID_PARAM;
     }
     
-    // Check $LUSUSH_PROMPT for theme override
-    const char *prompt_var = getenv("LUSUSH_PROMPT");
+    // Check $LUSH_PROMPT for theme override
+    const char *prompt_var = getenv("LUSH_PROMPT");
     if (prompt_var && *prompt_var) {
         // Could be a theme name or a template
         if (strchr(prompt_var, '$') || strchr(prompt_var, '%')) {
@@ -3331,8 +3331,8 @@ lle_prompt_result_t lle_prompt_config_apply_shell_vars(
         }
     }
     
-    // Check $LUSUSH_PS1 (takes precedence over $PS1)
-    const char *ps1_var = getenv("LUSUSH_PS1");
+    // Check $LUSH_PS1 (takes precedence over $PS1)
+    const char *ps1_var = getenv("LUSH_PS1");
     if (!ps1_var) {
         ps1_var = getenv("PS1");
     }
@@ -3341,8 +3341,8 @@ lle_prompt_result_t lle_prompt_config_apply_shell_vars(
         config->ps1_override = strdup(ps1_var);
     }
     
-    // Check $LUSUSH_PS2 or $PS2
-    const char *ps2_var = getenv("LUSUSH_PS2");
+    // Check $LUSH_PS2 or $PS2
+    const char *ps2_var = getenv("LUSH_PS2");
     if (!ps2_var) {
         ps2_var = getenv("PS2");
     }
@@ -3352,7 +3352,7 @@ lle_prompt_result_t lle_prompt_config_apply_shell_vars(
     }
     
     // Check $RPROMPT
-    const char *rprompt_var = getenv("LUSUSH_RPROMPT");
+    const char *rprompt_var = getenv("LUSH_RPROMPT");
     if (!rprompt_var) {
         rprompt_var = getenv("RPROMPT");
     }
@@ -3361,8 +3361,8 @@ lle_prompt_result_t lle_prompt_config_apply_shell_vars(
         config->rprompt_override = strdup(rprompt_var);
     }
     
-    // Check $LUSUSH_SYMBOL_MODE
-    const char *symbol_var = getenv("LUSUSH_SYMBOL_MODE");
+    // Check $LUSH_SYMBOL_MODE
+    const char *symbol_var = getenv("LUSH_SYMBOL_MODE");
     if (symbol_var) {
         if (strcmp(symbol_var, "unicode") == 0) {
             config->symbol_mode = LLE_SYMBOL_MODE_UNICODE;
@@ -3400,8 +3400,8 @@ lle_prompt_result_t lle_prompt_config_load(lle_prompt_config_t *config) {
     lle_prompt_config_init_defaults(config);
     
     // Load system config
-    if (lle_prompt_config_load_toml(config, "/etc/lusush/prompt.toml") == LLE_PROMPT_SUCCESS) {
-        config->system_config_path = strdup("/etc/lusush/prompt.toml");
+    if (lle_prompt_config_load_toml(config, "/etc/lush/prompt.toml") == LLE_PROMPT_SUCCESS) {
+        config->system_config_path = strdup("/etc/lush/prompt.toml");
         config->theme_source = LLE_CONFIG_SOURCE_SYSTEM;
     }
     
@@ -3411,9 +3411,9 @@ lle_prompt_result_t lle_prompt_config_load(lle_prompt_config_t *config) {
     const char *xdg_config = getenv("XDG_CONFIG_HOME");
     
     if (xdg_config) {
-        snprintf(user_config, sizeof(user_config), "%s/lusush/prompt.toml", xdg_config);
+        snprintf(user_config, sizeof(user_config), "%s/lush/prompt.toml", xdg_config);
     } else if (home) {
-        snprintf(user_config, sizeof(user_config), "%s/.config/lusush/prompt.toml", home);
+        snprintf(user_config, sizeof(user_config), "%s/.config/lush/prompt.toml", home);
     }
     
     if (user_config[0] && 
@@ -3456,7 +3456,7 @@ static void lle_prompt_config_init_defaults(lle_prompt_config_t *config) {
 
 ## 11. Built-in Themes and Segments
 
-This section defines the default themes and segments shipped with lusush.
+This section defines the default themes and segments shipped with lush.
 All built-in components use the same registration API as user components,
 ensuring first-class citizenship for all.
 
@@ -4167,13 +4167,13 @@ starship's transient prompt feature.
 
 ```
 Before command execution:
-┌─[user@host]─[~/projects/lusush]─[feature/lle +3!2]
+┌─[user@host]─[~/projects/lush]─[feature/lle +3!2]
 └─❯ make
 
 After command execution (transient applied to previous prompt):
 ❯ make
 ...build output...
-┌─[user@host]─[~/projects/lusush]─[feature/lle +3!2]
+┌─[user@host]─[~/projects/lush]─[feature/lle +3!2]
 └─❯ 
 ```
 
@@ -5331,9 +5331,9 @@ char *lle_template_convert_legacy(const char *legacy) {
  */
 void lle_prompt_check_deprecations(lle_prompt_context_t *ctx) {
     // Check for old environment variables
-    if (getenv("LUSUSH_THEME")) {
+    if (getenv("LUSH_THEME")) {
         lle_log(LLE_LOG_WARN, "prompt",
-                "$LUSUSH_THEME is deprecated, use $LUSUSH_PROMPT");
+                "$LUSH_THEME is deprecated, use $LUSH_PROMPT");
     }
     
     // Check for old template syntax in config

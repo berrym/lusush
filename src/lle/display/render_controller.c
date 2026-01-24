@@ -70,7 +70,7 @@ static lle_result_t lle_render_config_cleanup(lle_render_config_t *config);
  * cursor renderer, cache, dirty tracker, metrics, and configuration.
  *
  * @param controller Output pointer to receive initialized controller
- * @param bridge Display bridge for communication with Lusush
+ * @param bridge Display bridge for communication with Lush
  * @param memory_pool Memory pool for allocations
  * @return LLE_SUCCESS on success, error code on failure
  *

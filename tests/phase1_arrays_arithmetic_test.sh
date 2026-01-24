@@ -13,16 +13,16 @@
 # - Array expansion ${arr[@]}, ${arr[*]}, ${#arr[@]}
 # - declare builtin with -a, -A, -i options
 #
-# Author: AI Assistant for Lusush Extended Language Implementation
+# Author: AI Assistant for Lush Extended Language Implementation
 # =============================================================================
 
 set -euo pipefail
 
-# Get absolute path to lusush binary
+# Get absolute path to lush binary
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-LUSUSH="${1:-$PROJECT_DIR/build/lusush}"
-TEST_DIR="/tmp/lusush_phase1_test_$$"
+LUSH="${1:-$PROJECT_DIR/build/lush}"
+TEST_DIR="/tmp/lush_phase1_test_$$"
 TOTAL_TESTS=0
 PASSED_TESTS=0
 FAILED_TESTS=0
@@ -74,14 +74,14 @@ test_result() {
     fi
 }
 
-# Helper to run lusush command and check output
+# Helper to run lush command and check output
 run_test() {
     local test_name="$1"
     local command="$2"
     local expected="$3"
 
     local output
-    output=$(echo "$command" | "$LUSUSH" 2>&1) || true
+    output=$(echo "$command" | "$LUSH" 2>&1) || true
 
     if [[ "$output" == "$expected" ]]; then
         test_result "$test_name" 0
@@ -95,7 +95,7 @@ run_success_test() {
     local test_name="$1"
     local command="$2"
 
-    if echo "$command" | "$LUSUSH" >/dev/null 2>&1; then
+    if echo "$command" | "$LUSH" >/dev/null 2>&1; then
         test_result "$test_name" 0
     else
         test_result "$test_name" 1
@@ -107,7 +107,7 @@ run_fail_test() {
     local test_name="$1"
     local command="$2"
 
-    if echo "$command" | "$LUSUSH" >/dev/null 2>&1; then
+    if echo "$command" | "$LUSH" >/dev/null 2>&1; then
         test_result "$test_name" 1 "Expected failure but succeeded"
     else
         test_result "$test_name" 0
@@ -296,14 +296,14 @@ test_declare_builtin() {
     print_section "declare -p (Print)"
 
     local output
-    output=$(echo 'declare x=hello; declare -p x' | "$LUSUSH" 2>&1)
+    output=$(echo 'declare x=hello; declare -p x' | "$LUSH" 2>&1)
     if [[ "$output" == *'declare -- x="hello"'* ]]; then
         test_result "declare -p shows variable" 0
     else
         test_result "declare -p shows variable" 1 "Got: $output"
     fi
 
-    output=$(echo 'declare -a "arr=(one two)"; declare -p arr' | "$LUSUSH" 2>&1)
+    output=$(echo 'declare -a "arr=(one two)"; declare -p arr' | "$LUSH" 2>&1)
     if [[ "$output" == *'declare -a arr'* ]]; then
         test_result "declare -p shows array type" 0
     else
@@ -327,9 +327,9 @@ test_declare_builtin() {
 test_shell_mode_integration() {
     print_category "SHELL MODE INTEGRATION"
 
-    print_section "Lusush Mode (Default)"
+    print_section "Lush Mode (Default)"
 
-    # Arrays should work in default Lusush mode
+    # Arrays should work in default Lush mode
     run_success_test "Arrays work in default mode" \
         'arr=(one two three); echo "${arr[@]}"'
 
@@ -412,7 +412,7 @@ test_combined_features() {
     print_section "Loop Over Array"
 
     local output
-    output=$(echo 'arr=(one two three); for x in "${arr[@]}"; do echo "$x"; done' | "$LUSUSH" 2>&1)
+    output=$(echo 'arr=(one two three); for x in "${arr[@]}"; do echo "$x"; done' | "$LUSH" 2>&1)
     local expected=$'one\ntwo\nthree'
     if [[ "$output" == "$expected" ]]; then
         test_result "Loop over array elements" 0
@@ -426,12 +426,12 @@ test_combined_features() {
 # =============================================================================
 main() {
     print_header "PHASE 1: ARRAYS AND ARITHMETIC COMMAND TESTS"
-    echo "Testing shell: $LUSUSH"
+    echo "Testing shell: $LUSH"
     echo "Started at: $(date)"
 
     # Verify shell exists
-    if [[ ! -x "$LUSUSH" ]]; then
-        echo -e "${RED}ERROR: Shell binary not found: $LUSUSH${NC}"
+    if [[ ! -x "$LUSH" ]]; then
+        echo -e "${RED}ERROR: Shell binary not found: $LUSH${NC}"
         exit 1
     fi
 

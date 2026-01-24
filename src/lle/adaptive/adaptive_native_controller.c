@@ -114,7 +114,7 @@ struct lle_native_controller_t {
     lle_terminal_performance_stats_t *perf_stats;
 
     /* Memory management */
-    lusush_memory_pool_t *memory_pool;
+    lush_memory_pool_t *memory_pool;
 };
 
 /* ============================================================================
@@ -601,7 +601,7 @@ static size_t lle_calculate_optimal_buffer_size(
  */
 lle_result_t
 lle_initialize_native_controller(lle_adaptive_context_t *context,
-                                 lusush_memory_pool_t *memory_pool) {
+                                 lush_memory_pool_t *memory_pool) {
 
     lle_native_controller_t *native =
         calloc(1, sizeof(lle_native_controller_t));

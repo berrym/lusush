@@ -1,11 +1,11 @@
 /**
  * @file toml_parser.h
- * @brief Generic TOML-subset Parser for Lusush Configuration
+ * @brief Generic TOML-subset Parser for Lush Configuration
  * @author Michael Berry <trismegustis@gmail.com>
  * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Dependency-free TOML-subset parser for parsing configuration files.
- * This parser supports the TOML features needed for lusush configuration:
+ * This parser supports the TOML features needed for lush configuration:
  *
  * Supported TOML Features:
  * - Key-value pairs: key = "value"
@@ -17,7 +17,7 @@
  * - Strings: "quoted" with \n, \\, \" escapes
  * - Comments: # comment
  *
- * This is a core lusush utility used by:
+ * This is a core lush utility used by:
  * - Configuration system (config.c)
  * - Theme parser (theme_parser.c)
  * - Keybinding configuration

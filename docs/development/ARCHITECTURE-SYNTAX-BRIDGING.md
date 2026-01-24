@@ -1,4 +1,4 @@
-# Lusush Syntax Bridging Architecture
+# Lush Syntax Bridging Architecture
 
 **Document Version**: 1.0.0  
 **Created**: 2026-01-13  
@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-Lusush implements a unique **syntax bridging architecture** that fundamentally differs from how other shells handle compatibility. Rather than emulating other shells (which restricts features), lusush provides a **unified feature engine** where multiple syntaxes map to the same underlying operations.
+Lush implements a unique **syntax bridging architecture** that fundamentally differs from how other shells handle compatibility. Rather than emulating other shells (which restricts features), lush provides a **unified feature engine** where multiple syntaxes map to the same underlying operations.
 
 **Key Principle**: Syntax is an interface layer. Profiles are presets, not restrictions.
 
@@ -41,11 +41,11 @@ Traditional emulation forces a choice:
 
 ---
 
-## The Lusush Way: Syntax Bridging
+## The Lush Way: Syntax Bridging
 
 ### Core Concept
 
-Lusush treats syntax as an **interface layer** that maps to a **unified feature engine**:
+Lush treats syntax as an **interface layer** that maps to a **unified feature engine**:
 
 ```
 User Input               Translation Layer           Feature Engine
@@ -71,7 +71,7 @@ ${var^}             ≡    ${(C)var}          →   Capitalize
 Both syntaxes are available in ALL profiles. A user can mix them:
 
 ```bash
-# This works in lusush regardless of profile:
+# This works in lush regardless of profile:
 name="hello"
 echo "${name^^}"      # Bash syntax → HELLO
 echo "${(U)name}"     # Zsh syntax  → HELLO
@@ -129,7 +129,7 @@ The profile is just a starting point. Users customize freely.
 **Traditional approach** (zsh's `emulate bash`):
 - "You're in bash mode, so you can't use zsh features"
 
-**Lusush approach**:
+**Lush approach**:
 - "You loaded bash defaults, but all features are still available"
 - "Want zsh-style parameter flags? Just use them."
 - "Want to mix `shopt` and `setopt`? Go ahead."
@@ -147,7 +147,7 @@ Located in `src/shell_mode.c`:
 static const bool posix_feature_defaults[FEATURE_COUNT] = { ... };
 static const bool bash_feature_defaults[FEATURE_COUNT] = { ... };
 static const bool zsh_feature_defaults[FEATURE_COUNT] = { ... };
-static const bool lusush_feature_defaults[FEATURE_COUNT] = { ... };
+static const bool lush_feature_defaults[FEATURE_COUNT] = { ... };
 
 // Runtime state with user overrides
 typedef struct {
@@ -225,7 +225,7 @@ echo *(.)                  # Glob qualifiers work
 ### For Polyglot Scripts
 
 ```bash
-#!/usr/bin/env lusush
+#!/usr/bin/env lush
 # Mix syntaxes freely - use what's clearest for each case
 
 # Bash-style case modification (familiar to bash users)
@@ -246,7 +246,7 @@ ls *(.)                    # Only regular files
 
 ## Feature Matrix Reference
 
-| Feature | POSIX | Bash | Zsh | Lusush | Notes |
+| Feature | POSIX | Bash | Zsh | Lush | Notes |
 |---------|:-----:|:----:|:---:|:------:|-------|
 | `indexed_arrays` | OFF | ON | ON | ON | `arr=(a b c)` |
 | `associative_arrays` | OFF | ON | ON | ON | `declare -A` |
@@ -276,7 +276,7 @@ ls *(.)                    # Only regular files
 3. **Practical**: Scripts from either shell work
 4. **Future-proof**: New syntax can map to existing features
 
-### The Lusush Philosophy
+### The Lush Philosophy
 
 > "Don't restrict users to one shell's way of thinking. Give them all the tools and let them choose the syntax that's clearest for each task."
 
@@ -288,20 +288,20 @@ The syntax bridging is validated by the compatibility test suite:
 
 ```bash
 # Both modes should pass 100%
-./tests/bash_zsh_compat_test.sh ./build/lusush --mode=bash  # 100%
-./tests/bash_zsh_compat_test.sh ./build/lusush --mode=zsh   # 100%
+./tests/bash_zsh_compat_test.sh ./build/lush --mode=bash  # 100%
+./tests/bash_zsh_compat_test.sh ./build/lush --mode=zsh   # 100%
 
 # Default mode works with both syntaxes
-./tests/bash_zsh_compat_test.sh ./build/lusush              # 100%
+./tests/bash_zsh_compat_test.sh ./build/lush              # 100%
 ```
 
 ---
 
 ## Conclusion
 
-Lusush's syntax bridging architecture represents a departure from traditional shell design:
+Lush's syntax bridging architecture represents a departure from traditional shell design:
 
-| Traditional Shells | Lusush |
+| Traditional Shells | Lush |
 |-------------------|--------|
 | Modes restrict features | Profiles set defaults |
 | Pick one syntax | All syntaxes available |

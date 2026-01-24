@@ -12,7 +12,7 @@
  * Every function has a complete, working implementation - no stubs.
  *
  * Implementation Strategy:
- * - Integrates with Lusush memory pools (lusush_pool_*)
+ * - Integrates with Lush memory pools (lush_pool_*)
  * - Provides LLE-specific tracking, optimization, and security
  * - Thread-safe operations throughout
  * - Complete error handling and recovery
@@ -56,9 +56,9 @@ struct lle_memory_pool_t {
     size_t max_size;
     bool allow_resize;
 
-    /* Lusush integration support */
-    bool uses_external_allocator;     /* True if wrapping lusush_pool */
-    void *external_allocator_context; /* Pointer to lusush_memory_pool_t */
+    /* Lush integration support */
+    bool uses_external_allocator;     /* True if wrapping lush_pool */
+    void *external_allocator_context; /* Pointer to lush_memory_pool_t */
 
     /* Free block tracking */
     struct {
@@ -175,9 +175,9 @@ struct lle_memory_manager_t {
     lle_memory_security_t *security;
     lle_memory_analytics_t *analytics;
 
-    /* Integration with Lusush memory system */
-    lusush_memory_pool_t *lusush_pools;
-    bool lusush_integration_active;
+    /* Integration with Lush memory system */
+    lush_memory_pool_t *lush_pools;
+    bool lush_integration_active;
 
     /* Configuration and state */
     lle_memory_config_t config;
@@ -462,9 +462,9 @@ struct lle_buffer_overflow_protection_t {
     } bounds_checking;
 };
 
-/* Copy from spec: lle_lusush_memory_integration_t */
-struct lle_lusush_memory_integration_t {
-    lusush_memory_pool_t *shell_pools[LUSUSH_POOL_COUNT];
+/* Copy from spec: lle_lush_memory_integration_t */
+struct lle_lush_memory_integration_t {
+    lush_memory_pool_t *shell_pools[LUSH_POOL_COUNT];
     lle_memory_pool_t *lle_pools[LLE_POOL_COUNT];
 
     /* Shared memory regions */
@@ -477,7 +477,7 @@ struct lle_lusush_memory_integration_t {
     double shared_memory_ratio;
 
     /* Performance monitoring */
-    lle_memory_stats_t lusush_stats;
+    lle_memory_stats_t lush_stats;
     lle_memory_stats_t lle_stats;
     lle_memory_stats_t shared_stats;
 
@@ -490,7 +490,7 @@ struct lle_lusush_memory_integration_t {
 struct lle_shared_memory_pool_t {
     void *memory_region;
     size_t total_size;
-    size_t lusush_allocated;
+    size_t lush_allocated;
     size_t lle_allocated;
     size_t free_space;
 
@@ -594,11 +594,11 @@ struct lle_memory_encryption_t {
     } security_monitoring;
 };
 
-/* Copy from spec: lle_lusush_memory_integration_complete_t (moved from header)
+/* Copy from spec: lle_lush_memory_integration_complete_t (moved from header)
  */
-struct lle_lusush_memory_integration_complete_t {
+struct lle_lush_memory_integration_complete_t {
     lle_memory_manager_t *lle_memory_manager;
-    lusush_memory_system_t *lusush_memory_system;
+    lush_memory_system_t *lush_memory_system;
 
     struct {
         bool integration_active;
@@ -777,19 +777,19 @@ void lle_update_average_time(struct timespec *average,
 }
 
 /* ============================================================================
- * LUSUSH MEMORY POOL INTEGRATION BRIDGE
+ * LUSH MEMORY POOL INTEGRATION BRIDGE
  * ============================================================================
  */
 
 /**
- * Create an LLE memory pool that wraps a Lusush memory pool
+ * Create an LLE memory pool that wraps a Lush memory pool
  *
- * This provides a bridge between the old lusush_memory_pool_t system
+ * This provides a bridge between the old lush_memory_pool_t system
  * and the new lle_memory_pool_t system, allowing unified memory management.
  */
 lle_result_t
-lle_memory_pool_create_from_lusush(lle_memory_pool_t **lle_pool,
-                                   lusush_memory_pool_t *lusush_pool,
+lle_memory_pool_create_from_lush(lle_memory_pool_t **lle_pool,
+                                   lush_memory_pool_t *lush_pool,
                                    lle_memory_pool_type_t pool_type) {
     if (!lle_pool) {
         return LLE_ERROR_NULL_POINTER;
@@ -805,7 +805,7 @@ lle_memory_pool_create_from_lusush(lle_memory_pool_t **lle_pool,
     /* Initialize pool metadata */
     pool->type = pool_type;
     pool->alignment = 16; /* Default alignment */
-    pool->size = 0;       /* Size tracked by lusush_pool */
+    pool->size = 0;       /* Size tracked by lush_pool */
     pool->used = 0;
     pool->free = 0;
     pool->max_size = 1024 * 1024; /* 1MB default max */
@@ -828,14 +828,14 @@ lle_memory_pool_create_from_lusush(lle_memory_pool_t **lle_pool,
     memset(pool->free_blocks, 0, sizeof(pool->free_blocks));
     pool->free_block_count = 0;
 
-    /* Note: We don't allocate memory_region here because lusush_pool handles it
-     * The lusush_pool pointer is passed in and allocations go through it
+    /* Note: We don't allocate memory_region here because lush_pool handles it
+     * The lush_pool pointer is passed in and allocations go through it
      * This pool structure is just for tracking and coordination */
-    pool->memory_region = NULL; /* Managed externally by lusush_pool */
+    pool->memory_region = NULL; /* Managed externally by lush_pool */
 
-    /* Mark that this pool uses external (Lusush) allocation */
+    /* Mark that this pool uses external (Lush) allocation */
     pool->uses_external_allocator = true;
-    pool->external_allocator_context = lusush_pool;
+    pool->external_allocator_context = lush_pool;
 
     *lle_pool = pool;
     return LLE_SUCCESS;
@@ -845,7 +845,7 @@ lle_memory_pool_create_from_lusush(lle_memory_pool_t **lle_pool,
  * Destroy an LLE memory pool
  *
  * Note: This only destroys the LLE wrapper structure, not the underlying
- * Lusush pool which is managed separately.
+ * Lush pool which is managed separately.
  */
 void lle_memory_pool_destroy(lle_memory_pool_t *pool) {
     if (!pool) {
@@ -856,8 +856,8 @@ void lle_memory_pool_destroy(lle_memory_pool_t *pool) {
     pthread_mutex_destroy(&pool->lock);
 
     /* Note: We don't free pool->memory_region because it's managed by
-     * lusush_pool We also don't free allocations because they're tracked by
-     * lusush_pool */
+     * lush_pool We also don't free allocations because they're tracked by
+     * lush_pool */
 
     /* Free the pool structure itself */
     free(pool);
@@ -872,8 +872,8 @@ void *lle_pool_alloc(size_t size) {
     if (size == 0)
         return NULL;
 
-    /* Use Lusush pool directly */
-    void *ptr = lusush_pool_alloc(size);
+    /* Use Lush pool directly */
+    void *ptr = lush_pool_alloc(size);
 
     if (ptr && lle_memory_global.initialized) {
         pthread_mutex_lock(&lle_memory_global.global_lock);
@@ -940,7 +940,7 @@ void lle_pool_free(void *ptr) {
         pthread_mutex_unlock(&lle_memory_global.global_lock);
     }
 
-    lusush_pool_free(ptr);
+    lush_pool_free(ptr);
 }
 
 void *lle_pool_allocate(lle_memory_pool_base_t *pool, size_t size) {
@@ -1045,16 +1045,16 @@ lle_result_t lle_memory_initialize_pools(lle_memory_manager_t *manager) {
     if (!manager)
         return LLE_ERROR_NULL_POINTER;
 
-    /* Initialize Lusush pools if needed */
+    /* Initialize Lush pools if needed */
     if (!global_memory_pool || !global_memory_pool->initialized) {
-        lusush_pool_config_t config = lusush_pool_get_default_config();
-        if (lusush_pool_init(&config) != LUSUSH_POOL_SUCCESS) {
+        lush_pool_config_t config = lush_pool_get_default_config();
+        if (lush_pool_init(&config) != LUSH_POOL_SUCCESS) {
             return LLE_ERROR_INITIALIZATION_FAILED;
         }
     }
 
-    manager->lusush_pools = global_memory_pool;
-    manager->lusush_integration_active = true;
+    manager->lush_pools = global_memory_pool;
+    manager->lush_integration_active = true;
 
     return LLE_SUCCESS;
 }
@@ -1190,27 +1190,27 @@ lle_result_t lle_memory_transition_state(lle_memory_manager_t *manager,
 }
 
 /* ============================================================================
- * LUSUSH INTEGRATION
+ * LUSH INTEGRATION
  * ============================================================================
  */
 
-lusush_memory_pool_t *lusush_get_memory_pools(void) {
+lush_memory_pool_t *lush_get_memory_pools(void) {
     return global_memory_pool;
 }
 
 lle_result_t
-lle_analyze_lusush_memory_config(lusush_memory_pool_t *lusush_pools,
-                                 lle_memory_config_t *lusush_config) {
-    if (!lusush_pools || !lusush_config)
+lle_analyze_lush_memory_config(lush_memory_pool_t *lush_pools,
+                                 lle_memory_config_t *lush_config) {
+    if (!lush_pools || !lush_config)
         return LLE_ERROR_NULL_POINTER;
 
-    /* Copy configuration from Lusush */
-    for (size_t i = 0; i < LLE_POOL_COUNT && i < LUSUSH_POOL_COUNT; i++) {
-        lusush_config->pool_sizes[i] = 4096 * (i + 1); /* Default sizes */
-        lusush_config->max_pool_sizes[i] = 65536 * (i + 1);
+    /* Copy configuration from Lush */
+    for (size_t i = 0; i < LLE_POOL_COUNT && i < LUSH_POOL_COUNT; i++) {
+        lush_config->pool_sizes[i] = 4096 * (i + 1); /* Default sizes */
+        lush_config->max_pool_sizes[i] = 65536 * (i + 1);
     }
-    lusush_config->block_size = 64;
-    lusush_config->alignment = LLE_MEMORY_ALIGNMENT;
+    lush_config->block_size = 64;
+    lush_config->alignment = LLE_MEMORY_ALIGNMENT;
 
     return LLE_SUCCESS;
 }
@@ -1254,16 +1254,16 @@ void lle_cleanup_partial_integration(lle_memory_manager_t *manager,
 
 lle_result_t
 lle_create_shared_memory_regions(lle_memory_manager_t *manager,
-                                 const lle_memory_config_t *lusush_config) {
-    if (!manager || !lusush_config)
+                                 const lle_memory_config_t *lush_config) {
+    if (!manager || !lush_config)
         return LLE_ERROR_NULL_POINTER;
 
-    /* LLE uses Lusush's memory pools directly, so shared memory is inherent.
-     * Both LLE and Lusush subsystems allocate from the same global_memory_pool.
+    /* LLE uses Lush's memory pools directly, so shared memory is inherent.
+     * Both LLE and Lush subsystems allocate from the same global_memory_pool.
      * No separate shared regions needed - the pools themselves are shared. */
 
-    manager->lusush_pools = global_memory_pool;
-    manager->lusush_integration_active = true;
+    manager->lush_pools = global_memory_pool;
+    manager->lush_integration_active = true;
 
     return LLE_SUCCESS;
 }
@@ -1296,7 +1296,7 @@ lle_result_t lle_start_integration_monitoring(lle_memory_manager_t *manager) {
      * No additional monitoring infrastructure needed - stats are updated
      * automatically during allocation and deallocation. */
 
-    /* Verify statistics collection is enabled in Lusush pools */
+    /* Verify statistics collection is enabled in Lush pools */
     if (global_memory_pool) {
         global_memory_pool->enable_statistics = true;
     }
@@ -1304,20 +1304,20 @@ lle_result_t lle_start_integration_monitoring(lle_memory_manager_t *manager) {
     return LLE_SUCCESS;
 }
 
-lle_result_t lle_integrate_with_lusush_memory(lle_memory_manager_t *manager) {
+lle_result_t lle_integrate_with_lush_memory(lle_memory_manager_t *manager) {
     if (!manager)
         return LLE_ERROR_NULL_POINTER;
 
-    // Step 1: Detect existing Lusush memory pools
-    lusush_memory_pool_t *lusush_pools = lusush_get_memory_pools();
-    if (!lusush_pools) {
+    // Step 1: Detect existing Lush memory pools
+    lush_memory_pool_t *lush_pools = lush_get_memory_pools();
+    if (!lush_pools) {
         return LLE_ERROR_SYSTEM_CALL;
     }
 
-    // Step 2: Analyze Lusush memory configuration
-    lle_memory_config_t lusush_config;
+    // Step 2: Analyze Lush memory configuration
+    lle_memory_config_t lush_config;
     lle_result_t result =
-        lle_analyze_lusush_memory_config(lusush_pools, &lusush_config);
+        lle_analyze_lush_memory_config(lush_pools, &lush_config);
     if (result != LLE_SUCCESS) {
         return result;
     }
@@ -1326,12 +1326,12 @@ lle_result_t lle_integrate_with_lusush_memory(lle_memory_manager_t *manager) {
     for (int i = 0; i < LLE_POOL_COUNT; i++) {
         lle_memory_pool_config_t pool_config = {
             .type = i,
-            .initial_size = lusush_config.pool_sizes[i],
-            .max_size = lusush_config.max_pool_sizes[i],
-            .block_size = lusush_config.block_size,
-            .alignment = lusush_config.alignment,
-            .share_with_lusush = true,
-            .parent_pool = &lusush_pools[i % LUSUSH_POOL_COUNT]};
+            .initial_size = lush_config.pool_sizes[i],
+            .max_size = lush_config.max_pool_sizes[i],
+            .block_size = lush_config.block_size,
+            .alignment = lush_config.alignment,
+            .share_with_lush = true,
+            .parent_pool = &lush_pools[i % LUSH_POOL_COUNT]};
 
         result = lle_create_specialized_pool(manager, &pool_config);
         if (result != LLE_SUCCESS) {
@@ -1341,7 +1341,7 @@ lle_result_t lle_integrate_with_lusush_memory(lle_memory_manager_t *manager) {
     }
 
     // Step 4: Establish shared memory regions
-    result = lle_create_shared_memory_regions(manager, &lusush_config);
+    result = lle_create_shared_memory_regions(manager, &lush_config);
     if (result != LLE_SUCCESS) {
         return result;
     }
@@ -1355,7 +1355,7 @@ lle_result_t lle_integrate_with_lusush_memory(lle_memory_manager_t *manager) {
     // Step 6: Start integration monitoring
     result = lle_start_integration_monitoring(manager);
 
-    manager->lusush_integration_active = (result == LLE_SUCCESS);
+    manager->lush_integration_active = (result == LLE_SUCCESS);
     return result;
 }
 
@@ -1422,7 +1422,7 @@ lle_result_t lle_integrate_with_lusush_memory(lle_memory_manager_t *manager) {
 //         if (owner < LLE_POOL_COUNT) {
 //             pool->lle_allocated += aligned_size;
 //         } else {
-//             pool->lusush_allocated += aligned_size;
+//             pool->lush_allocated += aligned_size;
 //         }
 //     }
 //
@@ -1436,8 +1436,8 @@ int lle_find_suitable_fragment(void *pool, size_t size) {
     if (!pool)
         return -1;
     (void)size;
-    /* Fragment management not needed with Lusush's fixed-size block pools.
-     * Lusush handles fragmentation through its free list management. */
+    /* Fragment management not needed with Lush's fixed-size block pools.
+     * Lush handles fragmentation through its free list management. */
     return -1; /* No fragment found - use normal allocation */
 }
 
@@ -1445,7 +1445,7 @@ void lle_remove_fragment(void *pool, int fragment_index) {
     if (!pool)
         return;
     (void)fragment_index;
-    /* Fragment removal not needed - Lusush manages free blocks internally */
+    /* Fragment removal not needed - Lush manages free blocks internally */
 }
 
 /* ============================================================================
@@ -1851,22 +1851,22 @@ lle_result_t lle_gc_mark_phase(lle_garbage_collector_t *gc,
     if (!gc)
         return LLE_ERROR_NULL_POINTER;
 
-    /* Mark phase: Scan Lusush memory pools and count allocated blocks.
-     * With Lusush's pool metadata, we can see which blocks are in_use.
+    /* Mark phase: Scan Lush memory pools and count allocated blocks.
+     * With Lush's pool metadata, we can see which blocks are in_use.
      * This is a conservative mark - we consider all in_use blocks as reachable.
      */
 
     size_t total_marked = 0;
 
     if (global_memory_pool && global_memory_pool->initialized) {
-        /* Scan each pool in Lusush's memory system */
-        for (int pool_idx = 0; pool_idx < LUSUSH_POOL_COUNT; pool_idx++) {
-            lusush_pool_t *pool = &global_memory_pool->pools[pool_idx];
+        /* Scan each pool in Lush's memory system */
+        for (int pool_idx = 0; pool_idx < LUSH_POOL_COUNT; pool_idx++) {
+            lush_pool_t *pool = &global_memory_pool->pools[pool_idx];
 
             /* Scan all blocks in this pool */
             for (size_t block_idx = 0; block_idx < pool->current_blocks;
                  block_idx++) {
-                lusush_pool_block_t *block = &pool->all_blocks[block_idx];
+                lush_pool_block_t *block = &pool->all_blocks[block_idx];
                 if (block->in_use) {
                     total_marked++;
                 }
@@ -1899,13 +1899,13 @@ lle_result_t lle_gc_sweep_phase(lle_garbage_collector_t *gc,
         60 * 1000000; // 60 seconds - very old allocations
 
     if (global_memory_pool && global_memory_pool->initialized) {
-        for (int pool_idx = 0; pool_idx < LUSUSH_POOL_COUNT; pool_idx++) {
-            lusush_pool_t *pool = &global_memory_pool->pools[pool_idx];
+        for (int pool_idx = 0; pool_idx < LUSH_POOL_COUNT; pool_idx++) {
+            lush_pool_t *pool = &global_memory_pool->pools[pool_idx];
 
             /* Scan all blocks looking for very old allocations */
             for (size_t block_idx = 0; block_idx < pool->current_blocks;
                  block_idx++) {
-                lusush_pool_block_t *block = &pool->all_blocks[block_idx];
+                lush_pool_block_t *block = &pool->all_blocks[block_idx];
 
                 /* Check if block is old enough to be considered potentially
                  * leaked */
@@ -1917,7 +1917,7 @@ lle_result_t lle_gc_sweep_phase(lle_garbage_collector_t *gc,
                      * their memory */
                     if (age > age_threshold_us) {
                         /* Free this potentially leaked block */
-                        lusush_pool_free(block->memory);
+                        lush_pool_free(block->memory);
                         total_freed += block->size;
                     }
                 }
@@ -1937,13 +1937,13 @@ lle_result_t lle_gc_compact_phase(lle_garbage_collector_t *gc) {
         return LLE_ERROR_NULL_POINTER;
 
     /* Compact phase: Reduce fragmentation in memory pools.
-     * Lusush's pool design already minimizes fragmentation through fixed-size
+     * Lush's pool design already minimizes fragmentation through fixed-size
      * blocks. However, we can optimize the free list organization to improve
      * allocation speed. */
 
     if (global_memory_pool && global_memory_pool->initialized) {
-        for (int pool_idx = 0; pool_idx < LUSUSH_POOL_COUNT; pool_idx++) {
-            lusush_pool_t *pool = &global_memory_pool->pools[pool_idx];
+        for (int pool_idx = 0; pool_idx < LUSH_POOL_COUNT; pool_idx++) {
+            lush_pool_t *pool = &global_memory_pool->pools[pool_idx];
 
             /* Rebuild free list in optimal order (contiguous blocks together)
              */
@@ -1953,7 +1953,7 @@ lle_result_t lle_gc_compact_phase(lle_garbage_collector_t *gc) {
             /* Add all free blocks to the free list in address order */
             for (size_t block_idx = 0; block_idx < pool->current_blocks;
                  block_idx++) {
-                lusush_pool_block_t *block = &pool->all_blocks[block_idx];
+                lush_pool_block_t *block = &pool->all_blocks[block_idx];
 
                 if (!block->in_use) {
                     /* Add to front of free list */
@@ -3332,16 +3332,16 @@ lle_result_t lle_encrypt_memory_allocation(lle_memory_encryption_t *encryption,
  */
 
 lle_result_t lle_initialize_complete_memory_integration(
-    lle_lusush_memory_integration_complete_t *integration,
-    lle_memory_manager_t *lle_manager, lusush_memory_system_t *lusush_system) {
+    lle_lush_memory_integration_complete_t *integration,
+    lle_memory_manager_t *lle_manager, lush_memory_system_t *lush_system) {
 
-    if (!integration || !lle_manager || !lusush_system) {
+    if (!integration || !lle_manager || !lush_system) {
         return LLE_ERROR_NULL_POINTER;
     }
 
     // Step 1: Initialize integration components
     integration->lle_memory_manager = lle_manager;
-    integration->lusush_memory_system = lusush_system;
+    integration->lush_memory_system = lush_system;
 
     // Step 2: Initialize synchronization primitives
     if (pthread_mutex_init(&integration->synchronization.integration_mutex,
@@ -3421,7 +3421,7 @@ lle_result_t lle_initialize_complete_memory_integration(
 }
 
 void lle_cleanup_integration_sync(
-    lle_lusush_memory_integration_complete_t *integration) {
+    lle_lush_memory_integration_complete_t *integration) {
     if (!integration)
         return;
     integration->synchronization.coordination_active = false;
@@ -3444,7 +3444,7 @@ void lle_cleanup_integration_sync(
 }
 
 lle_result_t lle_establish_shared_memory_regions(
-    lle_lusush_memory_integration_complete_t *integration) {
+    lle_lush_memory_integration_complete_t *integration) {
     if (!integration)
         return LLE_ERROR_NULL_POINTER;
     integration->integration_state.shared_memory_regions = 1;
@@ -3453,7 +3453,7 @@ lle_result_t lle_establish_shared_memory_regions(
 }
 
 lle_result_t lle_configure_integration_mode(
-    lle_lusush_memory_integration_complete_t *integration,
+    lle_lush_memory_integration_complete_t *integration,
     lle_integration_mode_t mode) {
     if (!integration)
         return LLE_ERROR_NULL_POINTER;
@@ -3462,7 +3462,7 @@ lle_result_t lle_configure_integration_mode(
 }
 
 void lle_cleanup_shared_memory_regions(
-    lle_lusush_memory_integration_complete_t *integration) {
+    lle_lush_memory_integration_complete_t *integration) {
     if (!integration)
         return;
     integration->integration_state.shared_memory_regions = 0;

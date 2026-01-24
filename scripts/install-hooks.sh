@@ -1,5 +1,5 @@
 #!/bin/sh
-# install-hooks.sh - Install git hooks for lusush development
+# install-hooks.sh - Install git hooks for lush development
 #
 # This script creates symlinks from .git/hooks/ to scripts/hooks/
 # ensuring all developers use the same pre-commit and commit-msg hooks.
@@ -19,7 +19,7 @@ HOOKS_TARGET="$REPO_ROOT/.git/hooks"
 # Verify we're in a git repository
 if [ ! -d "$REPO_ROOT/.git" ]; then
     echo "Error: Not a git repository (or .git directory not found)"
-    echo "Please run this script from within the lusush repository."
+    echo "Please run this script from within the lush repository."
     exit 1
 fi
 
@@ -29,7 +29,7 @@ if [ ! -d "$HOOKS_SOURCE" ]; then
     exit 1
 fi
 
-echo "Installing git hooks for lusush..."
+echo "Installing git hooks for lush..."
 echo "  Source: $HOOKS_SOURCE"
 echo "  Target: $HOOKS_TARGET"
 echo ""

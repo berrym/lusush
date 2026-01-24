@@ -39,7 +39,7 @@
  * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_multiline_context_init(lle_multiline_context_t **ctx,
-                                        lusush_memory_pool_t *memory_pool) {
+                                        lush_memory_pool_t *memory_pool) {
     if (!ctx || !memory_pool) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -383,7 +383,7 @@ const char *lle_multiline_get_construct(const lle_multiline_context_t *ctx) {
  * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_multiline_manager_init(lle_multiline_manager_t **manager,
-                                        lusush_memory_pool_t *memory_pool) {
+                                        lush_memory_pool_t *memory_pool) {
     if (!manager || !memory_pool) {
         return LLE_ERROR_INVALID_PARAMETER;
     }

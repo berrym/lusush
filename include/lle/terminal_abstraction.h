@@ -13,7 +13,7 @@
  * Critical Design Principles:
  * 1. NEVER query terminal state during operation - internal model is
  * authoritative
- * 2. NEVER send direct escape sequences - all output through Lusush display
+ * 2. NEVER send direct escape sequences - all output through Lush display
  * 3. NEVER assume terminal cursor position - calculate from buffer state
  * 4. NEVER track terminal state changes - generate complete display content
  * 5. Internal buffer state is authoritative - single source of truth
@@ -49,22 +49,22 @@
 #endif
 
 /* ============================================================================
- * FORWARD DECLARATIONS FOR LUSUSH INTEGRATION
+ * FORWARD DECLARATIONS FOR LUSH INTEGRATION
  * ============================================================================
  */
 
-/* Lusush display system types (defined in Lusush, used by LLE) */
-typedef struct lusush_display_context lusush_display_context_t;
-typedef struct lusush_display_layer lusush_display_layer_t;
-typedef struct lusush_layer_content lusush_layer_content_t;
-typedef struct lusush_display_line lusush_display_line_t;
-typedef int lusush_result_t;
+/* Lush display system types (defined in Lush, used by LLE) */
+typedef struct lush_display_context lush_display_context_t;
+typedef struct lush_display_layer lush_display_layer_t;
+typedef struct lush_layer_content lush_layer_content_t;
+typedef struct lush_display_line lush_display_line_t;
+typedef int lush_result_t;
 
-/* Lusush display layer priorities */
-#define LUSUSH_LAYER_PRIORITY_EDITING 100
+/* Lush display layer priorities */
+#define LUSH_LAYER_PRIORITY_EDITING 100
 
-/* Lusush result codes */
-#define LUSUSH_SUCCESS 0
+/* Lush result codes */
+#define LUSH_SUCCESS 0
 
 /* Forward declarations for input parsing components (from input_parsing.h) */
 typedef struct lle_sequence_parser lle_sequence_parser_t;
@@ -301,7 +301,7 @@ typedef struct lle_terminal_capabilities {
 } lle_terminal_capabilities_t;
 
 /**
- * @brief Display content structure - what gets sent to Lusush
+ * @brief Display content structure - what gets sent to Lush
  *
  * Spec Reference: Section 5 - Display Content Generation
  */
@@ -349,7 +349,7 @@ typedef struct lle_display_generator {
 } lle_display_generator_t;
 
 /**
- * @brief LLE layer configuration for Lusush
+ * @brief LLE layer configuration for Lush
  */
 typedef struct lle_layer_config {
     const char *layer_name;
@@ -360,16 +360,16 @@ typedef struct lle_layer_config {
 } lle_layer_config_t;
 
 /**
- * @brief Lusush display client - LLE integration with Lusush display
+ * @brief Lush display client - LLE integration with Lush display
  *
- * LLE NEVER directly controls terminal - always through Lusush
+ * LLE NEVER directly controls terminal - always through Lush
  *
- * Spec Reference: Section 6 - Lusush Display Layer Integration
+ * Spec Reference: Section 6 - Lush Display Layer Integration
  */
-typedef struct lle_lusush_display_client {
-    /* Lusush display system integration */
-    lusush_display_context_t *display_context;
-    lusush_display_layer_t *lle_display_layer;
+typedef struct lle_lush_display_client {
+    /* Lush display system integration */
+    lush_display_context_t *display_context;
+    lush_display_layer_t *lle_display_layer;
 
     /* LLE-specific layer configuration */
     lle_layer_config_t layer_config;
@@ -380,7 +380,7 @@ typedef struct lle_lusush_display_client {
     /* Display submission tracking */
     uint64_t last_submission_time;
     uint64_t submission_count;
-} lle_lusush_display_client_t;
+} lle_lush_display_client_t;
 
 /**
  * @brief Input event structure
@@ -495,8 +495,8 @@ typedef struct lle_terminal_abstraction_t {
     /* Display Content Generation System */
     lle_display_generator_t *display_generator;
 
-    /* Lusush Display Layer Integration */
-    lle_lusush_display_client_t *display_client;
+    /* Lush Display Layer Integration */
+    lle_lush_display_client_t *display_client;
 
     /* Terminal Capability Model (detected once at startup) */
     lle_terminal_capabilities_t *capabilities;
@@ -522,7 +522,7 @@ typedef struct lle_terminal_abstraction_t {
 /* Main Terminal Abstraction Lifecycle */
 lle_result_t
 lle_terminal_abstraction_init(lle_terminal_abstraction_t **abstraction,
-                              lusush_display_context_t *lusush_display);
+                              lush_display_context_t *lush_display);
 void lle_terminal_abstraction_destroy(lle_terminal_abstraction_t *abstraction);
 
 /* Internal State Operations */
@@ -572,14 +572,14 @@ lle_result_t lle_display_content_create(lle_display_content_t **content,
                                         size_t line_capacity);
 void lle_display_content_destroy(lle_display_content_t *content);
 
-/* Lusush Display Client Operations */
+/* Lush Display Client Operations */
 lle_result_t
-lle_lusush_display_client_init(lle_lusush_display_client_t **client,
-                               lusush_display_context_t *display_context,
+lle_lush_display_client_init(lle_lush_display_client_t **client,
+                               lush_display_context_t *display_context,
                                lle_terminal_capabilities_t *capabilities);
-void lle_lusush_display_client_destroy(lle_lusush_display_client_t *client);
+void lle_lush_display_client_destroy(lle_lush_display_client_t *client);
 lle_result_t
-lle_lusush_display_client_submit_content(lle_lusush_display_client_t *client,
+lle_lush_display_client_submit_content(lle_lush_display_client_t *client,
                                          lle_display_content_t *content);
 
 /* Input Event Processing */
@@ -610,6 +610,6 @@ lle_result_t lle_unix_interface_get_window_size(lle_unix_interface_t *interface,
 
 /* Utility Functions */
 uint64_t lle_get_current_time_microseconds(void);
-lle_result_t lle_convert_lusush_error(lusush_result_t lusush_error);
+lle_result_t lle_convert_lush_error(lush_result_t lush_error);
 
 #endif /* LLE_TERMINAL_ABSTRACTION_H */

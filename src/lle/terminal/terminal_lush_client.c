@@ -1,18 +1,18 @@
 /**
- * @file terminal_lusush_client.c
- * @brief Lusush Display Layer Integration (Spec 02 Subsystem 4)
+ * @file terminal_lush_client.c
+ * @brief Lush Display Layer Integration (Spec 02 Subsystem 4)
  * @author Michael Berry <trismegustis@gmail.com>
  * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * CRITICAL DESIGN PRINCIPLE:
  * LLE NEVER directly controls terminal or sends escape sequences.
- * ALL display operations go through Lusush display system.
+ * ALL display operations go through Lush display system.
  *
  * Key Responsibilities:
- * - Register LLE as Lusush display layer client
- * - Convert LLE display content to Lusush layer format
- * - Submit display updates through Lusush display API
- * - Handle Lusush display system errors
+ * - Register LLE as Lush display layer client
+ * - Convert LLE display content to Lush layer format
+ * - Submit display updates through Lush display API
+ * - Handle Lush display system errors
  *
  * Spec 02: Terminal Abstraction - Subsystem 4
  */
@@ -22,28 +22,28 @@
 #include <string.h>
 
 /* ============================================================================
- * LUSUSH DISPLAY CLIENT OPERATIONS
+ * LUSH DISPLAY CLIENT OPERATIONS
  * ============================================================================
  */
 
 /**
- * @brief Initialize Lusush display client
+ * @brief Initialize Lush display client
  *
  * @param client Output pointer for created client
- * @param display_context Lusush display context
+ * @param display_context Lush display context
  * @param capabilities Terminal capabilities reference
  * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t
-lle_lusush_display_client_init(lle_lusush_display_client_t **client,
-                               lusush_display_context_t *display_context,
+lle_lush_display_client_init(lle_lush_display_client_t **client,
+                               lush_display_context_t *display_context,
                                lle_terminal_capabilities_t *capabilities) {
     if (!client || !display_context || !capabilities) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
 
-    lle_lusush_display_client_t *c =
-        calloc(1, sizeof(lle_lusush_display_client_t));
+    lle_lush_display_client_t *c =
+        calloc(1, sizeof(lle_lush_display_client_t));
     if (!c) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
@@ -51,9 +51,9 @@ lle_lusush_display_client_init(lle_lusush_display_client_t **client,
     c->display_context = display_context;
     c->capabilities = capabilities;
 
-    /* Configure LLE layer for Lusush */
+    /* Configure LLE layer for Lush */
     c->layer_config.layer_name = "lle_editing";
-    c->layer_config.layer_priority = LUSUSH_LAYER_PRIORITY_EDITING;
+    c->layer_config.layer_priority = LUSH_LAYER_PRIORITY_EDITING;
     c->layer_config.supports_transparency = false;
     c->layer_config.requires_full_refresh = true;
     c->layer_config.color_capabilities = capabilities->detected_color_depth;
@@ -62,7 +62,7 @@ lle_lusush_display_client_init(lle_lusush_display_client_t **client,
     c->last_submission_time = 0;
     c->submission_count = 0;
 
-    /* Note: Actual Lusush layer registration will happen when Lusush
+    /* Note: Actual Lush layer registration will happen when Lush
      * display system API is available. For now, store configuration. */
     c->lle_display_layer = NULL;
 
@@ -71,46 +71,46 @@ lle_lusush_display_client_init(lle_lusush_display_client_t **client,
 }
 
 /**
- * @brief Destroy Lusush display client
+ * @brief Destroy Lush display client
  *
  * @param client Client to destroy
  */
-void lle_lusush_display_client_destroy(lle_lusush_display_client_t *client) {
+void lle_lush_display_client_destroy(lle_lush_display_client_t *client) {
     if (!client) {
         return;
     }
 
-    /* Note: When Lusush display system is implemented, we would unregister
+    /* Note: When Lush display system is implemented, we would unregister
      * the LLE layer here. For now, just cleanup. */
 
     free(client);
 }
 
 /**
- * @brief Convert LLE display content to Lusush layer format
+ * @brief Convert LLE display content to Lush layer format
  *
  * This function translates LLE's internal display representation to
- * the format expected by Lusush display system. It handles line-by-line
+ * the format expected by Lush display system. It handles line-by-line
  * conversion, cursor position mapping, and attribute translation based
  * on terminal capabilities.
  *
  * @param client Display client instance with capability information
  * @param content LLE display content to convert
- * @param lusush_content Output pointer for Lusush format content (allocated)
+ * @param lush_content Output pointer for Lush format content (allocated)
  * @return LLE_SUCCESS on success, LLE_ERROR_OUT_OF_MEMORY on allocation failure
  */
-static lle_result_t LLE_MAYBE_UNUSED convert_to_lusush_format(
-    lle_lusush_display_client_t *client, lle_display_content_t *content,
-    lusush_layer_content_t **lusush_content) {
-    if (!client || !content || !lusush_content) {
+static lle_result_t LLE_MAYBE_UNUSED convert_to_lush_format(
+    lle_lush_display_client_t *client, lle_display_content_t *content,
+    lush_layer_content_t **lush_content) {
+    if (!client || !content || !lush_content) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
 
-    /* Note: This is a placeholder implementation. When Lusush display system
+    /* Note: This is a placeholder implementation. When Lush display system
      * is implemented, this function will perform the actual conversion:
      *
-     * 1. Allocate lusush_layer_content_t structure
-     * 2. Convert each LLE display line to Lusush display line format
+     * 1. Allocate lush_layer_content_t structure
+     * 2. Convert each LLE display line to Lush display line format
      * 3. Include cursor position information
      * 4. Apply color/attribute information based on capabilities
      * 5. Return converted content
@@ -118,18 +118,18 @@ static lle_result_t LLE_MAYBE_UNUSED convert_to_lusush_format(
      * For now, return success to allow compilation.
      */
 
-    *lusush_content = NULL;
+    *lush_content = NULL;
     return LLE_SUCCESS;
 }
 
 /**
- * @brief Submit display content to Lusush display system
+ * @brief Submit display content to Lush display system
  *
  * CRITICAL: This is the ONLY way LLE updates the terminal display.
- * LLE renders through the Lusush display system - NEVER sends escape sequences
+ * LLE renders through the Lush display system - NEVER sends escape sequences
  * directly.
  *
- * Architecture: LLE display_content -> Lusush display_controller -> Terminal
+ * Architecture: LLE display_content -> Lush display_controller -> Terminal
  * output Following the proven pattern from Fish, Zsh, and other modern line
  * editors.
  *
@@ -138,7 +138,7 @@ static lle_result_t LLE_MAYBE_UNUSED convert_to_lusush_format(
  * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t
-lle_lusush_display_client_submit_content(lle_lusush_display_client_t *client,
+lle_lush_display_client_submit_content(lle_lush_display_client_t *client,
                                          lle_display_content_t *content) {
     if (!client || !content) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -226,17 +226,17 @@ lle_lusush_display_client_submit_content(lle_lusush_display_client_t *client,
 }
 
 /**
- * @brief Convert Lusush error codes to LLE error codes
+ * @brief Convert Lush error codes to LLE error codes
  *
- * @param lusush_error Lusush error code
+ * @param lush_error Lush error code
  * @return Corresponding LLE error code
  */
-lle_result_t lle_convert_lusush_error(lusush_result_t lusush_error) {
-    /* Note: When Lusush display system is implemented, this will map
-     * Lusush error codes to LLE error codes. For now, simple mapping:
+lle_result_t lle_convert_lush_error(lush_result_t lush_error) {
+    /* Note: When Lush display system is implemented, this will map
+     * Lush error codes to LLE error codes. For now, simple mapping:
      */
 
-    if (lusush_error == LUSUSH_SUCCESS) {
+    if (lush_error == LUSH_SUCCESS) {
         return LLE_SUCCESS;
     }
 

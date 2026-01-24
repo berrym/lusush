@@ -7,7 +7,7 @@
 ## Overview
 
 This document catalogs all functions and variables marked with `MAYBE_UNUSED` or 
-`LLE_MAYBE_UNUSED` in the lusush codebase. Each item is categorized to distinguish 
+`LLE_MAYBE_UNUSED` in the lush codebase. Each item is categorized to distinguish 
 spec-compliant future stubs from abandoned cruft.
 
 ## Categories
@@ -42,7 +42,7 @@ spec-compliant future stubs from abandoned cruft.
 |----------|------|--------|-------|
 | `is_duplicate_in_cache` | src/readline_integration.c:306 | SPEC_STUB | History deduplication support. |
 | `add_to_history_cache` | src/readline_integration.c:318 | SPEC_STUB | History caching with deduplication. |
-| `lusush_readline_with_layered_display` | src/readline_integration.c:1446 | SPEC_STUB | Enhanced readline with layered display. Graceful fallback. |
+| `lush_readline_with_layered_display` | src/readline_integration.c:1446 | SPEC_STUB | Enhanced readline with layered display. Graceful fallback. |
 | ~~`try_layered_display_prompt`~~ | src/readline_integration.c | **REMOVED** | Superseded by new prompt approach. Removed Session 58. |
 
 ### Display System
@@ -89,7 +89,7 @@ spec-compliant future stubs from abandoned cruft.
 
 | Function | File | Status | Notes |
 |----------|------|--------|-------|
-| `convert_to_lusush_format` | src/lle/terminal/terminal_lusush_client.c:88 | ACTIVE_STUB | Awaiting display system integration (Spec 8, 13). |
+| `convert_to_lush_format` | src/lle/terminal/terminal_lush_client.c:88 | ACTIVE_STUB | Awaiting display system integration (Spec 8, 13). |
 
 ### Keybinding Actions
 
@@ -177,7 +177,7 @@ func(void) { }                               // FAILS
 
 **ACTIVE_STUB items to wire up when ready:**
 - `execute_test_builtin` - Enhanced test builtin evaluation
-- `convert_to_lusush_format` - Display system integration
+- `convert_to_lush_format` - Display system integration
 
 ---
 

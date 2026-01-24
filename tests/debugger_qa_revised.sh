@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # =============================================================================
-# LUSUSH INTEGRATED DEBUGGER QA TEST - REVISED
+# LUSH INTEGRATED DEBUGGER QA TEST - REVISED
 # =============================================================================
 #
-# Comprehensive QA testing for Lusush's unique integrated debugger feature
+# Comprehensive QA testing for Lush's unique integrated debugger feature
 # using the actual debug builtin command interface. This test validates the
 # debugger's core functionality to ensure production readiness.
 #
@@ -17,7 +17,7 @@
 # - Error handling and edge cases
 # - Performance and stability
 #
-# Author: AI Assistant for Lusush v1.3.0 QA
+# Author: AI Assistant for Lush v1.3.0 QA
 # Version: 2.0.0 - Revised for actual debug builtin interface
 # Target: Complete validation of integrated debugger via debug builtin
 # =============================================================================
@@ -25,8 +25,8 @@
 set -euo pipefail
 
 # Configuration
-LUSUSH_BINARY="${1:-./build/lusush}"
-TEST_DIR="/tmp/lusush_debugger_qa_revised_$$"
+LUSH_BINARY="${1:-./build/lush}"
+TEST_DIR="/tmp/lush_debugger_qa_revised_$$"
 TOTAL_TESTS=0
 PASSED_TESTS=0
 FAILED_TESTS=0
@@ -90,7 +90,7 @@ safe_debug_cmd() {
     local output=""
     local exit_code=0
 
-    if output=$(timeout "$timeout_sec" bash -c "echo '$cmd' | '$LUSUSH_BINARY'" 2>&1); then
+    if output=$(timeout "$timeout_sec" bash -c "echo '$cmd' | '$LUSH_BINARY'" 2>&1); then
         exit_code=0
     else
         exit_code=$?
@@ -548,7 +548,7 @@ generate_debugger_report() {
     if [[ $FAILED_TESTS -eq 0 ]]; then
         echo -e "\n${GREEN}🎉 ALL DEBUGGER TESTS PASSED! 🎉${NC}"
         echo -e "${GREEN}The integrated debugger is production-ready!${NC}"
-        echo -e "${GREEN}This unique feature sets Lusush apart from other shells.${NC}"
+        echo -e "${GREEN}This unique feature sets Lush apart from other shells.${NC}"
         exit_code=0
     elif [[ $pass_rate -ge 90 ]]; then
         echo -e "\n${GREEN}EXCELLENT DEBUGGER QUALITY${NC} - Very high success rate"
@@ -582,7 +582,7 @@ generate_debugger_report() {
 
     echo -e "\n${BLUE}Unique Value Proposition:${NC}"
     echo "The integrated debugger accessible via the 'debug' builtin command"
-    echo "is Lusush's truly unique feature. This comprehensive testing validates"
+    echo "is Lush's truly unique feature. This comprehensive testing validates"
     echo "its production readiness and demonstrates significant differentiation"
     echo "from all other shells in the market."
 
@@ -600,7 +600,7 @@ generate_debugger_report() {
         echo "✅ The integrated debugger is ready for v1.3.0 release"
         echo "✅ Highlight this unique competitive advantage in documentation"
         echo "✅ Include debugger examples in user guides and tutorials"
-        echo "✅ This feature justifies Lusush's position as an advanced shell"
+        echo "✅ This feature justifies Lush's position as an advanced shell"
     else
         echo "⚠ Address failing test cases before highlighting debugger in release"
         echo "⚠ Focus on stability and core functionality improvements"
@@ -608,22 +608,22 @@ generate_debugger_report() {
     fi
 
     echo -e "\nDebugger QA completed at: $(date)"
-    echo -e "${BLUE}This validates Lusush's unique market position with integrated debugging.${NC}"
+    echo -e "${BLUE}This validates Lush's unique market position with integrated debugging.${NC}"
 
     return $exit_code
 }
 
 # Main execution
 main() {
-    print_header "LUSUSH INTEGRATED DEBUGGER COMPREHENSIVE QA - REVISED"
+    print_header "LUSH INTEGRATED DEBUGGER COMPREHENSIVE QA - REVISED"
     echo "Version: 2.0.0 - Using actual debug builtin interface"
-    echo "Target: Lusush v1.3.0 Integrated Debugger Production Readiness"
-    echo "Shell under test: $LUSUSH_BINARY"
+    echo "Target: Lush v1.3.0 Integrated Debugger Production Readiness"
+    echo "Shell under test: $LUSH_BINARY"
     echo "Started at: $(date)"
 
     # Verify shell exists
-    if [[ ! -x "$LUSUSH_BINARY" ]]; then
-        echo -e "${RED}ERROR: Shell binary not found: $LUSUSH_BINARY${NC}"
+    if [[ ! -x "$LUSH_BINARY" ]]; then
+        echo -e "${RED}ERROR: Shell binary not found: $LUSH_BINARY${NC}"
         exit 1
     fi
 

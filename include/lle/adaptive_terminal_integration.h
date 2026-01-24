@@ -198,9 +198,9 @@ typedef struct {
     void *completion;      /* lle_completion_system_t */
     void *input_processor; /* lle_input_processor_t */
 
-    /* Integration with Lusush systems */
-    lusush_memory_pool_t *memory_pool;
-    void *display_context; /* lusush_display_context_t */
+    /* Integration with Lush systems */
+    lush_memory_pool_t *memory_pool;
+    void *display_context; /* lush_display_context_t */
 
     /* Performance monitoring */
     lle_performance_monitor_t *performance_monitor;
@@ -379,7 +379,7 @@ void lle_adaptive_interface_destroy(lle_adaptive_interface_t *interface);
 lle_result_t lle_initialize_adaptive_context(
     lle_adaptive_context_t **context,
     const lle_terminal_detection_result_t *detection_result,
-    lusush_memory_pool_t *memory_pool);
+    lush_memory_pool_t *memory_pool);
 
 /**
  * Destroy adaptive context and free resources.

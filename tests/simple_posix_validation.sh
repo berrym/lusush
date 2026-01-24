@@ -4,13 +4,13 @@
 # SIMPLE POSIX OPTIONS VALIDATION
 # =============================================================================
 #
-# Manual validation of the 24 POSIX options implemented in Lusush v1.3.0
+# Manual validation of the 24 POSIX options implemented in Lush v1.3.0
 # This script performs direct testing without complex shell nesting
 #
-# Author: AI Assistant for Lusush v1.3.0 QA
+# Author: AI Assistant for Lush v1.3.0 QA
 # =============================================================================
 
-LUSUSH="${1:-./build/lusush}"
+LUSH="${1:-./build/lush}"
 TOTAL_TESTS=0
 PASSED_TESTS=0
 FAILED_TESTS=0
@@ -50,19 +50,19 @@ test_result() {
 
 # Test if shell binary exists and is executable
 check_shell() {
-    if [[ -x "$LUSUSH" ]]; then
+    if [[ -x "$LUSH" ]]; then
         test_result "Shell binary exists and is executable" 0
         return 0
     else
         test_result "Shell binary exists and is executable" 1
-        echo -e "${RED}ERROR: Cannot find executable shell at $LUSUSH${NC}"
+        echo -e "${RED}ERROR: Cannot find executable shell at $LUSH${NC}"
         exit 1
     fi
 }
 
 # Test basic shell execution
 test_basic_execution() {
-    if echo "echo test" | "$LUSUSH" >/dev/null 2>&1; then
+    if echo "echo test" | "$LUSH" >/dev/null 2>&1; then
         test_result "Basic shell execution works" 0
     else
         test_result "Basic shell execution works" 1
@@ -80,7 +80,7 @@ test_set_o_options() {
     )
 
     local set_output
-    set_output=$(echo "set -o" | "$LUSUSH" 2>/dev/null)
+    set_output=$(echo "set -o" | "$LUSH" 2>/dev/null)
 
     for option in "${options[@]}"; do
         if echo "$set_output" | grep -q "$option"; then
@@ -96,7 +96,7 @@ test_cmdline_options() {
     local options=("-e" "-x" "-n" "-u" "-v" "-f" "-h" "-m" "-a")
 
     for opt in "${options[@]}"; do
-        if "$LUSUSH" "$opt" -c "true" >/dev/null 2>&1; then
+        if "$LUSH" "$opt" -c "true" >/dev/null 2>&1; then
             test_result "Command line option $opt is accepted" 0
         else
             test_result "Command line option $opt is accepted" 1
@@ -107,35 +107,35 @@ test_cmdline_options() {
 # Test specific option behaviors
 test_option_behaviors() {
     # Test -e (exit on error)
-    if ! "$LUSUSH" -e -c "false; echo should_not_print" 2>/dev/null | grep -q "should_not_print"; then
+    if ! "$LUSH" -e -c "false; echo should_not_print" 2>/dev/null | grep -q "should_not_print"; then
         test_result "-e option exits on command failure" 0
     else
         test_result "-e option exits on command failure" 1
     fi
 
     # Test -n (syntax check only - should not execute)
-    if ! "$LUSUSH" -n -c "echo should_not_execute" 2>/dev/null | grep -q "should_not_execute"; then
+    if ! "$LUSH" -n -c "echo should_not_execute" 2>/dev/null | grep -q "should_not_execute"; then
         test_result "-n option performs syntax check only" 0
     else
         test_result "-n option performs syntax check only" 1
     fi
 
     # Test -u (unset variable error)
-    if ! "$LUSUSH" -u -c 'echo $UNDEFINED_VAR' >/dev/null 2>&1; then
+    if ! "$LUSH" -u -c 'echo $UNDEFINED_VAR' >/dev/null 2>&1; then
         test_result "-u option errors on undefined variables" 0
     else
         test_result "-u option errors on undefined variables" 1
     fi
 
     # Test set -e through set command
-    if ! echo "set -e; false; echo should_not_print" | "$LUSUSH" 2>/dev/null | grep -q "should_not_print"; then
+    if ! echo "set -e; false; echo should_not_print" | "$LUSH" 2>/dev/null | grep -q "should_not_print"; then
         test_result "set -e exits on command failure" 0
     else
         test_result "set -e exits on command failure" 1
     fi
 
     # Test set -u through set command
-    if ! echo 'set -u; echo $UNDEFINED_VAR' | "$LUSUSH" >/dev/null 2>&1; then
+    if ! echo 'set -u; echo $UNDEFINED_VAR' | "$LUSH" >/dev/null 2>&1; then
         test_result "set -u errors on undefined variables" 0
     else
         test_result "set -u errors on undefined variables" 1
@@ -146,7 +146,7 @@ test_option_behaviors() {
 test_option_state_changes() {
     # Test enabling/disabling emacs/vi modes
     local output
-    output=$(echo "set -o vi; set -o | grep -E '(emacs|vi)'" | "$LUSUSH" 2>/dev/null)
+    output=$(echo "set -o vi; set -o | grep -E '(emacs|vi)'" | "$LUSH" 2>/dev/null)
 
     if echo "$output" | grep -q "set -o vi" && echo "$output" | grep -q "set +o emacs"; then
         test_result "vi/emacs mode switching works correctly" 0
@@ -155,7 +155,7 @@ test_option_state_changes() {
     fi
 
     # Test multiple option combinations
-    if echo "set -eu; echo 'combined options work'" | "$LUSUSH" >/dev/null 2>&1; then
+    if echo "set -eu; echo 'combined options work'" | "$LUSH" >/dev/null 2>&1; then
         test_result "Multiple option combinations work" 0
     else
         test_result "Multiple option combinations work" 1
@@ -165,14 +165,14 @@ test_option_state_changes() {
 # Test error handling
 test_error_handling() {
     # Test invalid short option
-    if ! "$LUSUSH" -Z -c "true" >/dev/null 2>&1; then
+    if ! "$LUSH" -Z -c "true" >/dev/null 2>&1; then
         test_result "Invalid short options are rejected" 0
     else
         test_result "Invalid short options are rejected" 1
     fi
 
     # Test invalid set -o option
-    if ! echo "set -o invalid_option" | "$LUSUSH" >/dev/null 2>&1; then
+    if ! echo "set -o invalid_option" | "$LUSH" >/dev/null 2>&1; then
         test_result "Invalid set -o options are rejected" 0
     else
         test_result "Invalid set -o options are rejected" 1
@@ -182,28 +182,28 @@ test_error_handling() {
 # Test POSIX compliance basics
 test_posix_compliance() {
     # Test set command shows variables
-    if echo "set | head -5" | "$LUSUSH" 2>/dev/null | grep -q "="; then
+    if echo "set | head -5" | "$LUSH" 2>/dev/null | grep -q "="; then
         test_result "set command shows shell variables" 0
     else
         test_result "set command shows shell variables" 1
     fi
 
     # Test positional parameters
-    if echo 'set -- a b c; echo $#' | "$LUSUSH" 2>/dev/null | grep -q "3"; then
+    if echo 'set -- a b c; echo $#' | "$LUSH" 2>/dev/null | grep -q "3"; then
         test_result "Positional parameter handling works" 0
     else
         test_result "Positional parameter handling works" 1
     fi
 
     # Test that successful commands return 0
-    if echo "true" | "$LUSUSH" >/dev/null 2>&1; then
+    if echo "true" | "$LUSH" >/dev/null 2>&1; then
         test_result "Successful commands return exit code 0" 0
     else
         test_result "Successful commands return exit code 0" 1
     fi
 
     # Test that failed commands return non-zero
-    if ! echo "false" | "$LUSUSH" >/dev/null 2>&1; then
+    if ! echo "false" | "$LUSH" >/dev/null 2>&1; then
         test_result "Failed commands return non-zero exit code" 0
     else
         test_result "Failed commands return non-zero exit code" 1
@@ -213,7 +213,7 @@ test_posix_compliance() {
 # Main test execution
 main() {
     print_header "SIMPLE POSIX OPTIONS VALIDATION"
-    echo "Testing shell: $LUSUSH"
+    echo "Testing shell: $LUSH"
     echo "Started at: $(date)"
 
     print_section "Basic Functionality"
@@ -247,7 +247,7 @@ main() {
 
     if [[ $FAILED_TESTS -eq 0 ]]; then
         echo -e "\n${GREEN}🎉 ALL TESTS PASSED! 🎉${NC}"
-        echo -e "${GREEN}Lusush demonstrates excellent POSIX compliance!${NC}"
+        echo -e "${GREEN}Lush demonstrates excellent POSIX compliance!${NC}"
         echo -e "\n${GREEN}VALIDATION COMPLETE: All 24 POSIX options are implemented and functional${NC}"
         exit_code=0
     else
@@ -277,7 +277,7 @@ main() {
     echo "✓ Functionality: Option state management, error handling, POSIX compliance"
 
     echo -e "\n${BLUE}This validation confirms the comprehensive POSIX options implementation${NC}"
-    echo -e "${BLUE}as documented in the handoff document for Lusush v1.3.0${NC}"
+    echo -e "${BLUE}as documented in the handoff document for Lush v1.3.0${NC}"
 
     echo -e "\nTest completed at: $(date)"
 

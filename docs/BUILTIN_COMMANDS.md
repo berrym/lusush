@@ -1,6 +1,6 @@
 # Builtin Commands Reference
 
-**All 50 shell builtin commands in Lusush v1.5.0**
+**All 50 shell builtin commands in Lush v1.5.0**
 
 ---
 
@@ -9,14 +9,14 @@
 1. [Overview](#overview)
 2. [POSIX Standard Builtins](#posix-standard-builtins)
 3. [Extended Builtins](#extended-builtins)
-4. [Lusush-Specific Builtins](#lusush-specific-builtins)
+4. [Lush-Specific Builtins](#lush-specific-builtins)
 5. [Quick Reference](#quick-reference)
 
 ---
 
 ## Overview
 
-Lusush provides 48 builtin commands. These execute within the shell process without spawning external programs, making them faster and giving them access to shell internals.
+Lush provides 48 builtin commands. These execute within the shell process without spawning external programs, making them faster and giving them access to shell internals.
 
 ### Builtin Categories
 
@@ -25,7 +25,7 @@ Lusush provides 48 builtin commands. These execute within the shell process with
 | POSIX Standard | `:`, `.`, `break`, `continue`, `eval`, `exec`, `exit`, `export`, `readonly`, `return`, `set`, `shift`, `trap`, `unset` |
 | POSIX Utilities | `alias`, `bg`, `cd`, `command`, `fc`, `fg`, `getopts`, `hash`, `jobs`, `pwd`, `read`, `test`, `times`, `type`, `ulimit`, `umask`, `unalias`, `wait` |
 | Extended | `declare`, `echo`, `false`, `help`, `history`, `local`, `printf`, `source`, `true`, `typeset`, `[` |
-| Lusush-Specific | `clear`, `config`, `debug`, `display`, `network`, `setopt`, `terminal`, `unsetopt` |
+| Lush-Specific | `clear`, `config`, `debug`, `display`, `network`, `setopt`, `terminal`, `unsetopt` |
 
 ---
 
@@ -536,7 +536,7 @@ done
 
 ---
 
-## Lusush-Specific Builtins
+## Lush-Specific Builtins
 
 ### `clear`
 

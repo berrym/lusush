@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # =============================================================================
-# LUSUSH COMPREHENSIVE SHELL COMPLIANCE TEST SUITE
+# LUSH COMPREHENSIVE SHELL COMPLIANCE TEST SUITE
 # =============================================================================
 #
-# This test suite provides comprehensive evaluation of lusush shell compliance
+# This test suite provides comprehensive evaluation of lush shell compliance
 # with POSIX standards and compatibility with bash/zsh advanced features.
 #
 # Test Categories:
@@ -31,7 +31,7 @@
 # Target: Complete POSIX + Modern Shell Compliance Assessment
 # =============================================================================
 
-SHELL_UNDER_TEST="${1:-./build/lusush}"
+SHELL_UNDER_TEST="${1:-./build/lush}"
 TOTAL_TESTS=0
 PASSED_TESTS=0
 FAILED_TESTS=0
@@ -1077,7 +1077,7 @@ calculate_final_score() {
 # =============================================================================
 
 main() {
-    print_header "LUSUSH COMPREHENSIVE SHELL COMPLIANCE TEST SUITE"
+    print_header "LUSH COMPREHENSIVE SHELL COMPLIANCE TEST SUITE"
 
     echo -e "${CYAN}Testing shell: $SHELL_UNDER_TEST${NC}"
     echo -e "${CYAN}Started at: $(date)${NC}"

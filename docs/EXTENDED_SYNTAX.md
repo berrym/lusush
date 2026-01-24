@@ -2,7 +2,7 @@
 
 **Modern shell features beyond POSIX**
 
-Lusush mode (the default) and Bash/Zsh compatibility modes support extended syntax that goes beyond the POSIX shell specification. This document covers all extended language features.
+Lush mode (the default) and Bash/Zsh compatibility modes support extended syntax that goes beyond the POSIX shell specification. This document covers all extended language features.
 
 ---
 
@@ -23,7 +23,7 @@ Lusush mode (the default) and Bash/Zsh compatibility modes support extended synt
 
 ## Arrays
 
-Lusush supports both indexed and associative arrays.
+Lush supports both indexed and associative arrays.
 
 ### Indexed Arrays
 
@@ -139,7 +139,7 @@ fi
 
 ## Arithmetic
 
-Lusush provides several ways to perform arithmetic.
+Lush provides several ways to perform arithmetic.
 
 ### Arithmetic Expansion
 
@@ -594,7 +594,7 @@ fi
 
 ## Glob Qualifiers
 
-Filter glob results by file attributes. Available in Zsh and Lusush modes.
+Filter glob results by file attributes. Available in Zsh and Lush modes.
 
 ### Basic Qualifiers
 
@@ -821,7 +821,7 @@ Immediate execution:
 
 ## Mode Requirements
 
-| Feature | POSIX | Bash | Zsh | Lusush |
+| Feature | POSIX | Bash | Zsh | Lush |
 |---------|-------|------|-----|--------|
 | Indexed arrays | No | Yes | Yes | Yes |
 | Associative arrays | No | Yes | Yes | Yes |
@@ -840,13 +840,13 @@ Immediate execution:
 To check your current mode:
 
 ```bash
-set -o | grep -E "posix|bash|zsh|lusush"
+set -o | grep -E "posix|bash|zsh|lush"
 ```
 
 To change mode:
 
 ```bash
-set -o lusush    # Default, all features
+set -o lush    # Default, all features
 set -o bash      # Bash compatibility
 set -o zsh       # Zsh compatibility
 set -o posix     # Strict POSIX

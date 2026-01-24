@@ -387,7 +387,7 @@ TEST(parse_for_loop) {
 
 TEST(parse_for_loop_no_in) {
     /* POSIX: for without 'in' iterates over positional params ($@)
-     * Issue #55 - FIXED: lusush now supports this valid POSIX syntax */
+     * Issue #55 - FIXED: lush now supports this valid POSIX syntax */
     parser_t *parser = parser_new("for arg; do echo $arg; done");
     ASSERT_NOT_NULL(parser, "parser_new failed");
     
@@ -454,7 +454,7 @@ TEST(parse_case_with_patterns) {
 
 TEST(parse_function_keyword) {
     /* ksh/bash style: function name { body; }
-     * Issue #56 - FIXED: lusush now supports this syntax */
+     * Issue #56 - FIXED: lush now supports this syntax */
     parser_t *parser = parser_new("function foo { echo bar; }");
     ASSERT_NOT_NULL(parser, "parser_new failed");
     

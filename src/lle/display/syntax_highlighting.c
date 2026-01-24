@@ -23,7 +23,7 @@
 #include <time.h>
 #include <unistd.h>
 
-/* Include lusush headers for command/alias/builtin checks */
+/* Include lush headers for command/alias/builtin checks */
 #include "alias.h"
 #include "builtins.h"
 

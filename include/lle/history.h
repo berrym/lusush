@@ -9,12 +9,12 @@
  * Status: Phase 1 Day 1 - Core Structures and Lifecycle
  *
  * Provides comprehensive command history management with forensic-grade
- * capabilities, seamless Lusush integration, and advanced features including
+ * capabilities, seamless Lush integration, and advanced features including
  * intelligent search, deduplication, and multiline command support.
  *
  * IMPLEMENTATION PHASES:
  * - Phase 1 (Days 1-4): Core engine, indexing, persistence
- * - Phase 2 (Days 5-7): Lusush integration, event system
+ * - Phase 2 (Days 5-7): Lush integration, event system
  * - Phase 3 (Days 8-10): Search and navigation
  * - Phase 4 (Days 11-14): Advanced features (forensics, dedup, multiline)
  */
@@ -89,7 +89,7 @@ typedef enum lle_history_dedup_strategy {
 /* File format */
 #define LLE_HISTORY_FILE_MAGIC "LLE_HISTORY_V1"
 #define LLE_HISTORY_FILE_VERSION 1
-#define LLE_HISTORY_DEFAULT_FILE ".lusush_history"
+#define LLE_HISTORY_DEFAULT_FILE ".lush_history"
 
 /* ============================================================================
  * ENUMERATIONS
@@ -476,7 +476,7 @@ lle_result_t lle_history_append_entry(const lle_history_entry_t *entry,
                                       const char *file_path);
 
 /* ============================================================================
- * LUSUSH INTEGRATION BRIDGE (Phase 2 Day 5)
+ * LUSH INTEGRATION BRIDGE (Phase 2 Day 5)
  * ============================================================================
  */
 
@@ -484,10 +484,10 @@ lle_result_t lle_history_append_entry(const lle_history_entry_t *entry,
 typedef struct posix_history_manager posix_history_manager_t;
 
 /**
- * Initialize Lusush history bridge
+ * Initialize Lush history bridge
  *
  * Establishes bidirectional synchronization between LLE history core
- * and existing Lusush history systems (GNU Readline, POSIX history).
+ * and existing Lush history systems (GNU Readline, POSIX history).
  *
  * @param lle_core LLE history core instance
  * @param posix_manager POSIX history manager (can be NULL)
@@ -1604,7 +1604,7 @@ lle_result_t lle_history_detect_multiline(const char *command,
 /**
  * Detect multiline structure with detailed analysis
  *
- * Uses Lusush continuation system to analyze shell constructs,
+ * Uses Lush continuation system to analyze shell constructs,
  * quotes, brackets, and control structures.
  *
  * @param command Command text to analyze

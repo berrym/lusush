@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # =============================================================================
-# LUSUSH COMPREHENSIVE REGRESSION TEST SUITE
+# LUSH COMPREHENSIVE REGRESSION TEST SUITE
 # =============================================================================
 #
-# Comprehensive quality assurance testing for Lusush v1.3.0 pre-release
+# Comprehensive quality assurance testing for Lush v1.3.0 pre-release
 # This test suite validates all implemented features without hanging or timing out
 #
 # Test Coverage:
@@ -15,7 +15,7 @@
 # - Integration between different features
 # - Performance and stability
 #
-# Author: AI Assistant for Lusush v1.3.0 QA
+# Author: AI Assistant for Lush v1.3.0 QA
 # Version: 1.0.0
 # Target: Complete validation of handoff document claims
 # =============================================================================
@@ -23,8 +23,8 @@
 set -euo pipefail
 
 # Configuration
-LUSUSH_BINARY="${1:-./build/lusush}"
-TEST_DIR="/tmp/lusush_regression_$$"
+LUSH_BINARY="${1:-./build/lush}"
+TEST_DIR="/tmp/lush_regression_$$"
 TOTAL_TESTS=0
 PASSED_TESTS=0
 FAILED_TESTS=0
@@ -136,16 +136,16 @@ test_shell_basics() {
     print_section "Binary and Execution"
 
     # Test binary exists and is executable
-    if [[ -x "$LUSUSH_BINARY" ]]; then
+    if [[ -x "$LUSH_BINARY" ]]; then
         test_result "Shell binary exists and is executable" 0
     else
-        test_result "Shell binary exists and is executable" 1 "Binary not found at $LUSUSH_BINARY"
+        test_result "Shell binary exists and is executable" 1 "Binary not found at $LUSH_BINARY"
         exit 1
     fi
 
     # Test basic command execution
     local output
-    if output=$(safe_exec "'$LUSUSH_BINARY' -c 'echo hello world'" 2); then
+    if output=$(safe_exec "'$LUSH_BINARY' -c 'echo hello world'" 2); then
         if [[ "$output" == "hello world" ]]; then
             test_result "Basic command execution works" 0
         else
@@ -156,14 +156,14 @@ test_shell_basics() {
     fi
 
     # Test help option
-    if safe_exec "'$LUSUSH_BINARY' --help" 2 >/dev/null; then
+    if safe_exec "'$LUSH_BINARY' --help" 2 >/dev/null; then
         test_result "Help option works" 0
     else
         test_result "Help option works" 1 "Help command failed"
     fi
 
     # Test version option
-    if safe_exec "'$LUSUSH_BINARY' --version" 2 >/dev/null; then
+    if safe_exec "'$LUSH_BINARY' --version" 2 >/dev/null; then
         test_result "Version option works" 0
     else
         test_result "Version option works" 1 "Version command failed"
@@ -176,7 +176,7 @@ test_posix_options_existence() {
 
     print_section "All Required Options Present"
 
-    # Note: lusush has 23 POSIX options in set -o output
+    # Note: lush has 23 POSIX options in set -o output
     # Brace expansion is controlled via setopt/unsetopt, not set -o
     local options=(
         "errexit" "xtrace" "noexec" "nounset" "verbose" "noglob"
@@ -187,7 +187,7 @@ test_posix_options_existence() {
     )
 
     local set_output
-    if set_output=$(safe_exec "echo 'set -o' | '$LUSUSH_BINARY'" 3); then
+    if set_output=$(safe_exec "echo 'set -o' | '$LUSH_BINARY'" 3); then
         for option in "${options[@]}"; do
             if echo "$set_output" | grep -q "$option"; then
                 test_result "Option '$option' exists in set -o output" 0
@@ -211,7 +211,7 @@ test_command_line_options() {
     local short_options=("-e" "-x" "-n" "-u" "-v" "-f" "-h" "-m" "-b" "-t")
 
     for opt in "${short_options[@]}"; do
-        if safe_exec "'$LUSUSH_BINARY' '$opt' -c 'echo test'" 2 >/dev/null; then
+        if safe_exec "'$LUSH_BINARY' '$opt' -c 'echo test'" 2 >/dev/null; then
             test_result "Command line option $opt is accepted" 0
         else
             test_result "Command line option $opt is accepted" 1 "Option rejected"
@@ -223,7 +223,7 @@ test_command_line_options() {
     # Test -e (exit on error)
     # With -e, shell should exit on 'false' and not execute 'echo should_not_appear'
     local output
-    if output=$(safe_exec "'$LUSUSH_BINARY' -e -c 'false; echo should_not_appear'" 2 1); then
+    if output=$(safe_exec "'$LUSH_BINARY' -e -c 'false; echo should_not_appear'" 2 1); then
         # Exit code 1 as expected - now verify output doesn't contain the echo
         if [[ "$output" != *"should_not_appear"* ]]; then
             test_result "-e option exits on command failure" 0
@@ -236,7 +236,7 @@ test_command_line_options() {
 
     # Test -n (syntax check only)
     local output
-    if output=$(safe_exec "'$LUSUSH_BINARY' -n -c 'echo should_not_execute'" 2); then
+    if output=$(safe_exec "'$LUSH_BINARY' -n -c 'echo should_not_execute'" 2); then
         if [[ "$output" != *"should_not_execute"* ]]; then
             test_result "-n option performs syntax check only" 0
         else
@@ -247,7 +247,7 @@ test_command_line_options() {
     fi
 
     # Test -u (unset variable error)
-    if safe_exec "'$LUSUSH_BINARY' -u -c 'echo \$UNDEFINED_VARIABLE'" 2 1 >/dev/null; then
+    if safe_exec "'$LUSH_BINARY' -u -c 'echo \$UNDEFINED_VARIABLE'" 2 1 >/dev/null; then
         test_result "-u option errors on undefined variables" 0
     else
         test_result "-u option errors on undefined variables" 1 "Should have failed on undefined variable"
@@ -262,7 +262,7 @@ test_builtin_commands() {
 
     # Test printf builtin
     local output
-    if output=$(safe_exec "echo 'printf \"hello %s\\n\" world' | '$LUSUSH_BINARY'" 2); then
+    if output=$(safe_exec "echo 'printf \"hello %s\\n\" world' | '$LUSH_BINARY'" 2); then
         if [[ "$output" == "hello world" ]]; then
             test_result "printf builtin works correctly" 0
         else
@@ -274,7 +274,7 @@ test_builtin_commands() {
 
     # Test printf with format specifiers
     local output
-    if output=$(safe_exec "echo 'printf \"%d %x\\n\" 255 255' | '$LUSUSH_BINARY'" 2); then
+    if output=$(safe_exec "echo 'printf \"%d %x\\n\" 255 255' | '$LUSH_BINARY'" 2); then
         if [[ "$output" == "255 ff" ]]; then
             test_result "printf format specifiers work" 0
         else
@@ -286,7 +286,7 @@ test_builtin_commands() {
 
     # Test echo builtin
     local output
-    if output=$(safe_exec "echo 'echo hello' | '$LUSUSH_BINARY'" 2); then
+    if output=$(safe_exec "echo 'echo hello' | '$LUSH_BINARY'" 2); then
         if [[ "$output" == "hello" ]]; then
             test_result "echo builtin works correctly" 0
         else
@@ -297,7 +297,7 @@ test_builtin_commands() {
     fi
 
     # Test test builtin
-    if safe_exec "echo 'test 1 -eq 1 && echo success' | '$LUSUSH_BINARY'" 2 >/dev/null; then
+    if safe_exec "echo 'test 1 -eq 1 && echo success' | '$LUSH_BINARY'" 2 >/dev/null; then
         test_result "test builtin works correctly" 0
     else
         test_result "test builtin works correctly" 1 "test command failed"
@@ -311,14 +311,14 @@ test_option_state_management() {
     print_section "Set Command Functionality"
 
     # Test set -e through set command
-    if safe_exec "echo 'set -e; false; echo should_not_appear' | '$LUSUSH_BINARY'" 2 1 >/dev/null; then
+    if safe_exec "echo 'set -e; false; echo should_not_appear' | '$LUSH_BINARY'" 2 1 >/dev/null; then
         test_result "set -e exits on command failure" 0
     else
         test_result "set -e exits on command failure" 1 "Should have exited on false command"
     fi
 
     # Test set -u through set command
-    if safe_exec "echo 'set -u; echo \$UNDEFINED_VAR' | '$LUSUSH_BINARY'" 2 1 >/dev/null; then
+    if safe_exec "echo 'set -u; echo \$UNDEFINED_VAR' | '$LUSH_BINARY'" 2 1 >/dev/null; then
         test_result "set -u errors on undefined variables" 0
     else
         test_result "set -u errors on undefined variables" 1 "Should have failed on undefined variable"
@@ -327,7 +327,7 @@ test_option_state_management() {
     print_section "Option Combinations"
 
     # Test multiple options
-    if safe_exec "echo 'set -eu; echo success' | '$LUSUSH_BINARY'" 2 >/dev/null; then
+    if safe_exec "echo 'set -eu; echo success' | '$LUSH_BINARY'" 2 >/dev/null; then
         test_result "Multiple options can be combined" 0
     else
         test_result "Multiple options can be combined" 1 "Option combination failed"
@@ -337,7 +337,7 @@ test_option_state_management() {
 
     # Test emacs/vi mode switching
     local output
-    if output=$(safe_exec "echo 'set -o vi; set -o | grep -E \"(emacs|vi)\"' | '$LUSUSH_BINARY'" 3); then
+    if output=$(safe_exec "echo 'set -o vi; set -o | grep -E \"(emacs|vi)\"' | '$LUSH_BINARY'" 3); then
         if [[ "$output" == *"set -o vi"* ]] && [[ "$output" == *"set +o emacs"* ]]; then
             test_result "vi/emacs mode switching works" 0
         else
@@ -355,14 +355,14 @@ test_error_handling() {
     print_section "Invalid Options"
 
     # Test invalid short option
-    if safe_exec "'$LUSUSH_BINARY' -Z -c 'echo test'" 2 1 >/dev/null; then
+    if safe_exec "'$LUSH_BINARY' -Z -c 'echo test'" 2 1 >/dev/null; then
         test_result "Invalid short options are rejected" 0
     else
         test_result "Invalid short options are rejected" 1 "Should have rejected invalid option"
     fi
 
     # Test invalid set -o option
-    if safe_exec "echo 'set -o invalid_option' | '$LUSUSH_BINARY'" 2 1 >/dev/null; then
+    if safe_exec "echo 'set -o invalid_option' | '$LUSH_BINARY'" 2 1 >/dev/null; then
         test_result "Invalid set -o options are rejected" 0
     else
         test_result "Invalid set -o options are rejected" 1 "Should have rejected invalid option"
@@ -371,7 +371,7 @@ test_error_handling() {
     print_section "Syntax Error Handling"
 
     # Test syntax error detection
-    if safe_exec "'$LUSUSH_BINARY' -c 'if [ 1 -eq 1'" 2 1 >/dev/null; then
+    if safe_exec "'$LUSH_BINARY' -c 'if [ 1 -eq 1'" 2 1 >/dev/null; then
         test_result "Syntax errors are detected" 0
     else
         test_result "Syntax errors are detected" 1 "Should have detected syntax error"
@@ -386,7 +386,7 @@ test_advanced_features() {
 
     # Test interactive comments
     local output
-    if output=$(safe_exec "echo 'echo hello # this is a comment' | '$LUSUSH_BINARY'" 2); then
+    if output=$(safe_exec "echo 'echo hello # this is a comment' | '$LUSH_BINARY'" 2); then
         if [[ "$output" == "hello" ]]; then
             test_result "Interactive comments work correctly" 0
         else
@@ -400,7 +400,7 @@ test_advanced_features() {
 
     # Test brace expansion (default enabled)
     local output
-    if output=$(safe_exec "echo 'echo {a,b,c}' | '$LUSUSH_BINARY'" 2); then
+    if output=$(safe_exec "echo 'echo {a,b,c}' | '$LUSH_BINARY'" 2); then
         if [[ "$output" == "a b c" ]]; then
             test_result "Brace expansion works when enabled" 0
         else
@@ -414,7 +414,7 @@ test_advanced_features() {
 
     # Test function definition and execution
     local output
-    if output=$(safe_exec "echo 'test_func() { echo function_works; }; test_func' | '$LUSUSH_BINARY'" 3); then
+    if output=$(safe_exec "echo 'test_func() { echo function_works; }; test_func' | '$LUSH_BINARY'" 3); then
         if [[ "$output" == "function_works" ]]; then
             test_result "Function definition and execution works" 0
         else
@@ -433,7 +433,7 @@ test_posix_compliance() {
 
     # Test positional parameters
     local output
-    if output=$(safe_exec "echo 'set -- a b c; echo \$#' | '$LUSUSH_BINARY'" 2); then
+    if output=$(safe_exec "echo 'set -- a b c; echo \$#' | '$LUSH_BINARY'" 2); then
         if [[ "$output" == "3" ]]; then
             test_result "Positional parameters work correctly" 0
         else
@@ -444,13 +444,13 @@ test_posix_compliance() {
     fi
 
     # Test exit codes
-    if safe_exec "echo 'true' | '$LUSUSH_BINARY'" 2 0 >/dev/null; then
+    if safe_exec "echo 'true' | '$LUSH_BINARY'" 2 0 >/dev/null; then
         test_result "true command returns exit code 0" 0
     else
         test_result "true command returns exit code 0" 1 "true should return 0"
     fi
 
-    if safe_exec "echo 'false' | '$LUSUSH_BINARY'" 2 1 >/dev/null; then
+    if safe_exec "echo 'false' | '$LUSH_BINARY'" 2 1 >/dev/null; then
         test_result "false command returns exit code 1" 0
     else
         test_result "false command returns exit code 1" 1 "false should return 1"
@@ -460,7 +460,7 @@ test_posix_compliance() {
 
     # Test variable assignment and retrieval
     local output
-    if output=$(safe_exec "echo 'VAR=test; echo \$VAR' | '$LUSUSH_BINARY'" 2); then
+    if output=$(safe_exec "echo 'VAR=test; echo \$VAR' | '$LUSH_BINARY'" 2); then
         if [[ "$output" == "test" ]]; then
             test_result "Variable assignment and retrieval works" 0
         else
@@ -480,7 +480,7 @@ test_performance_stability() {
     # Test that basic commands execute quickly
     local start_time end_time duration
     start_time=$(date +%s%N)
-    if safe_exec "echo 'echo performance_test' | '$LUSUSH_BINARY'" 1 >/dev/null; then
+    if safe_exec "echo 'echo performance_test' | '$LUSH_BINARY'" 1 >/dev/null; then
         end_time=$(date +%s%N)
         duration=$(( (end_time - start_time) / 1000000 ))  # Convert to milliseconds
 
@@ -501,7 +501,7 @@ test_performance_stability() {
         large_echo+="word$i "
     done
 
-    if safe_exec "echo '$large_echo' | '$LUSUSH_BINARY'" 3 >/dev/null; then
+    if safe_exec "echo '$large_echo' | '$LUSH_BINARY'" 3 >/dev/null; then
         test_result "Handles moderately large commands" 0
     else
         test_result "Handles moderately large commands" 1 "Large command test failed"
@@ -523,14 +523,14 @@ if [ "$VAR" = "hello" ]; then
     echo "condition works"
 fi
 '
-    if safe_exec "echo '$script_content' | '$LUSUSH_BINARY'" 3 >/dev/null; then
+    if safe_exec "echo '$script_content' | '$LUSH_BINARY'" 3 >/dev/null; then
         test_result "Script-like usage pattern works" 0
     else
         test_result "Script-like usage pattern works" 1 "Script pattern failed"
     fi
 
     # Test command chaining
-    if safe_exec "echo 'echo first && echo second || echo third' | '$LUSUSH_BINARY'" 2 >/dev/null; then
+    if safe_exec "echo 'echo first && echo second || echo third' | '$LUSH_BINARY'" 2 >/dev/null; then
         test_result "Command chaining works" 0
     else
         test_result "Command chaining works" 1 "Command chaining failed"
@@ -577,24 +577,24 @@ generate_report() {
     local exit_code
     if [[ $FAILED_TESTS -eq 0 ]]; then
         echo -e "\n${GREEN}🎉 ALL TESTS PASSED! 🎉${NC}"
-        echo -e "${GREEN}Lusush v1.3.0 demonstrates excellent quality and POSIX compliance!${NC}"
+        echo -e "${GREEN}Lush v1.3.0 demonstrates excellent quality and POSIX compliance!${NC}"
         echo -e "${GREEN}Ready for pre-release distribution and further quality assurance.${NC}"
         exit_code=0
     elif [[ $pass_rate -ge 95 ]]; then
         echo -e "\n${GREEN}EXCELLENT QUALITY${NC} - Very high success rate with minimal issues"
-        echo -e "${GREEN}Lusush is in excellent condition for pre-release.${NC}"
+        echo -e "${GREEN}Lush is in excellent condition for pre-release.${NC}"
         exit_code=0
     elif [[ $pass_rate -ge 90 ]]; then
         echo -e "\n${YELLOW}VERY GOOD QUALITY${NC} - High success rate with minor issues"
-        echo -e "${YELLOW}Lusush is in very good condition, minor fixes recommended.${NC}"
+        echo -e "${YELLOW}Lush is in very good condition, minor fixes recommended.${NC}"
         exit_code=0
     elif [[ $pass_rate -ge 80 ]]; then
         echo -e "\n${YELLOW}GOOD QUALITY${NC} - Reasonable success rate, some attention needed"
-        echo -e "${YELLOW}Lusush has good functionality but needs some fixes before release.${NC}"
+        echo -e "${YELLOW}Lush has good functionality but needs some fixes before release.${NC}"
         exit_code=1
     else
         echo -e "\n${RED}NEEDS SIGNIFICANT WORK${NC} - Low success rate, major issues present"
-        echo -e "${RED}Lusush requires substantial fixes before release consideration.${NC}"
+        echo -e "${RED}Lush requires substantial fixes before release consideration.${NC}"
         exit_code=2
     fi
 
@@ -612,7 +612,7 @@ generate_report() {
 
     echo -e "\n${BLUE}Quality Assurance Status:${NC}"
     echo "This comprehensive regression test validates the core functionality"
-    echo "and POSIX compliance claims made in the handoff document for Lusush v1.3.0."
+    echo "and POSIX compliance claims made in the handoff document for Lush v1.3.0."
     echo ""
     echo "The test suite covers basic functionality, all 24 POSIX options,"
     echo "built-in commands, error handling, and integration scenarios"
@@ -626,10 +626,10 @@ generate_report() {
 
 # Main execution
 main() {
-    print_header "LUSUSH COMPREHENSIVE REGRESSION TEST SUITE"
+    print_header "LUSH COMPREHENSIVE REGRESSION TEST SUITE"
     echo "Version: 1.0.0"
-    echo "Target: Lusush v1.3.0 Pre-release Quality Assurance"
-    echo "Shell under test: $LUSUSH_BINARY"
+    echo "Target: Lush v1.3.0 Pre-release Quality Assurance"
+    echo "Shell under test: $LUSH_BINARY"
     echo "Started at: $(date)"
 
     setup_test_env

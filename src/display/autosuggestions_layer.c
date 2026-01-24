@@ -2,7 +2,7 @@
  * @file autosuggestions_layer.c
  * @brief Autosuggestions Layer - Fish-like Autosuggestions Integration
  *
- * Part of the Lusush Shell Layered Display Architecture.
+ * Part of the Lush Shell Layered Display Architecture.
  * Provides inline command suggestions based on history and completions.
  *
  * @author Michael Berry <trismegustis@gmail.com>
@@ -11,7 +11,7 @@
  *
  * AUTOSUGGESTIONS LAYER IMPLEMENTATION
  *
- * This module implements the autosuggestions layer for the Lusush layered
+ * This module implements the autosuggestions layer for the Lush layered
  * display system. It provides Fish-like autosuggestions that integrate
  * seamlessly with the existing display architecture, eliminating the display
  * corruption issues caused by direct terminal control sequences.

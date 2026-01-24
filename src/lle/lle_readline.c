@@ -34,7 +34,7 @@
  * - SIGTSTP: Ctrl-Z handled by terminal_unix_interface (exits raw mode before
  * suspend)
  * - SIGCONT: Resume handled by terminal_unix_interface (re-enters raw mode)
- * - SIGINT: Ctrl-C coordinated with lusush's signal handler (src/signals.c)
+ * - SIGINT: Ctrl-C coordinated with lush's signal handler (src/signals.c)
  *   - Signal handler sets flag when SIGINT received during readline
  *   - Input loop checks flag and aborts line with ^C echo (bash-like behavior)
  *   - User gets fresh prompt without exiting shell
@@ -59,7 +59,7 @@
 #include "config.h" /* For config_values_t and history config options */
 #include "display/display_controller.h"
 #include "display/prompt_layer.h"
-#include "display_integration.h" /* Lusush display integration */
+#include "display_integration.h" /* Lush display integration */
 #include "input_continuation.h"
 #include "lle/arena.h" /* Hierarchical arena allocator */
 #include "lle/buffer_management.h"
@@ -114,14 +114,14 @@ lle_editor_t *lle_get_global_editor(void) {
 }
 
 /**
- * @brief Populate LLE history config from Lusush config system
+ * @brief Populate LLE history config from Lush config system
  * Maps LLE history config options from config.h to lle_history_config_t
  *
- * This bridges Lusush's config system with LLE's history core, ensuring
+ * This bridges Lush's config system with LLE's history core, ensuring
  * all user preferences are properly applied to the history subsystem.
  */
 static void
-populate_history_config_from_lusush_config(lle_history_config_t *hist_config) {
+populate_history_config_from_lush_config(lle_history_config_t *hist_config) {
     if (!hist_config)
         return;
 
@@ -139,7 +139,7 @@ populate_history_config_from_lusush_config(lle_history_config_t *hist_config) {
         hist_config->history_file_path = config.lle_history_file;
     } else {
         hist_config->history_file_path =
-            NULL; /* Use default ~/.lusush_history */
+            NULL; /* Use default ~/.lush_history */
     }
     hist_config->auto_save = true;    /* Always auto-save for safety */
     hist_config->load_on_init = true; /* Load existing history on startup */
@@ -798,7 +798,7 @@ static bool is_input_incomplete(const char *buffer_data,
  * PROPER IMPLEMENTATION: Uses Spec 08 display integration components:
  * - render_controller: Coordinates rendering operations
  * - render_cache: Caches rendered output for performance
- * - display_bridge: Communicates with Lusush display system
+ * - display_bridge: Communicates with Lush display system
  *
  * This is the CORRECT way to render - using the Spec 08 rendering pipeline
  * instead of calling display_controller directly.
@@ -1120,7 +1120,7 @@ static lle_result_t handle_enter(lle_event_t *event, void *user_data) {
         const char *home = getenv("HOME");
         if (home) {
             char history_path[1024];
-            snprintf(history_path, sizeof(history_path), "%s/.lusush_history",
+            snprintf(history_path, sizeof(history_path), "%s/.lush_history",
                      home);
             lle_history_save_to_file(ctx->editor->history_system, history_path);
         }
@@ -1258,7 +1258,7 @@ lle_result_t lle_accept_line_context(readline_context_t *ctx) {
         const char *home = getenv("HOME");
         if (home) {
             char history_path[1024];
-            snprintf(history_path, sizeof(history_path), "%s/.lusush_history",
+            snprintf(history_path, sizeof(history_path), "%s/.lush_history",
                      home);
             lle_history_save_to_file(ctx->editor->history_system, history_path);
         }
@@ -1332,7 +1332,7 @@ static lle_result_t handle_eof(lle_event_t *event, void *user_data) {
 
 /*
  * NOTE: handle_interrupt() removed - Ctrl+C now handled via SIGINT signal.
- * With ISIG enabled in raw mode, Ctrl+C generates SIGINT caught by lusush's
+ * With ISIG enabled in raw mode, Ctrl+C generates SIGINT caught by lush's
  * sigint_handler() in src/signals.c, which properly manages child processes.
  */
 
@@ -1586,13 +1586,13 @@ static lle_result_t handle_clear_screen(lle_event_t *event, void *user_data) {
     /* Get the global display integration instance */
     lle_display_integration_t *display_integration =
         lle_display_integration_get_global();
-    if (!display_integration || !display_integration->lusush_display) {
+    if (!display_integration || !display_integration->lush_display) {
         return LLE_ERROR_INVALID_STATE;
     }
 
     /* Clear screen through display controller */
     display_controller_error_t result =
-        display_controller_clear_screen(display_integration->lusush_display);
+        display_controller_clear_screen(display_integration->lush_display);
     if (result != DISPLAY_CONTROLLER_SUCCESS) {
         return LLE_ERROR_DISPLAY_INTEGRATION;
     }
@@ -2462,7 +2462,7 @@ char *lle_readline(const char *prompt) {
      * a pipe or file, we cannot use raw mode terminal features. Fall back
      * to simple getline() for input while still showing the prompt.
      *
-     * This handles: echo "cmd" | lusush -i
+     * This handles: echo "cmd" | lush -i
      */
     if (!isatty(STDIN_FILENO)) {
         /* Print prompt to stdout if provided */
@@ -2498,7 +2498,7 @@ char *lle_readline(const char *prompt) {
     /* === STEP 1: Create terminal abstraction instance === */
     lle_terminal_abstraction_t *term = NULL;
     result = lle_terminal_abstraction_init(
-        &term, (lusush_display_context_t *)display_controller);
+        &term, (lush_display_context_t *)display_controller);
     if (result != LLE_SUCCESS || term == NULL) {
         /* Failed to initialize terminal abstraction */
         return NULL;
@@ -2610,9 +2610,9 @@ char *lle_readline(const char *prompt) {
                 /* Failed to create editor - non-fatal, history won't work */
                 global_lle_editor = NULL;
             } else {
-                /* Initialize history subsystem with config from Lusush */
+                /* Initialize history subsystem with config from Lush */
                 lle_history_config_t hist_config;
-                populate_history_config_from_lusush_config(&hist_config);
+                populate_history_config_from_lush_config(&hist_config);
 
                 result = lle_history_core_create(
                     &global_lle_editor->history_system,
@@ -2625,7 +2625,7 @@ char *lle_readline(const char *prompt) {
                     char history_path[1024];
                     if (history_file) {
                         snprintf(history_path, sizeof(history_path),
-                                 "%s/.lusush_history", history_file);
+                                 "%s/.lush_history", history_file);
                         lle_history_load_from_file(
                             global_lle_editor->history_system, history_path);
                     }
@@ -2670,7 +2670,7 @@ char *lle_readline(const char *prompt) {
         }
 
         /* Load user keybinding configuration from
-         * ~/.config/lusush/keybindings.toml This allows users to override
+         * ~/.config/lush/keybindings.toml This allows users to override
          * default Emacs bindings with custom ones. Errors are logged but don't
          * prevent shell from starting. */
         lle_keybinding_load_result_t load_result;
@@ -2796,8 +2796,8 @@ char *lle_readline(const char *prompt) {
 
     /* === STEP 7: Display prompt === */
     /* Step 4: Set prompt in prompt_layer and display initial prompt */
-    if (lle_display_integ && lle_display_integ->lusush_display) {
-        display_controller_t *dc = lle_display_integ->lusush_display;
+    if (lle_display_integ && lle_display_integ->lush_display) {
+        display_controller_t *dc = lle_display_integ->lush_display;
         if (dc->compositor && dc->compositor->prompt_layer && prompt) {
             /* Set the prompt content in the prompt_layer */
             prompt_layer_set_content(dc->compositor->prompt_layer, prompt);

@@ -5,7 +5,7 @@
  * @copyright Copyright (C) 2021-2026 Michael Berry
  *
  * Converts internal state (authoritative model) to display content for
- * submission to Lusush display system. NEVER queries terminal state.
+ * submission to Lush display system. NEVER queries terminal state.
  *
  * Key Responsibilities:
  * - Generate complete display content from internal buffer state

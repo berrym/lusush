@@ -1,6 +1,6 @@
-# LLE - Lusush Line Editor
+# LLE - Lush Line Editor
 
-**The native line editor that makes Lusush different**
+**The native line editor that makes Lush different**
 
 ---
 
@@ -24,7 +24,7 @@
 
 Every major shell wraps GNU Readline or implements something similar. Bash uses Readline. Zsh has ZLE. Fish has its own editor. They all follow the same pattern: a text input library adapted for shell use.
 
-Lusush took a different approach. LLE (Lusush Line Editor) is a line editor designed from the ground up for interactive shell use. This isn't academic distinction - it enables capabilities that bolted-on solutions can't provide:
+Lush took a different approach. LLE (Lush Line Editor) is a line editor designed from the ground up for interactive shell use. This isn't academic distinction - it enables capabilities that bolted-on solutions can't provide:
 
 - **Deep completion integration**: LLE's completion system understands shell syntax at a fundamental level. It doesn't just complete filenames - it knows what arguments each of the 45 shell builtins accepts and presents context-appropriate options.
 
@@ -315,7 +315,7 @@ theme set dark
 
 ## History Integration
 
-LLE integrates with Lusush's history system.
+LLE integrates with Lush's history system.
 
 ### Navigation
 
@@ -550,7 +550,7 @@ display lle diagnostics
 **Problem**: History not saving
 ```bash
 # Check history file permissions
-ls -la ~/.lusush_history
+ls -la ~/.lush_history
 
 # Check history size
 config get history.size

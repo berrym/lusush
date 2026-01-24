@@ -3,12 +3,12 @@
  * @brief Shell mode and feature flag system
  *
  * Provides the multi-mode architecture that enables POSIX, Bash, Zsh, and
- * Lusush-native shell modes. Each mode defines which language features are
+ * Lush-native shell modes. Each mode defines which language features are
  * available, with per-feature override capability for user customization.
  *
- * The shell mode system is the backbone of lusush's extended language support,
+ * The shell mode system is the backbone of lush's extended language support,
  * allowing users to choose between strict POSIX compliance, Bash/Zsh
- * compatibility modes, or the curated Lusush-native mode that cherry-picks
+ * compatibility modes, or the curated Lush-native mode that cherry-picks
  * the best features from both.
  *
  * @author Michael Berry <trismegustis@gmail.com>
@@ -35,7 +35,7 @@ typedef enum {
     SHELL_MODE_POSIX,  /**< Strict POSIX sh compliance - minimal features */
     SHELL_MODE_BASH,   /**< Bash 5.x compatibility mode */
     SHELL_MODE_ZSH,    /**< Zsh compatibility mode */
-    SHELL_MODE_LUSUSH, /**< Lusush-native: curated best of both (default) */
+    SHELL_MODE_LUSH, /**< Lush-native: curated best of both (default) */
     SHELL_MODE_COUNT   /**< Number of shell modes (for array sizing) */
 } shell_mode_t;
 
@@ -277,7 +277,7 @@ bool shell_mode_feature_default(shell_mode_t mode, shell_feature_t feature);
 /**
  * @brief Parse a mode name string
  *
- * Converts a string like "posix", "bash", "zsh", or "lusush" to the
+ * Converts a string like "posix", "bash", "zsh", or "lush" to the
  * corresponding shell_mode_t value.
  *
  * @param name Mode name to parse

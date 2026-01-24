@@ -6,7 +6,7 @@
  * IMPLEMENTATION PLAN: docs/lle_implementation/SPEC_08_IMPLEMENTATION_PLAN.md
  *
  * This file implements the Spec 08 display integration layer that connects
- * LLE's buffer system with Lusush's layered display architecture.
+ * LLE's buffer system with Lush's layered display architecture.
  *
  * ZERO-TOLERANCE COMPLIANCE:
  * - Complete implementations only
@@ -25,7 +25,7 @@
  * @brief Global display integration singleton instance
  *
  * This is initialized once during LLE startup and provides the bridge
- * between LLE and Lusush display systems.
+ * between LLE and Lush display systems.
  */
 static lle_display_integration_t *global_display_integration = NULL;
 
@@ -46,19 +46,19 @@ lle_display_integration_t *lle_display_integration_get_global(void) {
  * @brief Initialize the display integration system
  *
  * Creates and initializes the global display integration instance that connects
- * LLE's editing system with Lusush's display layers.
+ * LLE's editing system with Lush's display layers.
  *
  * @param integration Output pointer for created integration instance
  * @param editor LLE editor instance (opaque)
- * @param lusush_display Lusush display controller
+ * @param lush_display Lush display controller
  * @param memory_pool Memory pool for allocations
  * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t
 lle_display_integration_init(lle_display_integration_t **integration,
-                             void *editor, display_controller_t *lusush_display,
+                             void *editor, display_controller_t *lush_display,
                              lle_memory_pool_t *memory_pool) {
-    if (!integration || !lusush_display) {
+    if (!integration || !lush_display) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
 
@@ -69,8 +69,8 @@ lle_display_integration_init(lle_display_integration_t **integration,
         return LLE_ERROR_OUT_OF_MEMORY;
     }
 
-    /* Store Lusush display controller reference */
-    integ->lusush_display = lusush_display;
+    /* Store Lush display controller reference */
+    integ->lush_display = lush_display;
     integ->memory_pool = memory_pool;
     integ->integration_active = true;
     integ->api_version = 1;
@@ -84,7 +84,7 @@ lle_display_integration_init(lle_display_integration_t **integration,
 
     /* Initialize display bridge */
     lle_result_t result = lle_display_bridge_init(
-        &integ->display_bridge, editor, lusush_display, memory_pool);
+        &integ->display_bridge, editor, lush_display, memory_pool);
 
     if (result != LLE_SUCCESS) {
         pthread_rwlock_destroy(&integ->integration_lock);

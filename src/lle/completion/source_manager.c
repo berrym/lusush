@@ -194,7 +194,7 @@ static bool is_directory_only_command(const char *command_name) {
 
     /*
      * POSIX commands that only accept directory arguments.
-     * Note: pushd/popd are bash extensions, not implemented in lusush.
+     * Note: pushd/popd are bash extensions, not implemented in lush.
      */
     static const char *dir_commands[] = {"cd", "rmdir", NULL};
 

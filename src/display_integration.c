@@ -1,6 +1,6 @@
 /**
  * @file display_integration.c
- * @brief Display Controller Integration Wrapper for Lusush Shell
+ * @brief Display Controller Integration Wrapper for Lush Shell
  *
  * Provides the integration layer between the shell and the layered
  * display controller system. Handles prompt rendering, syntax highlighting,
@@ -44,8 +44,8 @@
 #include "lle/prompt/composer.h"
 #include "lle/prompt/segment.h"
 #include "lle/prompt/theme.h"
-#include "lusush.h"
-#include "lusush_memory_pool.h"
+#include "lush.h"
+#include "lush_memory_pool.h"
 #include "symtable.h"
 
 #include <inttypes.h>
@@ -85,9 +85,9 @@ static void do_clear_screen(void) {
 // ============================================================================
 
 // Shell display functions that we're replacing
-void lusush_refresh_line(void);
-void lusush_prompt_update(void);
-void lusush_clear_screen(void);
+void lush_refresh_line(void);
+void lush_prompt_update(void);
+void lush_clear_screen(void);
 
 /**
  * @brief Generate current prompt string using LLE prompt composer
@@ -95,7 +95,7 @@ void lusush_clear_screen(void);
  * Creates the shell prompt using the LLE prompt composer if available.
  * Falls back to a simple "$ " or "# " prompt based on user ID.
  *
- * @return Pool-allocated prompt string that caller must free with lusush_pool_free()
+ * @return Pool-allocated prompt string that caller must free with lush_pool_free()
  */
 static char *display_generate_prompt(void) {
     if (g_lle_integration && g_lle_integration->prompt_composer) {
@@ -105,11 +105,11 @@ static char *display_generate_prompt(void) {
 
         lle_result_t result = lle_composer_render(composer, &output);
         if (result == LLE_SUCCESS && output.ps1_len > 0) {
-            return lusush_pool_strdup(output.ps1);
+            return lush_pool_strdup(output.ps1);
         }
     }
     /* Fallback */
-    return lusush_pool_strdup((getuid() > 0) ? "$ " : "# ");
+    return lush_pool_strdup((getuid() > 0) ? "$ " : "# ");
 }
 
 /**
@@ -118,9 +118,9 @@ static char *display_generate_prompt(void) {
  * Public wrapper for display_generate_prompt() that creates the shell
  * prompt using the LLE prompt composer.
  *
- * @return Pool-allocated prompt string that caller must free with lusush_pool_free()
+ * @return Pool-allocated prompt string that caller must free with lush_pool_free()
  */
-char *lusush_generate_prompt(void) { return display_generate_prompt(); }
+char *lush_generate_prompt(void) { return display_generate_prompt(); }
 
 /**
  * @brief Get the active theme name from LLE
@@ -540,7 +540,7 @@ bool display_integration_get_config(display_integration_config_t *config) {
 // ============================================================================
 
 /**
- * Integrated display function - replacement for lusush_safe_redisplay().
+ * Integrated display function - replacement for lush_safe_redisplay().
  * Provides coordinated display using layered architecture when enabled,
  * with graceful fallback to existing display functions.
  */
@@ -567,7 +567,7 @@ void display_integration_redisplay(void) {
         integration_stats.layered_display_calls++;
 
         // Get current prompt and command for display controller
-        char *current_prompt = lusush_generate_prompt();
+        char *current_prompt = lush_generate_prompt();
         char *current_command = rl_line_buffer ? rl_line_buffer : "";
 
         // Update theme context before display controller operations
@@ -588,14 +588,14 @@ void display_integration_redisplay(void) {
             printf("%s", display_output);
             fflush(stdout);
             if (current_prompt)
-                lusush_pool_free(current_prompt);
+                lush_pool_free(current_prompt);
             in_display_redisplay = false;
             return;
         }
 
         // Clean up prompt
         if (current_prompt)
-            lusush_pool_free(current_prompt);
+            lush_pool_free(current_prompt);
     }
 
     // Fallback to standard display
@@ -606,7 +606,7 @@ void display_integration_redisplay(void) {
     // Attempt sophisticated layered display operation
     if (layered_display_enabled && global_display_controller) {
         char output_buffer[4096]; // Buffer for full display output
-        char *current_prompt = lusush_generate_prompt();
+        char *current_prompt = lush_generate_prompt();
 
         // Update theme context before display controller operations
         const char *theme_name = get_active_theme_name();
@@ -700,7 +700,7 @@ void display_integration_redisplay(void) {
 }
 
 /**
- * Integrated prompt update function - replacement for lusush_prompt_update().
+ * Integrated prompt update function - replacement for lush_prompt_update().
  * Provides coordinated prompt updates using layered architecture when enabled.
  */
 void display_integration_prompt_update(void) {
@@ -724,7 +724,7 @@ void display_integration_prompt_update(void) {
         integration_stats.layered_display_calls++;
 
         // Get current prompt and command for display controller
-        char *current_prompt = lusush_generate_prompt();
+        char *current_prompt = lush_generate_prompt();
         char *current_command = rl_line_buffer ? rl_line_buffer : "";
 
         // Update theme context before display controller operations
@@ -743,19 +743,19 @@ void display_integration_prompt_update(void) {
         if (result == DISPLAY_CONTROLLER_SUCCESS) {
             // Display controller succeeded
             if (current_prompt)
-                lusush_pool_free(current_prompt);
+                lush_pool_free(current_prompt);
             in_prompt_update = false;
             return;
         }
 
         // Clean up prompt
         if (current_prompt)
-            lusush_pool_free(current_prompt);
+            lush_pool_free(current_prompt);
     }
 
     // Fallback: call original functions safely
     lle_shell_update_prompt();
-    lusush_generate_prompt();
+    lush_generate_prompt();
 
     // Enhanced Performance Monitoring: Record timing
     gettimeofday(&end_time, NULL);
@@ -768,7 +768,7 @@ void display_integration_prompt_update(void) {
 }
 
 /**
- * Integrated clear screen function - replacement for lusush_clear_screen().
+ * Integrated clear screen function - replacement for lush_clear_screen().
  * Provides coordinated screen clearing using layered architecture when enabled.
  */
 void display_integration_clear_screen(void) {
@@ -880,7 +880,7 @@ void display_integration_post_command_update(const char *executed_command) {
         integration_stats.layered_display_calls++;
 
         // Get current prompt for post-command display
-        char *current_prompt = lusush_generate_prompt();
+        char *current_prompt = lush_generate_prompt();
         char *current_command = ""; // Post-command state has no active command
 
         // Update theme context before display controller operations
@@ -1021,7 +1021,7 @@ void display_integration_post_command_update(const char *executed_command) {
 
         // Clean up prompt memory
         if (current_prompt) {
-            lusush_pool_free(current_prompt);
+            lush_pool_free(current_prompt);
         }
     }
 
@@ -1226,7 +1226,7 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
 
     // Generate base prompt using memory pool system
     size_t base_prompt_size = 512;
-    char *base_prompt = lusush_pool_alloc(base_prompt_size);
+    char *base_prompt = lush_pool_alloc(base_prompt_size);
     if (!base_prompt) {
         return false;
     }
@@ -1234,7 +1234,7 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
     // Use Spec 25 prompt composer when LLE is active - completely bypass legacy
     bool theme_result = false;
     const char *theme_name = "default";
-    const char *debug = getenv("LUSUSH_PROMPT_DEBUG");
+    const char *debug = getenv("LUSH_PROMPT_DEBUG");
 
     if (debug && strcmp(debug, "1") == 0) {
         fprintf(stderr, "[DI] g_lle=%p composer=%p\n",
@@ -1265,8 +1265,8 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
             /* Spec 25 prompt is ready - return directly, bypass display
              * controller The display controller would transform/cache this
              * incorrectly */
-            *enhanced_prompt = lusush_pool_strdup(output.ps1);
-            lusush_pool_free(base_prompt);
+            *enhanced_prompt = lush_pool_strdup(output.ps1);
+            lush_pool_free(base_prompt);
             lle_composer_clear_regeneration_flag(composer);
 
             gettimeofday(&end_time, NULL);
@@ -1280,8 +1280,8 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
         }
 
         // LLE mode but render failed - use minimal failsafe, do NOT use legacy
-        *enhanced_prompt = lusush_pool_strdup((getuid() > 0) ? "$ " : "# ");
-        lusush_pool_free(base_prompt);
+        *enhanced_prompt = lush_pool_strdup((getuid() > 0) ? "$ " : "# ");
+        lush_pool_free(base_prompt);
         return (*enhanced_prompt != NULL);
     }
 
@@ -1303,7 +1303,7 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
         }
 
         if (current_dir)
-            lusush_pool_free(current_dir);
+            lush_pool_free(current_dir);
     }
 
     // Update theme context before display controller operations
@@ -1334,8 +1334,8 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
 
     if (result == DISPLAY_CONTROLLER_SUCCESS) {
         // Display controller succeeded - use optimized output
-        *enhanced_prompt = lusush_pool_strdup(display_output);
-        lusush_pool_free(base_prompt);
+        *enhanced_prompt = lush_pool_strdup(display_output);
+        lush_pool_free(base_prompt);
 
         if (current_config.debug_mode) {
             fprintf(stderr, "display_integration: Enhanced prompt generation "
@@ -2233,7 +2233,7 @@ bool display_integration_perf_monitor_report(bool detailed) {
 
     // Memory Pool Performance (if available)
     if (global_memory_pool && global_memory_pool->initialized) {
-        lusush_pool_stats_t pool_stats = lusush_pool_get_stats();
+        lush_pool_stats_t pool_stats = lush_pool_get_stats();
         printf("Memory Pool Performance:\n");
         printf("  Pool allocations: %" PRIu64 " (%.1f%% hit rate)\n",
                pool_stats.pool_hits, pool_stats.pool_hit_rate);

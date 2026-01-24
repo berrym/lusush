@@ -14,7 +14,7 @@
 #include "expand.h"
 
 #include "alias.h"
-#include "lusush.h"
+#include "lush.h"
 
 #include <ctype.h>
 #include <pwd.h>

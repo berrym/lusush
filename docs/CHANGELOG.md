@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the Lusush Shell project will be documented in this file.
+All notable changes to the Lush Shell project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -35,10 +35,10 @@ Rust-style structured error reporting with source locations, context chains, and
 
 #### Unified Configuration System
 - TOML configuration format replacing legacy INI
-- XDG Base Directory compliance (`~/.config/lusush/config.toml`)
+- XDG Base Directory compliance (`~/.config/lush/config.toml`)
 - Config registry with centralized storage and change notification
 - Bidirectional sync between runtime commands and config registry
-- Legacy migration from `~/.lusushrc`
+- Legacy migration from `~/.lushrc`
 - Two-file config pattern: `config.toml` (declarative) + `config.sh` (power-user escape hatch)
 
 #### New Builtins
@@ -46,7 +46,7 @@ Rust-style structured error reporting with source locations, context chains, and
 - **declare** - Array and integer variable support with `-a`, `-A`, `-i`, `-r`, `-x`, `-p` flags
 - **let** - Arithmetic evaluation builtin
 
-#### LLE (Lusush Line Editor)
+#### LLE (Lush Line Editor)
 Native line editor replacing GNU Readline:
 - 44 Emacs keybinding actions
 - Context-aware completions for all builtins
@@ -59,7 +59,7 @@ Native line editor replacing GNU Readline:
 - POSIX mode (`set -o posix`) - Strict POSIX sh compliance
 - Bash mode (`set -o bash`) - Bash 4.x compatibility
 - Zsh mode (`set -o zsh`) - Zsh compatibility with glob qualifiers
-- Lusush mode (default) - All features enabled
+- Lush mode (default) - All features enabled
 - 35 feature flags for fine-grained control
 - Shebang detection for automatic mode selection
 

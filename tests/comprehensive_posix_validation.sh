@@ -10,13 +10,13 @@
 # physical, privileged
 #
 # This suite validates both functionality and integration between options
-# Author: AI Assistant for Lusush v1.3.0 QA
+# Author: AI Assistant for Lush v1.3.0 QA
 # =============================================================================
 
 set -euo pipefail
 
-LUSUSH_BINARY="${1:-./build/lusush}"
-TEST_DIR="/tmp/lusush_comprehensive_test_$$"
+LUSH_BINARY="${1:-./build/lush}"
+TEST_DIR="/tmp/lush_comprehensive_test_$$"
 TOTAL_TESTS=0
 PASSED_TESTS=0
 FAILED_TESTS=0
@@ -122,7 +122,7 @@ run_test() {
         actual_output=$(eval "${test_command:1}" 2>&1)
     else
         # Regular shell command
-        actual_output=$(echo "$test_command" | timeout 5s "$LUSUSH_BINARY" 2>&1)
+        actual_output=$(echo "$test_command" | timeout 5s "$LUSH_BINARY" 2>&1)
     fi
     actual_exit=$?
 
@@ -177,13 +177,13 @@ test_option_state() {
     fi
 }
 
-print_header "LUSUSH COMPREHENSIVE POSIX OPTIONS VALIDATION"
-echo "Testing shell: $LUSUSH_BINARY"
+print_header "LUSH COMPREHENSIVE POSIX OPTIONS VALIDATION"
+echo "Testing shell: $LUSH_BINARY"
 echo "Started at: $(date)"
 
 # Verify shell exists and is executable
-if [[ ! -x "$LUSUSH_BINARY" ]]; then
-    echo -e "${RED}ERROR: Shell binary not found or not executable: $LUSUSH_BINARY${NC}"
+if [[ ! -x "$LUSH_BINARY" ]]; then
+    echo -e "${RED}ERROR: Shell binary not found or not executable: $LUSH_BINARY${NC}"
     exit 1
 fi
 
@@ -352,7 +352,7 @@ echo -e "${YELLOW}Duration:${NC} ${DURATION}s"
 
 if [[ $FAILED_TESTS -eq 0 ]]; then
     echo -e "\n${GREEN}🎉 ALL TESTS PASSED! 🎉${NC}"
-    echo -e "${GREEN}Lusush demonstrates excellent POSIX compliance across all 24 implemented options!${NC}"
+    echo -e "${GREEN}Lush demonstrates excellent POSIX compliance across all 24 implemented options!${NC}"
     EXIT_CODE=0
 else
     PASS_RATE=$((PASSED_TESTS * 100 / TOTAL_TESTS))

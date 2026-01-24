@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # ===============================================================================
-# LUSUSH POSIX COMMAND LINE OPTIONS COMPLIANCE TEST SUITE
+# LUSH POSIX COMMAND LINE OPTIONS COMPLIANCE TEST SUITE
 # ===============================================================================
 # Comprehensive test for all POSIX required command line options
 # Tests both short options (-x) and set builtin options (set -x)
 # ===============================================================================
 
-SHELL_PATH="$(pwd)/build/lusush"
-TEMP_DIR="/tmp/lusush_posix_options_tests"
+SHELL_PATH="$(pwd)/build/lush"
+TEMP_DIR="/tmp/lush_posix_options_tests"
 LOGFILE="$TEMP_DIR/posix_options_test.log"
 
 # Test counters
@@ -449,7 +449,7 @@ test_posix_compatibility() {
 
 main() {
     echo "==============================================================================="
-    echo "LUSUSH POSIX COMMAND LINE OPTIONS COMPLIANCE TEST SUITE"
+    echo "LUSH POSIX COMMAND LINE OPTIONS COMPLIANCE TEST SUITE"
     echo "==============================================================================="
     echo "Testing shell: $SHELL_PATH"
     echo "Started at: $(date)"
@@ -483,7 +483,7 @@ main() {
 
     if [[ $FAILED_TESTS -eq 0 ]]; then
         echo -e "\n${GREEN}✓ ALL POSIX COMMAND LINE OPTION TESTS PASSED${NC}"
-        echo "Lusush demonstrates excellent POSIX command line option compliance!"
+        echo "Lush demonstrates excellent POSIX command line option compliance!"
     else
         echo -e "\n${YELLOW}⚠ SOME POSIX COMMAND LINE OPTION TESTS FAILED${NC}"
         echo "Check $LOGFILE for detailed failure information."

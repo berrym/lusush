@@ -1,5 +1,5 @@
 /**
- * @file lusush_memory_pool.c
+ * @file lush_memory_pool.c
  * @brief Memory pool system for display operations
  *
  * Enterprise-grade memory management optimized for display operations:
@@ -14,7 +14,7 @@
  * @license MIT
  */
 
-#include "lusush_memory_pool.h"
+#include "lush_memory_pool.h"
 #include <assert.h>
 #include <inttypes.h>
 #include <pthread.h>
@@ -24,14 +24,14 @@
 #include <sys/time.h>
 
 // Global memory pool system instance
-lusush_memory_pool_system_t *global_memory_pool = NULL;
+lush_memory_pool_system_t *global_memory_pool = NULL;
 
 // Thread safety mutex for pool operations
 static pthread_mutex_t pool_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // Debug and error tracking
 static bool debug_mode = false;
-static lusush_pool_error_t last_error = LUSUSH_POOL_SUCCESS;
+static lush_pool_error_t last_error = LUSH_POOL_SUCCESS;
 
 // Fallback size tracking for analysis
 static size_t fallback_sizes[100];
@@ -114,7 +114,7 @@ static void free_all_malloc_fallbacks(void) {
 static bool pool_was_ever_initialized = false;
 
 // Pool size definitions (optimized for display operations)
-static const size_t POOL_SIZES[LUSUSH_POOL_COUNT] = {
+static const size_t POOL_SIZES[LUSH_POOL_COUNT] = {
     128,  // SMALL: state hashes, cache keys
     512,  // MEDIUM: prompts, short outputs
     4096, // LARGE: display compositions, multiline inputs
@@ -122,7 +122,7 @@ static const size_t POOL_SIZES[LUSUSH_POOL_COUNT] = {
 };
 
 // Default pool block counts (optimized for typical usage)
-static const size_t DEFAULT_BLOCK_COUNTS[LUSUSH_POOL_COUNT] = {
+static const size_t DEFAULT_BLOCK_COUNTS[LUSH_POOL_COUNT] = {
     512, // SMALL: High frequency allocations (4x increase - analysis shows 100%
          // fallbacks here)
     64,  // MEDIUM: Moderate frequency (doubled from 32)
@@ -167,10 +167,10 @@ static uint64_t get_timestamp_ns(void) {
  * @brief Set last error with debug information
  * @param error The error code to set as the last error
  */
-static void set_last_error(lusush_pool_error_t error) {
+static void set_last_error(lush_pool_error_t error) {
     last_error = error;
-    if (error != LUSUSH_POOL_SUCCESS && debug_mode) {
-        POOL_ERROR("Operation failed: %s", lusush_pool_error_string(error));
+    if (error != LUSH_POOL_SUCCESS && debug_mode) {
+        POOL_ERROR("Operation failed: %s", lush_pool_error_string(error));
     }
 }
 
@@ -179,33 +179,33 @@ static void set_last_error(lusush_pool_error_t error) {
  * @param pool Pointer to the pool structure to initialize
  * @param block_size Size of each block in the pool
  * @param initial_blocks Number of blocks to pre-allocate
- * @return LUSUSH_POOL_SUCCESS on success, error code on failure
+ * @return LUSH_POOL_SUCCESS on success, error code on failure
  */
-static lusush_pool_error_t init_single_pool(lusush_pool_t *pool,
+static lush_pool_error_t init_single_pool(lush_pool_t *pool,
                                             size_t block_size,
                                             size_t initial_blocks) {
     if (!pool || block_size == 0 || initial_blocks == 0) {
-        return LUSUSH_POOL_ERROR_INVALID_SIZE;
+        return LUSH_POOL_ERROR_INVALID_SIZE;
     }
 
     // Initialize pool structure
-    memset(pool, 0, sizeof(lusush_pool_t));
+    memset(pool, 0, sizeof(lush_pool_t));
     pool->block_size = block_size;
     pool->initial_blocks = initial_blocks;
     pool->max_blocks = initial_blocks * 4; // Allow growth up to 4x initial
 
     // Allocate block management array
-    pool->all_blocks = calloc(pool->max_blocks, sizeof(lusush_pool_block_t));
+    pool->all_blocks = calloc(pool->max_blocks, sizeof(lush_pool_block_t));
     if (!pool->all_blocks) {
         POOL_ERROR(
             "Failed to allocate block management array for pool (size=%zu)",
             block_size);
-        return LUSUSH_POOL_ERROR_MALLOC_FAILED;
+        return LUSH_POOL_ERROR_MALLOC_FAILED;
     }
 
     // Pre-allocate initial blocks
     for (size_t i = 0; i < initial_blocks; i++) {
-        lusush_pool_block_t *block = &pool->all_blocks[i];
+        lush_pool_block_t *block = &pool->all_blocks[i];
 
         // Allocate memory for this block
         block->memory = malloc(block_size);
@@ -217,7 +217,7 @@ static lusush_pool_error_t init_single_pool(lusush_pool_t *pool,
                 free(pool->all_blocks[j].memory);
             }
             free(pool->all_blocks);
-            return LUSUSH_POOL_ERROR_MALLOC_FAILED;
+            return LUSH_POOL_ERROR_MALLOC_FAILED;
         }
 
         // Initialize block metadata
@@ -240,14 +240,14 @@ static lusush_pool_error_t init_single_pool(lusush_pool_t *pool,
 
     POOL_DEBUG("Initialized pool: block_size=%zu, initial_blocks=%zu",
                block_size, initial_blocks);
-    return LUSUSH_POOL_SUCCESS;
+    return LUSH_POOL_SUCCESS;
 }
 
 /**
  * @brief Cleanup a single memory pool
  * @param pool Pointer to the pool structure to cleanup
  */
-static void cleanup_single_pool(lusush_pool_t *pool) {
+static void cleanup_single_pool(lush_pool_t *pool) {
     if (!pool || !pool->all_blocks) {
         return;
     }
@@ -263,7 +263,7 @@ static void cleanup_single_pool(lusush_pool_t *pool) {
     free(pool->all_blocks);
 
     // Clear pool structure
-    memset(pool, 0, sizeof(lusush_pool_t));
+    memset(pool, 0, sizeof(lush_pool_t));
 
     POOL_DEBUG("Cleaned up pool");
 }
@@ -271,16 +271,16 @@ static void cleanup_single_pool(lusush_pool_t *pool) {
 /**
  * @brief Find the appropriate pool for a given size
  * @param size The allocation size to find a pool for
- * @return Pool type that can accommodate the size, or LUSUSH_POOL_COUNT if too large
+ * @return Pool type that can accommodate the size, or LUSH_POOL_COUNT if too large
  */
-static lusush_pool_size_t find_pool_for_size(size_t size) {
-    for (int i = 0; i < LUSUSH_POOL_COUNT; i++) {
+static lush_pool_size_t find_pool_for_size(size_t size) {
+    for (int i = 0; i < LUSH_POOL_COUNT; i++) {
         if (size <= POOL_SIZES[i]) {
-            return (lusush_pool_size_t)i;
+            return (lush_pool_size_t)i;
         }
     }
     // Size is larger than any pool - will use malloc fallback
-    return LUSUSH_POOL_COUNT; // Invalid pool index indicates malloc fallback
+    return LUSH_POOL_COUNT; // Invalid pool index indicates malloc fallback
 }
 
 /**
@@ -288,13 +288,13 @@ static lusush_pool_size_t find_pool_for_size(size_t size) {
  * @param pool Pointer to the pool to allocate from
  * @return Pointer to allocated memory, or NULL if pool is exhausted
  */
-static void *allocate_from_pool(lusush_pool_t *pool) {
+static void *allocate_from_pool(lush_pool_t *pool) {
     if (!pool || !pool->free_list) {
         return NULL;
     }
 
     // Take first block from free list
-    lusush_pool_block_t *block = pool->free_list;
+    lush_pool_block_t *block = pool->free_list;
 
     // Remove from free list
     pool->free_list = block->next;
@@ -323,13 +323,13 @@ static void *allocate_from_pool(lusush_pool_t *pool) {
  * @param ptr Pointer to the memory block to return
  * @return true if block was successfully returned, false otherwise
  */
-static bool return_to_pool(lusush_pool_t *pool, void *ptr) {
+static bool return_to_pool(lush_pool_t *pool, void *ptr) {
     if (!pool || !ptr) {
         return false;
     }
 
     // Find the block that contains this pointer
-    lusush_pool_block_t *block = NULL;
+    lush_pool_block_t *block = NULL;
     for (size_t i = 0; i < pool->current_blocks; i++) {
         if (pool->all_blocks[i].memory == ptr) {
             block = &pool->all_blocks[i];
@@ -374,7 +374,7 @@ static void update_stats(bool pool_hit, size_t size,
         return;
     }
 
-    lusush_pool_stats_t *stats = &global_memory_pool->stats;
+    lush_pool_stats_t *stats = &global_memory_pool->stats;
 
     stats->total_allocations++;
     stats->total_bytes_allocated += size;
@@ -413,28 +413,28 @@ static void update_stats(bool pool_hit, size_t size,
 /**
  * @brief Initialize the memory pool system with configuration
  * @param config Pointer to configuration structure, or NULL for defaults
- * @return LUSUSH_POOL_SUCCESS on success, error code on failure
+ * @return LUSH_POOL_SUCCESS on success, error code on failure
  */
-lusush_pool_error_t lusush_pool_init(const lusush_pool_config_t *config) {
+lush_pool_error_t lush_pool_init(const lush_pool_config_t *config) {
     pthread_mutex_lock(&pool_mutex);
 
     // Check if already initialized
     if (global_memory_pool) {
         pthread_mutex_unlock(&pool_mutex);
-        set_last_error(LUSUSH_POOL_SUCCESS);
-        return LUSUSH_POOL_SUCCESS; // Allow multiple inits
+        set_last_error(LUSH_POOL_SUCCESS);
+        return LUSH_POOL_SUCCESS; // Allow multiple inits
     }
 
     // Allocate global pool system
-    global_memory_pool = calloc(1, sizeof(lusush_memory_pool_system_t));
+    global_memory_pool = calloc(1, sizeof(lush_memory_pool_system_t));
     if (!global_memory_pool) {
         pthread_mutex_unlock(&pool_mutex);
-        set_last_error(LUSUSH_POOL_ERROR_MALLOC_FAILED);
-        return LUSUSH_POOL_ERROR_MALLOC_FAILED;
+        set_last_error(LUSH_POOL_ERROR_MALLOC_FAILED);
+        return LUSH_POOL_ERROR_MALLOC_FAILED;
     }
 
     // Use provided config or defaults
-    lusush_pool_config_t default_config = lusush_pool_get_default_config();
+    lush_pool_config_t default_config = lush_pool_get_default_config();
     if (!config) {
         config = &default_config;
     }
@@ -448,15 +448,15 @@ lusush_pool_error_t lusush_pool_init(const lusush_pool_config_t *config) {
     clock_gettime(CLOCK_MONOTONIC, &global_memory_pool->init_time);
 
     // Initialize individual pools
-    size_t block_counts[LUSUSH_POOL_COUNT] = {
+    size_t block_counts[LUSH_POOL_COUNT] = {
         config->small_pool_blocks, config->medium_pool_blocks,
         config->large_pool_blocks, config->xlarge_pool_blocks};
 
-    for (int i = 0; i < LUSUSH_POOL_COUNT; i++) {
-        lusush_pool_error_t result = init_single_pool(
+    for (int i = 0; i < LUSH_POOL_COUNT; i++) {
+        lush_pool_error_t result = init_single_pool(
             &global_memory_pool->pools[i], POOL_SIZES[i], block_counts[i]);
 
-        if (result != LUSUSH_POOL_SUCCESS) {
+        if (result != LUSH_POOL_SUCCESS) {
             POOL_ERROR("Failed to initialize pool %d", i);
             // Cleanup already initialized pools
             for (int j = 0; j < i; j++) {
@@ -480,14 +480,14 @@ lusush_pool_error_t lusush_pool_init(const lusush_pool_config_t *config) {
                block_counts[0], block_counts[1], block_counts[2],
                block_counts[3]);
 
-    set_last_error(LUSUSH_POOL_SUCCESS);
-    return LUSUSH_POOL_SUCCESS;
+    set_last_error(LUSH_POOL_SUCCESS);
+    return LUSH_POOL_SUCCESS;
 }
 
 /**
  * @brief Shutdown and cleanup the memory pool system
  */
-void lusush_pool_shutdown(void) {
+void lush_pool_shutdown(void) {
     pthread_mutex_lock(&pool_mutex);
 
     if (!global_memory_pool) {
@@ -499,14 +499,14 @@ void lusush_pool_shutdown(void) {
 
     // Print final statistics if enabled
     if (global_memory_pool->enable_statistics && debug_mode) {
-        lusush_pool_print_status_report();
+        lush_pool_print_status_report();
     }
 
     // Free all tracked malloc fallback allocations first
     free_all_malloc_fallbacks();
 
     // Cleanup all pools
-    for (int i = 0; i < LUSUSH_POOL_COUNT; i++) {
+    for (int i = 0; i < LUSH_POOL_COUNT; i++) {
         cleanup_single_pool(&global_memory_pool->pools[i]);
     }
 
@@ -524,9 +524,9 @@ void lusush_pool_shutdown(void) {
  * @param size Size of memory to allocate in bytes
  * @return Pointer to allocated memory, or NULL on failure
  */
-void *lusush_pool_alloc(size_t size) {
+void *lush_pool_alloc(size_t size) {
     if (size == 0) {
-        set_last_error(LUSUSH_POOL_ERROR_INVALID_SIZE);
+        set_last_error(LUSH_POOL_ERROR_INVALID_SIZE);
         return NULL;
     }
 
@@ -543,15 +543,15 @@ void *lusush_pool_alloc(size_t size) {
         if (result && global_memory_pool) {
             update_stats(false, size, get_timestamp_ns() - start_time);
         }
-        set_last_error(result ? LUSUSH_POOL_SUCCESS
-                              : LUSUSH_POOL_ERROR_MALLOC_FAILED);
+        set_last_error(result ? LUSH_POOL_SUCCESS
+                              : LUSH_POOL_ERROR_MALLOC_FAILED);
         return result;
     }
 
     // Find appropriate pool
-    lusush_pool_size_t pool_type = find_pool_for_size(size);
+    lush_pool_size_t pool_type = find_pool_for_size(size);
 
-    if (pool_type < LUSUSH_POOL_COUNT) {
+    if (pool_type < LUSH_POOL_COUNT) {
         // Try to allocate from pool
         result = allocate_from_pool(&global_memory_pool->pools[pool_type]);
         if (result) {
@@ -585,8 +585,8 @@ void *lusush_pool_alloc(size_t size) {
 
     pthread_mutex_unlock(&pool_mutex);
 
-    set_last_error(result ? LUSUSH_POOL_SUCCESS
-                          : LUSUSH_POOL_ERROR_MALLOC_FAILED);
+    set_last_error(result ? LUSH_POOL_SUCCESS
+                          : LUSH_POOL_ERROR_MALLOC_FAILED);
     return result;
 }
 
@@ -594,7 +594,7 @@ void *lusush_pool_alloc(size_t size) {
  * @brief Free memory back to pool or call free() for malloc allocations
  * @param ptr Pointer to memory to free (NULL is safely ignored)
  */
-void lusush_pool_free(void *ptr) {
+void lush_pool_free(void *ptr) {
     if (!ptr) {
         return;
     }
@@ -620,7 +620,7 @@ void lusush_pool_free(void *ptr) {
 
     if (global_memory_pool->initialized) {
         // Try to return to appropriate pool
-        for (int i = 0; i < LUSUSH_POOL_COUNT; i++) {
+        for (int i = 0; i < LUSH_POOL_COUNT; i++) {
             if (return_to_pool(&global_memory_pool->pools[i], ptr)) {
                 returned_to_pool = true;
 
@@ -660,7 +660,7 @@ void lusush_pool_free(void *ptr) {
         }
     }
 
-    set_last_error(LUSUSH_POOL_SUCCESS);
+    set_last_error(LUSH_POOL_SUCCESS);
 }
 
 /**
@@ -669,26 +669,26 @@ void lusush_pool_free(void *ptr) {
  * @param new_size New size in bytes (0 frees the memory)
  * @return Pointer to reallocated memory, or NULL on failure
  */
-void *lusush_pool_realloc(void *ptr, size_t new_size) {
+void *lush_pool_realloc(void *ptr, size_t new_size) {
     if (new_size == 0) {
-        lusush_pool_free(ptr);
+        lush_pool_free(ptr);
         return NULL;
     }
 
     if (!ptr) {
-        return lusush_pool_alloc(new_size);
+        return lush_pool_alloc(new_size);
     }
 
     // For simplicity, we use malloc/free for realloc operations
     // This could be optimized in the future to use pools when possible
-    void *new_ptr = lusush_pool_alloc(new_size);
+    void *new_ptr = lush_pool_alloc(new_size);
     if (new_ptr && ptr) {
         // Copy data (we don't know the original size, so copy conservatively)
         // This is a limitation - in practice, we might need to track allocation
         // sizes
         memcpy(new_ptr, ptr,
                new_size); // Assumes new_size <= old_size or undefined behavior
-        lusush_pool_free(ptr);
+        lush_pool_free(ptr);
     }
 
     return new_ptr;
@@ -699,14 +699,14 @@ void *lusush_pool_realloc(void *ptr, size_t new_size) {
  * @param str String to duplicate
  * @return Pointer to duplicated string, or NULL on failure
  */
-char *lusush_pool_strdup(const char *str) {
+char *lush_pool_strdup(const char *str) {
     if (!str) {
-        set_last_error(LUSUSH_POOL_ERROR_INVALID_POINTER);
+        set_last_error(LUSH_POOL_ERROR_INVALID_POINTER);
         return NULL;
     }
 
     size_t len = strlen(str) + 1;
-    char *dup = (char *)lusush_pool_alloc(len);
+    char *dup = (char *)lush_pool_alloc(len);
     if (dup) {
         memcpy(dup, str, len);
     }
@@ -720,9 +720,9 @@ char *lusush_pool_strdup(const char *str) {
  * @param size Size of each element in bytes
  * @return Pointer to zero-initialized memory, or NULL on failure
  */
-void *lusush_pool_calloc(size_t count, size_t size) {
+void *lush_pool_calloc(size_t count, size_t size) {
     size_t total_size = count * size;
-    void *ptr = lusush_pool_alloc(total_size);
+    void *ptr = lush_pool_alloc(total_size);
     if (ptr) {
         memset(ptr, 0, total_size);
     }
@@ -733,8 +733,8 @@ void *lusush_pool_calloc(size_t count, size_t size) {
  * @brief Get current pool statistics
  * @return Copy of the current pool statistics structure
  */
-lusush_pool_stats_t lusush_pool_get_stats(void) {
-    lusush_pool_stats_t stats = {0};
+lush_pool_stats_t lush_pool_get_stats(void) {
+    lush_pool_stats_t stats = {0};
 
     if (!global_memory_pool) {
         return stats;
@@ -750,13 +750,13 @@ lusush_pool_stats_t lusush_pool_get_stats(void) {
 /**
  * @brief Reset statistics counters
  */
-void lusush_pool_reset_stats(void) {
+void lush_pool_reset_stats(void) {
     if (!global_memory_pool) {
         return;
     }
 
     pthread_mutex_lock(&pool_mutex);
-    memset(&global_memory_pool->stats, 0, sizeof(lusush_pool_stats_t));
+    memset(&global_memory_pool->stats, 0, sizeof(lush_pool_stats_t));
     pthread_mutex_unlock(&pool_mutex);
 
     POOL_DEBUG("Pool statistics reset");
@@ -766,7 +766,7 @@ void lusush_pool_reset_stats(void) {
  * @brief Check if pool system is healthy
  * @return true if all pools have available capacity, false otherwise
  */
-bool lusush_pool_is_healthy(void) {
+bool lush_pool_is_healthy(void) {
     if (!global_memory_pool || !global_memory_pool->initialized) {
         return false;
     }
@@ -775,7 +775,7 @@ bool lusush_pool_is_healthy(void) {
 
     // Check each pool has some free blocks available
     bool healthy = true;
-    for (int i = 0; i < LUSUSH_POOL_COUNT; i++) {
+    for (int i = 0; i < LUSH_POOL_COUNT; i++) {
         if (global_memory_pool->pools[i].free_blocks == 0 &&
             global_memory_pool->pools[i].current_blocks >=
                 global_memory_pool->pools[i].max_blocks) {
@@ -793,14 +793,14 @@ bool lusush_pool_is_healthy(void) {
  * @param size The allocation size to find a pool for
  * @return Pool type that can accommodate the size
  */
-lusush_pool_size_t lusush_pool_get_recommended_size(size_t size) {
+lush_pool_size_t lush_pool_get_recommended_size(size_t size) {
     return find_pool_for_size(size);
 }
 
 /**
  * @brief Analyze malloc fallback patterns for optimization
  */
-void lusush_pool_analyze_fallback_patterns(void) {
+void lush_pool_analyze_fallback_patterns(void) {
     if (fallback_count == 0) {
         printf("No malloc fallbacks recorded\n");
         return;
@@ -837,8 +837,8 @@ void lusush_pool_analyze_fallback_patterns(void) {
     // Show pool status
     if (global_memory_pool && global_memory_pool->initialized) {
         printf("Pool Status:\n");
-        for (int i = 0; i < LUSUSH_POOL_COUNT; i++) {
-            lusush_pool_t *pool = &global_memory_pool->pools[i];
+        for (int i = 0; i < LUSH_POOL_COUNT; i++) {
+            lush_pool_t *pool = &global_memory_pool->pools[i];
             printf("  Pool %d (%zuB): %zu/%zu blocks free\n", i, POOL_SIZES[i],
                    pool->free_blocks, pool->current_blocks);
         }
@@ -858,7 +858,7 @@ void lusush_pool_analyze_fallback_patterns(void) {
  * @param ptr Pointer to check
  * @return true if pointer is from a pool, false otherwise
  */
-bool lusush_pool_is_pool_pointer(const void *ptr) {
+bool lush_pool_is_pool_pointer(const void *ptr) {
     if (!ptr || !global_memory_pool) {
         return false;
     }
@@ -866,8 +866,8 @@ bool lusush_pool_is_pool_pointer(const void *ptr) {
     pthread_mutex_lock(&pool_mutex);
 
     bool is_pool_ptr = false;
-    for (int i = 0; i < LUSUSH_POOL_COUNT; i++) {
-        lusush_pool_t *pool = &global_memory_pool->pools[i];
+    for (int i = 0; i < LUSH_POOL_COUNT; i++) {
+        lush_pool_t *pool = &global_memory_pool->pools[i];
         for (size_t j = 0; j < pool->current_blocks; j++) {
             if (pool->all_blocks[j].memory == ptr) {
                 is_pool_ptr = true;
@@ -884,7 +884,7 @@ cleanup:
 /**
  * @brief Generate detailed pool status report for debugging
  */
-void lusush_pool_print_status_report(void) {
+void lush_pool_print_status_report(void) {
     if (!global_memory_pool) {
         printf("Memory pool system not initialized\n");
         return;
@@ -892,9 +892,9 @@ void lusush_pool_print_status_report(void) {
 
     pthread_mutex_lock(&pool_mutex);
 
-    printf("\n=== Lusush Memory Pool Status Report ===\n");
+    printf("\n=== Lush Memory Pool Status Report ===\n");
 
-    lusush_pool_stats_t *stats = &global_memory_pool->stats;
+    lush_pool_stats_t *stats = &global_memory_pool->stats;
     printf("Overall Statistics:\n");
     printf("  Total allocations: %" PRIu64 "\n", stats->total_allocations);
     printf("  Pool hits: %" PRIu64 " (%.2f%%)\n", stats->pool_hits,
@@ -908,8 +908,8 @@ void lusush_pool_print_status_report(void) {
 
     printf("\nIndividual Pool Status:\n");
     const char *pool_names[] = {"Small", "Medium", "Large", "XLarge"};
-    for (int i = 0; i < LUSUSH_POOL_COUNT; i++) {
-        lusush_pool_t *pool = &global_memory_pool->pools[i];
+    for (int i = 0; i < LUSH_POOL_COUNT; i++) {
+        lush_pool_t *pool = &global_memory_pool->pools[i];
         printf("  %s Pool (%zu bytes): %zu/%zu blocks free, %" PRIu64
                " allocs, %" PRIu64 " deallocs\n",
                pool_names[i], pool->block_size, pool->free_blocks,
@@ -926,12 +926,12 @@ void lusush_pool_print_status_report(void) {
  * @brief Get default pool configuration for typical usage
  * @return Default configuration structure
  */
-lusush_pool_config_t lusush_pool_get_default_config(void) {
-    lusush_pool_config_t config = {
-        .small_pool_blocks = DEFAULT_BLOCK_COUNTS[LUSUSH_POOL_SMALL],
-        .medium_pool_blocks = DEFAULT_BLOCK_COUNTS[LUSUSH_POOL_MEDIUM],
-        .large_pool_blocks = DEFAULT_BLOCK_COUNTS[LUSUSH_POOL_LARGE],
-        .xlarge_pool_blocks = DEFAULT_BLOCK_COUNTS[LUSUSH_POOL_XLARGE],
+lush_pool_config_t lush_pool_get_default_config(void) {
+    lush_pool_config_t config = {
+        .small_pool_blocks = DEFAULT_BLOCK_COUNTS[LUSH_POOL_SMALL],
+        .medium_pool_blocks = DEFAULT_BLOCK_COUNTS[LUSH_POOL_MEDIUM],
+        .large_pool_blocks = DEFAULT_BLOCK_COUNTS[LUSH_POOL_LARGE],
+        .xlarge_pool_blocks = DEFAULT_BLOCK_COUNTS[LUSH_POOL_XLARGE],
         .enable_statistics = true,
         .enable_malloc_fallback = true,
         .enable_debugging = false};
@@ -942,8 +942,8 @@ lusush_pool_config_t lusush_pool_get_default_config(void) {
  * @brief Create optimized configuration for display-heavy workloads
  * @return Configuration structure optimized for display operations
  */
-lusush_pool_config_t lusush_pool_get_display_optimized_config(void) {
-    lusush_pool_config_t config = lusush_pool_get_default_config();
+lush_pool_config_t lush_pool_get_display_optimized_config(void) {
+    lush_pool_config_t config = lush_pool_get_default_config();
 
     // Optimize for display operations based on fallback analysis
     config.small_pool_blocks =
@@ -960,25 +960,25 @@ lusush_pool_config_t lusush_pool_get_display_optimized_config(void) {
  * @param error The error code to convert
  * @return Human-readable error description string
  */
-const char *lusush_pool_error_string(lusush_pool_error_t error) {
+const char *lush_pool_error_string(lush_pool_error_t error) {
     switch (error) {
-    case LUSUSH_POOL_SUCCESS:
+    case LUSH_POOL_SUCCESS:
         return "Success";
-    case LUSUSH_POOL_ERROR_NOT_INITIALIZED:
+    case LUSH_POOL_ERROR_NOT_INITIALIZED:
         return "Pool system not initialized";
-    case LUSUSH_POOL_ERROR_INVALID_SIZE:
+    case LUSH_POOL_ERROR_INVALID_SIZE:
         return "Invalid allocation size";
-    case LUSUSH_POOL_ERROR_POOL_EXHAUSTED:
+    case LUSH_POOL_ERROR_POOL_EXHAUSTED:
         return "Pool exhausted";
-    case LUSUSH_POOL_ERROR_INVALID_POINTER:
+    case LUSH_POOL_ERROR_INVALID_POINTER:
         return "Invalid pointer";
-    case LUSUSH_POOL_ERROR_MALLOC_FAILED:
+    case LUSH_POOL_ERROR_MALLOC_FAILED:
         return "Malloc allocation failed";
-    case LUSUSH_POOL_ERROR_BLOCK_NOT_FOUND:
+    case LUSH_POOL_ERROR_BLOCK_NOT_FOUND:
         return "Block not found";
-    case LUSUSH_POOL_ERROR_DOUBLE_FREE:
+    case LUSH_POOL_ERROR_DOUBLE_FREE:
         return "Double free detected";
-    case LUSUSH_POOL_ERROR_INITIALIZATION_FAILED:
+    case LUSH_POOL_ERROR_INITIALIZATION_FAILED:
         return "Initialization failed";
     default:
         return "Unknown error";
@@ -989,7 +989,7 @@ const char *lusush_pool_error_string(lusush_pool_error_t error) {
  * @brief Enable/disable debug mode with detailed logging
  * @param enabled true to enable debug mode, false to disable
  */
-void lusush_pool_set_debug_mode(bool enabled) {
+void lush_pool_set_debug_mode(bool enabled) {
     debug_mode = enabled;
     POOL_DEBUG("Debug mode %s", enabled ? "enabled" : "disabled");
 }
@@ -998,7 +998,7 @@ void lusush_pool_set_debug_mode(bool enabled) {
  * @brief Get last error that occurred in pool operations
  * @return Last error code from pool operations
  */
-lusush_pool_error_t lusush_pool_get_last_error(void) { return last_error; }
+lush_pool_error_t lush_pool_get_last_error(void) { return last_error; }
 
 /**
  * @brief Get pool memory usage for display performance reporting
@@ -1006,7 +1006,7 @@ lusush_pool_error_t lusush_pool_get_last_error(void) { return last_error; }
  * @param malloc_bytes Pointer to store malloc fallback usage in bytes (may be NULL)
  * @param pool_efficiency Pointer to store pool hit rate percentage (may be NULL)
  */
-void lusush_pool_get_memory_usage(uint64_t *pool_bytes, uint64_t *malloc_bytes,
+void lush_pool_get_memory_usage(uint64_t *pool_bytes, uint64_t *malloc_bytes,
                                   double *pool_efficiency) {
     if (!global_memory_pool) {
         if (pool_bytes)
@@ -1040,7 +1040,7 @@ void lusush_pool_get_memory_usage(uint64_t *pool_bytes, uint64_t *malloc_bytes,
  * @brief Check if pool system is meeting performance targets
  * @return true if performance targets are met, false otherwise
  */
-bool lusush_pool_meets_performance_targets(void) {
+bool lush_pool_meets_performance_targets(void) {
     if (!global_memory_pool) {
         return false;
     }
@@ -1055,7 +1055,7 @@ bool lusush_pool_meets_performance_targets(void) {
     bool meets_targets =
         (global_memory_pool->stats.pool_hit_rate > 80.0) &&
         (global_memory_pool->stats.avg_allocation_time_ns < 1000) &&
-        lusush_pool_is_healthy();
+        lush_pool_is_healthy();
 
     pthread_mutex_unlock(&pool_mutex);
     return meets_targets;

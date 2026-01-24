@@ -301,7 +301,7 @@ Continuation prompts are:
 
 ### LLE Direct Display Integration
 
-From `src/lle/terminal_lusush_client.c:122-132`:
+From `src/lle/terminal_lush_client.c:122-132`:
 ```c
 /* For now, use simple direct rendering until display_controller integration is complete.
  * 

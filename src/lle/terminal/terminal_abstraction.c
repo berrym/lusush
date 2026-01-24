@@ -10,7 +10,7 @@
  * 1. Terminal Capabilities (terminal_capabilities.c)
  * 2. Internal State Authority Model (terminal_internal_state.c)
  * 3. Display Content Generation (terminal_display_generator.c)
- * 4. Lusush Display Integration (terminal_lusush_client.c)
+ * 4. Lush Display Integration (terminal_lush_client.c)
  * 5. Input Event Processing (terminal_input_processor.c)
  * 6. Unix Terminal Interface (terminal_unix_interface.c)
  * 7. Error Handling (terminal_error_handler.c)
@@ -35,12 +35,12 @@
  * all 8 subsystems in the correct order with proper error handling.
  *
  * @param abstraction Output pointer for created abstraction
- * @param lusush_display Lusush display context
+ * @param lush_display Lush display context
  * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t
 lle_terminal_abstraction_init(lle_terminal_abstraction_t **abstraction,
-                              lusush_display_context_t *lusush_display) {
+                              lush_display_context_t *lush_display) {
     if (!abstraction) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -102,9 +102,9 @@ lle_terminal_abstraction_init(lle_terminal_abstraction_t **abstraction,
         return result;
     }
 
-    /* Step 6: Initialize as Lusush display layer client */
-    result = lle_lusush_display_client_init(&abs->display_client,
-                                            lusush_display, abs->capabilities);
+    /* Step 6: Initialize as Lush display layer client */
+    result = lle_lush_display_client_init(&abs->display_client,
+                                            lush_display, abs->capabilities);
     if (result != LLE_SUCCESS) {
         lle_display_generator_destroy(abs->display_generator);
         lle_internal_state_destroy(abs->internal_state);
@@ -118,7 +118,7 @@ lle_terminal_abstraction_init(lle_terminal_abstraction_t **abstraction,
     result = lle_input_processor_init(&abs->input_processor, abs->capabilities,
                                       abs->unix_interface);
     if (result != LLE_SUCCESS) {
-        lle_lusush_display_client_destroy(abs->display_client);
+        lle_lush_display_client_destroy(abs->display_client);
         lle_display_generator_destroy(abs->display_generator);
         lle_internal_state_destroy(abs->internal_state);
         lle_capabilities_destroy(abs->capabilities);
@@ -168,9 +168,9 @@ void lle_terminal_abstraction_destroy(lle_terminal_abstraction_t *abstraction) {
         lle_input_processor_destroy(abstraction->input_processor);
     }
 
-    /* Step 6: Destroy Lusush display client */
+    /* Step 6: Destroy Lush display client */
     if (abstraction->display_client) {
-        lle_lusush_display_client_destroy(abstraction->display_client);
+        lle_lush_display_client_destroy(abstraction->display_client);
     }
 
     /* Step 5: Destroy display generator */

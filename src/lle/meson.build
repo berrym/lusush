@@ -1,5 +1,5 @@
 # src/lle/meson.build
-# LLE (Lusush Line Editor) Build Configuration
+# LLE (Lush Line Editor) Build Configuration
 #
 # Modular directory structure organized by specification/subsystem.
 
@@ -22,8 +22,8 @@ lle_sources = []
 # EXTERNAL DEPENDENCIES
 # ============================================================================
 
-# Lusush memory pool system
-lle_sources += files('../lusush_memory_pool.c')
+# Lush memory pool system
+lle_sources += files('../lush_memory_pool.c')
 
 # TOML parser (shared with main config system)
 lle_sources += files('../toml_parser.c')
@@ -106,7 +106,7 @@ lle_sources += files(
   'terminal/terminal_error_handler.c',
   'terminal/terminal_perf_monitor.c',
   'terminal/terminal_signature_database.c',
-  'terminal/terminal_lusush_client.c',
+  'terminal/terminal_lush_client.c',
 )
 
 # ============================================================================
@@ -163,7 +163,7 @@ lle_sources += files(
   'history/history_search.c',
   'history/history_interactive_search.c',
   'history/history_expansion.c',
-  'history/history_lusush_bridge.c',
+  'history/history_lush_bridge.c',
   'history/history_buffer_integration.c',
   'history/history_buffer_bridge.c',
   'history/history_events.c',

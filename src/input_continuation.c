@@ -1,6 +1,6 @@
 /**
  * @file input_continuation.c
- * @brief Shared Multiline Input Continuation System for Lusush Shell
+ * @brief Shared Multiline Input Continuation System for Lush Shell
  *
  * This module provides shared multiline parsing functionality for both the
  * Line Editing Engine (LLE) and the main input system. It tracks the parsing

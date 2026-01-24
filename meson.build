@@ -1,4 +1,4 @@
-project('lusush',
+project('lush',
         'c',
         default_options: ['c_std=c11',
                           'optimization=3',
@@ -20,7 +20,7 @@ fs = import('fs')
 # Correct usage:
 #   meson setup build
 #   meson compile -C build
-#   ./build/lusush
+#   ./build/lush
 #
 # The check below will error if you use a different build directory name.
 # ============================================================================
@@ -60,7 +60,7 @@ src = ['src/builtins/alias.c',
        'src/autocorrect.c',
        'src/libfuzzy/fuzzy_match.c',
        'src/config.c',
-       'src/lusush_memory_pool.c',
+       'src/lush_memory_pool.c',
        'src/debug/debug_core.c',
        'src/debug/debug_trace.c',
        'src/debug/debug_breakpoints.c',
@@ -92,14 +92,14 @@ src = ['src/builtins/alias.c',
        'src/libhashtable/ht_strfloat.c',
        'src/libhashtable/ht_strint.c',
        'src/libhashtable/ht_strstr.c',
-       'src/lusush.c',
+       'src/lush.c',
        'src/node.c',
        'src/shell_error.c',
        'src/opts.c',
        'src/parser.c',
        'src/posix_opts.c',
        'src/shell_mode.c',
-       'src/lusush_plugin.c',
+       'src/lush_plugin.c',
        'src/signals.c',
        'src/strings.c',
        'src/symtable.c',
@@ -116,7 +116,7 @@ if host_machine.system() == 'darwin'
 endif
 
 # LLE is the sole line editor - no GNU readline dependency
-message('Line Editor: LLE (Lusush Line Editor)')
+message('Line Editor: LLE (Lush Line Editor)')
 
 # Find ncurses dependency (required by LLE terminal capabilities)
 ncurses_dep = dependency('ncurses', required: true)
@@ -147,9 +147,9 @@ fuzzy_dep = declare_dependency(link_with: fuzzy_lib,
                                include_directories: inc)
 
 # ============================================================================
-# LLE (Lusush Line Editor) Build System
+# LLE (Lush Line Editor) Build System
 # ============================================================================
-# Build LLE as a static library (liblle.a) and link into lusush executable.
+# Build LLE as a static library (liblle.a) and link into lush executable.
 # The src/lle/meson.build file automatically detects implemented modules
 # via fs.exists() checks - no manual updates needed when adding modules.
 
@@ -212,10 +212,10 @@ display_dep = declare_dependency(link_with: display_lib,
                                  include_directories: inc,
                                  dependencies: [ncurses_link_dep])
 
-# Build lusush executable with LLE
+# Build lush executable with LLE
 # NOTE: lle_shell_sources contains shell integration files that depend on
 # shell globals (config, builtins, etc.) and cannot be in liblle.a
-lusush_exe = executable('lusush',
+lush_exe = executable('lush',
                         src + lle_shell_sources,
                         include_directories: inc,
                         dependencies: [lle_dep, libm])
@@ -227,7 +227,7 @@ lusush_exe = executable('lusush',
 # LLE Functional Tests - standalone with mock memory pool
 if lle_sources.length() > 0
   # Buffer operations functional tests
-  # Uses mock memory pool to avoid full lusush dependencies
+  # Uses mock memory pool to avoid full lush dependencies
   test_buffer_ops = executable('test_buffer_operations',
                                ['tests/lle/functional/buffer_operations_test.c',
                                 'tests/lle/functional/test_memory_mock.c'],
@@ -1002,7 +1002,7 @@ if fs.exists('tests/lle/integration/simple_input_test.c')
                                   'tests/lle/integration/simple_input_test.c')
 endif
 
-# NOTE: For manual LLE testing, use the main lusush binary
+# NOTE: For manual LLE testing, use the main lush binary
 
 # ============================================================================
 # LLE Completion Menu Renderer Unit Tests (Spec 12 Phase 5.1)
@@ -1130,12 +1130,12 @@ endif
 # ============================================================================
 # Executor Integration Tests
 # Tests command execution, builtins, control structures, expansion
-# Uses all shell sources except lusush.c (has main())
+# Uses all shell sources except lush.c (has main())
 if fs.exists('tests/unit/test_executor.c')
-  # Filter out lusush.c from src list (contains main())
+  # Filter out lush.c from src list (contains main())
   test_executor_sources = []
   foreach s : src
-    if not s.endswith('lusush.c')
+    if not s.endswith('lush.c')
       test_executor_sources += s
     endif
   endforeach
@@ -1157,7 +1157,7 @@ if fs.exists('tests/unit/test_builtins.c')
   # Reuse same source filtering as executor tests
   test_builtins_sources = []
   foreach s : src
-    if not s.endswith('lusush.c')
+    if not s.endswith('lush.c')
       test_builtins_sources += s
     endif
   endforeach
@@ -1179,7 +1179,7 @@ if fs.exists('tests/unit/test_expansion.c')
   # Reuse same source filtering as executor tests
   test_expansion_sources = []
   foreach s : src
-    if not s.endswith('lusush.c')
+    if not s.endswith('lush.c')
       test_expansion_sources += s
     endif
   endforeach
@@ -1200,7 +1200,7 @@ endif
 if fs.exists('tests/unit/test_fuzzy_match.c')
   test_fuzzy_sources = []
   foreach s : src
-    if not s.endswith('lusush.c')
+    if not s.endswith('lush.c')
       test_fuzzy_sources += s
     endif
   endforeach
@@ -1221,7 +1221,7 @@ endif
 if fs.exists('tests/unit/test_debug.c')
   test_debug_sources = []
   foreach s : src
-    if not s.endswith('lusush.c')
+    if not s.endswith('lush.c')
       test_debug_sources += s
     endif
   endforeach
@@ -1242,7 +1242,7 @@ endif
 if fs.exists('tests/unit/test_fc.c')
   test_fc_sources = []
   foreach s : src
-    if not s.endswith('lusush.c')
+    if not s.endswith('lush.c')
       test_fc_sources += s
     endif
   endforeach
@@ -1263,7 +1263,7 @@ endif
 if fs.exists('tests/unit/test_display.c')
   test_display_sources = []
   foreach s : src
-    if not s.endswith('lusush.c')
+    if not s.endswith('lush.c')
       test_display_sources += s
     endif
   endforeach
@@ -1284,7 +1284,7 @@ endif
 if fs.exists('tests/unit/test_autocorrect.c')
   test_autocorrect_sources = []
   foreach s : src
-    if not s.endswith('lusush.c')
+    if not s.endswith('lush.c')
       test_autocorrect_sources += s
     endif
   endforeach
@@ -1305,7 +1305,7 @@ endif
 if fs.exists('tests/unit/test_dirstack.c')
   test_dirstack_sources = []
   foreach s : src
-    if not s.endswith('lusush.c')
+    if not s.endswith('lush.c')
       test_dirstack_sources += s
     endif
   endforeach
@@ -1326,7 +1326,7 @@ endif
 if fs.exists('tests/unit/test_posix_history.c')
   test_posix_history_sources = []
   foreach s : src
-    if not s.endswith('lusush.c')
+    if not s.endswith('lush.c')
       test_posix_history_sources += s
     endif
   endforeach
@@ -1347,7 +1347,7 @@ endif
 if fs.exists('tests/unit/test_debug_analysis.c')
   test_debug_analysis_sources = []
   foreach s : src
-    if not s.endswith('lusush.c')
+    if not s.endswith('lush.c')
       test_debug_analysis_sources += s
     endif
   endforeach
@@ -1368,7 +1368,7 @@ endif
 if fs.exists('tests/unit/test_debug_trace.c')
   test_debug_trace_sources = []
   foreach s : src
-    if not s.endswith('lusush.c')
+    if not s.endswith('lush.c')
       test_debug_trace_sources += s
     endif
   endforeach
@@ -1389,7 +1389,7 @@ endif
 if fs.exists('tests/unit/test_debug_breakpoints.c')
   test_debug_breakpoints_sources = []
   foreach s : src
-    if not s.endswith('lusush.c')
+    if not s.endswith('lush.c')
       test_debug_breakpoints_sources += s
     endif
   endforeach
@@ -1410,7 +1410,7 @@ endif
 if fs.exists('tests/unit/test_display_controller.c')
   test_display_controller_sources = []
   foreach s : src
-    if not s.endswith('lusush.c')
+    if not s.endswith('lush.c')
       test_display_controller_sources += s
     endif
   endforeach
@@ -1431,7 +1431,7 @@ endif
 if fs.exists('tests/unit/test_terminal_control.c')
   test_terminal_control_sources = []
   foreach s : src
-    if not s.endswith('lusush.c')
+    if not s.endswith('lush.c')
       test_terminal_control_sources += s
     endif
   endforeach
@@ -1451,7 +1451,7 @@ endif
 if fs.exists('tests/unit/test_screen_buffer.c')
   test_screen_buffer_sources = []
   foreach s : src
-    if not s.endswith('lusush.c')
+    if not s.endswith('lush.c')
       test_screen_buffer_sources += s
     endif
   endforeach
@@ -1471,7 +1471,7 @@ endif
 if fs.exists('tests/unit/test_composition_engine.c')
   test_composition_engine_sources = []
   foreach s : src
-    if not s.endswith('lusush.c')
+    if not s.endswith('lush.c')
       test_composition_engine_sources += s
     endif
   endforeach
@@ -1491,7 +1491,7 @@ endif
 if fs.exists('tests/unit/test_prompt_layer.c')
   test_prompt_layer_sources = []
   foreach s : src
-    if not s.endswith('lusush.c')
+    if not s.endswith('lush.c')
       test_prompt_layer_sources += s
     endif
   endforeach

@@ -28,7 +28,7 @@
  * Strategic Innovation:
  * This engine completes the revolutionary shell display technology by enabling
  * the universal combination of professional themes with real-time syntax
- * highlighting, making Lusush the first shell to achieve this capability.
+ * highlighting, making Lush the first shell to achieve this capability.
  */
 
 #ifndef COMPOSITION_ENGINE_H

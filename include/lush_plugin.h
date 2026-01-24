@@ -1,10 +1,10 @@
 /**
- * @file lusush_plugin.h
- * @brief Lusush Plugin System Foundation
+ * @file lush_plugin.h
+ * @brief Lush Plugin System Foundation
  * @author Michael Berry <trismegustis@gmail.com>
  * @copyright Copyright (C) 2021-2026 Michael Berry
  *
- * Plugin system for extending lusush shell functionality. Plugins can:
+ * Plugin system for extending lush shell functionality. Plugins can:
  * - Register new builtins
  * - Add hook functions
  * - Provide custom completions
@@ -12,7 +12,7 @@
  * - Subscribe to shell events
  *
  * Design Principles:
- * - Simple, focused API following lusush patterns
+ * - Simple, focused API following lush patterns
  * - Dynamic loading via dlopen/dlsym
  * - Sandboxed execution with permission system
  * - Memory-safe with proper lifecycle management
@@ -21,14 +21,14 @@
  * Example Plugin:
  *
  *     // my_plugin.c
- *     #include <lusush_plugin.h>
+ *     #include <lush_plugin.h>
  *
  *     static int my_builtin(int argc, char **argv) {
  *         printf("Hello from plugin!\n");
  *         return 0;
  *     }
  *
- *     LUSUSH_PLUGIN_DEFINE(
+ *     LUSH_PLUGIN_DEFINE(
  *         .name = "my-plugin",
  *         .version = "1.0.0",
  *         .description = "Example plugin",
@@ -36,14 +36,14 @@
  *         .cleanup = my_plugin_cleanup,
  *     );
  *
- *     int my_plugin_init(lusush_plugin_context_t *ctx) {
- *         lusush_plugin_register_builtin(ctx, "my-cmd", my_builtin);
+ *     int my_plugin_init(lush_plugin_context_t *ctx) {
+ *         lush_plugin_register_builtin(ctx, "my-cmd", my_builtin);
  *         return 0;
  *     }
  */
 
-#ifndef LUSUSH_PLUGIN_H
-#define LUSUSH_PLUGIN_H
+#ifndef LUSH_PLUGIN_H
+#define LUSH_PLUGIN_H
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -58,20 +58,20 @@ extern "C" {
  * ============================================================================ */
 
 /** Plugin API version - increment on breaking changes */
-#define LUSUSH_PLUGIN_API_VERSION 1
+#define LUSH_PLUGIN_API_VERSION 1
 
 /** Minimum API version for backwards compatibility */
-#define LUSUSH_PLUGIN_API_VERSION_MIN 1
+#define LUSH_PLUGIN_API_VERSION_MIN 1
 
 /* ============================================================================
  * FORWARD DECLARATIONS
  * ============================================================================ */
 
-typedef struct lusush_plugin lusush_plugin_t;
-typedef struct lusush_plugin_manager lusush_plugin_manager_t;
-typedef struct lusush_plugin_context lusush_plugin_context_t;
+typedef struct lush_plugin lush_plugin_t;
+typedef struct lush_plugin_manager lush_plugin_manager_t;
+typedef struct lush_plugin_context lush_plugin_context_t;
 
-/* Forward declarations from other lusush components */
+/* Forward declarations from other lush components */
 struct executor;
 struct symtable;
 
@@ -86,40 +86,40 @@ struct symtable;
  * permissions, and users can grant or deny them.
  */
 typedef enum {
-    LUSUSH_PLUGIN_PERM_NONE = 0,
+    LUSH_PLUGIN_PERM_NONE = 0,
 
     /* Builtin registration */
-    LUSUSH_PLUGIN_PERM_REGISTER_BUILTIN = 1 << 0,
+    LUSH_PLUGIN_PERM_REGISTER_BUILTIN = 1 << 0,
 
     /* Hook registration */
-    LUSUSH_PLUGIN_PERM_REGISTER_HOOK = 1 << 1,
+    LUSH_PLUGIN_PERM_REGISTER_HOOK = 1 << 1,
 
     /* Variable access */
-    LUSUSH_PLUGIN_PERM_READ_VARS = 1 << 2,
-    LUSUSH_PLUGIN_PERM_WRITE_VARS = 1 << 3,
+    LUSH_PLUGIN_PERM_READ_VARS = 1 << 2,
+    LUSH_PLUGIN_PERM_WRITE_VARS = 1 << 3,
 
     /* File system access */
-    LUSUSH_PLUGIN_PERM_FILE_READ = 1 << 4,
-    LUSUSH_PLUGIN_PERM_FILE_WRITE = 1 << 5,
+    LUSH_PLUGIN_PERM_FILE_READ = 1 << 4,
+    LUSH_PLUGIN_PERM_FILE_WRITE = 1 << 5,
 
     /* Network access */
-    LUSUSH_PLUGIN_PERM_NETWORK = 1 << 6,
+    LUSH_PLUGIN_PERM_NETWORK = 1 << 6,
 
     /* Event subscription */
-    LUSUSH_PLUGIN_PERM_EVENTS = 1 << 7,
+    LUSH_PLUGIN_PERM_EVENTS = 1 << 7,
 
     /* Completion provider */
-    LUSUSH_PLUGIN_PERM_COMPLETIONS = 1 << 8,
+    LUSH_PLUGIN_PERM_COMPLETIONS = 1 << 8,
 
     /* Widget registration (LLE) */
-    LUSUSH_PLUGIN_PERM_WIDGETS = 1 << 9,
+    LUSH_PLUGIN_PERM_WIDGETS = 1 << 9,
 
     /* Execute external commands */
-    LUSUSH_PLUGIN_PERM_EXEC = 1 << 10,
+    LUSH_PLUGIN_PERM_EXEC = 1 << 10,
 
     /* All permissions (for trusted plugins) */
-    LUSUSH_PLUGIN_PERM_ALL = 0x7FF,
-} lusush_plugin_permission_t;
+    LUSH_PLUGIN_PERM_ALL = 0x7FF,
+} lush_plugin_permission_t;
 
 /* ============================================================================
  * PLUGIN STATE
@@ -129,15 +129,15 @@ typedef enum {
  * @brief Plugin lifecycle states
  */
 typedef enum {
-    LUSUSH_PLUGIN_STATE_UNLOADED,    /**< Not loaded */
-    LUSUSH_PLUGIN_STATE_LOADING,     /**< Being loaded */
-    LUSUSH_PLUGIN_STATE_LOADED,      /**< Loaded but not initialized */
-    LUSUSH_PLUGIN_STATE_INITIALIZING,/**< Being initialized */
-    LUSUSH_PLUGIN_STATE_ACTIVE,      /**< Fully active */
-    LUSUSH_PLUGIN_STATE_SUSPENDED,   /**< Temporarily suspended */
-    LUSUSH_PLUGIN_STATE_ERROR,       /**< Error state */
-    LUSUSH_PLUGIN_STATE_UNLOADING,   /**< Being unloaded */
-} lusush_plugin_state_t;
+    LUSH_PLUGIN_STATE_UNLOADED,    /**< Not loaded */
+    LUSH_PLUGIN_STATE_LOADING,     /**< Being loaded */
+    LUSH_PLUGIN_STATE_LOADED,      /**< Loaded but not initialized */
+    LUSH_PLUGIN_STATE_INITIALIZING,/**< Being initialized */
+    LUSH_PLUGIN_STATE_ACTIVE,      /**< Fully active */
+    LUSH_PLUGIN_STATE_SUSPENDED,   /**< Temporarily suspended */
+    LUSH_PLUGIN_STATE_ERROR,       /**< Error state */
+    LUSH_PLUGIN_STATE_UNLOADING,   /**< Being unloaded */
+} lush_plugin_state_t;
 
 /* ============================================================================
  * PLUGIN RESULT CODES
@@ -147,18 +147,18 @@ typedef enum {
  * @brief Plugin operation result codes
  */
 typedef enum {
-    LUSUSH_PLUGIN_OK = 0,             /**< Success */
-    LUSUSH_PLUGIN_ERROR = -1,         /**< Generic error */
-    LUSUSH_PLUGIN_ERROR_NOT_FOUND = -2,     /**< Plugin not found */
-    LUSUSH_PLUGIN_ERROR_LOAD_FAILED = -3,   /**< dlopen failed */
-    LUSUSH_PLUGIN_ERROR_SYMBOL_NOT_FOUND = -4, /**< Missing required symbol */
-    LUSUSH_PLUGIN_ERROR_VERSION_MISMATCH = -5, /**< API version incompatible */
-    LUSUSH_PLUGIN_ERROR_INIT_FAILED = -6,   /**< Plugin init() failed */
-    LUSUSH_PLUGIN_ERROR_PERMISSION_DENIED = -7, /**< Permission not granted */
-    LUSUSH_PLUGIN_ERROR_ALREADY_LOADED = -8,/**< Plugin already loaded */
-    LUSUSH_PLUGIN_ERROR_INVALID_PLUGIN = -9,/**< Invalid plugin definition */
-    LUSUSH_PLUGIN_ERROR_OUT_OF_MEMORY = -10,/**< Memory allocation failed */
-} lusush_plugin_result_t;
+    LUSH_PLUGIN_OK = 0,             /**< Success */
+    LUSH_PLUGIN_ERROR = -1,         /**< Generic error */
+    LUSH_PLUGIN_ERROR_NOT_FOUND = -2,     /**< Plugin not found */
+    LUSH_PLUGIN_ERROR_LOAD_FAILED = -3,   /**< dlopen failed */
+    LUSH_PLUGIN_ERROR_SYMBOL_NOT_FOUND = -4, /**< Missing required symbol */
+    LUSH_PLUGIN_ERROR_VERSION_MISMATCH = -5, /**< API version incompatible */
+    LUSH_PLUGIN_ERROR_INIT_FAILED = -6,   /**< Plugin init() failed */
+    LUSH_PLUGIN_ERROR_PERMISSION_DENIED = -7, /**< Permission not granted */
+    LUSH_PLUGIN_ERROR_ALREADY_LOADED = -8,/**< Plugin already loaded */
+    LUSH_PLUGIN_ERROR_INVALID_PLUGIN = -9,/**< Invalid plugin definition */
+    LUSH_PLUGIN_ERROR_OUT_OF_MEMORY = -10,/**< Memory allocation failed */
+} lush_plugin_result_t;
 
 /* ============================================================================
  * CALLBACK SIGNATURES
@@ -169,14 +169,14 @@ typedef enum {
  *
  * Same signature as internal builtins for consistency.
  */
-typedef int (*lusush_plugin_builtin_fn)(int argc, char **argv);
+typedef int (*lush_plugin_builtin_fn)(int argc, char **argv);
 
 /**
  * @brief Hook function callback
  *
  * Called for shell lifecycle events (precmd, preexec, chpwd).
  */
-typedef void (*lusush_plugin_hook_fn)(lusush_plugin_context_t *ctx,
+typedef void (*lush_plugin_hook_fn)(lush_plugin_context_t *ctx,
                                       const char *event_data);
 
 /**
@@ -184,7 +184,7 @@ typedef void (*lusush_plugin_hook_fn)(lusush_plugin_context_t *ctx,
  *
  * Called when subscribed events occur.
  */
-typedef void (*lusush_plugin_event_fn)(lusush_plugin_context_t *ctx,
+typedef void (*lush_plugin_event_fn)(lush_plugin_context_t *ctx,
                                        int event_type,
                                        void *event_data);
 
@@ -200,7 +200,7 @@ typedef void (*lusush_plugin_event_fn)(lusush_plugin_context_t *ctx,
  * @param count Output count of completions
  * @return 0 on success
  */
-typedef int (*lusush_plugin_completion_fn)(lusush_plugin_context_t *ctx,
+typedef int (*lush_plugin_completion_fn)(lush_plugin_context_t *ctx,
                                            const char *line,
                                            size_t cursor,
                                            char ***completions,
@@ -213,11 +213,11 @@ typedef int (*lusush_plugin_completion_fn)(lusush_plugin_context_t *ctx,
 /**
  * @brief Plugin definition structure
  *
- * Every plugin must export a `lusush_plugin_definition` symbol of this type.
- * Use the LUSUSH_PLUGIN_DEFINE macro for convenience.
+ * Every plugin must export a `lush_plugin_definition` symbol of this type.
+ * Use the LUSH_PLUGIN_DEFINE macro for convenience.
  */
-typedef struct lusush_plugin_def {
-    /** API version - must match LUSUSH_PLUGIN_API_VERSION */
+typedef struct lush_plugin_def {
+    /** API version - must match LUSH_PLUGIN_API_VERSION */
     uint32_t api_version;
 
     /** Plugin name (unique identifier) */
@@ -236,7 +236,7 @@ typedef struct lusush_plugin_def {
     const char *license;
 
     /** Required permissions (bitfield) */
-    lusush_plugin_permission_t required_permissions;
+    lush_plugin_permission_t required_permissions;
 
     /** Optional dependencies (NULL-terminated array of plugin names) */
     const char **dependencies;
@@ -249,7 +249,7 @@ typedef struct lusush_plugin_def {
      * @param ctx Plugin context for registration APIs
      * @return 0 on success, non-zero on failure
      */
-    int (*init)(lusush_plugin_context_t *ctx);
+    int (*init)(lush_plugin_context_t *ctx);
 
     /**
      * @brief Clean up the plugin
@@ -258,7 +258,7 @@ typedef struct lusush_plugin_def {
      *
      * @param ctx Plugin context
      */
-    void (*cleanup)(lusush_plugin_context_t *ctx);
+    void (*cleanup)(lush_plugin_context_t *ctx);
 
     /**
      * @brief Suspend the plugin (optional)
@@ -267,7 +267,7 @@ typedef struct lusush_plugin_def {
      *
      * @param ctx Plugin context
      */
-    void (*suspend)(lusush_plugin_context_t *ctx);
+    void (*suspend)(lush_plugin_context_t *ctx);
 
     /**
      * @brief Resume the plugin (optional)
@@ -276,29 +276,29 @@ typedef struct lusush_plugin_def {
      *
      * @param ctx Plugin context
      */
-    void (*resume)(lusush_plugin_context_t *ctx);
+    void (*resume)(lush_plugin_context_t *ctx);
 
-} lusush_plugin_def_t;
+} lush_plugin_def_t;
 
 /**
  * @brief Convenience macro for defining a plugin
  *
  * Usage:
- *     LUSUSH_PLUGIN_DEFINE(
+ *     LUSH_PLUGIN_DEFINE(
  *         .name = "my-plugin",
  *         .version = "1.0.0",
  *         .init = my_init,
  *         .cleanup = my_cleanup,
  *     );
  */
-#define LUSUSH_PLUGIN_DEFINE(...)                                              \
-    const lusush_plugin_def_t lusush_plugin_definition = {                     \
-        .api_version = LUSUSH_PLUGIN_API_VERSION,                              \
+#define LUSH_PLUGIN_DEFINE(...)                                              \
+    const lush_plugin_def_t lush_plugin_definition = {                     \
+        .api_version = LUSH_PLUGIN_API_VERSION,                              \
         __VA_ARGS__                                                            \
     }
 
 /** Symbol name for plugin definition (for dlsym) */
-#define LUSUSH_PLUGIN_SYMBOL "lusush_plugin_definition"
+#define LUSH_PLUGIN_SYMBOL "lush_plugin_definition"
 
 /* ============================================================================
  * PLUGIN CONTEXT
@@ -310,12 +310,12 @@ typedef struct lusush_plugin_def {
  * Passed to plugin callbacks, provides access to shell internals
  * (subject to permissions) and registration APIs.
  */
-struct lusush_plugin_context {
+struct lush_plugin_context {
     /** The plugin this context belongs to */
-    lusush_plugin_t *plugin;
+    lush_plugin_t *plugin;
 
     /** Plugin manager for inter-plugin communication */
-    lusush_plugin_manager_t *manager;
+    lush_plugin_manager_t *manager;
 
     /** Executor access (if permitted) */
     struct executor *executor;
@@ -327,7 +327,7 @@ struct lusush_plugin_context {
     void *user_data;
 
     /** Granted permissions (may be less than requested) */
-    lusush_plugin_permission_t granted_permissions;
+    lush_plugin_permission_t granted_permissions;
 };
 
 /* ============================================================================
@@ -339,12 +339,12 @@ struct lusush_plugin_context {
  *
  * Represents a loaded plugin. Managed by the plugin manager.
  */
-struct lusush_plugin {
+struct lush_plugin {
     /** Plugin definition (from shared object) */
-    const lusush_plugin_def_t *def;
+    const lush_plugin_def_t *def;
 
     /** Current state */
-    lusush_plugin_state_t state;
+    lush_plugin_state_t state;
 
     /** Path to the shared object */
     char *path;
@@ -353,7 +353,7 @@ struct lusush_plugin {
     void *handle;
 
     /** Plugin context */
-    lusush_plugin_context_t *ctx;
+    lush_plugin_context_t *ctx;
 
     /** Registered builtins (for cleanup) */
     char **registered_builtins;
@@ -366,7 +366,7 @@ struct lusush_plugin {
     uint64_t load_time;
 
     /** Next plugin in manager's list */
-    struct lusush_plugin *next;
+    struct lush_plugin *next;
 };
 
 /* ============================================================================
@@ -384,14 +384,14 @@ typedef struct {
     bool auto_load;
 
     /** Default permissions for new plugins */
-    lusush_plugin_permission_t default_permissions;
+    lush_plugin_permission_t default_permissions;
 
     /** Enable plugin sandboxing */
     bool enable_sandbox;
 
     /** Maximum loaded plugins (0 = unlimited) */
     size_t max_plugins;
-} lusush_plugin_manager_config_t;
+} lush_plugin_manager_config_t;
 
 /**
  * @brief Plugin manager structure
@@ -399,15 +399,15 @@ typedef struct {
  * Central registry for all plugins. Handles loading, unloading,
  * and lifecycle management.
  */
-struct lusush_plugin_manager {
+struct lush_plugin_manager {
     /** Loaded plugins (linked list) */
-    lusush_plugin_t *plugins;
+    lush_plugin_t *plugins;
 
     /** Plugin count */
     size_t plugin_count;
 
     /** Configuration */
-    lusush_plugin_manager_config_t config;
+    lush_plugin_manager_config_t config;
 
     /** Executor reference */
     struct executor *executor;
@@ -428,11 +428,11 @@ struct lusush_plugin_manager {
  *
  * @param manager Output pointer for created manager
  * @param config Configuration (NULL for defaults)
- * @return LUSUSH_PLUGIN_OK on success
+ * @return LUSH_PLUGIN_OK on success
  */
-lusush_plugin_result_t
-lusush_plugin_manager_create(lusush_plugin_manager_t **manager,
-                             const lusush_plugin_manager_config_t *config);
+lush_plugin_result_t
+lush_plugin_manager_create(lush_plugin_manager_t **manager,
+                             const lush_plugin_manager_config_t *config);
 
 /**
  * @brief Destroy plugin manager
@@ -441,7 +441,7 @@ lusush_plugin_manager_create(lusush_plugin_manager_t **manager,
  *
  * @param manager Manager to destroy
  */
-void lusush_plugin_manager_destroy(lusush_plugin_manager_t *manager);
+void lush_plugin_manager_destroy(lush_plugin_manager_t *manager);
 
 /**
  * @brief Set executor reference
@@ -449,7 +449,7 @@ void lusush_plugin_manager_destroy(lusush_plugin_manager_t *manager);
  * @param manager Plugin manager
  * @param executor Executor to use
  */
-void lusush_plugin_manager_set_executor(lusush_plugin_manager_t *manager,
+void lush_plugin_manager_set_executor(lush_plugin_manager_t *manager,
                                         struct executor *executor);
 
 /**
@@ -458,7 +458,7 @@ void lusush_plugin_manager_set_executor(lusush_plugin_manager_t *manager,
  * @param manager Plugin manager
  * @param symtable Symbol table to use
  */
-void lusush_plugin_manager_set_symtable(lusush_plugin_manager_t *manager,
+void lush_plugin_manager_set_symtable(lush_plugin_manager_t *manager,
                                         struct symtable *symtable);
 
 /**
@@ -467,12 +467,12 @@ void lusush_plugin_manager_set_symtable(lusush_plugin_manager_t *manager,
  * @param manager Plugin manager
  * @param path Path to shared object
  * @param plugin Output pointer for loaded plugin (optional)
- * @return LUSUSH_PLUGIN_OK on success
+ * @return LUSH_PLUGIN_OK on success
  */
-lusush_plugin_result_t
-lusush_plugin_manager_load(lusush_plugin_manager_t *manager,
+lush_plugin_result_t
+lush_plugin_manager_load(lush_plugin_manager_t *manager,
                            const char *path,
-                           lusush_plugin_t **plugin);
+                           lush_plugin_t **plugin);
 
 /**
  * @brief Load a plugin by name
@@ -482,22 +482,22 @@ lusush_plugin_manager_load(lusush_plugin_manager_t *manager,
  * @param manager Plugin manager
  * @param name Plugin name
  * @param plugin Output pointer for loaded plugin (optional)
- * @return LUSUSH_PLUGIN_OK on success
+ * @return LUSH_PLUGIN_OK on success
  */
-lusush_plugin_result_t
-lusush_plugin_manager_load_by_name(lusush_plugin_manager_t *manager,
+lush_plugin_result_t
+lush_plugin_manager_load_by_name(lush_plugin_manager_t *manager,
                                    const char *name,
-                                   lusush_plugin_t **plugin);
+                                   lush_plugin_t **plugin);
 
 /**
  * @brief Unload a plugin
  *
  * @param manager Plugin manager
  * @param name Plugin name
- * @return LUSUSH_PLUGIN_OK on success
+ * @return LUSH_PLUGIN_OK on success
  */
-lusush_plugin_result_t
-lusush_plugin_manager_unload(lusush_plugin_manager_t *manager,
+lush_plugin_result_t
+lush_plugin_manager_unload(lush_plugin_manager_t *manager,
                              const char *name);
 
 /**
@@ -507,8 +507,8 @@ lusush_plugin_manager_unload(lusush_plugin_manager_t *manager,
  * @param name Plugin name
  * @return Plugin if found, NULL otherwise
  */
-lusush_plugin_t *
-lusush_plugin_manager_find(lusush_plugin_manager_t *manager,
+lush_plugin_t *
+lush_plugin_manager_find(lush_plugin_manager_t *manager,
                            const char *name);
 
 /**
@@ -517,11 +517,11 @@ lusush_plugin_manager_find(lusush_plugin_manager_t *manager,
  * @param manager Plugin manager
  * @param plugins Output array (caller allocates)
  * @param count Input: array size, Output: actual count
- * @return LUSUSH_PLUGIN_OK on success
+ * @return LUSH_PLUGIN_OK on success
  */
-lusush_plugin_result_t
-lusush_plugin_manager_list(lusush_plugin_manager_t *manager,
-                           lusush_plugin_t **plugins,
+lush_plugin_result_t
+lush_plugin_manager_list(lush_plugin_manager_t *manager,
+                           lush_plugin_t **plugins,
                            size_t *count);
 
 /**
@@ -531,10 +531,10 @@ lusush_plugin_manager_list(lusush_plugin_manager_t *manager,
  *
  * @param manager Plugin manager
  * @param name Plugin name
- * @return LUSUSH_PLUGIN_OK on success
+ * @return LUSH_PLUGIN_OK on success
  */
-lusush_plugin_result_t
-lusush_plugin_manager_reload(lusush_plugin_manager_t *manager,
+lush_plugin_result_t
+lush_plugin_manager_reload(lush_plugin_manager_t *manager,
                              const char *name);
 
 /* ============================================================================
@@ -547,22 +547,22 @@ lusush_plugin_manager_reload(lusush_plugin_manager_t *manager,
  * @param ctx Plugin context
  * @param name Command name
  * @param fn Command function
- * @return LUSUSH_PLUGIN_OK on success
+ * @return LUSH_PLUGIN_OK on success
  */
-lusush_plugin_result_t
-lusush_plugin_register_builtin(lusush_plugin_context_t *ctx,
+lush_plugin_result_t
+lush_plugin_register_builtin(lush_plugin_context_t *ctx,
                                const char *name,
-                               lusush_plugin_builtin_fn fn);
+                               lush_plugin_builtin_fn fn);
 
 /**
  * @brief Unregister a builtin command
  *
  * @param ctx Plugin context
  * @param name Command name
- * @return LUSUSH_PLUGIN_OK on success
+ * @return LUSH_PLUGIN_OK on success
  */
-lusush_plugin_result_t
-lusush_plugin_unregister_builtin(lusush_plugin_context_t *ctx,
+lush_plugin_result_t
+lush_plugin_unregister_builtin(lush_plugin_context_t *ctx,
                                  const char *name);
 
 /**
@@ -571,12 +571,12 @@ lusush_plugin_unregister_builtin(lusush_plugin_context_t *ctx,
  * @param ctx Plugin context
  * @param hook_name Hook name ("precmd", "preexec", "chpwd")
  * @param fn Hook function
- * @return LUSUSH_PLUGIN_OK on success
+ * @return LUSH_PLUGIN_OK on success
  */
-lusush_plugin_result_t
-lusush_plugin_register_hook(lusush_plugin_context_t *ctx,
+lush_plugin_result_t
+lush_plugin_register_hook(lush_plugin_context_t *ctx,
                             const char *hook_name,
-                            lusush_plugin_hook_fn fn);
+                            lush_plugin_hook_fn fn);
 
 /**
  * @brief Register a completion provider
@@ -584,12 +584,12 @@ lusush_plugin_register_hook(lusush_plugin_context_t *ctx,
  * @param ctx Plugin context
  * @param name Provider name
  * @param fn Completion function
- * @return LUSUSH_PLUGIN_OK on success
+ * @return LUSH_PLUGIN_OK on success
  */
-lusush_plugin_result_t
-lusush_plugin_register_completion(lusush_plugin_context_t *ctx,
+lush_plugin_result_t
+lush_plugin_register_completion(lush_plugin_context_t *ctx,
                                   const char *name,
-                                  lusush_plugin_completion_fn fn);
+                                  lush_plugin_completion_fn fn);
 
 /**
  * @brief Subscribe to shell events
@@ -597,12 +597,12 @@ lusush_plugin_register_completion(lusush_plugin_context_t *ctx,
  * @param ctx Plugin context
  * @param event_type Event type to subscribe to
  * @param fn Event handler function
- * @return LUSUSH_PLUGIN_OK on success
+ * @return LUSH_PLUGIN_OK on success
  */
-lusush_plugin_result_t
-lusush_plugin_subscribe_event(lusush_plugin_context_t *ctx,
+lush_plugin_result_t
+lush_plugin_subscribe_event(lush_plugin_context_t *ctx,
                               int event_type,
-                              lusush_plugin_event_fn fn);
+                              lush_plugin_event_fn fn);
 
 /* ============================================================================
  * PLUGIN VARIABLE ACCESS API
@@ -615,7 +615,7 @@ lusush_plugin_subscribe_event(lusush_plugin_context_t *ctx,
  * @param name Variable name
  * @return Variable value (do not free), NULL if not found
  */
-const char *lusush_plugin_get_var(lusush_plugin_context_t *ctx,
+const char *lush_plugin_get_var(lush_plugin_context_t *ctx,
                                   const char *name);
 
 /**
@@ -624,10 +624,10 @@ const char *lusush_plugin_get_var(lusush_plugin_context_t *ctx,
  * @param ctx Plugin context
  * @param name Variable name
  * @param value Variable value
- * @return LUSUSH_PLUGIN_OK on success
+ * @return LUSH_PLUGIN_OK on success
  */
-lusush_plugin_result_t
-lusush_plugin_set_var(lusush_plugin_context_t *ctx,
+lush_plugin_result_t
+lush_plugin_set_var(lush_plugin_context_t *ctx,
                       const char *name,
                       const char *value);
 
@@ -641,7 +641,7 @@ lusush_plugin_set_var(lusush_plugin_context_t *ctx,
  * @param result Result code
  * @return Static string describing the result
  */
-const char *lusush_plugin_result_string(lusush_plugin_result_t result);
+const char *lush_plugin_result_string(lush_plugin_result_t result);
 
 /**
  * @brief Get string description of plugin state
@@ -649,7 +649,7 @@ const char *lusush_plugin_result_string(lusush_plugin_result_t result);
  * @param state Plugin state
  * @return Static string describing the state
  */
-const char *lusush_plugin_state_string(lusush_plugin_state_t state);
+const char *lush_plugin_state_string(lush_plugin_state_t state);
 
 /**
  * @brief Check if a permission is granted
@@ -658,8 +658,8 @@ const char *lusush_plugin_state_string(lusush_plugin_state_t state);
  * @param perm Permission to check
  * @return true if permission is granted
  */
-bool lusush_plugin_has_permission(lusush_plugin_context_t *ctx,
-                                  lusush_plugin_permission_t perm);
+bool lush_plugin_has_permission(lush_plugin_context_t *ctx,
+                                  lush_plugin_permission_t perm);
 
 /**
  * @brief Log a message from plugin
@@ -668,7 +668,7 @@ bool lusush_plugin_has_permission(lusush_plugin_context_t *ctx,
  * @param level Log level (0=debug, 1=info, 2=warn, 3=error)
  * @param fmt Printf-style format string
  */
-void lusush_plugin_log(lusush_plugin_context_t *ctx,
+void lush_plugin_log(lush_plugin_context_t *ctx,
                        int level,
                        const char *fmt, ...);
 
@@ -676,4 +676,4 @@ void lusush_plugin_log(lusush_plugin_context_t *ctx,
 }
 #endif
 
-#endif /* LUSUSH_PLUGIN_H */
+#endif /* LUSH_PLUGIN_H */

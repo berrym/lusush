@@ -11,8 +11,8 @@
  * functionality for the LLE theme system.
  *
  * Theme File Locations (checked in order):
- * 1. $XDG_CONFIG_HOME/lusush/themes/ (~/.config fallback)
- * 2. /etc/lusush/themes/ (system-wide, optional)
+ * 1. $XDG_CONFIG_HOME/lush/themes/ (~/.config fallback)
+ * 2. /etc/lush/themes/ (system-wide, optional)
  */
 
 #ifndef LLE_PROMPT_THEME_LOADER_H
@@ -43,10 +43,10 @@ extern "C" {
 #define LLE_THEME_FILE_EXTENSION ".toml"
 
 /** @brief User theme directory relative to XDG_CONFIG_HOME */
-#define LLE_THEME_USER_DIR "lusush/themes"
+#define LLE_THEME_USER_DIR "lush/themes"
 
 /** @brief System theme directory */
-#define LLE_THEME_SYSTEM_DIR "/etc/lusush/themes"
+#define LLE_THEME_SYSTEM_DIR "/etc/lush/themes"
 
 /* ============================================================================
  * LOADER RESULT STRUCTURE
@@ -128,8 +128,8 @@ size_t lle_theme_load_directory(const char *dirpath,
  * @brief Load user themes from standard locations
  *
  * Loads themes from:
- * 1. $XDG_CONFIG_HOME/lusush/themes/ (~/.config/lusush/themes/ fallback)
- * 2. /etc/lusush/themes/ (if exists)
+ * 1. $XDG_CONFIG_HOME/lush/themes/ (~/.config/lush/themes/ fallback)
+ * 2. /etc/lush/themes/ (if exists)
  *
  * @param registry  Theme registry to register themes with
  * @return Number of themes successfully loaded
@@ -205,7 +205,7 @@ lle_result_t lle_theme_export_to_file(const lle_theme_t *theme,
  * @brief Get the user theme directory path
  *
  * Returns the path to the user's theme directory:
- * $XDG_CONFIG_HOME/lusush/themes/ or ~/.config/lusush/themes/
+ * $XDG_CONFIG_HOME/lush/themes/ or ~/.config/lush/themes/
  *
  * @param buffer    Output buffer for path
  * @param size      Size of buffer
@@ -216,7 +216,7 @@ lle_result_t lle_theme_get_user_dir(char *buffer, size_t size);
 /**
  * @brief Get the system theme directory path
  *
- * Returns /etc/lusush/themes/
+ * Returns /etc/lush/themes/
  *
  * @param buffer    Output buffer for path
  * @param size      Size of buffer

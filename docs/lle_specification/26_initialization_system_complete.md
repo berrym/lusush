@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-This specification defines the LLE Initialization System, which provides clean, safe, and reversible integration of the Lusush Line Editor (LLE) into the shell lifecycle. The system enables:
+This specification defines the LLE Initialization System, which provides clean, safe, and reversible integration of the Lush Line Editor (LLE) into the shell lifecycle. The system enables:
 
 1. **Dual-Mode Operation**: Seamless coexistence of GNU readline and LLE
 2. **Safe Fallback**: Ctrl+G recovery mechanism even when LLE is in corrupted state
@@ -293,8 +293,8 @@ Shell Exit
 ### 3.3 Mode Selection
 
 ```c
-// In lusush_readline_with_prompt() - UNCHANGED LOGIC
-char *lusush_readline_with_prompt(const char *prompt) {
+// In lush_readline_with_prompt() - UNCHANGED LOGIC
+char *lush_readline_with_prompt(const char *prompt) {
     if (config.use_lle) {
         return lle_readline(actual_prompt);
     } else {
@@ -381,7 +381,7 @@ lle_result_t lle_shell_integration_init(void) {
     
     // Step 5: History system (non-fatal if fails)
     lle_history_config_t hist_config;
-    populate_history_config_from_lusush_config(&hist_config);
+    populate_history_config_from_lush_config(&hist_config);
     result = lle_history_core_create(&global_lle_editor->history_system,
                                      global_lle_editor->lle_pool,
                                      &hist_config);
@@ -759,13 +759,13 @@ lle_result_t lle_install_shell_event_hooks(void) {
     //    Hook point: Before command execution begins
     
     // 3. Post-command hook  
-    //    Modifies: src/lusush.c main loop
+    //    Modifies: src/lush.c main loop
     //    Hook point: After parse_and_execute() returns
     //    Note: Already have display_integration_post_command_update()
     
     // 4. Prompt display hook
     //    Modifies: src/readline_integration.c
-    //    Hook point: Before lusush_generate_prompt()
+    //    Hook point: Before lush_generate_prompt()
     
     return LLE_SUCCESS;
 }
@@ -919,7 +919,7 @@ LLE provides a three-tier reset hierarchy that does NOT depend on GNU readline:
 | **Hard** | Panic Ctrl+G (3x in 500ms) or `lle reset` | Destroy/recreate global_lle_editor | History file, config, terminal scrollback |
 | **Nuclear** | `lle reset --terminal` | Hard reset + terminal reset sequence | History file, config only |
 
-**Key Design Principle**: These mechanisms are self-contained within LLE. They do NOT fall back to GNU readline. When readline is removed from lusush, these mechanisms continue to work exactly the same way.
+**Key Design Principle**: These mechanisms are self-contained within LLE. They do NOT fall back to GNU readline. When readline is removed from lush, these mechanisms continue to work exactly the same way.
 
 ### 7.2 Soft Reset (Normal Ctrl+G)
 
@@ -1259,7 +1259,7 @@ static bool check_emergency_ctrl_g(uint8_t byte) {
 The mode selection logic in `readline_integration.c` remains unchanged:
 
 ```c
-char *lusush_readline_with_prompt(const char *prompt) {
+char *lush_readline_with_prompt(const char *prompt) {
     // ... prompt generation ...
     
     if (config.use_lle) {
@@ -1283,7 +1283,7 @@ Both modes share:
 
 | Component | GNU Readline | LLE |
 |-----------|--------------|-----|
-| History storage | `~/.lusush_history` | `~/.lusush_history_lle` |
+| History storage | `~/.lush_history` | `~/.lush_history_lle` |
 | History API | `add_history()` | `lle_history_add_entry()` |
 | Prompt generation | `build_prompt()` | `lle_prompt_composer_render()` |
 | Completion | readline completion | `lle_completion_system` |
@@ -1341,7 +1341,7 @@ option('readline', type: 'feature', value: 'auto',
        description: 'GNU Readline support')
 
 option('lle', type: 'feature', value: 'enabled',
-       description: 'Lusush Line Editor support')
+       description: 'Lush Line Editor support')
 
 option('lle_default', type: 'boolean', value: false,
        description: 'Use LLE as default instead of GNU readline')
@@ -1367,7 +1367,7 @@ option('lle_default', type: 'boolean', value: false,
 
 // In readline_integration.c
 
-char *lusush_readline_with_prompt(const char *prompt) {
+char *lush_readline_with_prompt(const char *prompt) {
 #if defined(HAVE_LLE) && defined(HAVE_READLINE)
     // Both available - use config to select
     if (config.use_lle) {
@@ -1702,7 +1702,7 @@ lle_result_t lle_restore_from_recovery(void);
 2. **src/builtins_cd.c** (and pushd/popd)
    - Add `lle_fire_directory_changed()` call after successful chdir
 
-3. **src/lusush.c**
+3. **src/lush.c**
    - Add `lle_fire_pre_command()` call before command execution
    - Add `lle_fire_post_command()` call in main loop
 
@@ -1742,4 +1742,4 @@ lle_result_t lle_restore_from_recovery(void);
 **Document Classification**: Core Architecture Specification  
 **Revision History**: Created 2025-12-26  
 **Next Review**: After Phase 1 implementation  
-**Maintainer**: Lusush Development Team
+**Maintainer**: Lush Development Team

@@ -51,7 +51,7 @@ char *rebuild_prompt(void) { return build_prompt(); }
 
 void lle_shell_update_prompt(void) { /* No-op in tests */ }
 
-/* Note: lusush_generate_prompt() is now in libdisplay.a via
+/* Note: lush_generate_prompt() is now in libdisplay.a via
  * display_integration.c */
 
 char *format_git_prompt(void) { return NULL; /* No git info in tests */ }
@@ -90,14 +90,14 @@ const char *continuation_get_prompt(const continuation_state_t *state) {
  * ============================================================================
  */
 
-void lusush_autosuggestions_init(void) { /* No-op */ }
+void lush_autosuggestions_init(void) { /* No-op */ }
 
-char *lusush_get_suggestion(const char *prefix) {
+char *lush_get_suggestion(const char *prefix) {
     (void)prefix;
     return NULL; /* No suggestions in tests */
 }
 
-void lusush_free_autosuggestion(char *suggestion) {
+void lush_free_autosuggestion(char *suggestion) {
     (void)suggestion; /* No-op - our stubs don't allocate */
 }
 

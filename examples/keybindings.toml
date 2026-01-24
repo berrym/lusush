@@ -1,6 +1,6 @@
-# Lusush Line Editor (LLE) Keybinding Configuration
+# Lush Line Editor (LLE) Keybinding Configuration
 #
-# Place this file at: ~/.config/lusush/keybindings.toml
+# Place this file at: ~/.config/lush/keybindings.toml
 #
 # Format:
 #   [bindings]

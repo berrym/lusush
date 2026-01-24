@@ -339,7 +339,7 @@ prompt_layer_error_t prompt_layer_get_metrics(prompt_layer_t *layer,
  *
  * @note Automatically detects theme changes and updates accordingly
  * @note Invalidates cache when theme changes are detected
- * @note Integrates with existing Lusush theme system
+ * @note Integrates with existing Lush theme system
  * @note Supports all 6 built-in themes (dark, light, minimal, colorful,
  * classic, corporate)
  */
@@ -488,9 +488,9 @@ void prompt_layer_get_version(int *major, int *minor, int *patch);
 // ============================================================================
 
 /**
- * Generate prompt using existing Lusush prompt system
+ * Generate prompt using existing Lush prompt system
  *
- * Convenience function that integrates with the existing Lusush prompt
+ * Convenience function that integrates with the existing Lush prompt
  * generation system (src/prompt.c) to create content for the layer.
  *
  * @param layer Pointer to prompt_layer_t instance
@@ -501,7 +501,7 @@ void prompt_layer_get_version(int *major, int *minor, int *patch);
  * @note Automatically sets generated content in the layer
  * @note Preserves all existing prompt generation functionality
  */
-prompt_layer_error_t prompt_layer_generate_from_lusush(prompt_layer_t *layer);
+prompt_layer_error_t prompt_layer_generate_from_lush(prompt_layer_t *layer);
 
 /**
  * Test prompt layer with sample content
@@ -542,7 +542,7 @@ prompt_layer_error_t prompt_layer_run_tests(prompt_layer_t *layer);
  * prompt_layer_init(layer, events);
  *
  * // Generate and render prompt
- * prompt_layer_generate_from_lusush(layer);
+ * prompt_layer_generate_from_lush(layer);
  *
  * char output[4096];
  * prompt_layer_get_rendered_content(layer, output, sizeof(output));

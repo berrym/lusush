@@ -1,19 +1,19 @@
 # LLE USER INTERFACE SYSTEM COMPLETE SPECIFICATION
-**Document 22 of 22 - Lusush Line Editor (LLE) Epic Specification Project**
+**Document 22 of 22 - Lush Line Editor (LLE) Epic Specification Project**
 
 ---
 
 **Document Version**: 1.0.0  
 **Specification Status**: Implementation-Ready Specification  
 **Last Updated**: 2025-01-09  
-**Integration Target**: Lusush Shell v1.3.0+ LLE Integration  
-**Dependencies**: Documents 01-21 (All Core Systems) + Existing Lusush Command Interface
+**Integration Target**: Lush Shell v1.3.0+ LLE Integration  
+**Dependencies**: Documents 01-21 (All Core Systems) + Existing Lush Command Interface
 
 ---
 
 ## 📋 **EXECUTIVE SUMMARY**
 
-This specification defines the complete user interface system for the Lusush Line Editor (LLE), providing professional command-line interfaces through the existing `display` and `theme` builtin commands. The system follows established Lusush architectural patterns with logical separation of functional control (display command) and visual control (theme command), ensuring intuitive user experience and seamless integration with existing shell workflows.
+This specification defines the complete user interface system for the Lush Line Editor (LLE), providing professional command-line interfaces through the existing `display` and `theme` builtin commands. The system follows established Lush architectural patterns with logical separation of functional control (display command) and visual control (theme command), ensuring intuitive user experience and seamless integration with existing shell workflows.
 
 **Key Capabilities**:
 - **Display Command Integration**: Complete LLE functional control through existing `display` builtin
@@ -64,7 +64,7 @@ LLE User Interface System Architecture:
 │  │ • Dynamic Cache │  │ • Error Help    │  │ • Error Report  │  │
 │  └─────────────────┘  └─────────────────┘  └─────────────────┘  │
 ├─────────────────────────────────────────────────────────────────┤
-│            INTEGRATION WITH LUSUSH BUILTIN COMMANDS             │
+│            INTEGRATION WITH LUSH BUILTIN COMMANDS             │
 │   Display Builtin  │  Theme Builtin  │  Config System  │  Help  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -209,7 +209,7 @@ int lle_handle_enable_command(int argc, char **argv) {
     }
     
     // Initialize LLE system
-    printf("Initializing Lusush Line Editor...\n");
+    printf("Initializing Lush Line Editor...\n");
     
     lle_result_t result = lle_system_initialize();
     if (result != LLE_SUCCESS) {
@@ -218,7 +218,7 @@ int lle_handle_enable_command(int argc, char **argv) {
         return 1;
     }
     
-    // Update session configuration using real Lusush config system
+    // Update session configuration using real Lush config system
     // Changes session values only - use 'config save' to persist
     extern config_values_t config;
     config.lle_enabled = true;
@@ -241,7 +241,7 @@ int lle_handle_enable_command(int argc, char **argv) {
 
 ```c
 void lle_display_show_help(void) {
-    printf("Lusush Line Editor (LLE) Display Commands\n\n");
+    printf("Lush Line Editor (LLE) Display Commands\n\n");
     
     printf("System Control:\n");
     printf("  display lle enable [--force] [--performance]  Enable LLE system\n");
@@ -429,7 +429,7 @@ void lle_display_color_table(lle_color_scheme_t *scheme, bool verbose) {
 
 ```c
 void lle_theme_show_help(void) {
-    printf("Lusush Line Editor (LLE) Theme Commands\n\n");
+    printf("Lush Line Editor (LLE) Theme Commands\n\n");
     
     printf("Color Management:\n");
     printf("  theme lle colors show [--format=table|json]    Show current LLE colors\n");
@@ -508,9 +508,9 @@ typedef struct lle_config_schema {
     
 } lle_config_schema_t;
 
-// LLE Configuration Integration with Lusush Central Config System
+// LLE Configuration Integration with Lush Central Config System
 // 
-// LLE configuration is fully integrated into the main Lusush config system.
+// LLE configuration is fully integrated into the main Lush config system.
 // The following implementation changes are required:
 
 ## Implementation Changes Required:
@@ -695,7 +695,7 @@ void config_cleanup(void) {
 ```
 
 typedef struct lle_config_integration {
-    config_values_t *global_config;          // Reference to main Lusush config
+    config_values_t *global_config;          // Reference to main Lush config
     bool has_unsaved_changes;                // Session changes not persisted
     uint64_t last_change_timestamp;          // Last configuration change time
 } lle_config_integration_t;
@@ -711,7 +711,7 @@ lle_result_t lle_config_integration_init(lle_config_integration_t **integration)
         return LLE_ERROR_OUT_OF_MEMORY;
     }
     
-    // Get reference to global Lusush config
+    // Get reference to global Lush config
     extern config_values_t config;
     config_int->global_config = &config;
     config_int->has_unsaved_changes = false;
@@ -721,13 +721,13 @@ lle_result_t lle_config_integration_init(lle_config_integration_t **integration)
     return LLE_SUCCESS;
 }
 
-// Set LLE configuration using real Lusush config system
+// Set LLE configuration using real Lush config system
 lle_result_t lle_config_set_lle_value(const char *key, const char *value) {
     if (!key || !value) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    // Use real Lusush config_set_value function
+    // Use real Lush config_set_value function
     config_set_value(key, value);
     
     // Mark as having unsaved changes
@@ -740,7 +740,7 @@ lle_result_t lle_config_set_lle_value(const char *key, const char *value) {
     return LLE_SUCCESS;
 }
 
-// Get LLE configuration using real Lusush config system  
+// Get LLE configuration using real Lush config system  
 const char* lle_config_get_lle_value(const char *key) {
     if (!key) {
         return NULL;
@@ -765,7 +765,7 @@ const char* lle_config_get_lle_value(const char *key) {
     return NULL;
 }
 
-// Theme change notification using real Lusush config system (v1.3.0 pattern)
+// Theme change notification using real Lush config system (v1.3.0 pattern)
 lle_result_t lle_config_on_theme_changed(const char *new_theme_name) {
     if (!new_theme_name) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -781,7 +781,7 @@ lle_result_t lle_config_on_theme_changed(const char *new_theme_name) {
     return LLE_SUCCESS;
 }
 
-// Display change notification using real Lusush config system (v1.3.0 pattern)  
+// Display change notification using real Lush config system (v1.3.0 pattern)  
 lle_result_t lle_config_on_display_changed(const char *config_key, const char *new_value) {
     if (!config_key || !new_value) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -795,7 +795,7 @@ lle_result_t lle_config_on_display_changed(const char *config_key, const char *n
     return LLE_SUCCESS;
 }
 
-// Save configuration changes using real Lusush config system
+// Save configuration changes using real Lush config system
 lle_result_t lle_config_save_persistent(void) {
     lle_config_integration_t *config_int = lle_get_config_integration();
     if (!config_int) {
@@ -806,7 +806,7 @@ lle_result_t lle_config_save_persistent(void) {
         return LLE_SUCCESS; // Nothing to save
     }
     
-    // Use real Lusush config_save_user() function
+    // Use real Lush config_save_user() function
     int result = config_save_user();
     if (result == 0) {
         config_int->has_unsaved_changes = false;
@@ -817,14 +817,14 @@ lle_result_t lle_config_save_persistent(void) {
     return LLE_ERROR_CONFIG_SAVE_FAILED;
 }
 
-// Reload configuration using real Lusush config system
+// Reload configuration using real Lush config system
 lle_result_t lle_config_reload_from_persistent(void) {
     lle_config_integration_t *config_int = lle_get_config_integration();
     if (!config_int) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    // Use real Lusush config_load_user() function
+    // Use real Lush config_load_user() function
     int result = config_load_user();
     if (result == 0) {
         config_int->has_unsaved_changes = false;
@@ -898,9 +898,9 @@ int lle_handle_config_command(int argc, char **argv) {
     }
 }
 
-// Show configuration implementation using real Lusush config system
+// Show configuration implementation using real Lush config system
 int lle_config_show(const char *key) {
-    extern config_values_t config;  // Access global Lusush config
+    extern config_values_t config;  // Access global Lush config
     lle_config_integration_t *config_int = lle_get_config_integration();
     
     if (key) {
@@ -919,7 +919,7 @@ int lle_config_show(const char *key) {
         printf("\n");
         
     } else {
-        // Show all LLE configuration using real Lusush config fields
+        // Show all LLE configuration using real Lush config fields
         printf("LLE Configuration:\n");
         
         printf("  enabled = %s", config.lle_enabled ? "true" : "false");
@@ -1020,9 +1020,9 @@ int lle_config_reset(const char *key) {
     return 0;
 }
 
-// Set LLE configuration using real Lusush config system (session only)
+// Set LLE configuration using real Lush config system (session only)
 int lle_config_set(const char *key, const char *value) {
-    // Use real Lusush config_set_value function directly
+    // Use real Lush config_set_value function directly
     // This follows v1.3.0 pattern: changes session, 'config save' persists
     char lle_key[256];
     snprintf(lle_key, sizeof(lle_key), "lle.%s", key);
@@ -1122,7 +1122,7 @@ int lle_config_validate(void) {
 
 ### **Context-Aware Completion**
 
-The LLE user interface provides intelligent command completion for all display and theme commands, integrating seamlessly with the existing Lusush completion system.
+The LLE user interface provides intelligent command completion for all display and theme commands, integrating seamlessly with the existing Lush completion system.
 
 ```c
 // LLE command completion provider
@@ -1136,8 +1136,8 @@ typedef struct lle_completion_provider {
     lle_completion_cache_t          *completion_cache;
     lle_completion_context_t        *current_context;
     
-    // Integration with Lusush completion
-    lusush_completion_provider_t    *lusush_provider;
+    // Integration with Lush completion
+    lush_completion_provider_t    *lush_provider;
     
 } lle_completion_provider_t;
 
@@ -1472,7 +1472,7 @@ This division ensures:
 - **Clear Separation**: Function vs. appearance vs. persistence
 - **No Duplication**: Each responsibility handled by one system
 - **User Clarity**: Obvious which command to use for each type of operation
-- **V1.3.0 Consistency**: Same patterns as existing Lusush systems
+- **V1.3.0 Consistency**: Same patterns as existing Lush systems
 
 ---
 
@@ -1691,7 +1691,7 @@ static const lle_validation_rule_t lle_config_validation_rules[] = {
         .type = LLE_VALIDATION_TYPE_BOOLEAN,
         .required = false,
         .error_message = "lle.autostart must be true or false",
-        .help_text = "Automatically start LLE when lusush starts (default: false)"
+        .help_text = "Automatically start LLE when lush starts (default: false)"
     },
     {
         .config_key = "lle.keybindings.style",
@@ -1876,7 +1876,7 @@ lle_test_result_t test_theme_lle_colors_show_command(void) {
 - Implement configuration schema extensions
 - Create configuration synchronization system
 - Add configuration validation and persistence
-- Integrate with existing Lusush config system
+- Integrate with existing Lush config system
 
 **Phase 3: Completion System (Week 4)**
 - Implement context-aware command completion
@@ -1919,10 +1919,10 @@ lle_test_result_t test_theme_lle_colors_show_command(void) {
 ### **Integration Requirements**
 
 - ✅ **Seamless Integration**: Natural extension of existing builtin commands
-- ✅ **Consistent Interface**: Follows established Lusush command patterns
+- ✅ **Consistent Interface**: Follows established Lush command patterns
 - ✅ **Backward Compatibility**: Existing commands continue to work unchanged
 - ✅ **Professional Standards**: Enterprise-grade command interface design
 
 ---
 
-**This comprehensive specification provides implementation-ready details for the LLE User Interface System, ensuring professional command-line control over all LLE features through the existing Lusush builtin command architecture with logical separation of functional and visual controls.**
+**This comprehensive specification provides implementation-ready details for the LLE User Interface System, ensuring professional command-line control over all LLE features through the existing Lush builtin command architecture with logical separation of functional and visual controls.**

@@ -38,7 +38,7 @@ char *lookup_alias(const char *name) {
     return NULL;
 }
 
-void lusush_add_completion(lusush_completions_t *lc, const char *completion) {
+void lush_add_completion(lush_completions_t *lc, const char *completion) {
     (void)lc;
     (void)completion;
 }

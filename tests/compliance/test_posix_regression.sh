@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Comprehensive POSIX regression test suite for Lusush shell
+# Comprehensive POSIX regression test suite for Lush shell
 # Ensures that parser changes haven't broken existing POSIX functionality
 
 set -e
 
-SHELL_PATH="${1:-./build/lusush}"
+SHELL_PATH="${1:-./build/lush}"
 TEST_COUNT=0
 PASSED_COUNT=0
 FAILED_COUNT=0
@@ -17,7 +17,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-echo "=== Lusush POSIX Regression Test Suite ==="
+echo "=== Lush POSIX Regression Test Suite ==="
 echo "Testing shell: $SHELL_PATH"
 echo "Verifying no regressions in existing POSIX functionality"
 echo ""

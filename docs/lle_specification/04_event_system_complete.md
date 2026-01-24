@@ -21,7 +21,7 @@
 9. [Asynchronous Event Processing](#9-asynchronous-event-processing)
 10. [State Machine Definitions](#10-state-machine-definitions)
 11. [Error Handling and Recovery](#11-error-handling-and-recovery)
-12. [Integration with Lusush Systems](#12-integration-with-lusush-systems)
+12. [Integration with Lush Systems](#12-integration-with-lush-systems)
 13. [Performance Requirements](#13-performance-requirements)
 14. [Memory Management Integration](#14-memory-management-integration)
 15. [Testing and Validation](#15-testing-and-validation)
@@ -32,7 +32,7 @@
 
 ### 1.1 Purpose
 
-The Event System provides the foundational event-driven architecture for the Lusush Line Editor (LLE), enabling high-performance asynchronous processing of user input, terminal events, and internal system events with priority-based scheduling and comprehensive error recovery.
+The Event System provides the foundational event-driven architecture for the Lush Line Editor (LLE), enabling high-performance asynchronous processing of user input, terminal events, and internal system events with priority-based scheduling and comprehensive error recovery.
 
 ### 1.2 Key Features
 
@@ -40,7 +40,7 @@ The Event System provides the foundational event-driven architecture for the Lus
 - **Asynchronous Processing**: Non-blocking event handling with microsecond precision
 - **Extensible Handler System**: Plugin-capable event handler registration and management
 - **Priority-Based Processing**: Critical events processed before low-priority events
-- **Memory Pool Integration**: Seamless integration with Lusush memory management
+- **Memory Pool Integration**: Seamless integration with Lush memory management
 - **Comprehensive Error Recovery**: Graceful degradation and automatic error handling
 - **Performance Monitoring**: Real-time event processing metrics and optimization
 
@@ -1152,12 +1152,12 @@ typedef struct {
 
 ---
 
-## 8. Integration with Lusush Systems
+## 8. Integration with Lush Systems
 
 ### 8.1 Display System Integration
 
 ```c
-// Integration with Lusush layered display system
+// Integration with Lush layered display system
 lle_result_t lle_event_system_integrate_display(lle_event_system_t *event_system,
                                                lle_display_controller_t *display) {
     if (!event_system || !display) {
@@ -1368,4 +1368,4 @@ lle_result_t lle_event_system_recover_from_error(lle_event_system_t *system,
 }
 ```
 
-This completes the comprehensive Event System specification with implementation-ready pseudo-code, complete error handling, state machine definitions, integration points with Lusush systems, performance requirements, and testing procedures.
+This completes the comprehensive Event System specification with implementation-ready pseudo-code, complete error handling, state machine definitions, integration points with Lush systems, performance requirements, and testing procedures.

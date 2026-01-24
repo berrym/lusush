@@ -83,7 +83,7 @@ static int tests_failed = 0;
  */
 
 static const creg_option_t shell_options[] = {
-    {"mode", CREG_VALUE_STRING, {.type = CREG_VALUE_STRING, .data.string = "lusush"}, "Shell mode", true},
+    {"mode", CREG_VALUE_STRING, {.type = CREG_VALUE_STRING, .data.string = "lush"}, "Shell mode", true},
     {"errexit", CREG_VALUE_BOOLEAN, {.type = CREG_VALUE_BOOLEAN, .data.boolean = false}, "Exit on error", true},
     {"nounset", CREG_VALUE_BOOLEAN, {.type = CREG_VALUE_BOOLEAN, .data.boolean = false}, "Error on unset", true},
     {"xtrace", CREG_VALUE_BOOLEAN, {.type = CREG_VALUE_BOOLEAN, .data.boolean = false}, "Trace execution", true},
@@ -102,7 +102,7 @@ static const creg_section_t shell_section = {
 static const creg_option_t history_options[] = {
     {"enabled", CREG_VALUE_BOOLEAN, {.type = CREG_VALUE_BOOLEAN, .data.boolean = true}, "Enable history", true},
     {"size", CREG_VALUE_INTEGER, {.type = CREG_VALUE_INTEGER, .data.integer = 10000}, "History size", true},
-    {"file", CREG_VALUE_STRING, {.type = CREG_VALUE_STRING, .data.string = "~/.lusush_history"}, "History file", true},
+    {"file", CREG_VALUE_STRING, {.type = CREG_VALUE_STRING, .data.string = "~/.lush_history"}, "History file", true},
 };
 
 static const creg_section_t history_section = {
@@ -194,7 +194,7 @@ TEST(get_default_value) {
     creg_result_t result = config_registry_get("shell.mode", &value);
     ASSERT_EQ(result, CREG_SUCCESS);
     ASSERT_EQ(value.type, CREG_VALUE_STRING);
-    ASSERT_STR_EQ(value.data.string, "lusush");
+    ASSERT_STR_EQ(value.data.string, "lush");
 }
 
 TEST(set_and_get_string) {
@@ -446,7 +446,7 @@ TEST(save_and_load) {
     config_registry_set_integer("history.size", 50000);
     
     /* Save to temp file */
-    char tmpfile[] = "/tmp/lusush_test_config_XXXXXX";
+    char tmpfile[] = "/tmp/lush_test_config_XXXXXX";
     int fd = mkstemp(tmpfile);
     ASSERT(fd >= 0);
     close(fd);
@@ -460,7 +460,7 @@ TEST(save_and_load) {
     /* Verify reset */
     char buf[64];
     config_registry_get_string("shell.mode", buf, sizeof(buf));
-    ASSERT_STR_EQ(buf, "lusush");
+    ASSERT_STR_EQ(buf, "lush");
     
     /* Load from file */
     result = config_registry_load(tmpfile);
@@ -489,7 +489,7 @@ TEST(save_sparse_format) {
     config_registry_set_boolean("shell.errexit", true);
     
     /* Save to temp file */
-    char tmpfile[] = "/tmp/lusush_test_config_XXXXXX";
+    char tmpfile[] = "/tmp/lush_test_config_XXXXXX";
     int fd = mkstemp(tmpfile);
     ASSERT(fd >= 0);
     close(fd);
@@ -526,7 +526,7 @@ TEST(load_empty_file) {
     config_registry_register_section(&shell_section);
     
     /* Create empty temp file */
-    char tmpfile[] = "/tmp/lusush_test_config_XXXXXX";
+    char tmpfile[] = "/tmp/lush_test_config_XXXXXX";
     int fd = mkstemp(tmpfile);
     ASSERT(fd >= 0);
     close(fd);
@@ -611,7 +611,7 @@ TEST(on_load_hook) {
     config_registry_register_section(&sec);
     
     /* Create temp file with content */
-    char tmpfile[] = "/tmp/lusush_test_config_XXXXXX";
+    char tmpfile[] = "/tmp/lush_test_config_XXXXXX";
     int fd = mkstemp(tmpfile);
     ASSERT(fd >= 0);
     write(fd, "[test]\ntest = true\n", 19);

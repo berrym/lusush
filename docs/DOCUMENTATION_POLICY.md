@@ -57,7 +57,7 @@ docs/
 │   ├── CHANGELOG.md
 │   ├── DOCUMENTATION_INDEX.md
 │   └── ...
-├── development/                   # Lusush v1.x development docs
+├── development/                   # Lush v1.x development docs
 │   ├── BUILTIN_COMMANDS.md
 │   ├── COMPLETION_SYSTEM.md
 │   └── ...

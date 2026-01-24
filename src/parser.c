@@ -263,7 +263,7 @@ void parser_display_errors(parser_t *parser, FILE *out, bool use_color) {
     if (!parser || !parser->error_collector) {
         /* Fallback to legacy error display */
         if (parser && parser->error_message) {
-            fprintf(out, "lusush: %s\n", parser->error_message);
+            fprintf(out, "lush: %s\n", parser->error_message);
         }
         return;
     }

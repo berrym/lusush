@@ -20,10 +20,10 @@
 
 set -euo pipefail
 
-# Get absolute path to lusush binary
+# Get absolute path to lush binary
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-LUSUSH="${1:-$PROJECT_DIR/build/lusush}"
+LUSH="${1:-$PROJECT_DIR/build/lush}"
 TOTAL_TESTS=0
 PASSED_TESTS=0
 FAILED_TESTS=0
@@ -64,14 +64,14 @@ test_result() {
     fi
 }
 
-# Helper to run lusush command and check output
+# Helper to run lush command and check output
 run_test() {
     local test_name="$1"
     local command="$2"
     local expected="$3"
 
     local output
-    output=$(echo "$command" | "$LUSUSH" 2>&1) || true
+    output=$(echo "$command" | "$LUSH" 2>&1) || true
     # Trim trailing whitespace
     output=$(echo "$output" | sed 's/[[:space:]]*$//')
     expected=$(echo "$expected" | sed 's/[[:space:]]*$//')

@@ -3,7 +3,7 @@
  * @brief Unit Tests for LLE Display Bridge
  *
  * Tests the display bridge component that connects LLE's internal buffer/cursor
- * system with Lusush's layered display architecture.
+ * system with Lush's layered display architecture.
  *
  * SPECIFICATION: docs/lle_specification/08_display_integration_complete.md
  * IMPLEMENTATION: src/lle/display_bridge.c

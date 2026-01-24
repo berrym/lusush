@@ -1,6 +1,6 @@
 /**
  * @file autocorrect.c
- * @brief Auto-Correction System Implementation for Lusush Shell
+ * @brief Auto-Correction System Implementation for Lush Shell
  *
  * Intelligent command spell checking and correction suggestions.
  * Provides "Did you mean...?" functionality with user confirmation prompts.
@@ -258,7 +258,7 @@ bool autocorrect_prompt_user(const correction_results_t *results,
         return false;
     }
 
-    printf("lusush: command not found: %s\n", results->original_command);
+    printf("lush: command not found: %s\n", results->original_command);
     printf("\nDid you mean:\n");
 
     for (int i = 0; i < results->count; i++) {

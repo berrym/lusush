@@ -1,17 +1,17 @@
 /**
- * @file lusush.h
+ * @file lush.h
  * @brief Main shell header with common definitions and utilities
  *
  * Core header file providing common macros, utility functions, and
- * definitions used throughout the Lusush shell.
+ * definitions used throughout the Lush shell.
  *
  * @author Michael Berry <trismegustis@gmail.com>
  * @copyright Copyright (C) 2021-2026 Michael Berry
  * @license MIT
  */
 
-#ifndef LUSUSH_H
-#define LUSUSH_H
+#ifndef LUSH_H
+#define LUSH_H
 
 /* Portable macro for marking intentionally unused
  * functions/variables/parameters. Use for code that is implemented but not yet
@@ -38,7 +38,7 @@
 #include <unistd.h>
 
 /** @brief Shell name identifier */
-#define SHELL_NAME "lusush"
+#define SHELL_NAME "lush"
 
 #ifdef MAXLINE
 #undef MAXLINE
@@ -420,7 +420,7 @@ char *wordlist_to_str(word_t *word);
  * @param ctx Expansion context
  * @return Expansion result
  */
-expansion_t lusush_tilde_expand(const char *str, const exp_ctx_t *ctx);
+expansion_t lush_tilde_expand(const char *str, const exp_ctx_t *ctx);
 
 /**
  * @brief Perform variable expansion
@@ -709,4 +709,4 @@ int execute_new_parser_while(node_t *while_node);
  */
 int execute_new_parser_for(node_t *for_node);
 
-#endif /* LUSUSH_H */
+#endif /* LUSH_H */

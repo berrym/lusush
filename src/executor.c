@@ -23,7 +23,7 @@
 #include "init.h"
 #include "lle/lle_shell_event_hub.h"
 #include "lle/unicode_case.h"
-#include "lusush.h"
+#include "lush.h"
 #include "node.h"
 #include "parser.h"
 #include "redirection.h"
@@ -639,7 +639,7 @@ static void report_command_not_found(executor_t *executor, const char *command,
                                                command);
     if (!error) {
         /* Fallback to simple error message */
-        fprintf(stderr, "lusush: %s: command not found\n", command);
+        fprintf(stderr, "lush: %s: command not found\n", command);
         return;
     }
 
@@ -1043,7 +1043,7 @@ static int execute_command(executor_t *executor, node_t *command) {
 
     // Privileged mode security check
     if (argc > 0 && !is_privileged_command_allowed(argv[0])) {
-        fprintf(stderr, "lusush: %s: restricted command in privileged mode\n",
+        fprintf(stderr, "lush: %s: restricted command in privileged mode\n",
                 argv[0]);
         for (int i = 0; i < argc; i++) {
             free(argv[i]);
@@ -3700,7 +3700,7 @@ static int execute_external_command_with_redirection(executor_t *executor,
             exit_code = 127; // Command not found
         }
         if (!redirect_stderr) {
-            fprintf(stderr, "lusush: %s: %s\n", argv[0], strerror(errno));
+            fprintf(stderr, "lush: %s: %s\n", argv[0], strerror(errno));
         }
         exit(exit_code);
     } else {
@@ -5837,7 +5837,7 @@ static int execute_external_command_with_setup(executor_t *executor,
             exit_code = 127; // Command not found
         }
         if (!redirect_stderr) {
-            fprintf(stderr, "lusush: %s: %s\n", argv[0], strerror(errno));
+            fprintf(stderr, "lush: %s: %s\n", argv[0], strerror(errno));
         }
         exit(exit_code);
     } else {
@@ -6156,7 +6156,7 @@ static int execute_assignment(executor_t *executor, const char *assignment) {
     // Privileged mode security check for environment variable modifications
     if (!is_privileged_path_modification_allowed(var_name)) {
         fprintf(stderr,
-                "lusush: %s: cannot modify restricted variable in privileged "
+                "lush: %s: cannot modify restricted variable in privileged "
                 "mode\n",
                 var_name);
         free(var_name);
@@ -9277,7 +9277,7 @@ static char *parse_parameter_expansion(executor_t *executor,
                     // $0 is the script/shell name
                     return strdup((shell_argc > 0 && shell_argv[0])
                                       ? shell_argv[0]
-                                      : "lusush");
+                                      : "lush");
                 } else if (pos > 0) {
                     // $1, $2, etc. - check function scope first
                     if (symtable_in_function_scope(executor->symtable)) {
@@ -9676,7 +9676,7 @@ static char *expand_variable(executor_t *executor, const char *var_text) {
                                 free(name);
                                 return strdup((shell_argc > 0 && shell_argv[0])
                                                   ? shell_argv[0]
-                                                  : "lusush");
+                                                  : "lush");
                             } else if (pos > 0 && pos < shell_argc &&
                                        shell_argv[pos]) {
                                 // $1, $2, etc. are script arguments
@@ -9883,12 +9883,12 @@ static char *expand_command_substitution(executor_t *executor,
     }
 
     if (pid == 0) {
-        // Child process - execute command using lusush's own parser/executor
+        // Child process - execute command using lush's own parser/executor
         close(pipefd[0]);               // Close read end
         dup2(pipefd[1], STDOUT_FILENO); // Redirect stdout to pipe
         close(pipefd[1]);
 
-        // Parse and execute command using lusush's own parser/executor
+        // Parse and execute command using lush's own parser/executor
         // This preserves all function definitions and variables in the child
         const char *src_name = executor->current_script_file 
                                ? executor->current_script_file 
@@ -9968,7 +9968,7 @@ static char *expand_command_substitution(executor_t *executor,
         output[output_len] = '\0';
 
         // Check for return value marker in output
-        const char *return_marker = "__LUSUSH_RETURN__:";
+        const char *return_marker = "__LUSH_RETURN__:";
         const char *end_marker = ":__END__";
         char *marker_pos = strstr(output, return_marker);
 

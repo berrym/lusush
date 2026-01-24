@@ -76,7 +76,7 @@ echo ""
 echo "Check 1: No direct terminal writes in display code..."
 if find src/lle/display -name "*.c" -exec grep "write\s*([^,]*fd" {} \; 2>/dev/null | grep -v "//.*write"; then
     report_violation "Direct terminal writes in display code" \
-        "Display code MUST NOT write directly to terminal fd. Use Lusush display system."
+        "Display code MUST NOT write directly to terminal fd. Use Lush display system."
 else
     report_pass "No direct terminal writes in display code"
 fi
@@ -85,7 +85,7 @@ fi
 echo "Check 2: No ANSI escape sequences in display code..."
 if find src/lle/display -name "*.c" -exec grep "\\\\x1b\|\\\\033\|\\\\e\[" {} \; 2>/dev/null | grep -v "//"; then
     report_violation "ANSI escape sequences in display code" \
-        "Display code MUST NOT contain escape sequences. Use Lusush display system."
+        "Display code MUST NOT contain escape sequences. Use Lush display system."
 else
     report_pass "No ANSI escape sequences in display code"
 fi
@@ -94,7 +94,7 @@ fi
 echo "Check 3: Display controller integration present..."
 if grep -r "display_controller.*=.*NULL" src/lle/foundation/display/*.c 2>/dev/null | grep -v "//"; then
     report_violation "Display controller not integrated" \
-        "display_controller must be connected to Lusush display system, not NULL"
+        "display_controller must be connected to Lush display system, not NULL"
 else
     report_pass "Display controller integration appears present"
 fi
@@ -136,10 +136,10 @@ else
     report_pass "Terminal abstraction layer respected"
 fi
 
-# CHECK 8: Verify Lusush display integration points
-echo "Check 8: Lusush display integration points..."
+# CHECK 8: Verify Lush display integration points
+echo "Check 8: Lush display integration points..."
 INTEGRATION_POINTS=0
-if grep -rq "lusush_display" src/lle/foundation/display/ 2>/dev/null; then
+if grep -rq "lush_display" src/lle/foundation/display/ 2>/dev/null; then
     ((INTEGRATION_POINTS++))
 fi
 if grep -rq "display_bridge" src/lle/foundation/display/ 2>/dev/null; then
@@ -150,10 +150,10 @@ if grep -rq "render_controller" src/lle/foundation/display/ 2>/dev/null; then
 fi
 
 if [ "$INTEGRATION_POINTS" -eq 0 ]; then
-    report_violation "No Lusush display integration" \
-        "No evidence of integration with Lusush display system components"
+    report_violation "No Lush display integration" \
+        "No evidence of integration with Lush display system components"
 else
-    report_pass "Lusush display integration points present ($INTEGRATION_POINTS/3)"
+    report_pass "Lush display integration points present ($INTEGRATION_POINTS/3)"
 fi
 
 echo ""
@@ -205,8 +205,8 @@ echo "Check 11: Display flush implementation..."
 if [ -f "src/lle/foundation/display/display.c" ]; then
     if grep -A 50 "lle_display_flush" src/lle/foundation/display/display.c | grep -q "write.*fd"; then
         report_violation "Display flush writes directly to terminal" \
-            "lle_display_flush MUST route through Lusush display system, not write to fd"
-    elif grep -A 50 "lle_display_flush" src/lle/foundation/display/display.c | grep -q "lusush_display\|display_controller\|composition_engine"; then
+            "lle_display_flush MUST route through Lush display system, not write to fd"
+    elif grep -A 50 "lle_display_flush" src/lle/foundation/display/display.c | grep -q "lush_display\|display_controller\|composition_engine"; then
         report_pass "Display flush appears to use display system"
     else
         report_warning "Display flush integration unclear" \
@@ -251,7 +251,7 @@ report_pass "Error handling patterns check complete"
 echo "Check 14: Memory pool usage in display code..."
 if grep -r "malloc\|calloc\|realloc" src/lle/foundation/display/*.c 2>/dev/null | grep -v "//.*alloc" | grep -v "memory_pool"; then
     report_warning "Raw allocation in display code" \
-        "Should use Lusush memory pool for consistency"
+        "Should use Lush memory pool for consistency"
 fi
 report_pass "Memory allocation patterns checked"
 
@@ -271,7 +271,7 @@ if [ "$VIOLATIONS" -gt 0 ]; then
     echo "CRITICAL VIOLATIONS FOUND: $VIOLATIONS"
     echo ""
     echo "LLE code contains architectural violations that MUST be fixed."
-    echo "These violations prevent proper integration with Lusush display system."
+    echo "These violations prevent proper integration with Lush display system."
     echo ""
     echo "Required Actions:"
     echo "1. Review DESIGN_VIOLATION_ANALYSIS.md"

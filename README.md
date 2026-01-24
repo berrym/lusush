@@ -1,20 +1,20 @@
-# Lusush
+# Lush
 
 **An interactive shell under active development.**
 
-[![CI](https://github.com/berrym/lusush/actions/workflows/ci.yml/badge.svg)](https://github.com/berrym/lusush/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/berrym/lusush/graph/badge.svg)](https://codecov.io/gh/berrym/lusush)
-[![Version](https://img.shields.io/badge/version-1.5.0--prerelease-blue)](https://github.com/berrym/lusush/releases)
+[![CI](https://github.com/berrym/lush/actions/workflows/ci.yml/badge.svg)](https://github.com/berrym/lush/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/berrym/lush/graph/badge.svg)](https://codecov.io/gh/berrym/lush)
+[![Version](https://img.shields.io/badge/version-1.5.0--prerelease-blue)](https://github.com/berrym/lush/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
-[![C11](https://img.shields.io/badge/standard-C11-blue)](https://github.com/berrym/lusush)
+[![C11](https://img.shields.io/badge/standard-C11-blue)](https://github.com/berrym/lush)
 
 ---
 
-## What is Lusush?
+## What is Lush?
 
-Lusush is a Unix shell built from scratch in C11. It combines POSIX compliance with extended features from Bash and Zsh, and introduces capabilities not found in other shells - most notably an integrated debugger for shell scripts.
+Lush is a Unix shell built from scratch in C11. It combines POSIX compliance with extended features from Bash and Zsh, and introduces capabilities not found in other shells - most notably an integrated debugger for shell scripts.
 
-The project draws heavy inspiration from Zsh and Fish, both of which proved that shells can have sophisticated line editing without relying on GNU Readline. Lusush's line editor, **LLE**, follows in their footsteps with its own implementation featuring syntax highlighting and context-aware completions.
+The project draws heavy inspiration from Zsh and Fish, both of which proved that shells can have sophisticated line editing without relying on GNU Readline. Lush's line editor, **LLE**, follows in their footsteps with its own implementation featuring syntax highlighting and context-aware completions.
 
 **Current status:** Under heavy development. Not yet suitable for daily use or production environments. Many features work well; others remain incomplete.
 
@@ -22,9 +22,9 @@ The project draws heavy inspiration from Zsh and Fish, both of which proved that
 
 ## Core Components
 
-### LLE (Lusush Line Editor)
+### LLE (Lush Line Editor)
 
-A native line editor built specifically for lusush:
+A native line editor built specifically for lush:
 
 - Real-time syntax highlighting with 45 token types
 - Context-aware tab completions for all 50 shell builtins
@@ -41,7 +41,7 @@ Run scripts with different compatibility levels:
 set -o posix   # Strict POSIX sh compliance
 set -o bash    # Bash compatibility features
 set -o zsh     # Zsh compatibility features  
-set -o lusush  # Default mode - curated feature set
+set -o lush  # Default mode - curated feature set
 ```
 
 ### Integrated Debugger
@@ -60,9 +60,9 @@ debug step                       # Step to next line
 TOML-based configuration with XDG Base Directory compliance:
 
 ```toml
-# ~/.config/lusush/config.toml
+# ~/.config/lush/config.toml
 [shell]
-mode = "lusush"
+mode = "lush"
 
 [display]
 syntax_highlighting = true
@@ -77,7 +77,7 @@ The `setopt`/`unsetopt` commands provide Zsh-style option control. A central con
 
 ## Extended Syntax
 
-Lusush implements extended shell features beyond POSIX:
+Lush implements extended shell features beyond POSIX:
 
 - **Brace expansion** - `{a,b,c}` and `{1..10}` sequence expansion
 - **Arrays** - Indexed arrays with negative index support (`${arr[-1]}`) and append syntax (`arr+=(x y)`)
@@ -124,11 +124,11 @@ error[E1101]: gti: command not found
 ### Build
 
 ```bash
-git clone https://github.com/lusush/lusush.git
-cd lusush
+git clone https://github.com/lush/lush.git
+cd lush
 meson setup build
 ninja -C build
-./build/lusush
+./build/lush
 ```
 
 ### Test
@@ -187,8 +187,8 @@ MIT License. See [LICENSE](LICENSE).
 
 ---
 
-**Lusush** is a real shell, built from scratch, doing things differently.
+**Lush** is a real shell, built from scratch, doing things differently.
 
 It's not finished. But it's not vaporware either - it's 50 builtins, 57 tests, zero leaks, and years of development.
 
-If you're curious about what a shell could be, lusush is worth watching.
+If you're curious about what a shell could be, lush is worth watching.

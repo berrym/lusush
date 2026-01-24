@@ -44,7 +44,7 @@ The Advanced Prompt Management and Widget Hooks System provides sophisticated pr
 - **Historical Prompt Modification**: Retroactive modification of previously rendered prompts
 - **Dynamic Geometry Management**: Automatic adaptation to terminal resizing and content changes
 - **Performance Excellence**: Sub-1ms prompt repositioning with intelligent caching
-- **Theme Integration**: Full compatibility with all Lusush themes and styling systems
+- **Theme Integration**: Full compatibility with all Lush themes and styling systems
 
 ### 1.3 Critical Design Requirements
 
@@ -896,7 +896,7 @@ lle_result_t lle_bottom_prompt_line_finish_hook(
 ### 8.1 Display Integration
 
 ```c
-// Seamless integration with Lusush display system
+// Seamless integration with Lush display system
 lle_result_t lle_prompt_hooks_integrate_with_display(
     lle_prompt_management_system_t *prompt_system,
     lle_display_controller_t *display_controller) {
@@ -1007,7 +1007,7 @@ lle_result_t lle_prompt_hooks_integrate_with_display(
 
 **Quality Requirements:**
 - **Zero Configuration**: Advanced prompt features work perfectly out-of-box
-- **Theme Integration**: Full compatibility with all Lusush themes and styling
+- **Theme Integration**: Full compatibility with all Lush themes and styling
 - **Terminal Compatibility**: Works consistently across all terminal types and sizes
 - **Professional Quality**: Invisible operation with no flicker or delay
 

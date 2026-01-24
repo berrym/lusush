@@ -4,7 +4,7 @@
 # EXTENDED SYNTAX COMPREHENSIVE TEST SUITE
 # =============================================================================
 #
-# Validates ALL extended syntax features in lusush including:
+# Validates ALL extended syntax features in lush including:
 # - Indexed and associative arrays
 # - Negative array indices
 # - Extended test [[ ]] operators
@@ -18,11 +18,11 @@
 
 set -euo pipefail
 
-# Get absolute path to lusush binary
+# Get absolute path to lush binary
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-LUSUSH="${1:-$PROJECT_DIR/build/lusush}"
-TEST_DIR="/tmp/lusush_extended_test_$$"
+LUSH="${1:-$PROJECT_DIR/build/lush}"
+TEST_DIR="/tmp/lush_extended_test_$$"
 TOTAL_TESTS=0
 PASSED_TESTS=0
 FAILED_TESTS=0
@@ -78,14 +78,14 @@ test_result() {
     fi
 }
 
-# Helper to run lusush command and check output
+# Helper to run lush command and check output
 run_test() {
     local test_name="$1"
     local command="$2"
     local expected="$3"
 
     local output
-    output=$(echo "$command" | "$LUSUSH" 2>&1) || true
+    output=$(echo "$command" | "$LUSH" 2>&1) || true
     # Trim trailing whitespace
     output=$(echo "$output" | sed 's/[[:space:]]*$//')
     expected=$(echo "$expected" | sed 's/[[:space:]]*$//')
@@ -102,7 +102,7 @@ run_success_test() {
     local test_name="$1"
     local command="$2"
 
-    if echo "$command" | "$LUSUSH" >/dev/null 2>&1; then
+    if echo "$command" | "$LUSH" >/dev/null 2>&1; then
         test_result "$test_name" 0
     else
         test_result "$test_name" 1 "Command failed unexpectedly"
@@ -114,7 +114,7 @@ run_fail_test() {
     local test_name="$1"
     local command="$2"
 
-    if echo "$command" | "$LUSUSH" >/dev/null 2>&1; then
+    if echo "$command" | "$LUSH" >/dev/null 2>&1; then
         test_result "$test_name" 1 "Command succeeded unexpectedly"
     else
         test_result "$test_name" 0

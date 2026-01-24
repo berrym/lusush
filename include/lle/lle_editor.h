@@ -131,7 +131,7 @@ typedef struct lle_editor {
     void *history_edit_callbacks; /* History edit callbacks (opaque) */
 
     /* Memory management */
-    lusush_memory_pool_t *lusush_pool; /* Lusush memory pool (source) */
+    lush_memory_pool_t *lush_pool; /* Lush memory pool (source) */
     lle_memory_pool_t *lle_pool;       /* LLE memory pool (wrapper) */
 
     /* Editor statistics */
@@ -157,7 +157,7 @@ typedef struct lle_editor {
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_editor_create(lle_editor_t **editor,
-                               lusush_memory_pool_t *pool);
+                               lush_memory_pool_t *pool);
 
 /**
  * Destroy editor context

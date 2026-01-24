@@ -10,7 +10,7 @@
  */
 
 #include "lle/terminal_abstraction.h"
-#include "lusush_memory_pool.h"
+#include "lush_memory_pool.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -60,8 +60,8 @@ static int create_pipe_with_data(const void *data, size_t len, int *write_fd) {
     return pipefd[0];
 }
 
-/* External memory pool reference (defined in lusush_memory_pool.c) */
-extern lusush_memory_pool_system_t *global_memory_pool;
+/* External memory pool reference (defined in lush_memory_pool.c) */
+extern lush_memory_pool_system_t *global_memory_pool;
 
 /* ============================================================================
  * F-KEY DETECTION TESTS (WITH FULL PARSER INITIALIZATION)
@@ -241,9 +241,9 @@ int main(void) {
     printf("Testing with FULL parser + key_detector initialization\n\n");
 
     /* Initialize memory pool system (required for parser initialization) */
-    lusush_pool_config_t pool_config = lusush_pool_get_default_config();
-    lusush_pool_error_t pool_result = lusush_pool_init(&pool_config);
-    if (pool_result != LUSUSH_POOL_SUCCESS) {
+    lush_pool_config_t pool_config = lush_pool_get_default_config();
+    lush_pool_error_t pool_result = lush_pool_init(&pool_config);
+    if (pool_result != LUSH_POOL_SUCCESS) {
         fprintf(stderr, "Failed to initialize memory pool: %d\n", pool_result);
         return 1;
     }

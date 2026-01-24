@@ -52,7 +52,7 @@ lle_register_builtin_widget_hooks(lle_widget_hooks_manager_t *hooks_manager);
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_editor_create(lle_editor_t **editor,
-                               lusush_memory_pool_t *pool) {
+                               lush_memory_pool_t *pool) {
     if (!editor) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -71,11 +71,11 @@ lle_result_t lle_editor_create(lle_editor_t **editor,
     /* Zero-initialize entire structure */
     memset(ed, 0, sizeof(lle_editor_t));
 
-    /* Store Lusush memory pool reference */
-    ed->lusush_pool = pool;
+    /* Store Lush memory pool reference */
+    ed->lush_pool = pool;
 
     /* Create LLE memory pool wrapper for unified memory management */
-    lle_result_t result = lle_memory_pool_create_from_lusush(
+    lle_result_t result = lle_memory_pool_create_from_lush(
         &ed->lle_pool, pool, LLE_POOL_BUFFER /* Editor uses buffer pool type */
     );
     if (result != LLE_SUCCESS) {
@@ -290,7 +290,7 @@ lle_result_t lle_editor_destroy(lle_editor_t *editor) {
         editor->lle_pool = NULL;
     }
 
-    /* Note: lusush_pool is not destroyed here - it's managed externally */
+    /* Note: lush_pool is not destroyed here - it's managed externally */
 
     /* Free editor structure */
     lle_pool_free(editor);

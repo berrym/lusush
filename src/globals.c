@@ -12,7 +12,7 @@
  * @copyright Copyright (C) 2021-2026 Michael Berry
  */
 
-#include "lusush.h"
+#include "lush.h"
 #include "posix_history.h"
 
 #include <stdbool.h>

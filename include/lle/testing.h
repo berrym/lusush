@@ -180,8 +180,8 @@ typedef struct lle_history_system_t lle_history_system_t;
 typedef struct lle_system_t lle_system_t;
 typedef struct lle_display_context_t lle_display_context_t;
 
-/* External Lusush types */
-typedef struct lusush_display_controller_t lusush_display_controller_t;
+/* External Lush types */
+typedef struct lush_display_controller_t lush_display_controller_t;
 
 /* Plugin registry types */
 typedef struct lle_plugin_registry_t lle_plugin_registry_t;
@@ -897,13 +897,13 @@ typedef struct {
 #endif /* LLE_BUFFER_MANAGEMENT_H */
 
 /**
- * @brief Lusush Cursor Info
+ * @brief Lush Cursor Info
  */
 typedef struct {
     uint32_t line;
     uint32_t column;
     bool visible;
-} lusush_cursor_info_t;
+} lush_cursor_info_t;
 
 /**
  * @brief Suggestion Result
@@ -1253,18 +1253,18 @@ void lle_display_integration_destroy(lle_display_integration_t *integration);
 lle_result_t
 lle_display_integration_render_buffer(lle_display_integration_t *integration,
                                       lle_buffer_t *buffer,
-                                      lusush_display_controller_t *display);
+                                      lush_display_controller_t *display);
 lle_result_t lle_display_render_buffer(lle_display_context_t *ctx,
                                        lle_buffer_t *buffer);
 
 /* ============================================================================
- * FUNCTION DECLARATIONS - Lusush Display Operations
+ * FUNCTION DECLARATIONS - Lush Display Operations
  * ============================================================================
  */
 
-lusush_display_controller_t *lusush_display_controller_get_instance(void);
-lusush_cursor_info_t
-lusush_display_get_cursor_info(lusush_display_controller_t *display);
+lush_display_controller_t *lush_display_controller_get_instance(void);
+lush_cursor_info_t
+lush_display_get_cursor_info(lush_display_controller_t *display);
 
 /* ============================================================================
  * FUNCTION DECLARATIONS - History and Autosuggestions

@@ -1,19 +1,19 @@
 # LLE USER CUSTOMIZATION SYSTEM COMPLETE SPECIFICATION
-**Document 13 of 21 - Lusush Line Editor (LLE) Epic Specification Project**
+**Document 13 of 21 - Lush Line Editor (LLE) Epic Specification Project**
 
 ---
 
 **Document Version**: 2.0.0  
 **Specification Status**: Integration-Ready Specification (Phase 2 Integration Refactoring)
 **Last Updated**: 2025-10-11  
-**Integration Target**: Lusush Shell v1.3.0+ LLE Integration  
+**Integration Target**: Lush Shell v1.3.0+ LLE Integration  
 **Dependencies**: Documents 01-12 (All Core Systems) + Integration Systems (22-26)
 
 ---
 
 ## 📋 **EXECUTIVE SUMMARY**
 
-This specification defines a comprehensive user customization system enabling unlimited personalization of the Lusush Line Editor through user-programmable editing operations, flexible key binding management, integrated scripting capabilities, and enterprise-grade configuration management. The system provides complete control over editor behavior while maintaining security, performance, and seamless integration with all LLE core systems.
+This specification defines a comprehensive user customization system enabling unlimited personalization of the Lush Line Editor through user-programmable editing operations, flexible key binding management, integrated scripting capabilities, and enterprise-grade configuration management. The system provides complete control over editor behavior while maintaining security, performance, and seamless integration with all LLE core systems.
 
 **Key Capabilities**:
 - **Complete Key Binding Control**: User-defined key mappings for any editing operation with GNU Readline compatibility
@@ -72,7 +72,7 @@ config save
 Create custom plugins to extend LLE functionality:
 
 ```python
-# Example: ~/.config/lusush/plugins/my_plugin.py
+# Example: ~/.config/lush/plugins/my_plugin.py
 class MyLLEPlugin:
     def on_buffer_changed(self, buffer_content):
         # Custom logic when buffer changes
@@ -96,7 +96,7 @@ config save
 Create custom editing operations using widget hooks:
 
 ```lua
--- ~/.config/lusush/widgets/smart_paste.lua
+-- ~/.config/lush/widgets/smart_paste.lua
 function smart_paste()
     local clipboard = get_clipboard_content()
     if clipboard:match("^https?://") then
@@ -119,10 +119,10 @@ Manage all your customizations through the configuration system:
 config show lle
 
 # Export your complete customization setup
-display lle config export ~/.config/lusush/my-lle-setup.json
+display lle config export ~/.config/lush/my-lle-setup.json
 
 # Import customizations on a new system
-display lle config import ~/.config/lusush/my-lle-setup.json
+display lle config import ~/.config/lush/my-lle-setup.json
 config save
 ```
 
@@ -130,7 +130,7 @@ config save
 
 **Lua Script for Smart History:**
 ```lua
--- ~/.config/lusush/scripts/smart_history.lua
+-- ~/.config/lush/scripts/smart_history.lua
 function enhanced_history_search(pattern)
     local matches = search_history(pattern)
     -- Add frequency weighting
@@ -140,7 +140,7 @@ end
 
 **Python Script for Project-Aware Completions:**
 ```python
-# ~/.config/lusush/scripts/project_completion.py
+# ~/.config/lush/scripts/project_completion.py
 import os
 import json
 
@@ -2816,7 +2816,7 @@ lle_result_t lle_config_manager_init(
 
     ## 📋 **CONCLUSION**
 
-    This User Customization System specification v2.0.0 provides a comprehensive foundation for implementing unlimited personalization capabilities in the Lusush Line Editor with complete Phase 2 integration support. The system delivers enterprise-grade security, sub-millisecond performance, and seamless integration with all critical core systems while maintaining the highest standards of professional development.
+    This User Customization System specification v2.0.0 provides a comprehensive foundation for implementing unlimited personalization capabilities in the Lush Line Editor with complete Phase 2 integration support. The system delivers enterprise-grade security, sub-millisecond performance, and seamless integration with all critical core systems while maintaining the highest standards of professional development.
 
     **Key Achievements**:
     - **Complete Integration Implementation**: Every component specified with full integration support for keybinding, widget, and completion customization
@@ -2831,7 +2831,7 @@ lle_result_t lle_config_manager_init(
     - **24_advanced_prompt_widget_hooks_complete.md**: Full widget hook customization with bottom-prompt support
     - **23_interactive_completion_menu_complete.md**: Complete completion menu customization with category and ranking support
 
-    The specification maintains Lusush's commitment to professional development standards while providing the foundation for guaranteed implementation success in the comprehensive LLE specification project with full Phase 2 User Interface Integration support.
+    The specification maintains Lush's commitment to professional development standards while providing the foundation for guaranteed implementation success in the comprehensive LLE specification project with full Phase 2 User Interface Integration support.
 
 ### **User Empowerment Through Customization**
 
@@ -2865,7 +2865,7 @@ The system follows the principle that **users should never be limited by the ori
         lle_theme_completion_engine_t   *completion_engine;
         
         // Integration with existing theme system
-        theme_manager_t                 *lusush_theme_manager;
+        theme_manager_t                 *lush_theme_manager;
         lle_customization_system_t      *customization_system;
         
         // Visual customization components
@@ -3096,7 +3096,7 @@ The system follows the principle that **users should never be limited by the ori
     ```c
     // Theme command help integration
     void lle_theme_show_command_help(void) {
-        printf("Lusush Line Editor (LLE) Theme Commands\n\n");
+        printf("Lush Line Editor (LLE) Theme Commands\n\n");
         
         printf("Color Management:\n");
         printf("  theme lle colors show [--format=table|json]    Show current LLE colors\n");
@@ -3142,7 +3142,7 @@ The system follows the principle that **users should never be limited by the ori
 
     #### **Visual Domain Separation**
     - Theme command handles all visual and styling aspects of LLE
-    - Integrates seamlessly with existing Lusush theme system
+    - Integrates seamlessly with existing Lush theme system
     - Provides unified visual control for all LLE components
     - Maintains automatic synchronization with theme changes
 

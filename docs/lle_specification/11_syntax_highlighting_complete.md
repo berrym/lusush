@@ -33,7 +33,7 @@
 
 ### 1.1 Purpose
 
-The LLE Syntax Highlighting System provides real-time visual enhancement of shell commands through intelligent syntax analysis and color coding. This system performs live lexical analysis of command input, applying contextually appropriate highlighting to improve readability, reduce errors, and enhance the user experience while maintaining sub-millisecond responsiveness and seamless integration with the Lusush layered display architecture.
+The LLE Syntax Highlighting System provides real-time visual enhancement of shell commands through intelligent syntax analysis and color coding. This system performs live lexical analysis of command input, applying contextually appropriate highlighting to improve readability, reduce errors, and enhance the user experience while maintaining sub-millisecond responsiveness and seamless integration with the Lush layered display architecture.
 
 ### 1.2 Key Features
 
@@ -44,8 +44,8 @@ The LLE Syntax Highlighting System provides real-time visual enhancement of shel
 - **Intelligent Context Recognition**: Context-aware highlighting for strings, variables, operators, keywords
 - **Error Detection Integration**: Visual indication of syntax errors and potential issues
 - **Performance Excellence**: Sub-millisecond highlighting updates with intelligent caching
-- **Display System Integration**: Seamless integration with Lusush layered display architecture
-- **Theme System Integration**: Full support for Lusush theme system with customizable color schemes
+- **Display System Integration**: Seamless integration with Lush layered display architecture
+- **Theme System Integration**: Full support for Lush theme system with customizable color schemes
 - **Memory Pool Integration**: Zero-allocation highlighting operations with efficient memory management
 - **Extensible Architecture**: Plugin system for custom syntax rules and language support
 
@@ -56,7 +56,7 @@ The LLE Syntax Highlighting System provides real-time visual enhancement of shel
 3. **Visual Clarity**: Highlighting enhances readability without overwhelming the interface
 4. **Resource Efficiency**: Minimal CPU and memory overhead during operation
 5. **Context Awareness**: Highlighting adapts to shell context and command structure
-6. **Theme Integration**: Consistent with Lusush visual design and theme system
+6. **Theme Integration**: Consistent with Lush visual design and theme system
 
 ---
 
@@ -86,7 +86,7 @@ typedef struct lle_syntax_highlighting_system {
     
     // Color and visual management
     lle_color_manager_t *color_manager;               // Color scheme and palette management
-    lle_theme_integration_t *theme_integration;       // Lusush theme system integration
+    lle_theme_integration_t *theme_integration;       // Lush theme system integration
     lle_highlight_renderer_t *highlight_renderer;     // Syntax highlighting display renderer
     lle_visual_effects_t *visual_effects;             // Visual effects and animations
     
@@ -96,10 +96,10 @@ typedef struct lle_syntax_highlighting_system {
     lle_dirty_tracking_t *dirty_tracker;              // Change tracking for selective updates
     
     // Integration and coordination
-    lle_display_coordinator_t *display_coordinator;   // Lusush display system integration
+    lle_display_coordinator_t *display_coordinator;   // Lush display system integration
     lle_event_coordinator_t *event_coordinator;       // Event system coordination
     lle_buffer_integration_t *buffer_integration;     // LLE buffer system integration
-    memory_pool_t *memory_pool;                       // Lusush memory pool integration
+    memory_pool_t *memory_pool;                       // Lush memory pool integration
     
     // NEW: Integration coordination state
     lle_widget_highlight_mode_t widget_mode;          // Current widget highlighting mode
@@ -1685,7 +1685,7 @@ typedef struct lle_color_manager {
     lle_color_adaptation_t *adaptation_engine;         // Color adaptation engine
     
     // Theme integration
-    lle_theme_integration_t *theme_integration;        // Lusush theme system integration
+    lle_theme_integration_t *theme_integration;        // Lush theme system integration
     lle_color_mapping_t *theme_mappings;               // Theme-specific color mappings
     lle_dynamic_colors_t *dynamic_colors;              // Dynamic color adjustment
     
@@ -2036,12 +2036,12 @@ lle_result_t lle_analyze_variable_expansion(lle_shell_grammar_t *grammar,
 
 ## 7. Display Integration
 
-### 7.1 Lusush Display System Integration
+### 7.1 Lush Display System Integration
 
 ```c
-// Complete integration with Lusush layered display architecture
+// Complete integration with Lush layered display architecture
 typedef struct lle_display_integration {
-    // Lusush display system components
+    // Lush display system components
     lle_display_controller_t *display_controller;      // Main display controller
     lle_prompt_layer_t *prompt_layer;                  // Prompt rendering layer
     lle_input_layer_t *input_layer;                    // Input line rendering layer
@@ -2365,7 +2365,7 @@ lle_result_t lle_activate_fallback_highlighting(lle_syntax_error_handler_t *hand
 typedef struct lle_syntax_test_suite {
     // Test categories
     lle_unit_tests_t *unit_tests;                      // Unit tests for individual components
-    lle_integration_tests_t *integration_tests;        // Integration tests with Lusush
+    lle_integration_tests_t *integration_tests;        // Integration tests with Lush
     lle_performance_tests_t *performance_tests;        // Performance and timing tests
     lle_regression_tests_t *regression_tests;          // Regression testing suite
     
@@ -2546,7 +2546,7 @@ lle_result_t lle_test_syntax_highlighting_accuracy(lle_syntax_test_suite_t *test
 **Phase 3: Color Management and Display Integration (Weeks 5-6)**
 - Implement dynamic color system with theme integration
 - Develop terminal color capability detection
-- Create Lusush display system integration
+- Create Lush display system integration
 - Visual effects and formatting implementation
 
 **Phase 4: Advanced Features and Optimization (Weeks 7-8)**
@@ -2558,7 +2558,7 @@ lle_result_t lle_test_syntax_highlighting_accuracy(lle_syntax_test_suite_t *test
 **Phase 5: Testing and Validation (Weeks 9-10)**
 - Comprehensive test suite development
 - Performance benchmarking and validation
-- Integration testing with complete Lusush system
+- Integration testing with complete Lush system
 - Documentation and deployment preparation
 
 ### 10.2 Success Criteria
@@ -2567,22 +2567,22 @@ lle_result_t lle_test_syntax_highlighting_accuracy(lle_syntax_test_suite_t *test
 - **Accuracy Target**: 99.5% token classification accuracy on real-world shell commands
 - **Memory Efficiency**: Zero-allocation operation during steady-state highlighting
 - **Error Resilience**: Graceful handling of all syntax error conditions
-- **Theme Integration**: Seamless integration with all Lusush themes
+- **Theme Integration**: Seamless integration with all Lush themes
 - **Universal Compatibility**: Consistent operation across all supported terminal types
 
 ### 10.3 Integration Points
 
 - **LLE Buffer System**: Real-time buffer change notifications and content access
 - **LLE Event System**: Event-driven highlighting updates with priority handling
-- **Lusush Display System**: Layered display integration for visual presentation
-- **Lusush Theme System**: Dynamic color scheme integration and adaptation
-- **Lusush Memory Pool**: Zero-allocation operation with memory pool integration
+- **Lush Display System**: Layered display integration for visual presentation
+- **Lush Theme System**: Dynamic color scheme integration and adaptation
+- **Lush Memory Pool**: Zero-allocation operation with memory pool integration
 - **LLE Configuration**: User customization and preference management
 
 ---
 
 ## Conclusion
 
-This comprehensive specification provides implementation-ready details for the LLE Syntax Highlighting System, ensuring real-time visual enhancement of shell commands while maintaining enterprise-grade performance and reliability. The system integrates seamlessly with existing Lusush architecture and provides the foundation for advanced features like intelligent autosuggestions and context-aware completion.
+This comprehensive specification provides implementation-ready details for the LLE Syntax Highlighting System, ensuring real-time visual enhancement of shell commands while maintaining enterprise-grade performance and reliability. The system integrates seamlessly with existing Lush architecture and provides the foundation for advanced features like intelligent autosuggestions and context-aware completion.
 
 The specification achieves the project's goal of microscopic implementation detail, enabling virtually guaranteed development success through comprehensive coverage of algorithms, error handling, performance requirements, and integration specifications.

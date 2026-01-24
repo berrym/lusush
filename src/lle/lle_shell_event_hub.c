@@ -23,13 +23,13 @@
 /**
  * @brief Check if event debug logging is enabled
  *
- * Set LUSUSH_EVENT_DEBUG=1 to enable verbose event system logging.
+ * Set LUSH_EVENT_DEBUG=1 to enable verbose event system logging.
  * Logs event firing, handler dispatch, and silent failure conditions.
  */
 static inline bool lle_event_debug_enabled(void) {
     static int cached = -1;
     if (cached == -1) {
-        const char *env = getenv("LUSUSH_EVENT_DEBUG");
+        const char *env = getenv("LUSH_EVENT_DEBUG");
         cached = (env && env[0] == '1') ? 1 : 0;
     }
     return cached == 1;

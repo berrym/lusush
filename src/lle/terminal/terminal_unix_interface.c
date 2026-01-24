@@ -122,7 +122,7 @@ static void handle_sigcont(int sig) {
 
 /*
  * NOTE: handle_exit_signal() removed - we no longer install SIGINT/SIGTERM
- * handlers. Lusush's signal handlers (src/signals.c) now manage these signals
+ * handlers. Lush's signal handlers (src/signals.c) now manage these signals
  * correctly.
  */
 
@@ -169,7 +169,7 @@ static void register_cleanup(void) {
 static struct sigaction original_sigwinch;
 static struct sigaction original_sigtstp;
 static struct sigaction original_sigcont;
-/* Note: We don't install SIGINT/SIGTERM handlers anymore (lusush handles them)
+/* Note: We don't install SIGINT/SIGTERM handlers anymore (lush handles them)
  */
 static bool signals_installed = false;
 
@@ -178,7 +178,7 @@ static bool signals_installed = false;
  *
  * Installs handlers for SIGWINCH, SIGTSTP, and SIGCONT signals.
  * Uses sigaction for reliable signal handling with SA_RESTART flag.
- * SIGINT and SIGTERM are left to lusush's main signal handlers.
+ * SIGINT and SIGTERM are left to lush's main signal handlers.
  *
  * @param interface Unix interface to associate with handlers
  * @return LLE_SUCCESS on success, LLE_ERROR_SYSTEM_CALL on sigaction failure
@@ -216,13 +216,13 @@ static lle_result_t install_signal_handlers(lle_unix_interface_t *interface) {
     }
 
     /* NOTE: We do NOT install SIGINT/SIGTERM handlers here.
-     * Lusush's signal handlers (src/signals.c) manage these properly:
+     * Lush's signal handlers (src/signals.c) manage these properly:
      * - SIGINT: kills child process OR clears line (but never exits shell)
      * - SIGTERM: handles graceful shutdown
      *
      * LLE previously installed handlers that would exit the shell on Ctrl+C,
      * which is incorrect shell behavior. Now that ISIG is enabled in raw mode,
-     * Ctrl+C generates SIGINT which lusush's handler will catch and handle
+     * Ctrl+C generates SIGINT which lush's handler will catch and handle
      * correctly.
      */
 
@@ -462,7 +462,7 @@ lle_unix_interface_enter_raw_mode(lle_unix_interface_t *interface) {
                       IEXTEN); /* Disable extended input processing */
     /* KEEP ISIG ENABLED - allow Ctrl-C to generate SIGINT for proper shell
      * behavior */
-    /* This ensures lusush's signal handler (src/signals.c) can manage child
+    /* This ensures lush's signal handler (src/signals.c) can manage child
      * processes */
 
     /* Control characters - non-blocking read */

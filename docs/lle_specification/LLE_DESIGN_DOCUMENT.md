@@ -1,4 +1,4 @@
-# Lusush Line Editor (LLE) Design Document
+# Lush Line Editor (LLE) Design Document
 
 **Version**: 2.0.0  
 **Date**: 2025-01-27  
@@ -7,7 +7,7 @@
 
 ## Executive Summary
 
-The Lusush Line Editor (LLE) represents a revolutionary approach to shell line editing that addresses the fundamental architectural limitations of GNU Readline. Based on extensive research of modern line editor architectures including Fish Shell, Zsh ZLE, Rustyline, and Replxx, LLE introduces a **buffer-oriented design** with sophisticated history management and native integration with Lusush's layered display system.
+The Lush Line Editor (LLE) represents a revolutionary approach to shell line editing that addresses the fundamental architectural limitations of GNU Readline. Based on extensive research of modern line editor architectures including Fish Shell, Zsh ZLE, Rustyline, and Replxx, LLE introduces a **buffer-oriented design** with sophisticated history management and native integration with Lush's layered display system.
 
 This document provides a complete architectural specification for LLE, designed to enable modern shell UX features without the compromises inherent in callback-driven systems like Readline.
 
@@ -40,7 +40,7 @@ GNU Readline, designed in the 1980s, has fundamental architectural limitations t
 LLE solves these problems through a **buffer-oriented, event-driven architecture** that:
 
 - Treats commands as **logical units**, not lines
-- Provides **native integration** with Lusush's layered display system
+- Provides **native integration** with Lush's layered display system
 - Enables **modern UX features** without architectural compromises
 - Maintains **enterprise-grade reliability** and performance standards
 
@@ -54,7 +54,7 @@ LLE solves these problems through a **buffer-oriented, event-driven architecture
 │   (Commands)    │   (Modern UX)     │  (Sophisticated)       │
 ├─────────────────┴───────────────────┴─────────────────────────┤
 │              Native Display Integration                      │
-│           (Lusush Layered Display System)                   │
+│           (Lush Layered Display System)                   │
 ├─────────────────────────────────────────────────────────────┤
 │                Terminal Abstraction                         │
 │              (Universal Compatibility)                      │
@@ -91,10 +91,10 @@ Events flow through the system enabling:
 
 **Principle**: Render directly to existing display systems.
 
-**Core Innovation**: LLE renders directly to Lusush's layered display system:
+**Core Innovation**: LLE renders directly to Lush's layered display system:
 
 ```c
-lle_render_to_lusush_display(editor) {
+lle_render_to_lush_display(editor) {
     render_prompt_layer(editor);
     render_command_layer(editor);
     render_suggestion_layer(editor);  // No readline conflicts!
@@ -480,7 +480,7 @@ Based on research of contemporary developer tools and expectations:
 - Basic event architecture
 - Terminal abstraction layer
 - Multiline prompt support
-- Integration with Lusush display system
+- Integration with Lush display system
 
 **Deliverables:**
 ```c
@@ -572,7 +572,7 @@ lle_suggest_command(), lle_highlight_syntax(), lle_history_search()
 
 #### 6.2.2 Integration Risks
 
-**Risk**: Breaking existing Lusush functionality
+**Risk**: Breaking existing Lush functionality
 **Mitigation**:
 - Incremental integration approach
 - Comprehensive regression testing
@@ -676,13 +676,13 @@ void benchmark_memory_usage(void);
 
 ## 8. Integration Architecture
 
-### 8.1 Lusush Shell Integration
+### 8.1 Lush Shell Integration
 
 #### 8.1.1 Display System Integration
 
 ```c
 // Integration with layered display system
-typedef struct lle_lusush_integration {
+typedef struct lle_lush_integration {
     display_integration_t *display;
     theme_system_t *themes;
     performance_monitor_t *perf;
@@ -691,7 +691,7 @@ typedef struct lle_lusush_integration {
     lle_buffer_t *buffer;
     lle_history_t *history;
     lle_feature_manager_t *features;
-} lle_lusush_integration_t;
+} lle_lush_integration_t;
 ```
 
 #### 8.1.2 Theme System Integration
@@ -763,7 +763,7 @@ typedef struct lle_config {
 - **Impact**: High (functionality breaks)
 - **Mitigation**: Extensive testing matrix, terminal abstraction layer
 
-**Low Risk**: Integration conflicts with existing Lusush features
+**Low Risk**: Integration conflicts with existing Lush features
 - **Probability**: Low
 - **Impact**: Medium
 - **Mitigation**: Incremental integration, comprehensive testing
@@ -820,11 +820,11 @@ typedef struct lle_config {
 
 ## Conclusion
 
-The Lusush Line Editor (LLE) represents a fundamental advancement in shell line editing technology. By addressing the core architectural limitations of GNU Readline through a buffer-oriented, event-driven design with sophisticated history management, LLE enables Lusush to deliver modern shell UX without compromises.
+The Lush Line Editor (LLE) represents a fundamental advancement in shell line editing technology. By addressing the core architectural limitations of GNU Readline through a buffer-oriented, event-driven design with sophisticated history management, LLE enables Lush to deliver modern shell UX without compromises.
 
-The comprehensive design outlined in this document provides a clear roadmap from concept to production-ready implementation. With its focus on performance, reliability, and extensibility, LLE will establish Lusush as the leading professional shell for enterprise development environments.
+The comprehensive design outlined in this document provides a clear roadmap from concept to production-ready implementation. With its focus on performance, reliability, and extensibility, LLE will establish Lush as the leading professional shell for enterprise development environments.
 
-The research-driven approach, sophisticated history system, and native integration with Lusush's layered display architecture position LLE not just as a line editor, but as an intelligent command assistant that adapts and learns while maintaining the highest standards of reliability and performance.
+The research-driven approach, sophisticated history system, and native integration with Lush's layered display architecture position LLE not just as a line editor, but as an intelligent command assistant that adapts and learns while maintaining the highest standards of reliability and performance.
 
 ## Appendices
 
@@ -845,4 +845,4 @@ The research-driven approach, sophisticated history system, and native integrati
 **Document Classification**: Core Architecture Specification  
 **Security Classification**: Internal Development  
 **Review Schedule**: Monthly during development phases  
-**Approval Authority**: Lusush Development Team Lead
+**Approval Authority**: Lush Development Team Lead

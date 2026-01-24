@@ -1,5 +1,5 @@
 /*
- * Lusush Shell - LLE Completion Types Unit Tests
+ * Lush Shell - LLE Completion Types Unit Tests
  * Copyright (C) 2021-2026  Michael Berry
  *
  * Licensed under the MIT License. See LICENSE file for details.
