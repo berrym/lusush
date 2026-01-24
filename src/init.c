@@ -19,6 +19,7 @@
 #include "alias.h"
 #include "autocorrect.h"
 #include "builtins.h"
+#include "compat.h"
 #include "config.h"
 #include "dirstack.h"
 #include "errors.h"
@@ -684,6 +685,40 @@ static int parse_opts(int argc, char **argv) {
                 printf("Copyright (C) 2021-2026 Michael Berry. Licensed under "
                        "MIT.\n");
                 exit(EXIT_SUCCESS);
+            } else if (strcmp(arg, "--strict") == 0) {
+                // Enable strict compatibility mode - warnings become errors
+                compat_set_strict(true);
+            } else if (strncmp(arg, "--target=", 9) == 0) {
+                // Set target shell for compatibility checking
+                const char *target_name = arg + 9;
+                shell_mode_t target;
+                if (shell_mode_parse(target_name, &target)) {
+                    compat_set_target(target);
+                } else {
+                    fprintf(stderr, "%s: invalid target shell '%s'\n",
+                            argv[0], target_name);
+                    fprintf(stderr, "Valid targets: posix, bash, zsh, lush\n");
+                    exit(EXIT_FAILURE);
+                }
+            } else if (strncmp(arg, "--target", 8) == 0) {
+                // Handle --target <shell> (space-separated)
+                if (arg_index + 1 < argc) {
+                    arg_index++;
+                    const char *target_name = argv[arg_index];
+                    shell_mode_t target;
+                    if (shell_mode_parse(target_name, &target)) {
+                        compat_set_target(target);
+                    } else {
+                        fprintf(stderr, "%s: invalid target shell '%s'\n",
+                                argv[0], target_name);
+                        fprintf(stderr, "Valid targets: posix, bash, zsh, lush\n");
+                        exit(EXIT_FAILURE);
+                    }
+                } else {
+                    fprintf(stderr, "%s: --target requires an argument\n",
+                            argv[0]);
+                    usage(EXIT_FAILURE);
+                }
             } else {
                 fprintf(stderr, "%s: invalid option -- '%s'\n", argv[0], arg);
                 usage(EXIT_FAILURE);
@@ -802,8 +837,11 @@ static void usage(int err) {
     printf("Usage: %s [OPTIONS] [SCRIPT]\n", LUSH_NAME);
     printf("A POSIX-compliant shell with modern features\n\n");
     printf("Options:\n");
-    printf("      --help       Show this help message and exit\n");
-    printf("  -V, --version    Show version information and exit\n");
+    printf("      --help              Show this help message and exit\n");
+    printf("  -V, --version           Show version information and exit\n");
+    printf("      --strict            Treat compatibility warnings as errors\n");
+    printf("      --target=<shell>    Check compatibility against shell "
+           "(posix, bash, zsh)\n");
     printf("  -c command       Execute command string and exit\n");
     printf("  -s               Read commands from standard input\n");
     printf("  -i               Force interactive mode\n");

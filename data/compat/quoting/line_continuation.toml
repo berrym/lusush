@@ -1,0 +1,82 @@
+# Line continuation and quoting compatibility differences
+
+[backslash_newline_dquote]
+category = "quoting"
+feature = "line_continuation"
+description = "Backslash-newline inside double quotes"
+
+[backslash_newline_dquote.behavior]
+posix = "Backslash-newline is removed entirely (line continuation)"
+bash = "Backslash-newline is removed entirely (line continuation)"
+zsh = "Backslash-newline is removed entirely (line continuation)"
+lush = "Backslash-newline is removed entirely (line continuation)"
+
+[backslash_newline_dquote.lint]
+severity = "info"
+message = "Line continuation inside double quotes"
+pattern = "\"[^\"]*\\\\\\n[^\"]*\""
+
+[backslash_newline_unquoted]
+category = "quoting"
+feature = "line_continuation"
+description = "Backslash-newline outside quotes"
+
+[backslash_newline_unquoted.behavior]
+posix = "Backslash-newline is removed; line continues"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "Same as POSIX"
+
+[backslash_newline_unquoted.lint]
+severity = "info"
+message = "Line continuation"
+pattern = "\\\\\\n"
+
+[backslash_literal_dquote]
+category = "quoting"
+feature = "escaping"
+description = "Backslash escaping inside double quotes"
+
+[backslash_literal_dquote.behavior]
+posix = "Only \\$, \\`, \\\", \\\\, and \\newline are special"
+bash = "Same as POSIX"
+zsh = "Same as POSIX, plus some extensions"
+lush = "Same as POSIX"
+
+[backslash_literal_dquote.lint]
+severity = "info"
+message = "Backslash escape in double quotes"
+pattern = "\"[^\"]*\\\\[^$`\"\\\\\\n][^\"]*\""
+
+[single_quote_no_escape]
+category = "quoting"
+feature = "escaping"
+description = "No escape sequences in single quotes"
+
+[single_quote_no_escape.behavior]
+posix = "All characters literal except closing single quote"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "Same as POSIX"
+
+[single_quote_no_escape.lint]
+severity = "info"
+message = "Single quotes preserve all characters literally"
+pattern = "'[^']*\\\\[^']*'"
+
+[dollar_single_quote]
+category = "quoting"
+feature = "escaping"
+description = "$'...' ANSI-C quoting"
+
+[dollar_single_quote.behavior]
+posix = "Not specified in base POSIX"
+bash = "Supported: interprets ANSI-C escape sequences"
+zsh = "Supported: interprets ANSI-C escape sequences"
+lush = "Supported: interprets ANSI-C escape sequences"
+
+[dollar_single_quote.lint]
+severity = "warning"
+message = "$'...' quoting is not portable to POSIX sh"
+suggestion = "Use printf or echo with escape sequences"
+pattern = "\\$'[^']*'"

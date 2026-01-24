@@ -1,0 +1,83 @@
+# Parameter expansion compatibility differences
+
+[braced_expansion_command]
+category = "expansion"
+feature = "parameter"
+description = "Braced parameter expansion in command position"
+
+[braced_expansion_command.behavior]
+posix = "Expansion result is executed as command"
+bash = "Expansion result is executed as command"
+zsh = "Expansion result is executed as command"
+lush = "Expansion result is executed as command"
+
+[braced_expansion_command.lint]
+severity = "info"
+message = "Braced parameter expansion in command position"
+suggestion = "Ensure expanded value is a valid command"
+pattern = "^\\s*\\$\\{[^}]+\\}"
+
+[parameter_default_value]
+category = "expansion"
+feature = "parameter"
+description = "${var:-default} vs ${var-default} semantics"
+
+[parameter_default_value.behavior]
+posix = "${var:-word} uses word if var is unset or null; ${var-word} only if unset"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "Same as POSIX"
+
+[parameter_default_value.lint]
+severity = "info"
+message = "Parameter default value expansion"
+pattern = "\\$\\{[^:}]+:-?[^}]+\\}"
+
+[parameter_assignment]
+category = "expansion"
+feature = "parameter"
+description = "${var:=value} assigns and returns value"
+
+[parameter_assignment.behavior]
+posix = "Assigns value to var if unset/null, then expands to value"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "Same as POSIX"
+
+[parameter_assignment.lint]
+severity = "info"
+message = "Parameter assignment expansion"
+pattern = "\\$\\{[^:}]+:?=[^}]+\\}"
+
+[parameter_length]
+category = "expansion"
+feature = "parameter"
+description = "${#var} returns length of variable value"
+
+[parameter_length.behavior]
+posix = "Returns character length of var's value"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "Same as POSIX"
+
+[parameter_length.lint]
+severity = "info"
+message = "Parameter length expansion"
+pattern = "\\$\\{#[^}]+\\}"
+
+[parameter_substring]
+category = "expansion"
+feature = "parameter"
+description = "${var:offset:length} substring extraction"
+
+[parameter_substring.behavior]
+posix = "Not specified in base POSIX"
+bash = "Supported: extracts substring from offset"
+zsh = "Supported: extracts substring from offset"
+lush = "Supported: extracts substring from offset"
+
+[parameter_substring.lint]
+severity = "warning"
+message = "Substring expansion is not portable to POSIX sh"
+suggestion = "Use expr or cut for POSIX portability"
+pattern = "\\$\\{[^}]+:[0-9]+:[0-9]+\\}"

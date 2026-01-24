@@ -672,121 +672,71 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
         char quote_char = tokenizer->input[tokenizer->position];
         tokenizer->position++; // Skip opening quote
         tokenizer->column++;
-        size_t segment_start = tokenizer->position;
 
+        // For double-quoted strings, we need to build the result character by
+        // character to properly handle backslash-newline line continuation
+        // (which should be removed entirely per POSIX).
+        // For single-quoted strings, we can still do bulk copy since no
+        // escape processing happens inside single quotes.
+        
+        if (quote_char == '\'') {
+            // Single-quoted string: bulk copy (no escape processing)
+            size_t segment_start = tokenizer->position;
+            while (tokenizer->position < tokenizer->input_length) {
+                char curr = tokenizer->input[tokenizer->position];
+                if (curr == '\'') {
+                    // Found closing quote - copy segment content
+                    size_t segment_len = tokenizer->position - segment_start;
+                    while (result_len + segment_len + 1 >= result_capacity) {
+                        result_capacity *= 2;
+                        char *new_result = realloc(result, result_capacity);
+                        if (!new_result) {
+                            free(result);
+                            return token_new(TOK_ERROR, &tokenizer->input[start_pos], 1,
+                                            start_line, start_column, start_pos);
+                        }
+                        result = new_result;
+                    }
+                    memcpy(&result[result_len], &tokenizer->input[segment_start], segment_len);
+                    result_len += segment_len;
+                    
+                    tokenizer->position++; // Skip closing quote
+                    tokenizer->column++;
+                    goto check_adjacent;
+                } else if (curr == '\n') {
+                    tokenizer->line++;
+                    tokenizer->column = 1;
+                    tokenizer->position++;
+                } else {
+                    tokenizer->column++;
+                    tokenizer->position++;
+                }
+            }
+            // Unterminated single-quoted string
+            return token_new(TOK_ERROR, &tokenizer->input[start_pos],
+                             tokenizer->position - start_pos, start_line,
+                             start_column, start_pos);
+        }
+        
+        // Double-quoted string: character by character to handle line continuation
+        has_expandable = true;
         while (tokenizer->position < tokenizer->input_length) {
             char curr = tokenizer->input[tokenizer->position];
-            if (curr == quote_char) {
-                // Found closing quote - copy segment content
-                size_t segment_len = tokenizer->position - segment_start;
-                while (result_len + segment_len + 1 >= result_capacity) {
-                    result_capacity *= 2;
-                    char *new_result = realloc(result, result_capacity);
-                    if (!new_result) {
-                        free(result);
-                        return token_new(TOK_ERROR, &tokenizer->input[start_pos], 1,
-                                        start_line, start_column, start_pos);
-                    }
-                    result = new_result;
-                }
-                memcpy(&result[result_len], &tokenizer->input[segment_start], segment_len);
-                result_len += segment_len;
-                
+            
+            if (curr == '"') {
+                // Found closing quote
                 tokenizer->position++; // Skip closing quote
                 tokenizer->column++;
-                
-                if (quote_char == '"') {
-                    has_expandable = true;
-                }
-                
-                // Check for adjacent quote - continue if another quote follows
-                if (tokenizer->position < tokenizer->input_length) {
-                    char next = tokenizer->input[tokenizer->position];
-                    if (next == '\'' || next == '"') {
-                        // Adjacent quote - continue parsing
-                        goto parse_next_segment;
-                    }
-                    // Check for adjacent $' (ANSI-C quoting)
-                    if (next == '$' && tokenizer->position + 1 < tokenizer->input_length &&
-                        tokenizer->input[tokenizer->position + 1] == '\'') {
-                        tokenizer->position++; // Skip $
-                        tokenizer->column++;
-                        // Add marker for ANSI-C quote in result
-                        while (result_len + 2 >= result_capacity) {
-                            result_capacity *= 2;
-                            char *new_result = realloc(result, result_capacity);
-                            if (!new_result) {
-                                free(result);
-                                return token_new(TOK_ERROR, &tokenizer->input[start_pos], 1,
-                                                start_line, start_column, start_pos);
-                            }
-                            result = new_result;
-                        }
-                        result[result_len++] = '$';
-                        goto parse_next_segment;
-                    }
-                    // Check for adjacent unquoted word characters
-                    if (is_word_char(next) || next == '\\' || next == '$') {
-                        // Adjacent word - scan until whitespace or special char
-                        while (tokenizer->position < tokenizer->input_length) {
-                            char wc = tokenizer->input[tokenizer->position];
-                            if (wc == '\'' || wc == '"') {
-                                // Another quote - handle it
-                                goto parse_next_segment;
-                            }
-                            if (wc == '$' && tokenizer->position + 1 < tokenizer->input_length &&
-                                tokenizer->input[tokenizer->position + 1] == '\'') {
-                                tokenizer->position++;
-                                tokenizer->column++;
-                                result[result_len++] = '$';
-                                goto parse_next_segment;
-                            }
-                            if (!is_word_char(wc) && wc != '\\' && wc != '$') {
-                                break;
-                            }
-                            // Add character to result
-                            if (result_len + 1 >= result_capacity) {
-                                result_capacity *= 2;
-                                char *new_result = realloc(result, result_capacity);
-                                if (!new_result) {
-                                    free(result);
-                                    return token_new(TOK_ERROR, &tokenizer->input[start_pos], 1,
-                                                    start_line, start_column, start_pos);
-                                }
-                                result = new_result;
-                            }
-                            if (wc == '\\' && tokenizer->position + 1 < tokenizer->input_length) {
-                                // Escape sequence
-                                tokenizer->position++;
-                                tokenizer->column++;
-                                result[result_len++] = tokenizer->input[tokenizer->position];
-                            } else {
-                                result[result_len++] = wc;
-                            }
-                            tokenizer->position++;
-                            tokenizer->column++;
-                            has_expandable = true; // Unquoted content may have expansions
-                        }
-                    }
-                }
-                
-                // No more adjacent content - return the complete token
-                result[result_len] = '\0';
-                token_type_t type = has_expandable ? TOK_EXPANDABLE_STRING : TOK_STRING;
-                token_t *tok = token_new(type, result, result_len,
-                                 start_line, start_column, start_pos);
-                free(result);
-                return tok;
-            } else if (curr == '$' && quote_char == '"' &&
+                goto check_adjacent;
+            } else if (curr == '$' &&
                        tokenizer->position + 1 < tokenizer->input_length &&
                        tokenizer->input[tokenizer->position + 1] == '(') {
-                // Handle command substitution inside double quotes
+                // Handle command substitution inside double quotes - copy verbatim
+                size_t subst_start = tokenizer->position;
                 tokenizer->position += 2; // Skip $(
                 tokenizer->column += 2;
                 int paren_depth = 1;
 
-                // Skip over the entire command substitution, handling nested
-                // quotes
                 while (tokenizer->position < tokenizer->input_length &&
                        paren_depth > 0) {
                     char sub_curr = tokenizer->input[tokenizer->position];
@@ -795,7 +745,6 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                     } else if (sub_curr == ')') {
                         paren_depth--;
                     } else if (sub_curr == '"' || sub_curr == '\'') {
-                        // Handle nested quotes within command substitution
                         char sub_quote = sub_curr;
                         tokenizer->position++;
                         tokenizer->column++;
@@ -803,11 +752,10 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                             char nested_curr =
                                 tokenizer->input[tokenizer->position];
                             if (nested_curr == sub_quote) {
-                                break; // Found matching quote
+                                break;
                             } else if (nested_curr == '\\' &&
                                        tokenizer->position + 1 <
                                            tokenizer->input_length) {
-                                // Skip escaped character
                                 tokenizer->position++;
                                 tokenizer->column++;
                             }
@@ -822,7 +770,6 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                     } else if (sub_curr == '\\' &&
                                tokenizer->position + 1 <
                                    tokenizer->input_length) {
-                        // Skip escaped character
                         tokenizer->position++;
                         tokenizer->column++;
                     }
@@ -835,23 +782,35 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                     }
                     tokenizer->position++;
                 }
-            } else if (curr == '`' && quote_char == '"') {
-                // Handle backtick command substitution inside double quotes
+                // Copy the entire command substitution to result
+                size_t subst_len = tokenizer->position - subst_start;
+                while (result_len + subst_len + 1 >= result_capacity) {
+                    result_capacity *= 2;
+                    char *new_result = realloc(result, result_capacity);
+                    if (!new_result) {
+                        free(result);
+                        return token_new(TOK_ERROR, &tokenizer->input[start_pos], 1,
+                                        start_line, start_column, start_pos);
+                    }
+                    result = new_result;
+                }
+                memcpy(&result[result_len], &tokenizer->input[subst_start], subst_len);
+                result_len += subst_len;
+            } else if (curr == '`') {
+                // Handle backtick command substitution - copy verbatim
+                size_t subst_start = tokenizer->position;
                 tokenizer->position++; // Skip opening backtick
                 tokenizer->column++;
 
-                // Skip over the entire backtick command substitution
                 while (tokenizer->position < tokenizer->input_length) {
                     char sub_curr = tokenizer->input[tokenizer->position];
                     if (sub_curr == '`') {
-                        // Found closing backtick, advance past it
                         tokenizer->position++;
                         tokenizer->column++;
                         break;
                     } else if (sub_curr == '\\' &&
                                tokenizer->position + 1 <
                                    tokenizer->input_length) {
-                        // Skip escaped character
                         tokenizer->position++;
                         tokenizer->column++;
                     }
@@ -864,35 +823,192 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                     }
                     tokenizer->position++;
                 }
-            } else if (curr == '\\' && quote_char == '"' &&
-                       tokenizer->position + 1 < tokenizer->input_length) {
-                // Handle escape sequences in double quotes
-                tokenizer->position++; // Skip backslash
-                tokenizer->column++;
-                if (tokenizer->position < tokenizer->input_length) {
-                    char escaped = tokenizer->input[tokenizer->position];
-                    if (escaped == '\n') {
-                        tokenizer->line++;
-                        tokenizer->column = 1;
-                    } else {
-                        tokenizer->column++;
+                // Copy the entire backtick substitution to result
+                size_t subst_len = tokenizer->position - subst_start;
+                while (result_len + subst_len + 1 >= result_capacity) {
+                    result_capacity *= 2;
+                    char *new_result = realloc(result, result_capacity);
+                    if (!new_result) {
+                        free(result);
+                        return token_new(TOK_ERROR, &tokenizer->input[start_pos], 1,
+                                        start_line, start_column, start_pos);
                     }
-                    tokenizer->position++;
+                    result = new_result;
+                }
+                memcpy(&result[result_len], &tokenizer->input[subst_start], subst_len);
+                result_len += subst_len;
+            } else if (curr == '\\' &&
+                       tokenizer->position + 1 < tokenizer->input_length) {
+                // Handle backslash escapes in double quotes
+                char escaped = tokenizer->input[tokenizer->position + 1];
+                if (escaped == '\n') {
+                    // Line continuation: skip both backslash and newline entirely
+                    tokenizer->position += 2;
+                    tokenizer->line++;
+                    tokenizer->column = 1;
+                    // Don't add anything to result - this is line continuation
+                } else if (escaped == '$' || escaped == '`' || escaped == '"' ||
+                           escaped == '\\' || escaped == '\n') {
+                    // These are the only characters that backslash quotes in double quotes
+                    // Add just the escaped character (not the backslash)
+                    while (result_len + 2 >= result_capacity) {
+                        result_capacity *= 2;
+                        char *new_result = realloc(result, result_capacity);
+                        if (!new_result) {
+                            free(result);
+                            return token_new(TOK_ERROR, &tokenizer->input[start_pos], 1,
+                                            start_line, start_column, start_pos);
+                        }
+                        result = new_result;
+                    }
+                    // Keep backslash + escaped char for later escape processing
+                    result[result_len++] = '\\';
+                    result[result_len++] = escaped;
+                    tokenizer->position += 2;
+                    tokenizer->column += 2;
+                } else {
+                    // Backslash followed by other chars: keep both literally
+                    while (result_len + 2 >= result_capacity) {
+                        result_capacity *= 2;
+                        char *new_result = realloc(result, result_capacity);
+                        if (!new_result) {
+                            free(result);
+                            return token_new(TOK_ERROR, &tokenizer->input[start_pos], 1,
+                                            start_line, start_column, start_pos);
+                        }
+                        result = new_result;
+                    }
+                    result[result_len++] = '\\';
+                    result[result_len++] = escaped;
+                    tokenizer->position += 2;
+                    tokenizer->column += 2;
                 }
             } else if (curr == '\n') {
+                // Literal newline in double quotes (not escaped)
+                while (result_len + 1 >= result_capacity) {
+                    result_capacity *= 2;
+                    char *new_result = realloc(result, result_capacity);
+                    if (!new_result) {
+                        free(result);
+                        return token_new(TOK_ERROR, &tokenizer->input[start_pos], 1,
+                                        start_line, start_column, start_pos);
+                    }
+                    result = new_result;
+                }
+                result[result_len++] = curr;
                 tokenizer->line++;
                 tokenizer->column = 1;
                 tokenizer->position++;
             } else {
+                // Regular character - add to result
+                while (result_len + 1 >= result_capacity) {
+                    result_capacity *= 2;
+                    char *new_result = realloc(result, result_capacity);
+                    if (!new_result) {
+                        free(result);
+                        return token_new(TOK_ERROR, &tokenizer->input[start_pos], 1,
+                                        start_line, start_column, start_pos);
+                    }
+                    result = new_result;
+                }
+                result[result_len++] = curr;
                 tokenizer->column++;
                 tokenizer->position++;
             }
         }
 
-        // Unterminated string
+        // Unterminated double-quoted string
         return token_new(TOK_ERROR, &tokenizer->input[start_pos],
                          tokenizer->position - start_pos, start_line,
                          start_column, start_pos);
+                         
+    check_adjacent:
+        // Check for adjacent quote - continue if another quote follows
+        if (tokenizer->position < tokenizer->input_length) {
+            char next = tokenizer->input[tokenizer->position];
+            if (next == '\'' || next == '"') {
+                // Adjacent quote - continue parsing
+                goto parse_next_segment;
+            }
+            // Check for adjacent $' (ANSI-C quoting)
+            if (next == '$' && tokenizer->position + 1 < tokenizer->input_length &&
+                tokenizer->input[tokenizer->position + 1] == '\'') {
+                tokenizer->position++; // Skip $
+                tokenizer->column++;
+                // Add marker for ANSI-C quote in result
+                while (result_len + 2 >= result_capacity) {
+                    result_capacity *= 2;
+                    char *new_result = realloc(result, result_capacity);
+                    if (!new_result) {
+                        free(result);
+                        return token_new(TOK_ERROR, &tokenizer->input[start_pos], 1,
+                                        start_line, start_column, start_pos);
+                    }
+                    result = new_result;
+                }
+                result[result_len++] = '$';
+                goto parse_next_segment;
+            }
+            // Check for adjacent unquoted word characters
+            if (is_word_char(next) || next == '\\' || next == '$') {
+                // Adjacent word - scan until whitespace or special char
+                while (tokenizer->position < tokenizer->input_length) {
+                    char wc = tokenizer->input[tokenizer->position];
+                    if (wc == '\'' || wc == '"') {
+                        // Another quote - handle it
+                        goto parse_next_segment;
+                    }
+                    if (wc == '$' && tokenizer->position + 1 < tokenizer->input_length &&
+                        tokenizer->input[tokenizer->position + 1] == '\'') {
+                        tokenizer->position++;
+                        tokenizer->column++;
+                        result[result_len++] = '$';
+                        goto parse_next_segment;
+                    }
+                    if (!is_word_char(wc) && wc != '\\' && wc != '$') {
+                        break;
+                    }
+                    // Add character to result
+                    if (result_len + 1 >= result_capacity) {
+                        result_capacity *= 2;
+                        char *new_result = realloc(result, result_capacity);
+                        if (!new_result) {
+                            free(result);
+                            return token_new(TOK_ERROR, &tokenizer->input[start_pos], 1,
+                                            start_line, start_column, start_pos);
+                        }
+                        result = new_result;
+                    }
+                    if (wc == '\\' && tokenizer->position + 1 < tokenizer->input_length) {
+                        char esc_char = tokenizer->input[tokenizer->position + 1];
+                        if (esc_char == '\n') {
+                            // Line continuation outside quotes - skip both
+                            tokenizer->position += 2;
+                            tokenizer->line++;
+                            tokenizer->column = 1;
+                            continue;
+                        }
+                        // Escape sequence
+                        tokenizer->position++;
+                        tokenizer->column++;
+                        result[result_len++] = tokenizer->input[tokenizer->position];
+                    } else {
+                        result[result_len++] = wc;
+                    }
+                    tokenizer->position++;
+                    tokenizer->column++;
+                    has_expandable = true; // Unquoted content may have expansions
+                }
+            }
+        }
+        
+        // No more adjacent content - return the complete token
+        result[result_len] = '\0';
+        token_type_t type = has_expandable ? TOK_EXPANDABLE_STRING : TOK_STRING;
+        token_t *tok = token_new(type, result, result_len,
+                         start_line, start_column, start_pos);
+        free(result);
+        return tok;
     }
 
     // Handle variable references ($var, ${var}, $(cmd), $((expr)))

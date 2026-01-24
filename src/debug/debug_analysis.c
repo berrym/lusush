@@ -11,6 +11,7 @@
  */
 
 #include "debug.h"
+#include "compat.h"
 #include "errors.h"
 #include "node.h"
 #include "parser.h"
@@ -355,6 +356,10 @@ static void debug_analyze_security(debug_context_t *ctx, const char *file,
  * @param ctx Debug context
  * @param file File path being analyzed
  * @param content Script content to analyze
+ *
+ * This function performs two levels of portability analysis:
+ * 1. Legacy pattern-based checks for common issues
+ * 2. Compatibility database checks using data/compat/ TOML files
  */
 static void debug_analyze_portability(debug_context_t *ctx, const char *file,
                                       const char *content) {
@@ -365,7 +370,7 @@ static void debug_analyze_portability(debug_context_t *ctx, const char *file,
     int line_number = 1;
     const char *pos = content;
 
-    // Look for portability issues
+    // Legacy pattern-based checks for common portability issues
     while (*pos) {
         if (*pos == '\n') {
             line_number++;
@@ -398,6 +403,34 @@ static void debug_analyze_portability(debug_context_t *ctx, const char *file,
         }
 
         pos++;
+    }
+
+    // Use compatibility database for additional checks
+    // Initialize compat system if not already done
+    if (compat_get_entry_count() == 0) {
+        compat_init(NULL);
+    }
+
+    // Get target shell for portability checking
+    shell_mode_t target = compat_get_target();
+
+    // Check script against compatibility database
+    compat_result_t results[64];
+    size_t found = compat_check_script(content, target, results, 64);
+
+    for (size_t i = 0; i < found; i++) {
+        const compat_entry_t *entry = results[i].entry;
+        if (!entry) continue;
+
+        // Convert compat severity to string
+        const char *severity = compat_severity_name(
+            compat_effective_severity(entry));
+
+        debug_add_analysis_issue(ctx, file, results[i].line,
+                                 severity, "portability",
+                                 entry->lint.message ? entry->lint.message
+                                                     : entry->description,
+                                 entry->lint.suggestion);
     }
 }
 

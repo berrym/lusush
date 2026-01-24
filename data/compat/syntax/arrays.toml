@@ -1,0 +1,101 @@
+# Array syntax compatibility differences
+
+[array_declaration]
+category = "syntax"
+feature = "arrays"
+description = "Array declaration syntax arr=(a b c)"
+
+[array_declaration.behavior]
+posix = "Not specified; arrays not part of POSIX sh"
+bash = "Supported: indexed arrays with arr=(elements)"
+zsh = "Supported: indexed arrays with arr=(elements)"
+lush = "Supported: indexed arrays with arr=(elements)"
+
+[array_declaration.lint]
+severity = "warning"
+message = "Array syntax is not portable to POSIX sh"
+suggestion = "Use positional parameters or separate variables"
+pattern = "[a-zA-Z_][a-zA-Z0-9_]*=\\([^)]*\\)"
+
+[array_index_access]
+category = "syntax"
+feature = "arrays"
+description = "Array element access ${arr[index]}"
+
+[array_index_access.behavior]
+posix = "Not specified"
+bash = "Supported: 0-indexed access"
+zsh = "Supported: 1-indexed by default (KSH_ARRAYS changes to 0)"
+lush = "Supported: 0-indexed access"
+
+[array_index_access.lint]
+severity = "warning"
+message = "Array indexing is not portable to POSIX sh"
+suggestion = "Use positional parameters with shift/set"
+pattern = "\\$\\{[a-zA-Z_][a-zA-Z0-9_]*\\[[^]]+\\]\\}"
+
+[array_index_base]
+category = "syntax"
+feature = "arrays"
+description = "Array index base (0 vs 1)"
+
+[array_index_base.behavior]
+posix = "Not applicable"
+bash = "0-indexed: first element is ${arr[0]}"
+zsh = "1-indexed by default: first element is ${arr[1]}"
+lush = "0-indexed: first element is ${arr[0]}"
+
+[array_index_base.lint]
+severity = "warning"
+message = "Array index base differs between bash (0) and zsh (1)"
+suggestion = "Use ${arr[0]} for bash/lush, ${arr[1]} for zsh"
+pattern = "\\$\\{[a-zA-Z_][a-zA-Z0-9_]*\\[0\\]\\}"
+
+[array_all_elements]
+category = "syntax"
+feature = "arrays"
+description = "${arr[@]} and ${arr[*]} expansion"
+
+[array_all_elements.behavior]
+posix = "Not specified"
+bash = "[@] expands each element separately; [*] joins with IFS"
+zsh = "Same as bash"
+lush = "Same as bash"
+
+[array_all_elements.lint]
+severity = "warning"
+message = "Array expansion is not portable to POSIX sh"
+pattern = "\\$\\{[a-zA-Z_][a-zA-Z0-9_]*\\[[@*]\\]\\}"
+
+[array_length]
+category = "syntax"
+feature = "arrays"
+description = "${#arr[@]} array length"
+
+[array_length.behavior]
+posix = "Not specified"
+bash = "Returns number of elements in array"
+zsh = "Returns number of elements in array"
+lush = "Returns number of elements in array"
+
+[array_length.lint]
+severity = "warning"
+message = "Array length syntax is not portable to POSIX sh"
+pattern = "\\$\\{#[a-zA-Z_][a-zA-Z0-9_]*\\[[@*]\\]\\}"
+
+[associative_arrays]
+category = "syntax"
+feature = "arrays"
+description = "Associative arrays (declare -A)"
+
+[associative_arrays.behavior]
+posix = "Not specified"
+bash = "Supported with declare -A"
+zsh = "Supported with typeset -A"
+lush = "Supported with declare -A"
+
+[associative_arrays.lint]
+severity = "warning"
+message = "Associative arrays are not portable to POSIX sh"
+suggestion = "Use case statements or external tools for key-value storage"
+pattern = "declare\\s+-A|typeset\\s+-A"

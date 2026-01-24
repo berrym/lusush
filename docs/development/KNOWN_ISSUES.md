@@ -1,10 +1,197 @@
 # Lush Known Issues and Blockers
 
-**Date**: 2026-01-23 (Updated: Session 125)  
-**Status**: Syntax highlighting and history expansion fixes  
+**Date**: 2026-01-23 (Updated: Session 126)  
+**Status**: Critical tokenizer and executor bugs fixed  
 **Implementation Status**: ANSI-C quoting, mapfile/readarray, nameref, coproc - all implemented  
 **Memory Status**: Zero memory leaks verified with valgrind  
-**Compatibility Test**: 100% pass rate on all 63 applicable tests
+**Compatibility Test**: 100% pass rate on all 80 tests
+
+---
+
+## Session 126: Backslash-Newline Line Continuation & Parameter Expansion Execution Fixes
+
+**Date**: 2026-01-23
+
+### Issues Discovered and Fixed
+
+This session addressed two critical bugs that caused lush to diverge from bash/zsh behavior in fundamental ways. Both bugs were discovered through empirical testing of a legacy test script that had worked years ago before recent refactoring.
+
+---
+
+### Issue #70: Backslash-Newline Line Continuation Not Removed in Double-Quoted Strings
+**Severity**: HIGH  
+**Discovered**: 2026-01-23 (Session 126 - test.sh regression testing)  
+**Fixed**: 2026-01-23 (Session 126)  
+**Component**: src/tokenizer.c (quoted string tokenization)
+
+**Description**:
+When a backslash immediately precedes a newline inside a double-quoted string, POSIX requires that both the backslash and newline be removed entirely (line continuation). Lush was keeping both characters literally in the output.
+
+**Not Working (Before Fix)**:
+```bash
+echo "Hello, \
+world!"
+# Expected: Hello, world!
+# Actual:   Hello, \
+#           world!
+```
+
+**Test Script Symptom**:
+```
+Hello, \
+world!
+\
+
+It's \
+a \
+fantastic \
+Friday!
+```
+
+**Expected Output** (bash/zsh):
+```
+Hello, world!
+
+It's a fantastic Friday!
+```
+
+**Root Cause**:
+The tokenizer at lines 671-910 used `memcpy()` to bulk-copy the content of double-quoted strings from `segment_start` to the closing quote position. While there was code to advance `tokenizer->position` past `\<newline>` sequences (for line/column tracking), this didn't affect the actual token content - the raw input bytes including the backslash-newline were still copied verbatim.
+
+**Technical Detail**:
+The problematic code path was:
+1. Enter quoted string parsing at line 671
+2. Scan through content, advancing position past special sequences
+3. On finding closing quote, execute: `memcpy(&result[result_len], &tokenizer->input[segment_start], segment_len)`
+4. This copied the **raw input** including `\<newline>` sequences
+
+**Fix Applied**:
+Rewrote the double-quoted string tokenization to build the result **character by character** instead of bulk copying. This allows proper handling of:
+
+1. **Line continuation (`\<newline>`)**: Both backslash and newline are completely skipped - nothing added to result
+2. **Command substitution (`$(...)` and backticks)**: Copied verbatim for later expansion
+3. **Other escape sequences (`\$`, `\"`, `\\`, etc.)**: Preserved for later escape processing
+4. **Literal newlines**: Kept in result (newlines without preceding backslash are valid in double quotes)
+
+Single-quoted strings continue to use bulk copy since no escape processing happens inside them per POSIX.
+
+**Files Changed**:
+- `src/tokenizer.c`: Lines 671-910 rewritten with character-by-character processing for double-quoted strings
+
+**Verification**:
+```bash
+# All now work correctly:
+echo "Hello, \
+world!"                          # Output: Hello, world!
+
+echo "Line 1\
+Line 2\
+Line 3"                          # Output: Line 1Line 2Line 3
+
+echo "Tab:\there, newline:\
+continued"                       # Proper escape + continuation
+```
+
+**Status**: FIXED AND VERIFIED (80/80 tests pass)
+
+---
+
+### Issue #71: Braced Parameter Expansion `${var}` Not Executing in Command Position
+**Severity**: HIGH  
+**Discovered**: 2026-01-23 (Session 126 - test.sh regression testing)  
+**Fixed**: 2026-01-23 (Session 126)  
+**Component**: src/executor.c (command execution)
+
+**Description**:
+When a braced parameter expansion `${var}` appeared in command position (as the command to execute), lush would expand the variable, **discard the result**, and return success without executing anything. Simple `$var` expansion worked correctly, creating an inconsistency.
+
+**Not Working (Before Fix)**:
+```bash
+CMD=echo
+${CMD} "hello"        # Expected: hello, Actual: (nothing)
+${CMD=echo} "hello"   # Expected: hello, Actual: (nothing)
+
+# Pipeline also broken:
+echo "test" | ${FILTER=cat}   # Expected: test, Actual: (nothing)
+```
+
+**Inconsistent Behavior**:
+```bash
+$CMD "hello"          # Worked correctly: output "hello"
+${CMD} "hello"        # Broken: silent no-op
+```
+
+**Root Cause**:
+The executor at lines 1022-1046 had special-case handling that detected commands starting with `${` and:
+1. Called `expand_variable()` to expand the parameter
+2. **Immediately freed the result** with `free(result)`
+3. Returned 0 (success) without executing anything
+
+A second problematic block at lines 1079-1100 did the same for commands where ALL arguments were `${...}` expansions.
+
+**The Buggy Code** (now removed):
+```c
+// Check for standalone parameter expansion ${...}
+if (command->val.str && command->val.str[0] == '$' &&
+    command->val.str[1] == '{') {
+    char *result = expand_variable(executor, command->val.str);
+    if (result) {
+        free(result);  // BUG: Discards the expanded command name!
+    }
+    // ... similar for arguments ...
+    return 0; // BUG: Returns without executing!
+}
+```
+
+**Why This Code Existed**:
+This appears to have been a misguided attempt to handle statements like `${var=default}` for side-effect-only assignment. However, the correct behavior per POSIX is that `${var=default}` BOTH assigns the value AND expands to that value, which should then be executed as a command (or produce "command not found").
+
+**Fix Applied**:
+Removed both problematic early-return blocks entirely. The existing `build_argv_from_ast()` function already correctly handles `${var}` expansion via `expand_if_needed()` - the early-return was bypassing this working code path.
+
+**Files Changed**:
+- `src/executor.c`: Removed lines 1022-1046 and 1079-1100 (the early-return blocks)
+
+**Verification**:
+```bash
+# All now work correctly (matching bash/zsh):
+CMD=echo; ${CMD} "hello"              # Output: hello
+${CMD=echo} "hello from CMD"          # Output: hello from CMD
+echo "test" | ${FILTER=cat}           # Output: test
+result=$(${GEN=echo} "captured")      # result="captured"
+
+# And the "command not found" case now correctly errors:
+${n1=4} ${n2=6} ${n3=2}
+# Output: error[E1101]: 4: command not found
+# (Variables are still set as side effect, matching bash/zsh)
+```
+
+**POSIX Compliance Note**:
+The correct idiom for assignment-only parameter expansion (without execution) is:
+```bash
+: ${var=default}    # Use null command ':'
+# OR
+var=default         # Direct assignment
+```
+
+Using `${var=default}` alone in command position is technically valid but will attempt to execute the expanded value as a command.
+
+**Status**: FIXED AND VERIFIED (80/80 tests pass)
+
+---
+
+### Session 126 Summary
+
+Both bugs were "elementary" issues that should have been caught earlier but slipped through during component rewrites. They highlight the importance of:
+
+1. **Regression testing with real scripts**: The test.sh script that exposed these bugs had worked years ago
+2. **Empirical verification**: The `${var}` bug was initially speculated to cause certain failures, but testing revealed the actual scope was different than expected
+3. **Understanding POSIX semantics**: Both bugs involved fundamental POSIX shell behavior (line continuation, parameter expansion)
+
+**Test Results After Fixes**:
+- All 80 unit tests pass
+- test.sh produces output matching bash/zsh
+- No memory leaks introduced (verified via existing test suite)
 
 ---
 

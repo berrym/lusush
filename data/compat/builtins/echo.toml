@@ -1,0 +1,52 @@
+# Echo builtin compatibility differences
+
+[echo_escape_sequences]
+category = "builtin"
+feature = "echo"
+description = "Escape sequence interpretation in echo"
+
+[echo_escape_sequences.behavior]
+posix = "Behavior is implementation-defined; XSI extension specifies escape interpretation"
+bash = "Requires -e flag for escape sequences (\\n, \\t, etc.)"
+zsh = "Interprets escape sequences by default (follows XSI extension)"
+lush = "Interprets escape sequences by default (follows XSI extension)"
+
+[echo_escape_sequences.lint]
+severity = "warning"
+message = "echo escape sequences behave differently across shells"
+suggestion = "Use printf for portable escape sequence handling"
+pattern = "echo\\s+(['\"])?.*\\\\[nrtabfv\\\\]"
+
+[echo_n_flag]
+category = "builtin"
+feature = "echo"
+description = "echo -n to suppress trailing newline"
+
+[echo_n_flag.behavior]
+posix = "Not specified; behavior is implementation-defined"
+bash = "Supported: suppresses trailing newline"
+zsh = "Supported: suppresses trailing newline"
+lush = "Supported: suppresses trailing newline"
+
+[echo_n_flag.lint]
+severity = "info"
+message = "echo -n is not portable to all POSIX shells"
+suggestion = "Use printf '%s' for portable newline suppression"
+pattern = "echo\\s+-n\\b"
+
+[echo_e_flag]
+category = "builtin"
+feature = "echo"
+description = "echo -e to enable escape interpretation"
+
+[echo_e_flag.behavior]
+posix = "Not specified; -e is not a POSIX option"
+bash = "Required to enable escape sequence interpretation"
+zsh = "Accepted but unnecessary (escapes interpreted by default)"
+lush = "Accepted but unnecessary (escapes interpreted by default)"
+
+[echo_e_flag.lint]
+severity = "info"
+message = "echo -e is bash-specific; unnecessary in zsh/lush"
+suggestion = "Omit -e in zsh/lush, or use printf for portability"
+pattern = "echo\\s+-e\\b"

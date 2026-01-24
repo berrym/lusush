@@ -1018,32 +1018,11 @@ static int execute_command(executor_t *executor, node_t *command) {
         return execute_assignment(executor, command->val.str);
     }
 
-    // Check for standalone parameter expansion ${...}
-    if (command->val.str && command->val.str[0] == '$' &&
-        command->val.str[1] == '{') {
-
-        // Expand the command parameter expansion
-        char *result = expand_variable(executor, command->val.str);
-        if (result) {
-            free(result);
-        }
-
-        // Also process any arguments that are parameter expansions
-        node_t *child = command->first_child;
-        while (child) {
-            if (child->val.str && child->val.str[0] == '$' &&
-                child->val.str[1] == '{') {
-
-                char *arg_result = expand_variable(executor, child->val.str);
-                if (arg_result) {
-                    free(arg_result);
-                }
-            }
-            child = child->next_sibling;
-        }
-
-        return 0; // Success
-    }
+    // Note: Parameter expansions like ${CMD} in command position are handled
+    // by build_argv_from_ast() which calls expand_if_needed() on the command
+    // name. The expanded result becomes the command to execute, matching
+    // bash/zsh behavior. Previously this code had an early-return that
+    // discarded the expansion result without executing - that was a bug.
 
     // Check if command has redirections
     bool has_redirections = count_redirections(command) > 0;
@@ -1076,42 +1055,10 @@ static int execute_command(executor_t *executor, node_t *command) {
         return executor->expansion_exit_status;
     }
 
-    // Check if all arguments are parameter expansions
-    bool all_param_expansions = true;
-    for (int i = 0; i < argc; i++) {
-        if (!argv[i] || argv[i][0] != '$' || argv[i][1] != '{') {
-            all_param_expansions = false;
-            break;
-        }
-    }
-
-    if (all_param_expansions && argc > 0) {
-
-        // Execute all parameter expansions
-        for (int i = 0; i < argc; i++) {
-
-            char *result = expand_variable(executor, argv[i]);
-            if (result) {
-                free(result);
-            }
-        }
-        // Free argv and return success
-        for (int i = 0; i < argc; i++) {
-            free(argv[i]);
-        }
-        free(argv);
-        return 0;
-    }
-
-    // Process parameter expansion arguments for any command
-    for (int i = 1; i < argc; i++) {
-        if (argv[i] && argv[i][0] == '$' && argv[i][1] == '{') {
-            char *result = expand_variable(executor, argv[i]);
-            if (result) {
-                free(result);
-            }
-        }
-    }
+    // Note: Parameter expansion arguments are already expanded by
+    // build_argv_from_ast() via expand_if_needed(). The expanded values
+    // are in argv and will be passed to the command. No need for
+    // special handling here - let the command execute normally.
 
     // Check for stderr redirection pattern (2>/dev/null or 2> /dev/null)
     bool redirect_stderr = false;

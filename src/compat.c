@@ -1,0 +1,853 @@
+/**
+ * @file compat.c
+ * @brief Shell compatibility database implementation
+ *
+ * Loads and manages the shell compatibility database from TOML files.
+ * Provides APIs for querying behavioral differences between shells and
+ * checking scripts for portability issues.
+ *
+ * @author Michael Berry <trismegustis@gmail.com>
+ * @copyright Copyright (C) 2021-2026 Michael Berry
+ */
+
+#include "compat.h"
+#include "toml_parser.h"
+
+#include <dirent.h>
+#include <regex.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+
+/* ============================================================================
+ * Constants
+ * ============================================================================ */
+
+/** @brief Maximum number of compatibility entries */
+#define COMPAT_MAX_ENTRIES 256
+
+/** @brief Maximum path length */
+#define COMPAT_PATH_MAX 1024
+
+/** @brief Default data directory relative to install prefix */
+#define COMPAT_DEFAULT_DATA_DIR "/usr/share/lush/data/compat"
+
+/** @brief Local data directory (checked first) */
+#define COMPAT_LOCAL_DATA_DIR "./data/compat"
+
+/* ============================================================================
+ * Internal Structures
+ * ============================================================================ */
+
+/**
+ * @brief Internal entry storage with owned strings
+ */
+typedef struct {
+    char *id;
+    compat_category_t category;
+    char *feature;
+    char *description;
+    char *behavior_posix;
+    char *behavior_bash;
+    char *behavior_zsh;
+    char *behavior_lush;
+    compat_severity_t severity;
+    char *lint_message;
+    char *lint_suggestion;
+    char *lint_pattern;
+    regex_t *compiled_regex;
+    bool regex_valid;
+} internal_entry_t;
+
+/**
+ * @brief Database state
+ */
+typedef struct {
+    bool initialized;
+    internal_entry_t entries[COMPAT_MAX_ENTRIES];
+    size_t entry_count;
+    bool strict_mode;
+    shell_mode_t target_shell;
+    char data_dir[COMPAT_PATH_MAX];
+} compat_state_t;
+
+static compat_state_t g_compat = {0};
+
+/* ============================================================================
+ * String Tables
+ * ============================================================================ */
+
+static const char *category_names[] = {
+    [COMPAT_CATEGORY_BUILTIN] = "builtin",
+    [COMPAT_CATEGORY_EXPANSION] = "expansion",
+    [COMPAT_CATEGORY_QUOTING] = "quoting",
+    [COMPAT_CATEGORY_SYNTAX] = "syntax",
+};
+
+static const char *severity_names[] = {
+    [COMPAT_SEVERITY_INFO] = "info",
+    [COMPAT_SEVERITY_WARNING] = "warning",
+    [COMPAT_SEVERITY_ERROR] = "error",
+};
+
+/* ============================================================================
+ * Internal Helpers
+ * ============================================================================ */
+
+/**
+ * @brief Duplicate a string safely
+ */
+static char *safe_strdup(const char *s) {
+    if (!s) return NULL;
+    return strdup(s);
+}
+
+/**
+ * @brief Free an internal entry
+ */
+static void free_internal_entry(internal_entry_t *entry) {
+    if (!entry) return;
+    
+    free(entry->id);
+    free(entry->feature);
+    free(entry->description);
+    free(entry->behavior_posix);
+    free(entry->behavior_bash);
+    free(entry->behavior_zsh);
+    free(entry->behavior_lush);
+    free(entry->lint_message);
+    free(entry->lint_suggestion);
+    free(entry->lint_pattern);
+    
+    if (entry->compiled_regex && entry->regex_valid) {
+        regfree(entry->compiled_regex);
+        free(entry->compiled_regex);
+    }
+    
+    memset(entry, 0, sizeof(*entry));
+}
+
+/**
+ * @brief Convert internal entry to public entry
+ */
+static void internal_to_public(const internal_entry_t *internal,
+                               compat_entry_t *public) {
+    public->id = internal->id;
+    public->category = internal->category;
+    public->feature = internal->feature;
+    public->description = internal->description;
+    public->behavior.posix = internal->behavior_posix;
+    public->behavior.bash = internal->behavior_bash;
+    public->behavior.zsh = internal->behavior_zsh;
+    public->behavior.lush = internal->behavior_lush;
+    public->lint.severity = internal->severity;
+    public->lint.message = internal->lint_message;
+    public->lint.suggestion = internal->lint_suggestion;
+    public->lint.pattern = internal->lint_pattern;
+}
+
+/**
+ * @brief Compile regex pattern for an entry
+ */
+static void compile_entry_regex(internal_entry_t *entry) {
+    if (!entry->lint_pattern || entry->lint_pattern[0] == '\0') {
+        entry->regex_valid = false;
+        return;
+    }
+    
+    entry->compiled_regex = malloc(sizeof(regex_t));
+    if (!entry->compiled_regex) {
+        entry->regex_valid = false;
+        return;
+    }
+    
+    int ret = regcomp(entry->compiled_regex, entry->lint_pattern,
+                      REG_EXTENDED | REG_NOSUB);
+    if (ret != 0) {
+        free(entry->compiled_regex);
+        entry->compiled_regex = NULL;
+        entry->regex_valid = false;
+    } else {
+        entry->regex_valid = true;
+    }
+}
+
+/* ============================================================================
+ * TOML Parsing
+ * ============================================================================ */
+
+/**
+ * @brief Context for TOML parsing
+ */
+typedef struct {
+    internal_entry_t *current_entry;
+    char current_id[256];
+    bool in_behavior;
+    bool in_lint;
+} parse_context_t;
+
+/**
+ * @brief Find or create entry by ID
+ */
+static internal_entry_t *find_or_create_entry(const char *id) {
+    /* Search existing */
+    for (size_t i = 0; i < g_compat.entry_count; i++) {
+        if (g_compat.entries[i].id && strcmp(g_compat.entries[i].id, id) == 0) {
+            return &g_compat.entries[i];
+        }
+    }
+    
+    /* Create new */
+    if (g_compat.entry_count >= COMPAT_MAX_ENTRIES) {
+        return NULL;
+    }
+    
+    internal_entry_t *entry = &g_compat.entries[g_compat.entry_count++];
+    memset(entry, 0, sizeof(*entry));
+    entry->id = safe_strdup(id);
+    return entry;
+}
+
+/**
+ * @brief TOML parser callback
+ */
+static toml_result_t compat_toml_callback(const char *section, const char *key,
+                                          const toml_value_t *value,
+                                          void *user_data) {
+    parse_context_t *ctx = (parse_context_t *)user_data;
+    
+    if (!section || !key || !value) {
+        return TOML_SUCCESS;
+    }
+    
+    /* Parse section path: entry_id or entry_id.behavior or entry_id.lint */
+    char entry_id[256];
+    const char *dot = strchr(section, '.');
+    
+    if (dot) {
+        size_t id_len = (size_t)(dot - section);
+        if (id_len >= sizeof(entry_id)) {
+            id_len = sizeof(entry_id) - 1;
+        }
+        memcpy(entry_id, section, id_len);
+        entry_id[id_len] = '\0';
+        
+        const char *subsection = dot + 1;
+        ctx->in_behavior = (strcmp(subsection, "behavior") == 0);
+        ctx->in_lint = (strcmp(subsection, "lint") == 0);
+    } else {
+        snprintf(entry_id, sizeof(entry_id), "%s", section);
+        ctx->in_behavior = false;
+        ctx->in_lint = false;
+    }
+    
+    /* Find or create entry */
+    internal_entry_t *entry = find_or_create_entry(entry_id);
+    if (!entry) {
+        return TOML_SUCCESS; /* Max entries reached */
+    }
+    
+    const char *str_val = toml_value_get_string(value);
+    
+    if (ctx->in_behavior) {
+        /* Behavior subsection */
+        if (strcmp(key, "posix") == 0 && str_val) {
+            free(entry->behavior_posix);
+            entry->behavior_posix = safe_strdup(str_val);
+        } else if (strcmp(key, "bash") == 0 && str_val) {
+            free(entry->behavior_bash);
+            entry->behavior_bash = safe_strdup(str_val);
+        } else if (strcmp(key, "zsh") == 0 && str_val) {
+            free(entry->behavior_zsh);
+            entry->behavior_zsh = safe_strdup(str_val);
+        } else if (strcmp(key, "lush") == 0 && str_val) {
+            free(entry->behavior_lush);
+            entry->behavior_lush = safe_strdup(str_val);
+        }
+    } else if (ctx->in_lint) {
+        /* Lint subsection */
+        if (strcmp(key, "severity") == 0 && str_val) {
+            compat_severity_t sev;
+            if (compat_severity_parse(str_val, &sev)) {
+                entry->severity = sev;
+            }
+        } else if (strcmp(key, "message") == 0 && str_val) {
+            free(entry->lint_message);
+            entry->lint_message = safe_strdup(str_val);
+        } else if (strcmp(key, "suggestion") == 0 && str_val) {
+            free(entry->lint_suggestion);
+            entry->lint_suggestion = safe_strdup(str_val);
+        } else if (strcmp(key, "pattern") == 0 && str_val) {
+            free(entry->lint_pattern);
+            entry->lint_pattern = safe_strdup(str_val);
+        }
+    } else {
+        /* Main entry section */
+        if (strcmp(key, "category") == 0 && str_val) {
+            compat_category_t cat;
+            if (compat_category_parse(str_val, &cat)) {
+                entry->category = cat;
+            }
+        } else if (strcmp(key, "feature") == 0 && str_val) {
+            free(entry->feature);
+            entry->feature = safe_strdup(str_val);
+        } else if (strcmp(key, "description") == 0 && str_val) {
+            free(entry->description);
+            entry->description = safe_strdup(str_val);
+        }
+    }
+    
+    return TOML_SUCCESS;
+}
+
+/**
+ * @brief Load a single TOML file
+ */
+static int load_toml_file(const char *path) {
+    FILE *fp = fopen(path, "r");
+    if (!fp) {
+        return -1;
+    }
+    
+    /* Read entire file */
+    fseek(fp, 0, SEEK_END);
+    long size = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+    
+    if (size <= 0 || size > 1024 * 1024) { /* Max 1MB */
+        fclose(fp);
+        return -1;
+    }
+    
+    char *content = malloc((size_t)size + 1);
+    if (!content) {
+        fclose(fp);
+        return -1;
+    }
+    
+    size_t read = fread(content, 1, (size_t)size, fp);
+    fclose(fp);
+    
+    if (read != (size_t)size) {
+        free(content);
+        return -1;
+    }
+    content[size] = '\0';
+    
+    /* Parse TOML */
+    toml_parser_t parser;
+    toml_result_t result = toml_parser_init(&parser, content);
+    if (result != TOML_SUCCESS) {
+        free(content);
+        return -1;
+    }
+    
+    parse_context_t ctx = {0};
+    result = toml_parser_parse(&parser, compat_toml_callback, &ctx);
+    
+    toml_parser_cleanup(&parser);
+    free(content);
+    
+    return (result == TOML_SUCCESS) ? 0 : -1;
+}
+
+/**
+ * @brief Load all TOML files from a directory recursively
+ */
+static int load_directory(const char *dir_path) {
+    DIR *dir = opendir(dir_path);
+    if (!dir) {
+        return -1;
+    }
+    
+    int files_loaded = 0;
+    struct dirent *entry;
+    
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_name[0] == '.') {
+            continue;
+        }
+        
+        char path[COMPAT_PATH_MAX];
+        snprintf(path, sizeof(path), "%s/%s", dir_path, entry->d_name);
+        
+        struct stat st;
+        if (stat(path, &st) != 0) {
+            continue;
+        }
+        
+        if (S_ISDIR(st.st_mode)) {
+            /* Recurse into subdirectory */
+            files_loaded += load_directory(path);
+        } else if (S_ISREG(st.st_mode)) {
+            /* Check for .toml extension */
+            size_t len = strlen(entry->d_name);
+            if (len > 5 && strcmp(entry->d_name + len - 5, ".toml") == 0) {
+                if (load_toml_file(path) == 0) {
+                    files_loaded++;
+                }
+            }
+        }
+    }
+    
+    closedir(dir);
+    return files_loaded;
+}
+
+/* ============================================================================
+ * Public API - Database Management
+ * ============================================================================ */
+
+int compat_init(const char *data_dir) {
+    if (g_compat.initialized) {
+        return 0;
+    }
+    
+    memset(&g_compat, 0, sizeof(g_compat));
+    g_compat.target_shell = SHELL_MODE_POSIX; /* Default target */
+    
+    /* Determine data directory */
+    if (data_dir && data_dir[0]) {
+        snprintf(g_compat.data_dir, sizeof(g_compat.data_dir), "%s", data_dir);
+    } else {
+        /* Try local first, then system */
+        struct stat st;
+        if (stat(COMPAT_LOCAL_DATA_DIR, &st) == 0 && S_ISDIR(st.st_mode)) {
+            snprintf(g_compat.data_dir, sizeof(g_compat.data_dir), "%s",
+                     COMPAT_LOCAL_DATA_DIR);
+        } else {
+            snprintf(g_compat.data_dir, sizeof(g_compat.data_dir), "%s",
+                     COMPAT_DEFAULT_DATA_DIR);
+        }
+    }
+    
+    /* Load all TOML files */
+    int loaded = load_directory(g_compat.data_dir);
+    
+    /* Compile regex patterns */
+    for (size_t i = 0; i < g_compat.entry_count; i++) {
+        compile_entry_regex(&g_compat.entries[i]);
+    }
+    
+    g_compat.initialized = true;
+    
+    return (loaded > 0) ? 0 : -1;
+}
+
+void compat_cleanup(void) {
+    if (!g_compat.initialized) {
+        return;
+    }
+    
+    for (size_t i = 0; i < g_compat.entry_count; i++) {
+        free_internal_entry(&g_compat.entries[i]);
+    }
+    
+    memset(&g_compat, 0, sizeof(g_compat));
+}
+
+int compat_reload(void) {
+    char data_dir[COMPAT_PATH_MAX];
+    snprintf(data_dir, sizeof(data_dir), "%s", g_compat.data_dir);
+    
+    compat_cleanup();
+    return compat_init(data_dir);
+}
+
+/* ============================================================================
+ * Public API - Entry Queries
+ * ============================================================================ */
+
+const compat_entry_t *compat_get_entry(const char *id) {
+    if (!g_compat.initialized || !id) {
+        return NULL;
+    }
+    
+    static compat_entry_t result;
+    
+    for (size_t i = 0; i < g_compat.entry_count; i++) {
+        if (g_compat.entries[i].id &&
+            strcmp(g_compat.entries[i].id, id) == 0) {
+            internal_to_public(&g_compat.entries[i], &result);
+            return &result;
+        }
+    }
+    
+    return NULL;
+}
+
+size_t compat_get_by_category(compat_category_t category,
+                              const compat_entry_t **entries,
+                              size_t max_entries) {
+    if (!g_compat.initialized || !entries || max_entries == 0) {
+        return 0;
+    }
+    
+    static compat_entry_t results[COMPAT_MAX_ENTRIES];
+    size_t count = 0;
+    
+    for (size_t i = 0; i < g_compat.entry_count && count < max_entries; i++) {
+        if (g_compat.entries[i].category == category) {
+            internal_to_public(&g_compat.entries[i], &results[count]);
+            entries[count] = &results[count];
+            count++;
+        }
+    }
+    
+    return count;
+}
+
+size_t compat_get_by_feature(const char *feature,
+                             const compat_entry_t **entries,
+                             size_t max_entries) {
+    if (!g_compat.initialized || !feature || !entries || max_entries == 0) {
+        return 0;
+    }
+    
+    static compat_entry_t results[COMPAT_MAX_ENTRIES];
+    size_t count = 0;
+    
+    for (size_t i = 0; i < g_compat.entry_count && count < max_entries; i++) {
+        if (g_compat.entries[i].feature &&
+            strcmp(g_compat.entries[i].feature, feature) == 0) {
+            internal_to_public(&g_compat.entries[i], &results[count]);
+            entries[count] = &results[count];
+            count++;
+        }
+    }
+    
+    return count;
+}
+
+size_t compat_get_entry_count(void) {
+    return g_compat.entry_count;
+}
+
+void compat_foreach_entry(void (*callback)(const compat_entry_t *entry,
+                                           void *user_data),
+                          void *user_data) {
+    if (!g_compat.initialized || !callback) {
+        return;
+    }
+    
+    compat_entry_t public_entry;
+    
+    for (size_t i = 0; i < g_compat.entry_count; i++) {
+        internal_to_public(&g_compat.entries[i], &public_entry);
+        callback(&public_entry, user_data);
+    }
+}
+
+/* ============================================================================
+ * Public API - Portability Checking
+ * ============================================================================ */
+
+bool compat_is_portable(const char *construct, shell_mode_t target,
+                        compat_result_t *result) {
+    if (!g_compat.initialized || !construct) {
+        return true;
+    }
+    
+    /* Check against all entries with patterns */
+    for (size_t i = 0; i < g_compat.entry_count; i++) {
+        internal_entry_t *entry = &g_compat.entries[i];
+        
+        if (!entry->regex_valid || !entry->compiled_regex) {
+            continue;
+        }
+        
+        if (regexec(entry->compiled_regex, construct, 0, NULL, 0) == 0) {
+            /* Pattern matched - check if it's an issue for target */
+            const char *target_behavior = NULL;
+            switch (target) {
+            case SHELL_MODE_POSIX:
+                target_behavior = entry->behavior_posix;
+                break;
+            case SHELL_MODE_BASH:
+                target_behavior = entry->behavior_bash;
+                break;
+            case SHELL_MODE_ZSH:
+                target_behavior = entry->behavior_zsh;
+                break;
+            case SHELL_MODE_LUSH:
+                target_behavior = entry->behavior_lush;
+                break;
+            default:
+                break;
+            }
+            
+            /* If behavior differs from lush default, it's a portability issue */
+            if (target_behavior && entry->behavior_lush &&
+                strcmp(target_behavior, entry->behavior_lush) != 0) {
+                if (result) {
+                    result->is_portable = false;
+                    static compat_entry_t public_entry;
+                    internal_to_public(entry, &public_entry);
+                    result->entry = &public_entry;
+                    result->target = target;
+                    result->line = 0;
+                    result->column = 0;
+                }
+                return false;
+            }
+        }
+    }
+    
+    if (result) {
+        result->is_portable = true;
+        result->entry = NULL;
+        result->target = target;
+    }
+    return true;
+}
+
+size_t compat_check_line(const char *line, shell_mode_t target,
+                         compat_result_t *results, size_t max_results) {
+    if (!g_compat.initialized || !line || !results || max_results == 0) {
+        return 0;
+    }
+    
+    size_t found = 0;
+    
+    for (size_t i = 0; i < g_compat.entry_count && found < max_results; i++) {
+        internal_entry_t *entry = &g_compat.entries[i];
+        
+        if (!entry->regex_valid || !entry->compiled_regex) {
+            continue;
+        }
+        
+        if (regexec(entry->compiled_regex, line, 0, NULL, 0) == 0) {
+            static compat_entry_t public_entries[COMPAT_MAX_ENTRIES];
+            internal_to_public(entry, &public_entries[found]);
+            
+            results[found].is_portable = false;
+            results[found].entry = &public_entries[found];
+            results[found].target = target;
+            results[found].line = 0;
+            results[found].column = 0;
+            found++;
+        }
+    }
+    
+    return found;
+}
+
+size_t compat_check_script(const char *script, shell_mode_t target,
+                           compat_result_t *results, size_t max_results) {
+    if (!g_compat.initialized || !script || !results || max_results == 0) {
+        return 0;
+    }
+    
+    size_t found = 0;
+    int line_num = 1;
+    
+    const char *line_start = script;
+    const char *line_end;
+    
+    while (*line_start && found < max_results) {
+        line_end = strchr(line_start, '\n');
+        if (!line_end) {
+            line_end = line_start + strlen(line_start);
+        }
+        
+        /* Extract line */
+        size_t line_len = (size_t)(line_end - line_start);
+        char *line = malloc(line_len + 1);
+        if (!line) {
+            break;
+        }
+        memcpy(line, line_start, line_len);
+        line[line_len] = '\0';
+        
+        /* Check this line */
+        size_t remaining = max_results - found;
+        size_t line_found = compat_check_line(line, target,
+                                               &results[found], remaining);
+        
+        /* Set line numbers */
+        for (size_t i = 0; i < line_found; i++) {
+            results[found + i].line = line_num;
+        }
+        
+        found += line_found;
+        free(line);
+        
+        line_num++;
+        line_start = (*line_end) ? line_end + 1 : line_end;
+    }
+    
+    return found;
+}
+
+/* ============================================================================
+ * Public API - Strict Mode
+ * ============================================================================ */
+
+void compat_set_strict(bool strict) {
+    g_compat.strict_mode = strict;
+}
+
+bool compat_is_strict(void) {
+    return g_compat.strict_mode;
+}
+
+compat_severity_t compat_effective_severity(const compat_entry_t *entry) {
+    if (!entry) {
+        return COMPAT_SEVERITY_INFO;
+    }
+    
+    if (g_compat.strict_mode && entry->lint.severity == COMPAT_SEVERITY_WARNING) {
+        return COMPAT_SEVERITY_ERROR;
+    }
+    
+    return entry->lint.severity;
+}
+
+/* ============================================================================
+ * Public API - Target Shell
+ * ============================================================================ */
+
+void compat_set_target(shell_mode_t target) {
+    g_compat.target_shell = target;
+}
+
+shell_mode_t compat_get_target(void) {
+    return g_compat.target_shell;
+}
+
+/* ============================================================================
+ * Public API - Utilities
+ * ============================================================================ */
+
+const char *compat_category_name(compat_category_t category) {
+    if (category >= COMPAT_CATEGORY_COUNT) {
+        return "unknown";
+    }
+    return category_names[category];
+}
+
+const char *compat_severity_name(compat_severity_t severity) {
+    if (severity >= COMPAT_SEVERITY_COUNT) {
+        return "unknown";
+    }
+    return severity_names[severity];
+}
+
+bool compat_category_parse(const char *name, compat_category_t *category) {
+    if (!name || !category) {
+        return false;
+    }
+    
+    for (int i = 0; i < COMPAT_CATEGORY_COUNT; i++) {
+        if (strcmp(name, category_names[i]) == 0) {
+            *category = (compat_category_t)i;
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+bool compat_severity_parse(const char *name, compat_severity_t *severity) {
+    if (!name || !severity) {
+        return false;
+    }
+    
+    for (int i = 0; i < COMPAT_SEVERITY_COUNT; i++) {
+        if (strcmp(name, severity_names[i]) == 0) {
+            *severity = (compat_severity_t)i;
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+int compat_format_result(const compat_result_t *result, char *buffer,
+                         size_t size) {
+    if (!result || !buffer || size == 0) {
+        return 0;
+    }
+    
+    if (!result->entry) {
+        return snprintf(buffer, size, "No compatibility issues found");
+    }
+    
+    const compat_entry_t *entry = result->entry;
+    compat_severity_t sev = compat_effective_severity(entry);
+    
+    int written = snprintf(buffer, size, "%s:%d: %s: %s",
+                           entry->feature ? entry->feature : "unknown",
+                           result->line,
+                           compat_severity_name(sev),
+                           entry->lint.message ? entry->lint.message : "");
+    
+    if (entry->lint.suggestion && written > 0 && (size_t)written < size - 1) {
+        written += snprintf(buffer + written, size - (size_t)written,
+                            " (%s)", entry->lint.suggestion);
+    }
+    
+    return written;
+}
+
+/* ============================================================================
+ * Public API - Debugging
+ * ============================================================================ */
+
+void compat_debug_print_stats(void) {
+    fprintf(stderr, "Compatibility Database Statistics:\n");
+    fprintf(stderr, "  Data directory: %s\n", g_compat.data_dir);
+    fprintf(stderr, "  Initialized: %s\n", g_compat.initialized ? "yes" : "no");
+    fprintf(stderr, "  Total entries: %zu\n", g_compat.entry_count);
+    fprintf(stderr, "  Strict mode: %s\n", g_compat.strict_mode ? "yes" : "no");
+    fprintf(stderr, "  Target shell: %s\n", shell_mode_name(g_compat.target_shell));
+    
+    /* Count by category */
+    size_t by_category[COMPAT_CATEGORY_COUNT] = {0};
+    size_t with_pattern = 0;
+    
+    for (size_t i = 0; i < g_compat.entry_count; i++) {
+        by_category[g_compat.entries[i].category]++;
+        if (g_compat.entries[i].regex_valid) {
+            with_pattern++;
+        }
+    }
+    
+    fprintf(stderr, "  Entries with valid patterns: %zu\n", with_pattern);
+    fprintf(stderr, "  By category:\n");
+    for (int i = 0; i < COMPAT_CATEGORY_COUNT; i++) {
+        fprintf(stderr, "    %s: %zu\n", category_names[i], by_category[i]);
+    }
+}
+
+void compat_debug_print_entry(const compat_entry_t *entry) {
+    if (!entry) {
+        fprintf(stderr, "Entry: (null)\n");
+        return;
+    }
+    
+    fprintf(stderr, "Entry: %s\n", entry->id ? entry->id : "(no id)");
+    fprintf(stderr, "  Category: %s\n", compat_category_name(entry->category));
+    fprintf(stderr, "  Feature: %s\n", entry->feature ? entry->feature : "(none)");
+    fprintf(stderr, "  Description: %s\n",
+            entry->description ? entry->description : "(none)");
+    fprintf(stderr, "  Behavior:\n");
+    fprintf(stderr, "    POSIX: %s\n",
+            entry->behavior.posix ? entry->behavior.posix : "(none)");
+    fprintf(stderr, "    Bash: %s\n",
+            entry->behavior.bash ? entry->behavior.bash : "(none)");
+    fprintf(stderr, "    Zsh: %s\n",
+            entry->behavior.zsh ? entry->behavior.zsh : "(none)");
+    fprintf(stderr, "    Lush: %s\n",
+            entry->behavior.lush ? entry->behavior.lush : "(none)");
+    fprintf(stderr, "  Lint:\n");
+    fprintf(stderr, "    Severity: %s\n",
+            compat_severity_name(entry->lint.severity));
+    fprintf(stderr, "    Message: %s\n",
+            entry->lint.message ? entry->lint.message : "(none)");
+    fprintf(stderr, "    Suggestion: %s\n",
+            entry->lint.suggestion ? entry->lint.suggestion : "(none)");
+    fprintf(stderr, "    Pattern: %s\n",
+            entry->lint.pattern ? entry->lint.pattern : "(none)");
+}
