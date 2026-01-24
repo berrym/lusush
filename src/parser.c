@@ -3952,11 +3952,13 @@ static node_t *parse_extended_test(parser_t *parser) {
         return NULL;
     }
 
+    // Capture source location BEFORE advancing (advance frees current token)
+    source_location_t loc = token_to_source_location(current, parser->source_name);
+
     // Consume [[
     tokenizer_advance(parser->tokenizer);
 
     // Create extended test node with source location
-    source_location_t loc = token_to_source_location(current, parser->source_name);
     node_t *test_node = new_node_at(NODE_EXTENDED_TEST, loc);
     if (!test_node) {
         parser_error_add(parser, SHELL_ERR_OUT_OF_MEMORY,

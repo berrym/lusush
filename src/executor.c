@@ -228,6 +228,20 @@ static bool is_privileged_path_modification_allowed(const char *var_name) {
 }
 
 /**
+ * @brief Clean up resources before subshell _exit()
+ *
+ * Since _exit() doesn't run atexit() handlers, subshell processes must
+ * explicitly clean up allocated memory to avoid valgrind leak reports.
+ * This function frees the global symbol table which includes arrays
+ * and other dynamically allocated variables.
+ *
+ * Call this before _exit() in forked child processes.
+ */
+static void subshell_cleanup(void) {
+    free_global_symtable();
+}
+
+/**
  * @brief Create a new executor with global symbol table
  *
  * Allocates and initializes an executor context using the global
@@ -1543,6 +1557,7 @@ static int execute_pipeline(executor_t *executor, node_t *pipeline) {
         int result = execute_node(executor, left);
         fflush(stdout);
         fflush(stderr);
+        subshell_cleanup();
         _exit(result);
     }
 
@@ -1567,6 +1582,7 @@ static int execute_pipeline(executor_t *executor, node_t *pipeline) {
         int result = execute_node(executor, right);
         fflush(stdout);
         fflush(stderr);
+        subshell_cleanup();
         _exit(result);
     }
 
@@ -2613,6 +2629,7 @@ static int execute_coproc(executor_t *executor, node_t *coproc_node) {
         int result = execute_node(executor, command);
         fflush(stdout);
         fflush(stderr);
+        subshell_cleanup();
         _exit(result);
     }
 
@@ -9908,6 +9925,8 @@ static char *expand_command_substitution(executor_t *executor,
 
         // Ensure all output is flushed before exit
         fflush(stdout);
+        free(command);
+        subshell_cleanup();
         _exit(result);
     } else {
         // Parent process - read output
@@ -10991,6 +11010,7 @@ int executor_execute_background(executor_t *executor, node_t *command) {
             int result = execute_node(executor, command->first_child);
             fflush(stdout);
             fflush(stderr);
+            subshell_cleanup();
             _exit(result);
         } else {
             // Parent process - store background PID but no job tracking
@@ -11019,6 +11039,7 @@ int executor_execute_background(executor_t *executor, node_t *command) {
         int result = execute_node(executor, command->first_child);
         fflush(stdout);
         fflush(stderr);
+        subshell_cleanup();
         _exit(result);
     } else {
         // Parent process - add to job list
@@ -11293,6 +11314,7 @@ static int execute_builtin_with_captured_stdout(executor_t *executor,
         // Child process - setup redirections and execute builtin
         int redir_result = setup_redirections(executor, command);
         if (redir_result != 0) {
+            subshell_cleanup();
             _exit(1);
         }
 
@@ -11304,6 +11326,7 @@ static int execute_builtin_with_captured_stdout(executor_t *executor,
         // _exit() doesn't flush stdio buffers (unlike exit())
         fflush(stdout);
         fflush(stderr);
+        subshell_cleanup();
         _exit(result);
     } else {
         // Parent process - wait for child, retrying on EINTR
@@ -12366,6 +12389,7 @@ static char *expand_process_substitution(executor_t *executor, node_t *proc_sub)
         // Create a child executor
         executor_t *child_executor = executor_new();
         if (!child_executor) {
+            subshell_cleanup();
             _exit(1);
         }
 
@@ -12383,6 +12407,7 @@ static char *expand_process_substitution(executor_t *executor, node_t *proc_sub)
         executor_free(child_executor);
         fflush(stdout);
         fflush(stderr);
+        subshell_cleanup();
         _exit(result);
     }
 

@@ -528,6 +528,7 @@ static int setup_here_document(const char *delimiter, bool strip_tabs) {
             free(line);
         }
         close(pipefd[1]);
+        free_global_symtable();
         _exit(0);
     } else {
         // Parent process: redirect stdin to read from pipe
@@ -605,6 +606,7 @@ static int setup_here_document_with_content(const char *content) {
         }
 
         close(pipefd[1]);
+        free_global_symtable();
         _exit(0);
     } else {
         // Parent process: redirect stdin to read from pipe
