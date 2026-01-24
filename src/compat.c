@@ -12,6 +12,7 @@
 
 #include "compat.h"
 #include "toml_parser.h"
+#include "lle/unicode_compare.h"
 
 #include <dirent.h>
 #include <regex.h>
@@ -520,6 +521,32 @@ size_t compat_get_by_feature(const char *feature,
     return count;
 }
 
+/**
+ * @brief Get first entry matching a feature (for single lookups)
+ *
+ * Returns a pointer to a static entry that is valid until the next call.
+ * Use this for single lookups to avoid the static array reuse issue in
+ * compat_get_by_feature.
+ */
+const compat_entry_t *compat_get_first_by_feature(const char *feature) {
+    if (!g_compat.initialized || !feature) {
+        return NULL;
+    }
+    
+    static compat_entry_t result;
+    
+    for (size_t i = 0; i < g_compat.entry_count; i++) {
+        if (g_compat.entries[i].feature &&
+            lle_unicode_strings_equal(g_compat.entries[i].feature, feature,
+                                      &LLE_UNICODE_COMPARE_DEFAULT)) {
+            internal_to_public(&g_compat.entries[i], &result);
+            return &result;
+        }
+    }
+    
+    return NULL;
+}
+
 size_t compat_get_entry_count(void) {
     return g_compat.entry_count;
 }
@@ -678,6 +705,181 @@ size_t compat_check_script(const char *script, shell_mode_t target,
     }
     
     return found;
+}
+
+/* ============================================================================
+ * Public API - AST-Based Checking
+ * ============================================================================ */
+
+#include "node.h"
+
+/**
+ * @brief Map of node types to compatibility feature names
+ */
+static const struct {
+    node_type_t type;
+    const char *feature;
+    const char *description;
+} ast_feature_map[] = {
+    { NODE_EXTENDED_TEST,  "extended_test",        "[[ ]] extended test" },
+    { NODE_ARITH_CMD,      "arithmetic_command",   "(( )) arithmetic command" },
+    { NODE_FOR_ARITH,      "arithmetic_for",       "C-style for loop" },
+    { NODE_PROC_SUB_IN,    "process_substitution", "<() process substitution" },
+    { NODE_PROC_SUB_OUT,   "process_substitution", ">() process substitution" },
+    { NODE_ARRAY_LITERAL,  "arrays",               "array literal" },
+    { NODE_ARRAY_ACCESS,   "arrays",               "array access" },
+    { NODE_ARRAY_ASSIGN,   "arrays",               "array assignment" },
+    { NODE_ARRAY_APPEND,   "arrays",               "array append" },
+};
+
+#define AST_FEATURE_MAP_SIZE (sizeof(ast_feature_map) / sizeof(ast_feature_map[0]))
+
+/**
+ * @brief Check if a shell supports a feature
+ */
+static bool shell_supports_feature(shell_mode_t shell, const char *feature) {
+    (void)feature;  /* Currently all high-value features have same support */
+    
+    /* POSIX sh doesn't support any of the high-value features we detect */
+    if (shell == SHELL_MODE_POSIX) {
+        return false;  /* None of [[ ]], (( )), <(), arrays are POSIX */
+    }
+    
+    /* Bash, Zsh, and Lush support all these features */
+    return true;
+}
+
+/**
+ * @brief Recursive AST walker for compatibility checking
+ */
+static size_t compat_check_ast_node(node_t *node, shell_mode_t target,
+                                     compat_result_t *results, size_t max_results,
+                                     size_t found) {
+    if (!node || found >= max_results) {
+        return found;
+    }
+    
+    /* Check if this node type maps to a non-portable feature */
+    for (size_t i = 0; i < AST_FEATURE_MAP_SIZE; i++) {
+        if (node->type == ast_feature_map[i].type) {
+            /* Check if target shell supports this feature */
+            if (!shell_supports_feature(target, ast_feature_map[i].feature)) {
+                /* Look up the feature in the TOML database */
+                const compat_entry_t *entry = compat_get_first_by_feature(
+                    ast_feature_map[i].feature);
+                
+                /* Use first matching entry, or create a basic result */
+                compat_result_t *result = &results[found];
+                result->is_portable = false;
+                result->target = target;
+                result->line = (int)node->loc.line;
+                result->column = (int)node->loc.column;
+                result->entry = entry;  /* May be NULL if no TOML entry */
+                
+                found++;
+                if (found >= max_results) {
+                    return found;
+                }
+            }
+            break;
+        }
+    }
+    
+    /* Recurse into children */
+    node_t *child = node->first_child;
+    while (child && found < max_results) {
+        found = compat_check_ast_node(child, target, results, max_results, found);
+        child = child->next_sibling;
+    }
+    
+    /* Recurse into siblings (for command lists at same level) */
+    if (node->next_sibling && found < max_results) {
+        found = compat_check_ast_node(node->next_sibling, target, results, max_results, found);
+    }
+    
+    return found;
+}
+
+size_t compat_check_ast(node_t *ast, shell_mode_t target,
+                        compat_result_t *results, size_t max_results) {
+    if (!g_compat.initialized || !ast || !results || max_results == 0) {
+        return 0;
+    }
+    
+    return compat_check_ast_node(ast, target, results, max_results, 0);
+}
+
+/**
+ * @brief Recursive AST walker for collecting issues with stable strings
+ */
+static size_t compat_collect_ast_issues(node_t *node, shell_mode_t target,
+                                         compat_ast_issue_t *issues,
+                                         size_t max_issues, size_t found) {
+    if (!node || found >= max_issues) {
+        return found;
+    }
+    
+    /* Check if this node type maps to a non-portable feature */
+    for (size_t i = 0; i < AST_FEATURE_MAP_SIZE; i++) {
+        if (node->type == ast_feature_map[i].type) {
+            if (!shell_supports_feature(target, ast_feature_map[i].feature)) {
+                compat_ast_issue_t *issue = &issues[found];
+                issue->line = (int)node->loc.line;
+                issue->column = (int)node->loc.column;
+                issue->feature = ast_feature_map[i].feature;
+                
+                /* Find the entry in the internal database (stable pointers) */
+                issue->severity = "warning";
+                issue->message = "Non-portable construct";
+                issue->suggestion = NULL;
+                
+                for (size_t j = 0; j < g_compat.entry_count; j++) {
+                    if (g_compat.entries[j].feature &&
+                        lle_unicode_strings_equal(g_compat.entries[j].feature, 
+                                                  ast_feature_map[i].feature,
+                                                  &LLE_UNICODE_COMPARE_DEFAULT)) {
+                        issue->severity = compat_severity_name(
+                            g_compat.entries[j].severity);
+                        if (g_compat.entries[j].lint_message) {
+                            issue->message = g_compat.entries[j].lint_message;
+                        }
+                        issue->suggestion = g_compat.entries[j].lint_suggestion;
+                        break;
+                    }
+                }
+                
+                found++;
+                if (found >= max_issues) {
+                    return found;
+                }
+            }
+            break;
+        }
+    }
+    
+    /* Recurse into children */
+    node_t *child = node->first_child;
+    while (child && found < max_issues) {
+        found = compat_collect_ast_issues(child, target, issues, max_issues, found);
+        child = child->next_sibling;
+    }
+    
+    /* Recurse into siblings */
+    if (node->next_sibling && found < max_issues) {
+        found = compat_collect_ast_issues(node->next_sibling, target, issues, 
+                                           max_issues, found);
+    }
+    
+    return found;
+}
+
+size_t compat_check_ast_issues(node_t *ast, shell_mode_t target,
+                               compat_ast_issue_t *issues, size_t max_issues) {
+    if (!g_compat.initialized || !ast || !issues || max_issues == 0) {
+        return 0;
+    }
+    
+    return compat_collect_ast_issues(ast, target, issues, max_issues, 0);
 }
 
 /* ============================================================================

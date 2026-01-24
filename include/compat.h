@@ -240,6 +240,61 @@ size_t compat_check_line(const char *line, shell_mode_t target,
 size_t compat_check_script(const char *script, shell_mode_t target,
                            compat_result_t *results, size_t max_results);
 
+/* Forward declaration for AST node */
+struct node;
+
+/**
+ * @brief AST-based compatibility issue with copied data
+ *
+ * This structure owns copies of the strings, avoiding the static buffer
+ * issues with compat_result_t.
+ */
+typedef struct {
+    int line;
+    int column;
+    const char *severity;      /* Static string, not owned */
+    const char *message;       /* Static string from TOML, not owned */
+    const char *suggestion;    /* Static string from TOML, not owned */
+    const char *feature;       /* Static string, not owned */
+} compat_ast_issue_t;
+
+/**
+ * @brief Check an AST for compatibility issues (accurate, no false positives)
+ *
+ * Walks the parsed AST looking for node types that represent non-portable
+ * constructs. Unlike pattern-based checking, this won't match strings or
+ * comments, providing accurate results.
+ *
+ * High-value detections:
+ * - NODE_EXTENDED_TEST ([[ ]]) -> extended_test feature
+ * - NODE_ARITH_CMD ((( ))) -> arithmetic_cmd feature
+ * - NODE_PROC_SUB_IN/OUT (<() >()) -> process_substitution feature
+ * - NODE_ARRAY_* (arrays) -> arrays feature
+ *
+ * @param ast Parsed AST root to check
+ * @param target Target shell mode
+ * @param results Output array for results
+ * @param max_results Maximum results to return
+ * @return Number of issues found
+ */
+size_t compat_check_ast(struct node *ast, shell_mode_t target,
+                        compat_result_t *results, size_t max_results);
+
+/**
+ * @brief Check an AST and return issues with copied data
+ *
+ * Similar to compat_check_ast but returns compat_ast_issue_t which has
+ * stable pointers to strings (not affected by static buffer reuse).
+ *
+ * @param ast Parsed AST root to check
+ * @param target Target shell mode
+ * @param issues Output array for issues
+ * @param max_issues Maximum issues to return
+ * @return Number of issues found
+ */
+size_t compat_check_ast_issues(struct node *ast, shell_mode_t target,
+                               compat_ast_issue_t *issues, size_t max_issues);
+
 /* ============================================================================
  * Strict Mode Support
  * ============================================================================ */

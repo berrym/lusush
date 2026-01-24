@@ -16,6 +16,7 @@
 #include "node.h"
 #include "parser.h"
 #include "tokenizer.h"
+#include "lle/unicode_compare.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -25,8 +26,8 @@
 #include <unistd.h>
 
 // Forward declarations for static functions
-static void debug_analyze_syntax(debug_context_t *ctx, const char *file,
-                                 const char *content);
+static node_t *debug_analyze_syntax(debug_context_t *ctx, const char *file,
+                                     const char *content);
 static void debug_analyze_style(debug_context_t *ctx, const char *file,
                                 const char *content);
 static void debug_analyze_performance(debug_context_t *ctx, const char *file,
@@ -34,7 +35,7 @@ static void debug_analyze_performance(debug_context_t *ctx, const char *file,
 static void debug_analyze_security(debug_context_t *ctx, const char *file,
                                    const char *content);
 static void debug_analyze_portability(debug_context_t *ctx, const char *file,
-                                      const char *content);
+                                      const char *content, node_t *ast);
 
 /**
  * @brief Analyze a script file for various issues
@@ -82,15 +83,20 @@ void debug_analyze_script(debug_context_t *ctx, const char *script_path) {
     debug_clear_analysis_issues(ctx);
 
     // Perform various analysis checks
-    debug_analyze_syntax(ctx, script_path, script_content);
+    // Syntax analysis returns the AST for use by other analyzers
+    node_t *ast = debug_analyze_syntax(ctx, script_path, script_content);
     debug_analyze_style(ctx, script_path, script_content);
     debug_analyze_performance(ctx, script_path, script_content);
     debug_analyze_security(ctx, script_path, script_content);
-    debug_analyze_portability(ctx, script_path, script_content);
+    debug_analyze_portability(ctx, script_path, script_content, ast);
 
     // Generate analysis report
     debug_show_analysis_report(ctx);
 
+    // Cleanup
+    if (ast) {
+        free_node_tree(ast);
+    }
     free(script_content);
 }
 
@@ -133,11 +139,12 @@ void debug_add_analysis_issue(debug_context_t *ctx, const char *file, int line,
  * @param ctx Debug context
  * @param file File path being analyzed
  * @param content Script content to analyze
+ * @return Parsed AST on success, NULL on syntax error (caller must free)
  */
-static void debug_analyze_syntax(debug_context_t *ctx, const char *file,
-                                 const char *content) {
+static node_t *debug_analyze_syntax(debug_context_t *ctx, const char *file,
+                                     const char *content) {
     if (!ctx || !file || !content) {
-        return;
+        return NULL;
     }
 
     // Try to parse the script
@@ -146,7 +153,7 @@ static void debug_analyze_syntax(debug_context_t *ctx, const char *file,
         debug_add_analysis_issue(ctx, file, 1, "error", "syntax",
                                  "Failed to create parser",
                                  "Check script syntax");
-        return;
+        return NULL;
     }
 
     // Parse and check for errors
@@ -161,10 +168,7 @@ static void debug_analyze_syntax(debug_context_t *ctx, const char *file,
     }
 
     parser_free(parser);
-    if (ast) {
-        // TODO: Implement proper AST cleanup
-        // node_free(ast);
-    }
+    return ast;  // Caller is responsible for freeing
 }
 
 /**
@@ -356,33 +360,89 @@ static void debug_analyze_security(debug_context_t *ctx, const char *file,
  * @param ctx Debug context
  * @param file File path being analyzed
  * @param content Script content to analyze
+ * @param ast Parsed AST (may be NULL if parsing failed)
  *
- * This function performs two levels of portability analysis:
- * 1. Legacy pattern-based checks for common issues
- * 2. Compatibility database checks using data/compat/ TOML files
+ * This function performs three levels of portability analysis:
+ * 1. AST-based checks (most accurate, no false positives from strings/comments)
+ * 2. Pattern-based TOML database checks (catches things AST might miss)
+ * 3. Legacy pattern-based checks for common issues
  */
 static void debug_analyze_portability(debug_context_t *ctx, const char *file,
-                                      const char *content) {
+                                      const char *content, node_t *ast) {
     if (!ctx || !file || !content) {
         return;
     }
 
+    // Initialize compat system if not already done
+    if (compat_get_entry_count() == 0) {
+        compat_init(NULL);
+    }
+
+    // Get target shell for portability checking
+    shell_mode_t target = compat_get_target();
+
+    // === Level 1: AST-based checking (most accurate) ===
+    // Process AST findings one at a time to avoid static buffer issues
+    if (ast) {
+        compat_ast_issue_t ast_issues[64];
+        size_t ast_found = compat_check_ast_issues(ast, target, ast_issues, 64);
+
+        for (size_t i = 0; i < ast_found; i++) {
+            debug_add_analysis_issue(ctx, file, ast_issues[i].line,
+                                     ast_issues[i].severity, "portability",
+                                     ast_issues[i].message,
+                                     ast_issues[i].suggestion);
+        }
+    }
+
+    // === Level 2: Pattern-based TOML database checks ===
+    // These catch constructs that may not have dedicated AST node types
+    compat_result_t results[64];
+    size_t found = compat_check_script(content, target, results, 64);
+
+    for (size_t i = 0; i < found; i++) {
+        const compat_entry_t *entry = results[i].entry;
+        if (!entry) continue;
+
+        // Skip entries that are covered by AST-based checking to avoid duplicates
+        // AST covers: extended_test, arithmetic_command, arithmetic_for,
+        // process_substitution, arrays
+        if (entry->feature) {
+            if (lle_unicode_strings_equal(entry->feature, "extended_test",
+                                          &LLE_UNICODE_COMPARE_DEFAULT) ||
+                lle_unicode_strings_equal(entry->feature, "arithmetic_command",
+                                          &LLE_UNICODE_COMPARE_DEFAULT) ||
+                lle_unicode_strings_equal(entry->feature, "arithmetic_for",
+                                          &LLE_UNICODE_COMPARE_DEFAULT) ||
+                lle_unicode_strings_equal(entry->feature, "process_substitution",
+                                          &LLE_UNICODE_COMPARE_DEFAULT) ||
+                lle_unicode_strings_equal(entry->feature, "arrays",
+                                          &LLE_UNICODE_COMPARE_DEFAULT)) {
+                continue;  // Already handled by AST analysis
+            }
+        }
+
+        const char *severity = compat_severity_name(
+            compat_effective_severity(entry));
+
+        debug_add_analysis_issue(ctx, file, results[i].line,
+                                 severity, "portability",
+                                 entry->lint.message ? entry->lint.message
+                                                     : entry->description,
+                                 entry->lint.suggestion);
+    }
+
+    // === Level 3: Legacy pattern-based checks ===
+    // These are simple checks not yet in the TOML database
     int line_number = 1;
     const char *pos = content;
 
-    // Legacy pattern-based checks for common portability issues
     while (*pos) {
         if (*pos == '\n') {
             line_number++;
         }
 
-        // Check for bash-specific constructs
-        if (strncmp(pos, "[[", 2) == 0) {
-            debug_add_analysis_issue(ctx, file, line_number, "info",
-                                     "portability", "Bash-specific test",
-                                     "Use [ ] for POSIX compliance");
-        }
-
+        // Check for bash-specific function syntax (not yet in AST)
         if (strncmp(pos, "function ", 9) == 0) {
             debug_add_analysis_issue(
                 ctx, file, line_number, "info", "portability",
@@ -403,34 +463,6 @@ static void debug_analyze_portability(debug_context_t *ctx, const char *file,
         }
 
         pos++;
-    }
-
-    // Use compatibility database for additional checks
-    // Initialize compat system if not already done
-    if (compat_get_entry_count() == 0) {
-        compat_init(NULL);
-    }
-
-    // Get target shell for portability checking
-    shell_mode_t target = compat_get_target();
-
-    // Check script against compatibility database
-    compat_result_t results[64];
-    size_t found = compat_check_script(content, target, results, 64);
-
-    for (size_t i = 0; i < found; i++) {
-        const compat_entry_t *entry = results[i].entry;
-        if (!entry) continue;
-
-        // Convert compat severity to string
-        const char *severity = compat_severity_name(
-            compat_effective_severity(entry));
-
-        debug_add_analysis_issue(ctx, file, results[i].line,
-                                 severity, "portability",
-                                 entry->lint.message ? entry->lint.message
-                                                     : entry->description,
-                                 entry->lint.suggestion);
     }
 }
 

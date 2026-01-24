@@ -102,7 +102,7 @@ pattern = "^\\s*coproc\\s+"
 
 [arithmetic_for]
 category = "syntax"
-feature = "arith_command"
+feature = "arithmetic_for"
 description = "C-style for loop: for ((i=0; i<n; i++))"
 
 [arithmetic_for.behavior]
@@ -119,7 +119,7 @@ pattern = "for\\s*\\(\\("
 
 [arithmetic_command]
 category = "syntax"
-feature = "arith_command"
+feature = "arithmetic_command"
 description = "(( expression )) arithmetic evaluation"
 
 [arithmetic_command.behavior]
