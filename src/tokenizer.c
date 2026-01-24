@@ -403,6 +403,37 @@ void tokenizer_enable_keywords(tokenizer_t *tokenizer, bool enable) {
 }
 
 /**
+ * @brief Refresh the lookahead token with current settings
+ *
+ * Re-tokenizes the lookahead token using current tokenizer settings
+ * (e.g., enable_keywords). Use this when keyword recognition context
+ * changes and the lookahead needs to be re-classified.
+ *
+ * @param tokenizer Tokenizer instance
+ */
+void tokenizer_refresh_lookahead(tokenizer_t *tokenizer) {
+    if (!tokenizer || !tokenizer->lookahead) {
+        return;
+    }
+
+    // Save the position before the lookahead token
+    size_t saved_position = tokenizer->lookahead->position;
+    size_t saved_line = tokenizer->lookahead->line;
+    size_t saved_column = tokenizer->lookahead->column;
+
+    // Free the lookahead
+    token_free(tokenizer->lookahead);
+
+    // Restore position to where lookahead started
+    tokenizer->position = saved_position;
+    tokenizer->line = saved_line;
+    tokenizer->column = saved_column;
+
+    // Re-tokenize with current settings
+    tokenizer->lookahead = tokenize_next(tokenizer);
+}
+
+/**
  * @brief Refresh tokenizer from current position
  *
  * Discards current and lookahead tokens and re-tokenizes

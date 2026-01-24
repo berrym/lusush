@@ -453,6 +453,9 @@ char *debug_get_node_description(node_t *node) {
     case NODE_FOR:
         snprintf(desc, 256, "FOR");
         break;
+    case NODE_FOR_ARITH:
+        snprintf(desc, 256, "FOR_ARITH (C-style)");
+        break;
     case NODE_CASE:
         snprintf(desc, 256, "CASE");
         break;

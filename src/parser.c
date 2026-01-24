@@ -1681,10 +1681,18 @@ static node_t *parse_redirection(parser_t *parser) {
     // Store the redirection operator
     redir_node->val.str = strdup(redir_token->text);
     redir_node->val_type = VAL_STR;
+
+    // Disable keyword recognition for redirection targets - filenames like
+    // "in", "do", "done" etc. should be treated as words, not keywords
+    tokenizer_enable_keywords(parser->tokenizer, false);
+    tokenizer_refresh_lookahead(parser->tokenizer);
     tokenizer_advance(parser->tokenizer);
 
     // Parse the target (filename or here document content)
     token_t *target_token = tokenizer_current(parser->tokenizer);
+
+    // Re-enable keyword recognition for subsequent tokens
+    tokenizer_enable_keywords(parser->tokenizer, true);
 
     // For NODE_REDIR_FD, the target is embedded in the redirection token itself
     if (node_type == NODE_REDIR_FD) {
@@ -2412,18 +2420,308 @@ static node_t *parse_for_statement(parser_t *parser) {
     /* Push context for better error messages */
     parser_push_context(parser, "parsing for loop");
 
+    // Check for C-style for loop: for ((init; test; update))
+    if (tokenizer_match(parser->tokenizer, TOK_DOUBLE_LPAREN)) {
+        tokenizer_advance(parser->tokenizer); // consume (( 
+
+        node_t *for_arith_node = new_node_at(NODE_FOR_ARITH, for_loc);
+        if (!for_arith_node) {
+            parser_pop_context(parser);
+            return NULL;
+        }
+
+        // Parse the three arithmetic expressions separated by semicolons
+        // Format: for ((init; test; update)); do body; done
+        // Each expression is optional (can be empty)
+        //
+        // We extract raw input text to preserve operators like <= that
+        // the tokenizer splits into separate tokens (< and =).
+        
+        const char *input = parser->tokenizer->input;
+        char *init_expr = NULL;
+        char *test_expr = NULL;
+        char *update_expr = NULL;
+        
+        int paren_depth = 0;  // Track nested parentheses
+        
+        // Get start position for init expression
+        token_t *start_tok = tokenizer_current(parser->tokenizer);
+        size_t expr_start = start_tok ? start_tok->position : 0;
+        size_t expr_end = expr_start;
+        
+        // Parse init expression - find the first ; at depth 0
+        while (!tokenizer_match(parser->tokenizer, TOK_EOF)) {
+            token_t *tok = tokenizer_current(parser->tokenizer);
+            
+            // Track parentheses depth to handle nested (( )) in expressions
+            if (tok->type == TOK_LPAREN || tok->type == TOK_DOUBLE_LPAREN) {
+                paren_depth++;
+            } else if (tok->type == TOK_RPAREN) {
+                paren_depth--;
+            } else if (tok->type == TOK_DOUBLE_RPAREN) {
+                if (paren_depth > 0) {
+                    paren_depth -= 2;
+                } else {
+                    // End of for (( )) - but we haven't seen all three expressions
+                    parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                                     "expected ';' in C-style for loop");
+                    free_node_tree(for_arith_node);
+                    parser_pop_context(parser);
+                    return NULL;
+                }
+            }
+            
+            // Semicolon at depth 0 separates expressions
+            if (tok->type == TOK_SEMICOLON && paren_depth == 0) {
+                expr_end = tok->position;
+                break;
+            }
+            
+            tokenizer_advance(parser->tokenizer);
+        }
+        
+        // Extract init expression from raw input
+        if (expr_end > expr_start) {
+            size_t len = expr_end - expr_start;
+            init_expr = malloc(len + 1);
+            if (init_expr) {
+                memcpy(init_expr, input + expr_start, len);
+                init_expr[len] = '\0';
+                // Trim leading/trailing whitespace
+                char *p = init_expr;
+                while (*p && (*p == ' ' || *p == '\t')) p++;
+                if (p != init_expr) memmove(init_expr, p, strlen(p) + 1);
+                size_t l = strlen(init_expr);
+                while (l > 0 && (init_expr[l-1] == ' ' || init_expr[l-1] == '\t')) {
+                    init_expr[--l] = '\0';
+                }
+            }
+        } else {
+            init_expr = strdup("");
+        }
+        
+        if (!tokenizer_consume(parser->tokenizer, TOK_SEMICOLON)) {
+            parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                             "expected ';' after init expression in C-style for loop");
+            free(init_expr);
+            free_node_tree(for_arith_node);
+            parser_pop_context(parser);
+            return NULL;
+        }
+        
+        // Parse test expression
+        start_tok = tokenizer_current(parser->tokenizer);
+        expr_start = start_tok ? start_tok->position : 0;
+        expr_end = expr_start;
+        paren_depth = 0;
+        
+        while (!tokenizer_match(parser->tokenizer, TOK_EOF)) {
+            token_t *tok = tokenizer_current(parser->tokenizer);
+            
+            if (tok->type == TOK_LPAREN || tok->type == TOK_DOUBLE_LPAREN) {
+                paren_depth++;
+            } else if (tok->type == TOK_RPAREN) {
+                paren_depth--;
+            } else if (tok->type == TOK_DOUBLE_RPAREN) {
+                if (paren_depth > 0) {
+                    paren_depth -= 2;
+                } else {
+                    parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                                     "expected ';' after test expression in C-style for loop");
+                    free(init_expr);
+                    free_node_tree(for_arith_node);
+                    parser_pop_context(parser);
+                    return NULL;
+                }
+            }
+            
+            if (tok->type == TOK_SEMICOLON && paren_depth == 0) {
+                expr_end = tok->position;
+                break;
+            }
+            
+            tokenizer_advance(parser->tokenizer);
+        }
+        
+        // Extract test expression from raw input
+        if (expr_end > expr_start) {
+            size_t len = expr_end - expr_start;
+            test_expr = malloc(len + 1);
+            if (test_expr) {
+                memcpy(test_expr, input + expr_start, len);
+                test_expr[len] = '\0';
+                // Trim whitespace
+                char *p = test_expr;
+                while (*p && (*p == ' ' || *p == '\t')) p++;
+                if (p != test_expr) memmove(test_expr, p, strlen(p) + 1);
+                size_t l = strlen(test_expr);
+                while (l > 0 && (test_expr[l-1] == ' ' || test_expr[l-1] == '\t')) {
+                    test_expr[--l] = '\0';
+                }
+            }
+        } else {
+            test_expr = strdup("");
+        }
+        
+        if (!tokenizer_consume(parser->tokenizer, TOK_SEMICOLON)) {
+            parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                             "expected ';' after test expression in C-style for loop");
+            free(init_expr);
+            free(test_expr);
+            free_node_tree(for_arith_node);
+            parser_pop_context(parser);
+            return NULL;
+        }
+        
+        // Parse update expression (until )))
+        start_tok = tokenizer_current(parser->tokenizer);
+        expr_start = start_tok ? start_tok->position : 0;
+        expr_end = expr_start;
+        paren_depth = 0;
+        
+        while (!tokenizer_match(parser->tokenizer, TOK_EOF)) {
+            token_t *tok = tokenizer_current(parser->tokenizer);
+            
+            if (tok->type == TOK_LPAREN || tok->type == TOK_DOUBLE_LPAREN) {
+                paren_depth++;
+            } else if (tok->type == TOK_RPAREN) {
+                if (paren_depth > 0) {
+                    paren_depth--;
+                } else {
+                    expr_end = tok->position;
+                    break;
+                }
+            } else if (tok->type == TOK_DOUBLE_RPAREN) {
+                if (paren_depth > 0) {
+                    paren_depth -= 2;
+                } else {
+                    expr_end = tok->position;
+                    break;
+                }
+            }
+            
+            tokenizer_advance(parser->tokenizer);
+        }
+        
+        // Extract update expression from raw input
+        if (expr_end > expr_start) {
+            size_t len = expr_end - expr_start;
+            update_expr = malloc(len + 1);
+            if (update_expr) {
+                memcpy(update_expr, input + expr_start, len);
+                update_expr[len] = '\0';
+                // Trim whitespace
+                char *p = update_expr;
+                while (*p && (*p == ' ' || *p == '\t')) p++;
+                if (p != update_expr) memmove(update_expr, p, strlen(p) + 1);
+                size_t l = strlen(update_expr);
+                while (l > 0 && (update_expr[l-1] == ' ' || update_expr[l-1] == '\t')) {
+                    update_expr[--l] = '\0';
+                }
+            }
+        } else {
+            update_expr = strdup("");
+        }
+        
+        // Expect )) to close the arithmetic for
+        if (!tokenizer_consume(parser->tokenizer, TOK_DOUBLE_RPAREN)) {
+            parser_error_add(parser, SHELL_ERR_UNEXPECTED_TOKEN,
+                             "expected '))' to close C-style for loop");
+            free(init_expr);
+            free(test_expr);
+            free(update_expr);
+            free_node_tree(for_arith_node);
+            parser_pop_context(parser);
+            return NULL;
+        }
+        
+        // Store expressions as child nodes
+        // Child 0: init expression
+        node_t *init_node = new_node(NODE_ARITH_EXP);
+        if (init_node) {
+            init_node->val.str = init_expr;
+            init_node->val_type = VAL_STR;
+            add_child_node(for_arith_node, init_node);
+        } else {
+            free(init_expr);
+        }
+        
+        // Child 1: test expression
+        node_t *test_node = new_node(NODE_ARITH_EXP);
+        if (test_node) {
+            test_node->val.str = test_expr;
+            test_node->val_type = VAL_STR;
+            add_child_node(for_arith_node, test_node);
+        } else {
+            free(test_expr);
+        }
+        
+        // Child 2: update expression
+        node_t *update_node = new_node(NODE_ARITH_EXP);
+        if (update_node) {
+            update_node->val.str = update_expr;
+            update_node->val_type = VAL_STR;
+            add_child_node(for_arith_node, update_node);
+        } else {
+            free(update_expr);
+        }
+        
+        // Skip any separators (semicolons, newlines, whitespace)
+        skip_separators(parser);
+        
+        // Expect 'do'
+        if (!expect_token_with_help(parser, TOK_DO,
+                "'for ((...))' requires 'do' before the loop body")) {
+            free_node_tree(for_arith_node);
+            parser_pop_context(parser);
+            return NULL;
+        }
+        
+        // Skip separators after 'do' before parsing body
+        skip_separators(parser);
+        
+        // Parse loop body
+        node_t *body = parse_command_body(parser, TOK_DONE);
+        if (!body) {
+            free_node_tree(for_arith_node);
+            parser_pop_context(parser);
+            return NULL;
+        }
+        add_child_node(for_arith_node, body);  // Child 3: body
+        
+        // Skip separators before 'done'
+        skip_separators(parser);
+        
+        if (!expect_token_with_help(parser, TOK_DONE,
+                "'for ((...))' loop must end with 'done'")) {
+            free_node_tree(for_arith_node);
+            parser_pop_context(parser);
+            return NULL;
+        }
+        
+        parser_pop_context(parser);
+        
+        // Parse any trailing redirections
+        if (!parse_trailing_redirections(parser, for_arith_node)) {
+            free_node_tree(for_arith_node);
+            return NULL;
+        }
+        
+        return for_arith_node;
+    }
+
     node_t *for_node = new_node_at(NODE_FOR, for_loc);
     if (!for_node) {
         parser_pop_context(parser);
         return NULL;
     }
 
-    // Parse variable name
+    // Parse variable name (POSIX for-in loop)
     if (!tokenizer_match(parser->tokenizer, TOK_WORD)) {
         free_node_tree(for_node);
         parser_error_add_with_help(parser, SHELL_ERR_UNEXPECTED_TOKEN,
-                         "syntax: for NAME [in WORDS...]; do COMMANDS; done",
-                         "expected variable name after 'for'");
+                         "syntax: for NAME [in WORDS...]; do COMMANDS; done\n       for ((init; test; update)); do COMMANDS; done",
+                         "expected variable name or '((' after 'for'");
         parser_pop_context(parser);
         return NULL;
     }

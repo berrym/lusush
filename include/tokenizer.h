@@ -246,6 +246,16 @@ bool token_is_word_like(token_type_t type);
 void tokenizer_enable_keywords(tokenizer_t *tokenizer, bool enable);
 
 /**
+ * @brief Refresh the lookahead token with current settings
+ *
+ * Re-tokenizes the lookahead token using current tokenizer settings.
+ * Use when keyword recognition context changes before advancing.
+ *
+ * @param tokenizer Tokenizer context
+ */
+void tokenizer_refresh_lookahead(tokenizer_t *tokenizer);
+
+/**
  * @brief Refresh tokenizer state from current position
  *
  * @param tokenizer Tokenizer context

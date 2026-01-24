@@ -46,7 +46,8 @@ typedef enum {
     NODE_PIPELINE,     // Sequence of commands connected by pipes
     // Control structures
     NODE_IF,          // if statement
-    NODE_FOR,         // for loop
+    NODE_FOR,         // for loop (POSIX: for var in words)
+    NODE_FOR_ARITH,   // C-style for loop: for ((init; test; update))
     NODE_WHILE,       // while loop
     NODE_UNTIL,       // until loop
     NODE_CASE,        // case statement

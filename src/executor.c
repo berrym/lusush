@@ -77,6 +77,7 @@ static int execute_if(executor_t *executor, node_t *if_node);
 static int execute_while(executor_t *executor, node_t *while_node);
 static int execute_until(executor_t *executor, node_t *until_node);
 static int execute_for(executor_t *executor, node_t *for_node);
+static int execute_for_arith(executor_t *executor, node_t *for_arith_node);
 static int execute_select(executor_t *executor, node_t *select_node);
 static int execute_time(executor_t *executor, node_t *time_node);
 static int execute_coproc(executor_t *executor, node_t *coproc_node);
@@ -875,6 +876,8 @@ static int execute_node(executor_t *executor, node_t *node) {
         return execute_until(executor, node);
     case NODE_FOR:
         return execute_for(executor, node);
+    case NODE_FOR_ARITH:
+        return execute_for_arith(executor, node);
     case NODE_SELECT:
         return execute_select(executor, node);
     case NODE_TIME:
@@ -2200,6 +2203,165 @@ static int execute_for(executor_t *executor, node_t *for_node) {
         free(expanded_words[i]);
     }
     free(expanded_words);
+
+    // Notify debug system we're exiting the loop
+    if (g_debug_context && g_debug_context->enabled) {
+        debug_exit_loop(g_debug_context);
+    }
+
+    // Decrement loop depth before returning
+    executor->loop_depth--;
+
+    // Pop loop scope
+    symtable_pop_scope(executor->symtable);
+
+    // Restore file descriptors if we set up redirections
+    if (has_redirections) {
+        restore_file_descriptors(&redir_state);
+    }
+
+    // Pop error context
+    executor_pop_context(executor);
+
+    return last_result;
+}
+
+/**
+ * @brief Execute C-style arithmetic for loop
+ *
+ * Executes a C-style for loop: for ((init; test; update)); do body; done
+ * - Child 0: init expression (evaluated once at start)
+ * - Child 1: test expression (evaluated before each iteration, loop continues if non-zero)
+ * - Child 2: update expression (evaluated after each iteration)
+ * - Child 3: body (commands to execute each iteration)
+ *
+ * @param executor Executor context
+ * @param for_arith_node C-style for loop node
+ * @return Exit status of last executed body command
+ */
+static int execute_for_arith(executor_t *executor, node_t *for_arith_node) {
+    if (!for_arith_node || for_arith_node->type != NODE_FOR_ARITH) {
+        return 1;
+    }
+
+    // Get the four children: init, test, update, body
+    node_t *init_node = for_arith_node->first_child;
+    node_t *test_node = init_node ? init_node->next_sibling : NULL;
+    node_t *update_node = test_node ? test_node->next_sibling : NULL;
+    node_t *body = update_node ? update_node->next_sibling : NULL;
+
+    if (!body) {
+        executor_error_add(executor, SHELL_ERR_MALFORMED_CONSTRUCT,
+                           for_arith_node->loc, "C-style for loop missing body");
+        return 1;
+    }
+
+    // Check for trailing redirections
+    bool has_redirections = count_redirections(for_arith_node) > 0;
+    redirection_state_t redir_state;
+    
+    if (has_redirections) {
+        save_file_descriptors(&redir_state);
+        int redir_result = setup_redirections(executor, for_arith_node);
+        if (redir_result != 0) {
+            restore_file_descriptors(&redir_state);
+            return redir_result;
+        }
+    }
+
+    // Push loop scope
+    if (symtable_push_scope(executor->symtable, SCOPE_LOOP, "for-arith-loop") != 0) {
+        executor_error_add(executor, SHELL_ERR_SCOPE_ERROR,
+                           for_arith_node->loc, "failed to create loop scope");
+        return 1;
+    }
+
+    // Notify debug system we're entering a loop
+    if (g_debug_context && g_debug_context->enabled) {
+        debug_enter_loop(g_debug_context, "for", "(arithmetic)", NULL);
+    }
+
+    // Increment loop depth - enables break/continue builtins
+    executor->loop_depth++;
+
+    // Push error context for structured error reporting
+    executor_push_context(executor, for_arith_node->loc, "in C-style for loop");
+
+    int last_result = 0;
+
+    // Execute init expression (once at the start)
+    if (init_node && init_node->val.str && init_node->val.str[0] != '\0') {
+        char *init_expanded = expand_if_needed(executor, init_node->val.str);
+        if (init_expanded) {
+            arithm_clear_error();
+            char *result_str = arithm_expand_with_executor(executor, init_expanded);
+            if (result_str) {
+                free(result_str);
+            }
+            if (arithm_error_flag && executor->debug) {
+                fprintf(stderr, "DEBUG: C-style for init failed: %s\n", init_expanded);
+            }
+            free(init_expanded);
+        }
+    }
+
+    // Loop: test, execute body, update
+    while (1) {
+        // Evaluate test expression (if empty, treat as true - infinite loop)
+        if (test_node && test_node->val.str && test_node->val.str[0] != '\0') {
+            char *test_expanded = expand_if_needed(executor, test_node->val.str);
+            if (test_expanded) {
+                arithm_clear_error();
+                char *result_str = arithm_expand_with_executor(executor, test_expanded);
+                if (!result_str || arithm_error_flag) {
+                    // Arithmetic error
+                    free(result_str);
+                    free(test_expanded);
+                    last_result = 1;
+                    break;
+                }
+                
+                // Convert result to check if non-zero
+                long long test_result = strtoll(result_str, NULL, 10);
+                free(result_str);
+                free(test_expanded);
+                
+                // If test result is 0, exit the loop
+                if (test_result == 0) {
+                    break;
+                }
+            }
+        }
+        // If test is empty, continue (infinite loop until break)
+
+        // Execute body
+        last_result = execute_command_chain(executor, body);
+
+        // Check for break/continue
+        if (executor->loop_control == LOOP_BREAK) {
+            executor->loop_control = LOOP_NORMAL;
+            break;
+        } else if (executor->loop_control == LOOP_CONTINUE) {
+            executor->loop_control = LOOP_NORMAL;
+            // Fall through to update expression
+        }
+
+        // Execute update expression
+        if (update_node && update_node->val.str && update_node->val.str[0] != '\0') {
+            char *update_expanded = expand_if_needed(executor, update_node->val.str);
+            if (update_expanded) {
+                arithm_clear_error();
+                char *result_str = arithm_expand_with_executor(executor, update_expanded);
+                if (result_str) {
+                    free(result_str);
+                }
+                if (arithm_error_flag && executor->debug) {
+                    fprintf(stderr, "DEBUG: C-style for update failed: %s\n", update_expanded);
+                }
+                free(update_expanded);
+            }
+        }
+    }
 
     // Notify debug system we're exiting the loop
     if (g_debug_context && g_debug_context->enabled) {
