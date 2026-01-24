@@ -719,6 +719,30 @@ static int parse_opts(int argc, char **argv) {
                             argv[0]);
                     usage(EXIT_FAILURE);
                 }
+            } else if (strcmp(arg, "--analyze") == 0 || strcmp(arg, "--lint") == 0) {
+                // Enable analyze mode
+                shell_opts.analyze_mode = true;
+            } else if (strncmp(arg, "--analyze=", 10) == 0) {
+                // --analyze=FILE
+                shell_opts.analyze_mode = true;
+                shell_opts.analyze_file = strdup(arg + 10);
+            } else if (strncmp(arg, "--lint=", 7) == 0) {
+                // --lint=FILE (alias)
+                shell_opts.analyze_mode = true;
+                shell_opts.analyze_file = strdup(arg + 7);
+            } else if (strcmp(arg, "--format") == 0) {
+                // --format <fmt> (space-separated)
+                if (arg_index + 1 < argc) {
+                    arg_index++;
+                    shell_opts.output_format = strdup(argv[arg_index]);
+                } else {
+                    fprintf(stderr, "%s: --format requires an argument\n",
+                            argv[0]);
+                    usage(EXIT_FAILURE);
+                }
+            } else if (strncmp(arg, "--format=", 9) == 0) {
+                // --format=FMT
+                shell_opts.output_format = strdup(arg + 9);
             } else {
                 fprintf(stderr, "%s: invalid option -- '%s'\n", argv[0], arg);
                 usage(EXIT_FAILURE);
@@ -839,6 +863,9 @@ static void usage(int err) {
     printf("Options:\n");
     printf("      --help              Show this help message and exit\n");
     printf("  -V, --version           Show version information and exit\n");
+    printf("      --analyze[=FILE]    Analyze script for issues and portability\n");
+    printf("      --lint[=FILE]       Alias for --analyze\n");
+    printf("      --format=FMT        Output format: text (default), json, gcc\n");
     printf("      --strict            Treat compatibility warnings as errors\n");
     printf("      --target=<shell>    Check compatibility against shell "
            "(posix, bash, zsh)\n");

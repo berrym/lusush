@@ -14,6 +14,7 @@
 #include "lush.h"
 
 #include "config.h"
+#include "debug.h"
 #include "display_integration.h"
 #include "executor.h"
 #include "init.h"
@@ -153,6 +154,66 @@ int main(int argc, char **argv) {
 
         // Execute EXIT traps before terminating
         execute_exit_traps();
+        exit(exit_status);
+    }
+
+    // Handle analyze/lint mode (--analyze or --lint option)
+    if (shell_opts.analyze_mode) {
+        // Determine file to analyze: explicit argument or first positional arg
+        const char *file_to_analyze = shell_opts.analyze_file;
+        if (!file_to_analyze && argc > 1) {
+            // Find first non-option argument
+            for (int i = 1; i < argc; i++) {
+                if (argv[i][0] != '-') {
+                    file_to_analyze = argv[i];
+                    break;
+                }
+            }
+        }
+
+        if (!file_to_analyze) {
+            fprintf(stderr, "%s: --analyze requires a script file\n", argv[0]);
+            exit(EXIT_FAILURE);
+        }
+
+        // Initialize debug context for analysis
+        debug_context_t *ctx = debug_init();
+        if (!ctx) {
+            fprintf(stderr, "%s: failed to initialize analysis context\n", argv[0]);
+            exit(EXIT_FAILURE);
+        }
+
+        // Enable context so debug_printf works for output
+        debug_enable(ctx, true);
+
+        // Run analysis (includes report output)
+        debug_analyze_script(ctx, file_to_analyze);
+
+        // Determine exit code based on issues found
+        int exit_status = 0;
+        if (ctx->issue_count > 0) {
+            // Check severity levels
+            analysis_issue_t *issue = ctx->analysis_issues;
+            while (issue) {
+                if (strcmp(issue->severity, "error") == 0) {
+                    exit_status = 2;  // Errors found
+                    break;
+                } else if (strcmp(issue->severity, "warning") == 0 && exit_status < 1) {
+                    exit_status = 1;  // Warnings found
+                }
+                issue = issue->next;
+            }
+        }
+
+        // Cleanup
+        debug_cleanup(ctx);
+        if (shell_opts.analyze_file) {
+            free(shell_opts.analyze_file);
+        }
+        if (shell_opts.output_format) {
+            free(shell_opts.output_format);
+        }
+
         exit(exit_status);
     }
 

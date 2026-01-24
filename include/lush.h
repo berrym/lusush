@@ -214,6 +214,9 @@ typedef struct shell_options {
     bool stdin_mode;      /**< -s flag: read from stdin */
     bool interactive;     /**< -i flag: force interactive mode */
     bool login_shell;     /**< -l flag: login shell behavior */
+    bool analyze_mode;    /**< --analyze/--lint: analyze script for issues */
+    char *analyze_file;   /**< --analyze argument: file to analyze */
+    char *output_format;  /**< --format: output format (text, json, gcc) */
 
     /* Shell behavior flags */
     bool exit_on_error;   /**< -e flag: exit on command failure */
