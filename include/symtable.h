@@ -911,4 +911,15 @@ int symtable_set_array_element(const char *name, const char *subscript,
  */
 char *symtable_get_array_element(const char *name, const char *subscript);
 
+/**
+ * @brief Enumerate all arrays with callback
+ *
+ * @param callback Function called for each array (name, array, userdata)
+ * @param userdata User data passed to callback
+ */
+void symtable_enumerate_arrays(void (*callback)(const char *name,
+                                                array_value_t *array,
+                                                void *userdata),
+                               void *userdata);
+
 #endif // SYMTABLE_H

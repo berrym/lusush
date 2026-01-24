@@ -2696,3 +2696,30 @@ char *symtable_get_array_element(const char *name, const char *subscript) {
 
     return result ? strdup(result) : NULL;
 }
+
+/**
+ * @brief Enumerate all arrays with callback
+ */
+void symtable_enumerate_arrays(void (*callback)(const char *name,
+                                                array_value_t *array,
+                                                void *userdata),
+                               void *userdata) {
+    if (!callback || !array_storage) {
+        return;
+    }
+
+    ht_enum_t *e = ht_strstr_enum_create(array_storage);
+    if (!e) {
+        return;
+    }
+
+    const char *name, *ptr_str;
+    while (ht_strstr_enum_next(e, &name, &ptr_str)) {
+        void *ptr;
+        if (sscanf(ptr_str, "%p", &ptr) == 1 && ptr) {
+            callback(name, (array_value_t *)ptr, userdata);
+        }
+    }
+
+    ht_strstr_enum_destroy(e);
+}

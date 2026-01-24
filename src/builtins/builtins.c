@@ -3863,6 +3863,54 @@ int bin_local(int argc, char **argv) {
     return 0;
 }
 
+/* Callback for declare -p to print scalar variables */
+static void declare_print_var_callback(const char *key, const char *value,
+                                       void *userdata) {
+    (void)userdata;
+    if (!key) return;
+    /* Skip internal variables starting with __ */
+    if (key[0] == '_' && key[1] == '_') return;
+    /* Skip if this is actually an array (handled separately) */
+    if (symtable_is_array(key)) return;
+    printf("declare -- %s=\"%s\"\n", key, value ? value : "");
+}
+
+/* Callback for declare -p to print array variables */
+static void declare_print_array_callback(const char *name, array_value_t *array,
+                                         void *userdata) {
+    (void)userdata;
+    if (!name || !array) return;
+    if (array->is_associative) {
+        printf("declare -A %s=(", name);
+        /* Print associative array elements */
+        if (array->assoc_map) {
+            ht_enum_t *e = ht_strstr_enum_create(array->assoc_map);
+            if (e) {
+                const char *k, *v;
+                bool first = true;
+                while (ht_strstr_enum_next(e, &k, &v)) {
+                    printf("%s[%s]=\"%s\"", first ? "" : " ", k, v ? v : "");
+                    first = false;
+                }
+                ht_strstr_enum_destroy(e);
+            }
+        }
+        printf(")\n");
+    } else {
+        printf("declare -a %s=(", name);
+        /* Print indexed array elements */
+        bool first = true;
+        for (size_t i = 0; i < array->count; i++) {
+            if (array->elements[i]) {
+                int idx = array->indices ? array->indices[i] : (int)i;
+                printf("%s[%d]=\"%s\"", first ? "" : " ", idx, array->elements[i]);
+                first = false;
+            }
+        }
+        printf(")\n");
+    }
+}
+
 /**
  * @brief Declare variables with attributes
  *
@@ -3969,8 +4017,10 @@ int bin_declare(int argc, char **argv) {
 
     // Handle -p (print) option with no arguments - list all variables
     if (opt_print && opt_idx >= argc) {
-        // TODO: Implement listing all declared variables with their attributes
-        printf("declare: listing all variables not yet implemented\n");
+        // Print all arrays first
+        symtable_enumerate_arrays(declare_print_array_callback, NULL);
+        // Then print all scalar variables
+        symtable_enumerate_global_vars(declare_print_var_callback, NULL);
         return 0;
     }
 
