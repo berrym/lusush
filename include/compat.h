@@ -174,6 +174,17 @@ size_t compat_get_by_feature(const char *feature,
                              size_t max_entries);
 
 /**
+ * @brief Get the first entry matching a feature name
+ *
+ * Returns the first database entry that matches the given feature name.
+ * Useful when you only need one representative entry for a feature.
+ *
+ * @param feature Feature name to query
+ * @return Pointer to entry, or NULL if not found
+ */
+const compat_entry_t *compat_get_first_by_feature(const char *feature);
+
+/**
  * @brief Get total number of entries in database
  *
  * @return Number of entries

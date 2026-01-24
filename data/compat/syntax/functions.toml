@@ -153,3 +153,20 @@ severity = "warning"
 message = "autoload is zsh-specific"
 suggestion = "zsh feature; bash sources functions explicitly"
 pattern = "\\bautoload\\b"
+
+[func_anonymous]
+category = "syntax"
+feature = "anonymous_function"
+description = "Anonymous function () { body }"
+
+[func_anonymous.behavior]
+posix = "Not in POSIX"
+bash = "Not supported; use subshells"
+zsh = "() { body } executes immediately"
+lush = "Zsh-compatible anonymous functions"
+
+[func_anonymous.lint]
+severity = "warning"
+message = "Anonymous functions are zsh-specific"
+suggestion = "zsh feature; use named function or subshell in bash"
+pattern = "^\\s*\\(\\)\\s*\\{"

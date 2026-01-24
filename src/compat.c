@@ -19,23 +19,34 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/stat.h>
+#include <unistd.h>
+
+/* Cross-platform forward declaration */
+int strncasecmp(const char *s1, const char *s2, size_t n);
 
 /* ============================================================================
  * Constants
  * ============================================================================ */
 
 /** @brief Maximum number of compatibility entries */
-#define COMPAT_MAX_ENTRIES 256
+#define COMPAT_MAX_ENTRIES 2048
 
 /** @brief Maximum path length */
 #define COMPAT_PATH_MAX 1024
 
-/** @brief Default data directory relative to install prefix */
-#define COMPAT_DEFAULT_DATA_DIR "/usr/share/lush/data/compat"
+/** @brief XDG default for user data */
+#define XDG_DATA_HOME_DEFAULT ".local/share"
 
-/** @brief Local data directory (checked first) */
-#define COMPAT_LOCAL_DATA_DIR "./data/compat"
+/** @brief Subdirectory under data dirs for compat files */
+#define COMPAT_SUBDIR "lush/compat"
+
+/** @brief System data directory (XDG_DATA_DIRS default) */
+#define COMPAT_SYSTEM_DATA_DIR "/usr/share/lush/compat"
+
+/** @brief Local/alternate system data directory */
+#define COMPAT_LOCAL_SYSTEM_DIR "/usr/local/share/lush/compat"
 
 /* ============================================================================
  * Internal Structures
@@ -400,6 +411,46 @@ static int load_directory(const char *dir_path) {
  * Public API - Database Management
  * ============================================================================ */
 
+/**
+ * @brief Try to load compat data from a directory
+ * @return Number of files loaded, or 0 if directory doesn't exist
+ */
+static int try_load_from_dir(const char *dir) {
+    struct stat st;
+    if (stat(dir, &st) == 0 && S_ISDIR(st.st_mode)) {
+        int loaded = load_directory(dir);
+        if (loaded > 0) {
+            snprintf(g_compat.data_dir, sizeof(g_compat.data_dir), "%s", dir);
+            return loaded;
+        }
+    }
+    return 0;
+}
+
+/**
+ * @brief Get path to executable's directory
+ * @param buf Buffer to store path
+ * @param size Buffer size
+ * @return true if successful
+ */
+static bool get_exe_dir(char *buf, size_t size) {
+    char exe_path[COMPAT_PATH_MAX];
+    ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+    if (len <= 0) {
+        return false;
+    }
+    exe_path[len] = '\0';
+    
+    /* Find last slash and truncate to get directory */
+    char *last_slash = strrchr(exe_path, '/');
+    if (last_slash) {
+        *last_slash = '\0';
+        snprintf(buf, size, "%s", exe_path);
+        return true;
+    }
+    return false;
+}
+
 int compat_init(const char *data_dir) {
     if (g_compat.initialized) {
         return 0;
@@ -408,32 +459,88 @@ int compat_init(const char *data_dir) {
     memset(&g_compat, 0, sizeof(g_compat));
     g_compat.target_shell = SHELL_MODE_POSIX; /* Default target */
     
-    /* Determine data directory */
+    int total_loaded = 0;
+    char path_buf[COMPAT_PATH_MAX];
+    
+    /* If explicit path provided, use only that */
     if (data_dir && data_dir[0]) {
-        snprintf(g_compat.data_dir, sizeof(g_compat.data_dir), "%s", data_dir);
+        total_loaded = try_load_from_dir(data_dir);
+        goto finalize;
+    }
+    
+    /*
+     * XDG-compliant search order:
+     * 1. $XDG_DATA_HOME/lush/compat (user customizations)
+     * 2. $XDG_DATA_DIRS/lush/compat (each dir in colon-separated list)
+     * 3. /usr/local/share/lush/compat (local installations)
+     * 4. /usr/share/lush/compat (system packages)
+     * 5. Relative to executable (development builds)
+     * 6. ./data/compat (CWD fallback for development)
+     */
+    
+    /* 1. XDG_DATA_HOME (user data) */
+    const char *xdg_data_home = getenv("XDG_DATA_HOME");
+    if (xdg_data_home && xdg_data_home[0]) {
+        snprintf(path_buf, sizeof(path_buf), "%s/%s", xdg_data_home, COMPAT_SUBDIR);
+        total_loaded += try_load_from_dir(path_buf);
     } else {
-        /* Try local first, then system */
-        struct stat st;
-        if (stat(COMPAT_LOCAL_DATA_DIR, &st) == 0 && S_ISDIR(st.st_mode)) {
-            snprintf(g_compat.data_dir, sizeof(g_compat.data_dir), "%s",
-                     COMPAT_LOCAL_DATA_DIR);
-        } else {
-            snprintf(g_compat.data_dir, sizeof(g_compat.data_dir), "%s",
-                     COMPAT_DEFAULT_DATA_DIR);
+        /* Default: ~/.local/share/lush/compat */
+        const char *home = getenv("HOME");
+        if (home && home[0]) {
+            snprintf(path_buf, sizeof(path_buf), "%s/%s/%s", 
+                     home, XDG_DATA_HOME_DEFAULT, COMPAT_SUBDIR);
+            total_loaded += try_load_from_dir(path_buf);
         }
     }
     
-    /* Load all TOML files */
-    int loaded = load_directory(g_compat.data_dir);
+    /* 2. XDG_DATA_DIRS (system data directories) */
+    const char *xdg_data_dirs = getenv("XDG_DATA_DIRS");
+    if (xdg_data_dirs && xdg_data_dirs[0]) {
+        char *dirs_copy = strdup(xdg_data_dirs);
+        if (dirs_copy) {
+            char *saveptr;
+            char *dir = strtok_r(dirs_copy, ":", &saveptr);
+            while (dir) {
+                snprintf(path_buf, sizeof(path_buf), "%s/%s", dir, COMPAT_SUBDIR);
+                total_loaded += try_load_from_dir(path_buf);
+                dir = strtok_r(NULL, ":", &saveptr);
+            }
+            free(dirs_copy);
+        }
+    }
     
-    /* Compile regex patterns */
+    /* 3. /usr/local/share/lush/compat */
+    total_loaded += try_load_from_dir(COMPAT_LOCAL_SYSTEM_DIR);
+    
+    /* 4. /usr/share/lush/compat */
+    total_loaded += try_load_from_dir(COMPAT_SYSTEM_DATA_DIR);
+    
+    /* 5. Relative to executable: ../share/lush/compat or ../data/compat */
+    if (get_exe_dir(path_buf, sizeof(path_buf))) {
+        char exe_relative[COMPAT_PATH_MAX];
+        
+        /* Try ../share/lush/compat (installed layout) */
+        snprintf(exe_relative, sizeof(exe_relative), "%s/../share/%s", 
+                 path_buf, COMPAT_SUBDIR);
+        total_loaded += try_load_from_dir(exe_relative);
+        
+        /* Try ../data/compat (development layout) */
+        snprintf(exe_relative, sizeof(exe_relative), "%s/../data/compat", path_buf);
+        total_loaded += try_load_from_dir(exe_relative);
+    }
+    
+    /* 6. CWD fallback: ./data/compat */
+    total_loaded += try_load_from_dir("./data/compat");
+
+finalize:
+    /* Compile regex patterns for all loaded entries */
     for (size_t i = 0; i < g_compat.entry_count; i++) {
         compile_entry_regex(&g_compat.entries[i]);
     }
     
     g_compat.initialized = true;
     
-    return (loaded > 0) ? 0 : -1;
+    return (total_loaded > 0) ? 0 : -1;
 }
 
 void compat_cleanup(void) {
@@ -715,37 +822,100 @@ size_t compat_check_script(const char *script, shell_mode_t target,
 
 /**
  * @brief Map of node types to compatibility feature names
+ *
+ * This mapping connects AST node types to their corresponding features
+ * in the TOML compatibility database for accurate portability detection.
  */
 static const struct {
     node_type_t type;
     const char *feature;
     const char *description;
 } ast_feature_map[] = {
-    { NODE_EXTENDED_TEST,  "extended_test",        "[[ ]] extended test" },
-    { NODE_ARITH_CMD,      "arithmetic_command",   "(( )) arithmetic command" },
-    { NODE_FOR_ARITH,      "arithmetic_for",       "C-style for loop" },
-    { NODE_PROC_SUB_IN,    "process_substitution", "<() process substitution" },
-    { NODE_PROC_SUB_OUT,   "process_substitution", ">() process substitution" },
-    { NODE_ARRAY_LITERAL,  "arrays",               "array literal" },
-    { NODE_ARRAY_ACCESS,   "arrays",               "array access" },
-    { NODE_ARRAY_ASSIGN,   "arrays",               "array assignment" },
-    { NODE_ARRAY_APPEND,   "arrays",               "array append" },
+    /* Extended test and arithmetic */
+    { NODE_EXTENDED_TEST,      "extended_test",        "[[ ]] extended test" },
+    { NODE_ARITH_CMD,          "arithmetic_command",   "(( )) arithmetic command" },
+    { NODE_FOR_ARITH,          "arithmetic_for",       "C-style for loop" },
+
+    /* Process substitution */
+    { NODE_PROC_SUB_IN,        "process_substitution", "<() process substitution" },
+    { NODE_PROC_SUB_OUT,       "process_substitution", ">() process substitution" },
+
+    /* Arrays */
+    { NODE_ARRAY_LITERAL,      "arrays",               "array literal" },
+    { NODE_ARRAY_ACCESS,       "arrays",               "array access" },
+    { NODE_ARRAY_ASSIGN,       "arrays",               "array assignment" },
+    { NODE_ARRAY_APPEND,       "arrays",               "array append" },
+
+    /* Redirections (non-POSIX) */
+    { NODE_REDIR_HERESTRING,   "here_string",          "<<< here-string" },
+    { NODE_REDIR_BOTH,         "redirect_both",        "&> redirect both streams" },
+    { NODE_REDIR_BOTH_APPEND,  "redirect_append_both", "&>> append both streams" },
+    { NODE_REDIR_FD_ALLOC,     "redirect_fd",          "{var}> fd allocation" },
+
+    /* Control flow extensions */
+    { NODE_COPROC,             "coproc",               "coproc coprocess" },
+    { NODE_SELECT,             "select_loop",          "select loop" },
+    { NODE_TIME,               "time_keyword",         "time keyword" },
+
+    /* Functions */
+    { NODE_ANON_FUNCTION,      "anonymous_function",   "anonymous function" },
 };
 
 #define AST_FEATURE_MAP_SIZE (sizeof(ast_feature_map) / sizeof(ast_feature_map[0]))
 
 /**
- * @brief Check if a shell supports a feature
+ * @brief Check if a shell supports a feature by querying the TOML database
+ *
+ * Looks up the feature in the compatibility database and checks the behavior
+ * description for the target shell. A feature is considered unsupported if
+ * the behavior string starts with "Not" or "No " (e.g., "Not in POSIX").
+ *
+ * Note: Behavior strings are ASCII-only (hardcoded English), so simple
+ * strncasecmp is appropriate here rather than Unicode comparison.
  */
 static bool shell_supports_feature(shell_mode_t shell, const char *feature) {
-    (void)feature;  /* Currently all high-value features have same support */
-    
-    /* POSIX sh doesn't support any of the high-value features we detect */
-    if (shell == SHELL_MODE_POSIX) {
-        return false;  /* None of [[ ]], (( )), <(), arrays are POSIX */
+    if (!feature) {
+        return true;  /* Unknown feature, assume supported */
     }
-    
-    /* Bash, Zsh, and Lush support all these features */
+
+    /* Look up feature in the TOML database */
+    const compat_entry_t *entry = compat_get_first_by_feature(feature);
+    if (!entry) {
+        /* No TOML entry - fall back to basic heuristics */
+        /* POSIX generally doesn't support the extended features we detect */
+        return (shell != SHELL_MODE_POSIX);
+    }
+
+    /* Get the behavior string for the target shell */
+    const char *behavior = NULL;
+    switch (shell) {
+        case SHELL_MODE_POSIX:
+            behavior = entry->behavior.posix;
+            break;
+        case SHELL_MODE_BASH:
+            behavior = entry->behavior.bash;
+            break;
+        case SHELL_MODE_ZSH:
+            behavior = entry->behavior.zsh;
+            break;
+        case SHELL_MODE_LUSH:
+            behavior = entry->behavior.lush;
+            break;
+        default:
+            return true;  /* Unknown shell mode, assume supported */
+    }
+
+    if (!behavior) {
+        return true;  /* No behavior defined, assume supported */
+    }
+
+    /* Check if behavior indicates lack of support (ASCII-only comparison) */
+    /* Common patterns: "Not in POSIX", "Not supported", "No built-in" */
+    if (strncasecmp(behavior, "Not ", 4) == 0 ||
+        strncasecmp(behavior, "No ", 3) == 0) {
+        return false;
+    }
+
     return true;
 }
 

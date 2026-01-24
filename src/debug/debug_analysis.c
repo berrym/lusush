@@ -406,18 +406,36 @@ static void debug_analyze_portability(debug_context_t *ctx, const char *file,
 
         // Skip entries that are covered by AST-based checking to avoid duplicates
         // AST covers: extended_test, arithmetic_command, arithmetic_for,
-        // process_substitution, arrays
+        // process_substitution, arrays, here_string, redirect_both,
+        // redirect_append_both, redirect_fd, coproc, select_loop,
+        // time_keyword, anonymous_function
         if (entry->feature) {
-            if (lle_unicode_strings_equal(entry->feature, "extended_test",
-                                          &LLE_UNICODE_COMPARE_DEFAULT) ||
-                lle_unicode_strings_equal(entry->feature, "arithmetic_command",
-                                          &LLE_UNICODE_COMPARE_DEFAULT) ||
-                lle_unicode_strings_equal(entry->feature, "arithmetic_for",
-                                          &LLE_UNICODE_COMPARE_DEFAULT) ||
-                lle_unicode_strings_equal(entry->feature, "process_substitution",
-                                          &LLE_UNICODE_COMPARE_DEFAULT) ||
-                lle_unicode_strings_equal(entry->feature, "arrays",
-                                          &LLE_UNICODE_COMPARE_DEFAULT)) {
+            static const char *ast_covered_features[] = {
+                "extended_test",
+                "arithmetic_command",
+                "arithmetic_for",
+                "process_substitution",
+                "arrays",
+                "here_string",
+                "redirect_both",
+                "redirect_append_both",
+                "redirect_fd",
+                "coproc",
+                "select_loop",
+                "time_keyword",
+                "anonymous_function",
+                NULL
+            };
+
+            bool skip = false;
+            for (const char **feat = ast_covered_features; *feat; feat++) {
+                if (lle_unicode_strings_equal(entry->feature, *feat,
+                                              &LLE_UNICODE_COMPARE_DEFAULT)) {
+                    skip = true;
+                    break;
+                }
+            }
+            if (skip) {
                 continue;  // Already handled by AST analysis
             }
         }
