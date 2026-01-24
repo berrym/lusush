@@ -1,6 +1,6 @@
 # Lush
 
-**An interactive shell under active development.**
+**A Unix shell with developer-first design.**
 
 [![CI](https://github.com/berrym/lush/actions/workflows/ci.yml/badge.svg)](https://github.com/berrym/lush/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/berrym/lush/graph/badge.svg)](https://codecov.io/gh/berrym/lush)
@@ -12,9 +12,7 @@
 
 ## What is Lush?
 
-Lush is a Unix shell built from scratch in C11. It combines POSIX compliance with extended features from Bash and Zsh, and introduces capabilities not found in other shells - most notably an integrated debugger for shell scripts.
-
-The project draws heavy inspiration from Zsh and Fish, both of which proved that shells can have sophisticated line editing without relying on GNU Readline. Lush's line editor, **LLE**, follows in their footsteps with its own implementation featuring syntax highlighting and context-aware completions.
+Lush is a Unix shell built entirely from scratch. It combines POSIX compliance with carefully chosen extensions from Bash and Zsh, plus capabilities found nowhere else—most notably an integrated debugger for shell scripts. The native line editor (LLE) provides syntax highlighting and context-aware completions without relying on GNU Readline or any external library. Lush is a single binary with zero runtime dependencies.
 
 **Current status:** Under heavy development. Not yet suitable for daily use or production environments. Many features work well; others remain incomplete.
 
