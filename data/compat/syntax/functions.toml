@@ -1,0 +1,131 @@
+# Function syntax compatibility differences
+
+[function_keyword]
+category = "syntax"
+feature = "functions"
+description = "function keyword syntax: function name { }"
+
+[function_keyword.behavior]
+posix = "Not specified; use name() { } syntax"
+bash = "Supported: function name { } and function name() { }"
+zsh = "Supported: function name { } and function name() { }"
+lush = "Supported: function name { } and function name() { }"
+
+[function_keyword.lint]
+severity = "warning"
+message = "function keyword is not portable to POSIX sh"
+suggestion = "Use name() { } syntax for POSIX compatibility"
+pattern = "^\\s*function\\s+[a-zA-Z_][a-zA-Z0-9_]*"
+
+[function_parens]
+category = "syntax"
+feature = "functions"
+description = "POSIX function syntax: name() { }"
+
+[function_parens.behavior]
+posix = "Standard syntax: name() { commands; }"
+bash = "Supported: name() { } or name() (subshell body)"
+zsh = "Supported: name() { } or name() (subshell body)"
+lush = "Supported: name() { } or name() (subshell body)"
+
+[function_parens.lint]
+severity = "info"
+message = "name() { } is the portable POSIX function syntax"
+
+[local_variables]
+category = "syntax"
+feature = "functions"
+description = "local builtin for local variables"
+
+[local_variables.behavior]
+posix = "Not specified; variables are global"
+bash = "Supported: local var=value in functions"
+zsh = "Supported: local var=value in functions"
+lush = "Supported: local var=value in functions"
+
+[local_variables.lint]
+severity = "warning"
+message = "local builtin is not portable to POSIX sh"
+suggestion = "Use subshells or careful variable management"
+pattern = "^\\s*local\\s+"
+
+[typeset_local]
+category = "syntax"
+feature = "functions"
+description = "typeset for local variables (ksh/zsh style)"
+
+[typeset_local.behavior]
+posix = "Not specified"
+bash = "typeset is alias for declare; -l flag for local in functions"
+zsh = "typeset creates local variables in functions by default"
+lush = "typeset is alias for declare; works in functions"
+
+[typeset_local.lint]
+severity = "info"
+message = "typeset scoping varies between bash and zsh"
+suggestion = "Use local explicitly for clarity"
+
+[nameref]
+category = "syntax"
+feature = "nameref"
+description = "local -n for name references"
+
+[nameref.behavior]
+posix = "Not specified"
+bash = "Supported: local -n ref=varname or declare -n"
+zsh = "Different approach: use ${(P)varname} for indirect"
+lush = "Supported: local -n ref=varname (bash-style)"
+
+[nameref.lint]
+severity = "warning"
+message = "Name references (local -n) are not portable"
+suggestion = "Use eval for indirect variable access in POSIX"
+pattern = "(local|declare)\\s+-n\\s+"
+
+[anonymous_functions]
+category = "syntax"
+feature = "anonymous_functions"
+description = "Anonymous functions () { }"
+
+[anonymous_functions.behavior]
+posix = "Not specified"
+bash = "Not supported directly; use subshells"
+zsh = "Supported: () { body } executes immediately"
+lush = "Supported: () { body } zsh-style anonymous functions"
+
+[anonymous_functions.lint]
+severity = "warning"
+message = "Anonymous functions are zsh-specific"
+suggestion = "Define named function or use subshell"
+pattern = "^\\s*\\(\\)\\s*\\{"
+
+[return_anywhere]
+category = "syntax"
+feature = "return_anywhere"
+description = "return from sourced scripts"
+
+[return_anywhere.behavior]
+posix = "return only valid in functions"
+bash = "return valid in functions and sourced scripts"
+zsh = "return valid in functions and sourced scripts"
+lush = "return valid in functions and sourced scripts"
+
+[return_anywhere.lint]
+severity = "info"
+message = "return in sourced scripts is not strictly POSIX"
+
+[function_recursion_limit]
+category = "syntax"
+feature = "functions"
+description = "Recursion limits in functions"
+
+[function_recursion_limit.behavior]
+posix = "Implementation-defined"
+bash = "FUNCNEST variable limits recursion depth"
+zsh = "No built-in limit; relies on stack size"
+lush = "Configurable recursion limit"
+
+[function_recursion_limit.lint]
+severity = "info"
+message = "Deep recursion handling varies by shell"
+suggestion = "Set FUNCNEST in bash for safety"

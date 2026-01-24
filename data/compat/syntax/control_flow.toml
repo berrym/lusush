@@ -1,0 +1,152 @@
+# Control flow compatibility differences
+
+[case_fallthrough_single]
+category = "syntax"
+feature = "case_fallthrough"
+description = ";& case fallthrough (continue to next pattern)"
+
+[case_fallthrough_single.behavior]
+posix = "Not specified; only ;; is standard"
+bash = "Supported: ;& continues to next clause without testing"
+zsh = "Supported: ;& continues to next clause without testing"
+lush = "Supported: ;& continues to next clause without testing"
+
+[case_fallthrough_single.lint]
+severity = "warning"
+message = ";& case fallthrough is not portable to POSIX sh"
+suggestion = "Restructure case statement or use nested if"
+pattern = ";\\s*&\\s*$"
+
+[case_fallthrough_test]
+category = "syntax"
+feature = "case_fallthrough"
+description = ";;& case fallthrough with pattern testing"
+
+[case_fallthrough_test.behavior]
+posix = "Not specified"
+bash = "Supported: ;;& continues and tests next pattern"
+zsh = "Supported: ;;& continues and tests next pattern"
+lush = "Supported: ;;& continues and tests next pattern"
+
+[case_fallthrough_test.lint]
+severity = "warning"
+message = ";;& case fallthrough with testing is not portable to POSIX sh"
+suggestion = "Use multiple patterns or restructure logic"
+pattern = ";;\\s*&\\s*$"
+
+[select_loop]
+category = "syntax"
+feature = "select_loop"
+description = "select name in list; do ...; done menu loop"
+
+[select_loop.behavior]
+posix = "Not specified; not available in POSIX sh"
+bash = "Supported: creates numbered menu, sets REPLY"
+zsh = "Supported: creates numbered menu, sets REPLY"
+lush = "Supported: creates numbered menu, sets REPLY"
+
+[select_loop.lint]
+severity = "warning"
+message = "select loop is not portable to POSIX sh"
+suggestion = "Implement menu with while loop and read"
+pattern = "select\\s+[a-zA-Z_][a-zA-Z0-9_]*\\s+in"
+
+[time_keyword]
+category = "syntax"
+feature = "time_keyword"
+description = "time keyword for timing commands"
+
+[time_keyword.behavior]
+posix = "Not a shell keyword; may be external command"
+bash = "Built-in keyword with TIMEFORMAT variable"
+zsh = "Built-in keyword with TIMEFMT variable"
+lush = "Built-in keyword with TIMEFORMAT variable"
+
+[time_keyword.lint]
+severity = "info"
+message = "time as keyword vs external command varies by shell"
+suggestion = "External /usr/bin/time is more portable"
+pattern = "^\\s*time\\s+"
+
+[time_pipeline]
+category = "syntax"
+feature = "time_keyword"
+description = "time on pipelines: time cmd1 | cmd2"
+
+[time_pipeline.behavior]
+posix = "External time only times first command"
+bash = "Built-in time times entire pipeline"
+zsh = "Built-in time times entire pipeline"
+lush = "Built-in time times entire pipeline"
+
+[time_pipeline.lint]
+severity = "info"
+message = "Pipeline timing behavior differs between builtin and external time"
+
+[coproc]
+category = "syntax"
+feature = "coproc"
+description = "coproc for bidirectional communication"
+
+[coproc.behavior]
+posix = "Not specified; not available in POSIX sh"
+bash = "Supported: coproc [NAME] command"
+zsh = "Supported: coproc command; different syntax"
+lush = "Supported: coproc [NAME] command (bash-style)"
+
+[coproc.lint]
+severity = "warning"
+message = "coproc is not portable to POSIX sh"
+suggestion = "Use named pipes (mkfifo) for IPC"
+pattern = "^\\s*coproc\\s+"
+
+[arithmetic_for]
+category = "syntax"
+feature = "arith_command"
+description = "C-style for loop: for ((i=0; i<n; i++))"
+
+[arithmetic_for.behavior]
+posix = "Not specified; not available in POSIX sh"
+bash = "Supported: for (( expr1; expr2; expr3 ))"
+zsh = "Supported: for (( expr1; expr2; expr3 ))"
+lush = "Supported: for (( expr1; expr2; expr3 ))"
+
+[arithmetic_for.lint]
+severity = "warning"
+message = "C-style for loop is not portable to POSIX sh"
+suggestion = "Use: i=0; while [ $i -lt $n ]; do ...; i=$((i+1)); done"
+pattern = "for\\s*\\(\\("
+
+[arithmetic_command]
+category = "syntax"
+feature = "arith_command"
+description = "(( expression )) arithmetic evaluation"
+
+[arithmetic_command.behavior]
+posix = "Not specified; use $(( )) for expansion only"
+bash = "Supported: (( )) as command, returns success if non-zero"
+zsh = "Supported: (( )) as command, returns success if non-zero"
+lush = "Supported: (( )) as command, returns success if non-zero"
+
+[arithmetic_command.lint]
+severity = "warning"
+message = "(( )) as command is not portable to POSIX sh"
+suggestion = "Use [ $(( expr )) -ne 0 ] or test with arithmetic expansion"
+pattern = "^\\s*\\(\\([^)]+\\)\\)"
+
+[let_builtin]
+category = "syntax"
+feature = "let_builtin"
+description = "let builtin for arithmetic"
+
+[let_builtin.behavior]
+posix = "Not specified; not available in POSIX sh"
+bash = "Supported: let expr or let 'expr'"
+zsh = "Supported: let expr or let 'expr'"
+lush = "Supported: let expr or let 'expr'"
+
+[let_builtin.lint]
+severity = "warning"
+message = "let builtin is not portable to POSIX sh"
+suggestion = "Use : $(( var = expr )) for portable arithmetic assignment"
+pattern = "^\\s*let\\s+"

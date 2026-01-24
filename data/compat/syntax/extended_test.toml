@@ -1,0 +1,102 @@
+# Extended test [[ ]] syntax compatibility differences
+
+[extended_test_syntax]
+category = "syntax"
+feature = "extended_test"
+description = "[[ ]] extended test command"
+
+[extended_test_syntax.behavior]
+posix = "Not specified; use [ ] or test command"
+bash = "Supported: [[ ]] with pattern matching and no word splitting"
+zsh = "Supported: [[ ]] with similar semantics to bash"
+lush = "Supported: [[ ]] with bash/zsh compatible semantics"
+
+[extended_test_syntax.lint]
+severity = "warning"
+message = "[[ ]] extended test is not portable to POSIX sh"
+suggestion = "Use [ ] or test for POSIX compatibility"
+pattern = "\\[\\[\\s+.*\\s+\\]\\]"
+
+[extended_test_regex]
+category = "syntax"
+feature = "extended_test"
+description = "Regex matching with =~ operator"
+
+[extended_test_regex.behavior]
+posix = "Not available"
+bash = "Supported: [[ string =~ regex ]] with BASH_REMATCH"
+zsh = "Supported: [[ string =~ regex ]] with match/MATCH"
+lush = "Supported: [[ string =~ regex ]] with BASH_REMATCH"
+
+[extended_test_regex.lint]
+severity = "warning"
+message = "Regex matching =~ is not portable to POSIX sh"
+suggestion = "Use grep or expr for portable regex matching"
+pattern = "\\[\\[.*=~.*\\]\\]"
+
+[extended_test_pattern]
+category = "syntax"
+feature = "extended_test"
+description = "Pattern matching with == in [[ ]]"
+
+[extended_test_pattern.behavior]
+posix = "Not available"
+bash = "Supported: [[ string == pattern ]] performs glob matching"
+zsh = "Supported: [[ string == pattern ]] performs glob matching"
+lush = "Supported: [[ string == pattern ]] performs glob matching"
+
+[extended_test_pattern.lint]
+severity = "info"
+message = "Pattern matching in [[ ]] differs from string comparison in [ ]"
+suggestion = "Use case statement for portable pattern matching"
+pattern = "\\[\\[.*==.*\\]\\]"
+
+[extended_test_no_word_split]
+category = "syntax"
+feature = "extended_test"
+description = "No word splitting or glob expansion in [[ ]]"
+
+[extended_test_no_word_split.behavior]
+posix = "Not applicable; [ ] performs word splitting"
+bash = "Variables in [[ ]] are not subject to word splitting"
+zsh = "Variables in [[ ]] are not subject to word splitting"
+lush = "Variables in [[ ]] are not subject to word splitting"
+
+[extended_test_no_word_split.lint]
+severity = "info"
+message = "[[ ]] does not perform word splitting on variables"
+suggestion = "Quote variables in [ ] but not required in [[ ]]"
+
+[extended_test_logical_ops]
+category = "syntax"
+feature = "extended_test"
+description = "Logical operators && and || in [[ ]]"
+
+[extended_test_logical_ops.behavior]
+posix = "Not available; use -a and -o in [ ]"
+bash = "Supported: [[ a && b ]] and [[ a || b ]]"
+zsh = "Supported: [[ a && b ]] and [[ a || b ]]"
+lush = "Supported: [[ a && b ]] and [[ a || b ]]"
+
+[extended_test_logical_ops.lint]
+severity = "warning"
+message = "&& and || inside [[ ]] are not portable to POSIX sh"
+suggestion = "Use [ cond1 ] && [ cond2 ] for POSIX compatibility"
+pattern = "\\[\\[.*(&&|\\|\\|).*\\]\\]"
+
+[extended_test_string_compare]
+category = "syntax"
+feature = "extended_test"
+description = "String comparison operators < and > in [[ ]]"
+
+[extended_test_string_compare.behavior]
+posix = "Not directly available; requires escaping in [ ]"
+bash = "Supported: [[ a < b ]] for lexicographic comparison"
+zsh = "Supported: [[ a < b ]] for lexicographic comparison"
+lush = "Supported: [[ a < b ]] for lexicographic comparison"
+
+[extended_test_string_compare.lint]
+severity = "warning"
+message = "String comparison < > in [[ ]] not portable to POSIX sh"
+suggestion = "Use [ \"$a\" \\< \"$b\" ] or expr for POSIX compatibility"
+pattern = "\\[\\[.*[^=!<>][<>][^=].*\\]\\]"

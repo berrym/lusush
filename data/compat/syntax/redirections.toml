@@ -1,0 +1,132 @@
+# Redirection syntax compatibility differences
+
+[pipe_stderr]
+category = "syntax"
+feature = "pipe_stderr"
+description = "|& pipe both stdout and stderr"
+
+[pipe_stderr.behavior]
+posix = "Not specified; use 2>&1 |"
+bash = "Supported: cmd1 |& cmd2 pipes both streams"
+zsh = "Supported: cmd1 |& cmd2 pipes both streams"
+lush = "Supported: cmd1 |& cmd2 pipes both streams"
+
+[pipe_stderr.lint]
+severity = "warning"
+message = "|& is not portable to POSIX sh"
+suggestion = "Use: cmd1 2>&1 | cmd2"
+pattern = "\\|&"
+
+[append_both]
+category = "syntax"
+feature = "append_both"
+description = "&>> append both stdout and stderr"
+
+[append_both.behavior]
+posix = "Not specified; use >> file 2>&1"
+bash = "Supported: cmd &>> file appends both streams"
+zsh = "Supported: cmd &>> file appends both streams"
+lush = "Supported: cmd &>> file appends both streams"
+
+[append_both.lint]
+severity = "warning"
+message = "&>> is not portable to POSIX sh"
+suggestion = "Use: cmd >> file 2>&1"
+pattern = "&>>"
+
+[redirect_both]
+category = "syntax"
+feature = "append_both"
+description = "&> redirect both stdout and stderr"
+
+[redirect_both.behavior]
+posix = "Not specified; use > file 2>&1"
+bash = "Supported: cmd &> file redirects both streams"
+zsh = "Supported: cmd &> file redirects both streams"
+lush = "Supported: cmd &> file redirects both streams"
+
+[redirect_both.lint]
+severity = "warning"
+message = "&> is not portable to POSIX sh"
+suggestion = "Use: cmd > file 2>&1"
+pattern = "&>"
+
+[here_string]
+category = "syntax"
+feature = "here_string"
+description = "<<< here-string redirection"
+
+[here_string.behavior]
+posix = "Not specified; use echo | or here-document"
+bash = "Supported: cmd <<< 'string'"
+zsh = "Supported: cmd <<< 'string'"
+lush = "Supported: cmd <<< 'string'"
+
+[here_string.lint]
+severity = "warning"
+message = "Here-string <<< is not portable to POSIX sh"
+suggestion = "Use: echo 'string' | cmd or here-document"
+pattern = "<<<"
+
+[fd_copy]
+category = "syntax"
+feature = "redirections"
+description = "File descriptor copying n>&m and n<&m"
+
+[fd_copy.behavior]
+posix = "Specified: n>&m copies fd m to fd n"
+bash = "Supported: standard POSIX behavior"
+zsh = "Supported: standard POSIX behavior"
+lush = "Supported: standard POSIX behavior"
+
+[fd_copy.lint]
+severity = "info"
+message = "File descriptor copying is POSIX-compliant"
+
+[fd_move]
+category = "syntax"
+feature = "redirections"
+description = "File descriptor moving n>&m- and n<&m-"
+
+[fd_move.behavior]
+posix = "Not specified"
+bash = "Supported: n>&m- copies then closes m"
+zsh = "Supported: n>&m- copies then closes m"
+lush = "Supported: n>&m- copies then closes m"
+
+[fd_move.lint]
+severity = "warning"
+message = "File descriptor move (n>&m-) is not portable to POSIX sh"
+suggestion = "Use: exec n>&m m>&-"
+pattern = "[0-9]+>&[0-9]+-"
+
+[noclobber_override]
+category = "syntax"
+feature = "redirections"
+description = ">| force overwrite with noclobber"
+
+[noclobber_override.behavior]
+posix = "Specified: >| overrides noclobber option"
+bash = "Supported: >| forces overwrite"
+zsh = "Supported: >| forces overwrite"
+lush = "Supported: >| forces overwrite"
+
+[noclobber_override.lint]
+severity = "info"
+message = ">| to override noclobber is POSIX-compliant"
+
+[multios]
+category = "syntax"
+feature = "redirections"
+description = "Multiple redirections to same fd (zsh multios)"
+
+[multios.behavior]
+posix = "Last redirection wins"
+bash = "Last redirection wins"
+zsh = "With MULTIOS: output goes to all targets (tee-like)"
+lush = "Last redirection wins (POSIX behavior)"
+
+[multios.lint]
+severity = "info"
+message = "zsh MULTIOS creates implicit tee; other shells use last redirection"
+suggestion = "Use explicit tee for portable multi-output"

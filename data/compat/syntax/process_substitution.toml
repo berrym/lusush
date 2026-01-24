@@ -1,0 +1,68 @@
+# Process substitution compatibility differences
+
+[process_substitution_input]
+category = "syntax"
+feature = "process_substitution"
+description = "Process substitution for input <(command)"
+
+[process_substitution_input.behavior]
+posix = "Not specified; not available in POSIX sh"
+bash = "Supported: <(cmd) creates /dev/fd/N or named pipe"
+zsh = "Supported: <(cmd) creates /dev/fd/N or named pipe"
+lush = "Supported: <(cmd) creates /dev/fd/N or named pipe"
+
+[process_substitution_input.lint]
+severity = "warning"
+message = "Process substitution <() is not portable to POSIX sh"
+suggestion = "Use named pipes (mkfifo) or temporary files"
+pattern = "<\\([^)]+\\)"
+
+[process_substitution_output]
+category = "syntax"
+feature = "process_substitution"
+description = "Process substitution for output >(command)"
+
+[process_substitution_output.behavior]
+posix = "Not specified; not available in POSIX sh"
+bash = "Supported: >(cmd) writes to command's stdin"
+zsh = "Supported: >(cmd) writes to command's stdin"
+lush = "Supported: >(cmd) writes to command's stdin"
+
+[process_substitution_output.lint]
+severity = "warning"
+message = "Process substitution >() is not portable to POSIX sh"
+suggestion = "Use pipes or temporary files"
+pattern = ">\\([^)]+\\)"
+
+[process_substitution_diff]
+category = "syntax"
+feature = "process_substitution"
+description = "Using process substitution with diff"
+
+[process_substitution_diff.behavior]
+posix = "Not available; must use temporary files"
+bash = "Common idiom: diff <(cmd1) <(cmd2)"
+zsh = "Common idiom: diff <(cmd1) <(cmd2)"
+lush = "Common idiom: diff <(cmd1) <(cmd2)"
+
+[process_substitution_diff.lint]
+severity = "info"
+message = "Process substitution with diff is a common non-POSIX pattern"
+suggestion = "For POSIX: save output to temp files, diff, clean up"
+
+[process_substitution_while_read]
+category = "syntax"
+feature = "process_substitution"
+description = "Using process substitution with while read"
+
+[process_substitution_while_read.behavior]
+posix = "Use: cmd | while read; loses variable scope"
+bash = "while read line; do ...; done < <(cmd) preserves scope"
+zsh = "while read line; do ...; done < <(cmd) preserves scope"
+lush = "while read line; do ...; done < <(cmd) preserves scope"
+
+[process_substitution_while_read.lint]
+severity = "info"
+message = "Process substitution with while-read avoids subshell variable scope issues"
+suggestion = "POSIX alternative: use here-string or temp file"
+pattern = "while.*<\\s*<\\("
