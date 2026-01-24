@@ -59,7 +59,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: build/coverage.info
           flags: unittests
-          name: codecov-lusush
+          name: codecov-lush
           fail_ci_if_error: false
           verbose: true
 
@@ -116,9 +116,9 @@ jobs:
 
           # Pipes and redirections
           echo pipe | cat
-          echo redirect > /tmp/lusush_test_redirect.txt
-          cat /tmp/lusush_test_redirect.txt
-          rm -f /tmp/lusush_test_redirect.txt
+          echo redirect > /tmp/lush_test_redirect.txt
+          cat /tmp/lush_test_redirect.txt
+          rm -f /tmp/lush_test_redirect.txt
 
           # Parameter expansion
           str="hello world"
@@ -144,7 +144,7 @@ jobs:
             --error-exitcode=1 \
             --track-origins=yes \
             --log-file=valgrind-report.txt \
-            ./build/lusush /tmp/memcheck_tests.sh
+            ./build/lush /tmp/memcheck_tests.sh
 
           VALGRIND_EXIT=$?
 
@@ -215,7 +215,7 @@ jobs:
           export MallocStackLogging=1
 
           # Run the shell and capture its PID
-          ./build/lusush /tmp/memcheck_tests.sh &
+          ./build/lush /tmp/memcheck_tests.sh &
           SHELL_PID=$!
 
           # Wait for it to finish
@@ -225,7 +225,7 @@ jobs:
           # Note: leaks tool works best on running processes
           # For exited processes, we use a different approach
           # Run again with leaks wrapper
-          leaks --atExit -- ./build/lusush /tmp/memcheck_tests.sh > leaks-report.txt 2>&1 || true
+          leaks --atExit -- ./build/lush /tmp/memcheck_tests.sh > leaks-report.txt 2>&1 || true
 
           echo "=== Leaks Report ==="
           cat leaks-report.txt
