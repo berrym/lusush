@@ -1,0 +1,70 @@
+# Command builtin compatibility
+# Execute command bypassing functions
+
+[command_basic]
+category = "builtins"
+feature = "command"
+description = "Execute command, bypassing shell functions"
+
+[command_basic.behavior]
+posix = "POSIX defined - command [-pVv] command [args]"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[command_basic.lint]
+severity = "info"
+message = "command builtin usage"
+suggestion = "Useful to bypass function with same name"
+pattern = "\\bcommand\\s+[^-]"
+
+[command_p]
+category = "builtins"
+feature = "command_default_path"
+description = "Use default PATH (command -p)"
+
+[command_p.behavior]
+posix = "POSIX defined - use default PATH for utilities"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[command_p.lint]
+severity = "info"
+message = "command -p is portable"
+suggestion = "Uses default PATH to find standard utilities"
+pattern = "\\bcommand\\s+-p\\b"
+
+[command_v]
+category = "builtins"
+feature = "command_verbose"
+description = "Print command path (command -v)"
+
+[command_v.behavior]
+posix = "POSIX defined - print pathname or alias"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[command_v.lint]
+severity = "info"
+message = "command -v is portable"
+suggestion = "Preferred over which for portability"
+pattern = "\\bcommand\\s+-v\\b"
+
+[command_V]
+category = "builtins"
+feature = "command_verbose_desc"
+description = "Verbose description (command -V)"
+
+[command_V.behavior]
+posix = "POSIX defined - verbose description of command"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[command_V.lint]
+severity = "info"
+message = "command -V is portable"
+suggestion = "More verbose than -v, describes command type"
+pattern = "\\bcommand\\s+-V\\b"

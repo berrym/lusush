@@ -1,0 +1,121 @@
+# Trap builtin compatibility
+# Signal handling and cleanup
+
+[trap_basic]
+category = "builtins"
+feature = "trap"
+description = "Trap signals and execute commands"
+
+[trap_basic.behavior]
+posix = "trap action signal... - POSIX defined signals only"
+bash = "Full signal support including DEBUG, ERR, RETURN, EXIT"
+zsh = "Similar to bash with zusers, ZERR instead of ERR"
+lush = "Full bash-compatible signal support"
+
+[trap_basic.lint]
+severity = "info"
+message = "trap builtin usage"
+suggestion = "Use POSIX signal names for portability"
+pattern = "\\btrap\\s+"
+
+[trap_debug]
+category = "builtins"
+feature = "trap_debug"
+description = "DEBUG trap - execute before each command"
+
+[trap_debug.behavior]
+posix = "Not defined in POSIX"
+bash = "Executes before each simple command, for, case, select, arithmetic for"
+zsh = "Similar but slightly different execution points"
+lush = "Bash-compatible DEBUG trap"
+
+[trap_debug.lint]
+severity = "warning"
+message = "DEBUG trap is not portable"
+suggestion = "DEBUG trap is bash/zsh specific, not available in POSIX sh"
+pattern = "\\btrap\\s+[^;]+\\s+DEBUG\\b"
+
+[trap_err]
+category = "builtins"
+feature = "trap_err"
+description = "ERR trap - execute on command failure"
+
+[trap_err.behavior]
+posix = "Not defined in POSIX"
+bash = "Executes when command exits with non-zero status"
+zsh = "Uses ZERR instead of ERR"
+lush = "Supports both ERR and ZERR for compatibility"
+
+[trap_err.lint]
+severity = "warning"
+message = "ERR trap is not portable"
+suggestion = "Use explicit error checking for POSIX compatibility; zsh uses ZERR"
+pattern = "\\btrap\\s+[^;]+\\s+ERR\\b"
+
+[trap_return]
+category = "builtins"
+feature = "trap_return"
+description = "RETURN trap - execute on function/sourced script return"
+
+[trap_return.behavior]
+posix = "Not defined in POSIX"
+bash = "Executes when function or sourced script returns"
+zsh = "Similar behavior"
+lush = "Bash-compatible RETURN trap"
+
+[trap_return.lint]
+severity = "warning"
+message = "RETURN trap is not portable"
+suggestion = "RETURN trap is bash/zsh specific"
+pattern = "\\btrap\\s+[^;]+\\s+RETURN\\b"
+
+[trap_exit]
+category = "builtins"
+feature = "trap_exit"
+description = "EXIT trap - execute on shell exit"
+
+[trap_exit.behavior]
+posix = "POSIX defined - executes on shell exit"
+bash = "Also EXIT or 0"
+zsh = "Also EXIT or SIGEXIT"
+lush = "POSIX compliant EXIT trap"
+
+[trap_exit.lint]
+severity = "info"
+message = "EXIT trap is portable"
+suggestion = "EXIT trap is POSIX compliant"
+pattern = "\\btrap\\s+[^;]+\\s+(EXIT|0)\\b"
+
+[trap_signal_names]
+category = "builtins"
+feature = "trap_signal_names"
+description = "Signal name formats (SIG prefix, numbers)"
+
+[trap_signal_names.behavior]
+posix = "Signal numbers or names without SIG prefix"
+bash = "Accepts SIGNAME, NAME, or number"
+zsh = "Same as bash"
+lush = "Accepts all formats for compatibility"
+
+[trap_signal_names.lint]
+severity = "info"
+message = "Signal naming"
+suggestion = "Use names without SIG prefix for widest compatibility"
+pattern = "\\btrap\\s+[^;]+\\s+SIG[A-Z]+"
+
+[trap_list]
+category = "builtins"
+feature = "trap_list"
+description = "List current traps with trap -p"
+
+[trap_list.behavior]
+posix = "trap with no arguments lists traps"
+bash = "trap -p [signal] to list specific or all traps"
+zsh = "trap -p similar to bash"
+lush = "Supports -p option"
+
+[trap_list.lint]
+severity = "info"
+message = "trap -p usage"
+suggestion = "trap without arguments is more portable than trap -p"
+pattern = "\\btrap\\s+-p\\b"

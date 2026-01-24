@@ -1,0 +1,53 @@
+# Times builtin compatibility
+# Shell resource usage
+
+[times_basic]
+category = "builtins"
+feature = "times"
+description = "Print shell and child process times"
+
+[times_basic.behavior]
+posix = "POSIX defined - print user and system times"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[times_basic.lint]
+severity = "info"
+message = "times is portable"
+suggestion = "POSIX compliant"
+pattern = "\\btimes\\b"
+
+[time_keyword]
+category = "builtins"
+feature = "time"
+description = "Time command execution"
+
+[time_keyword.behavior]
+posix = "time is an external command in POSIX"
+bash = "Reserved word with TIMEFORMAT variable"
+zsh = "Reserved word with extended options"
+lush = "Bash-compatible time keyword"
+
+[time_keyword.lint]
+severity = "info"
+message = "time behavior varies"
+suggestion = "bash/zsh have time as keyword; POSIX has external command"
+pattern = "\\btime\\s+"
+
+[time_p]
+category = "builtins"
+feature = "time_posix"
+description = "POSIX format (time -p)"
+
+[time_p.behavior]
+posix = "External command option"
+bash = "Print in POSIX format"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[time_p.lint]
+severity = "info"
+message = "time -p is widely supported"
+suggestion = "POSIX format output"
+pattern = "\\btime\\s+-p\\b"

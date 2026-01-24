@@ -1,0 +1,104 @@
+# Getopts builtin compatibility
+# Option parsing
+
+[getopts_basic]
+category = "builtins"
+feature = "getopts"
+description = "Parse command options"
+
+[getopts_basic.behavior]
+posix = "POSIX defined - getopts optstring name [args]"
+bash = "Same as POSIX"
+zsh = "Same as POSIX with zparseopts alternative"
+lush = "POSIX compliant"
+
+[getopts_basic.lint]
+severity = "info"
+message = "getopts is portable"
+suggestion = "POSIX compliant"
+pattern = "\\bgetopts\\s+"
+
+[getopts_optarg]
+category = "builtins"
+feature = "getopts_optarg"
+description = "OPTARG variable"
+
+[getopts_optarg.behavior]
+posix = "POSIX defined - contains option argument"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[getopts_optarg.lint]
+severity = "info"
+message = "OPTARG is portable"
+suggestion = "POSIX compliant"
+pattern = "\\$OPTARG|\\$\\{OPTARG\\}"
+
+[getopts_optind]
+category = "builtins"
+feature = "getopts_optind"
+description = "OPTIND variable"
+
+[getopts_optind.behavior]
+posix = "POSIX defined - index of next argument"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[getopts_optind.lint]
+severity = "info"
+message = "OPTIND is portable"
+suggestion = "POSIX compliant; reset to 1 to reparse"
+pattern = "\\$OPTIND|\\$\\{OPTIND\\}|OPTIND="
+
+[getopts_opterr]
+category = "builtins"
+feature = "getopts_opterr"
+description = "OPTERR variable for error suppression"
+
+[getopts_opterr.behavior]
+posix = "Not in POSIX - use leading colon in optstring"
+bash = "OPTERR=0 suppresses errors"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[getopts_opterr.lint]
+severity = "warning"
+message = "OPTERR is not portable"
+suggestion = "Use leading colon in optstring for portable error handling"
+pattern = "OPTERR="
+
+[getopts_silent]
+category = "builtins"
+feature = "getopts_silent"
+description = "Silent error mode with leading colon"
+
+[getopts_silent.behavior]
+posix = "POSIX defined - colon prefix for silent mode"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[getopts_silent.lint]
+severity = "info"
+message = "Silent getopts is portable"
+suggestion = "Leading colon in optstring suppresses errors portably"
+pattern = "\\bgetopts\\s+:[A-Za-z:]+"
+
+[getopts_long]
+category = "builtins"
+feature = "getopts_long"
+description = "Long options with getopts"
+
+[getopts_long.behavior]
+posix = "Not in POSIX - use getopt or manual parsing"
+bash = "No built-in long option support"
+zsh = "zparseopts supports long options"
+lush = "Extended getopts with long option support"
+
+[getopts_long.lint]
+severity = "info"
+message = "Long options vary by shell"
+suggestion = "Use getopt command or manual parsing for portable long options"
+pattern = "\\bgetopts\\s+[^:]*--"

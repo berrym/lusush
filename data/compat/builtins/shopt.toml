@@ -1,0 +1,87 @@
+# Shopt builtin compatibility
+# Shell options (bash-specific)
+
+[shopt_basic]
+category = "builtins"
+feature = "shopt"
+description = "Set/unset shell options"
+
+[shopt_basic.behavior]
+posix = "Not in POSIX - use set for POSIX options"
+bash = "shopt [-pqsu] [-o] [optname...]"
+zsh = "Use setopt/unsetopt instead"
+lush = "Supports both shopt and setopt"
+
+[shopt_basic.lint]
+severity = "warning"
+message = "shopt is bash specific"
+suggestion = "Use set -o for POSIX options; zsh uses setopt"
+pattern = "\\bshopt\\b"
+
+[shopt_s]
+category = "builtins"
+feature = "shopt_set"
+description = "Enable option (shopt -s)"
+
+[shopt_s.behavior]
+posix = "Not in POSIX"
+bash = "Enable shell option"
+zsh = "Use setopt optname"
+lush = "Bash-compatible"
+
+[shopt_s.lint]
+severity = "warning"
+message = "shopt -s is bash specific"
+suggestion = "zsh uses setopt"
+pattern = "\\bshopt\\s+-s\\b"
+
+[shopt_u]
+category = "builtins"
+feature = "shopt_unset"
+description = "Disable option (shopt -u)"
+
+[shopt_u.behavior]
+posix = "Not in POSIX"
+bash = "Disable shell option"
+zsh = "Use unsetopt optname"
+lush = "Bash-compatible"
+
+[shopt_u.lint]
+severity = "warning"
+message = "shopt -u is bash specific"
+suggestion = "zsh uses unsetopt"
+pattern = "\\bshopt\\s+-u\\b"
+
+[shopt_q]
+category = "builtins"
+feature = "shopt_query"
+description = "Query option silently (shopt -q)"
+
+[shopt_q.behavior]
+posix = "Not in POSIX"
+bash = "Query without output, return status only"
+zsh = "Use [[ -o optname ]]"
+lush = "Bash-compatible"
+
+[shopt_q.lint]
+severity = "warning"
+message = "shopt -q is bash specific"
+suggestion = "zsh uses [[ -o optname ]] for testing"
+pattern = "\\bshopt\\s+-q\\b"
+
+[shopt_o]
+category = "builtins"
+feature = "shopt_set_o"
+description = "Operate on set -o options (shopt -o)"
+
+[shopt_o.behavior]
+posix = "Not in POSIX"
+bash = "Access set -o options via shopt"
+zsh = "Not applicable"
+lush = "Bash-compatible"
+
+[shopt_o.lint]
+severity = "warning"
+message = "shopt -o is bash specific"
+suggestion = "Use set -o directly for portability"
+pattern = "\\bshopt\\s+[^;]*-o\\b"

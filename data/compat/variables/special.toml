@@ -1,0 +1,376 @@
+# Special variables compatibility
+# Shell special parameters and variables
+
+[var_positional]
+category = "variables"
+feature = "positional_params"
+description = "Positional parameters $1, $2, ..."
+
+[var_positional.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[var_positional.lint]
+severity = "info"
+message = "Positional parameters are portable"
+suggestion = "POSIX compliant"
+pattern = "\\$[1-9]|\\$\\{[1-9][0-9]*\\}"
+
+[var_all_star]
+category = "variables"
+feature = "var_star"
+description = "All positional parameters $*"
+
+[var_all_star.behavior]
+posix = "POSIX defined - expands to all parameters"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[var_all_star.lint]
+severity = "info"
+message = "$* is portable"
+suggestion = "Expands as single word when quoted"
+pattern = "\\$\\*|\\$\\{\\*\\}"
+
+[var_all_at]
+category = "variables"
+feature = "var_at"
+description = "All positional parameters $@"
+
+[var_all_at.behavior]
+posix = "POSIX defined - expands to separate words"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[var_all_at.lint]
+severity = "info"
+message = "$@ is portable"
+suggestion = "Expands to separate words when quoted; preferred over $*"
+pattern = "\\$@|\\$\\{@\\}"
+
+[var_argc]
+category = "variables"
+feature = "var_argc"
+description = "Number of positional parameters $#"
+
+[var_argc.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[var_argc.lint]
+severity = "info"
+message = "$# is portable"
+suggestion = "POSIX compliant"
+pattern = "\\$#|\\$\\{#\\}"
+
+[var_exitstatus]
+category = "variables"
+feature = "var_exitstatus"
+description = "Last exit status $?"
+
+[var_exitstatus.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[var_exitstatus.lint]
+severity = "info"
+message = "$? is portable"
+suggestion = "POSIX compliant"
+pattern = "\\$\\?|\\$\\{\\?\\}"
+
+[var_pid]
+category = "variables"
+feature = "var_pid"
+description = "Current shell PID $$"
+
+[var_pid.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[var_pid.lint]
+severity = "info"
+message = "$$ is portable"
+suggestion = "POSIX compliant"
+pattern = "\\$\\$|\\$\\{\\$\\}"
+
+[var_bgpid]
+category = "variables"
+feature = "var_bgpid"
+description = "Last background PID $!"
+
+[var_bgpid.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[var_bgpid.lint]
+severity = "info"
+message = "$! is portable"
+suggestion = "POSIX compliant"
+pattern = "\\$!|\\$\\{!\\}"
+
+[var_flags]
+category = "variables"
+feature = "var_flags"
+description = "Current option flags $-"
+
+[var_flags.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[var_flags.lint]
+severity = "info"
+message = "$- is portable"
+suggestion = "POSIX compliant"
+pattern = "\\$-|\\$\\{-\\}"
+
+[var_shellname]
+category = "variables"
+feature = "var_zero"
+description = "Shell or script name $0"
+
+[var_shellname.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[var_shellname.lint]
+severity = "info"
+message = "$0 is portable"
+suggestion = "POSIX compliant"
+pattern = "\\$0|\\$\\{0\\}"
+
+[var_pipestatus]
+category = "variables"
+feature = "var_pipestatus"
+description = "Pipeline exit statuses PIPESTATUS"
+
+[var_pipestatus.behavior]
+posix = "Not in POSIX"
+bash = "Array of pipeline command exit statuses"
+zsh = "pipestatus (lowercase)"
+lush = "Bash-compatible PIPESTATUS"
+
+[var_pipestatus.lint]
+severity = "warning"
+message = "PIPESTATUS is not portable"
+suggestion = "bash uses PIPESTATUS, zsh uses pipestatus (case differs)"
+pattern = "\\$\\{?PIPESTATUS|\\$\\{?pipestatus"
+
+[var_bashpid]
+category = "variables"
+feature = "var_bashpid"
+description = "Current process PID BASHPID"
+
+[var_bashpid.behavior]
+posix = "Not in POSIX"
+bash = "PID of current bash process (differs from $$ in subshells)"
+zsh = "Not available; $$ works differently"
+lush = "Bash-compatible BASHPID"
+
+[var_bashpid.lint]
+severity = "warning"
+message = "BASHPID is bash specific"
+suggestion = "Use $$ for POSIX; BASHPID shows actual PID in subshells"
+pattern = "\\$\\{?BASHPID\\}?"
+
+[var_random]
+category = "variables"
+feature = "var_random"
+description = "Random number RANDOM"
+
+[var_random.behavior]
+posix = "Not in POSIX"
+bash = "Random integer 0-32767"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[var_random.lint]
+severity = "warning"
+message = "RANDOM is not portable"
+suggestion = "Use awk or /dev/urandom for POSIX-compatible random"
+pattern = "\\$\\{?RANDOM\\}?"
+
+[var_seconds]
+category = "variables"
+feature = "var_seconds"
+description = "Seconds since shell start SECONDS"
+
+[var_seconds.behavior]
+posix = "Not in POSIX"
+bash = "Seconds since shell invocation"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[var_seconds.lint]
+severity = "warning"
+message = "SECONDS is not portable"
+suggestion = "bash/zsh specific; use date for POSIX timing"
+pattern = "\\$\\{?SECONDS\\}?"
+
+[var_lineno]
+category = "variables"
+feature = "var_lineno"
+description = "Current line number LINENO"
+
+[var_lineno.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[var_lineno.lint]
+severity = "info"
+message = "LINENO is portable"
+suggestion = "POSIX compliant"
+pattern = "\\$\\{?LINENO\\}?"
+
+[var_funcname]
+category = "variables"
+feature = "var_funcname"
+description = "Function call stack FUNCNAME"
+
+[var_funcname.behavior]
+posix = "Not in POSIX"
+bash = "Array of function names in call stack"
+zsh = "funcstack (different name)"
+lush = "Bash-compatible FUNCNAME"
+
+[var_funcname.lint]
+severity = "warning"
+message = "FUNCNAME is not portable"
+suggestion = "bash uses FUNCNAME, zsh uses funcstack"
+pattern = "\\$\\{?FUNCNAME"
+
+[var_bash_source]
+category = "variables"
+feature = "var_bash_source"
+description = "Source file stack BASH_SOURCE"
+
+[var_bash_source.behavior]
+posix = "Not in POSIX"
+bash = "Array of source filenames in call stack"
+zsh = "Use $0 or functrace"
+lush = "Bash-compatible BASH_SOURCE"
+
+[var_bash_source.lint]
+severity = "warning"
+message = "BASH_SOURCE is bash specific"
+suggestion = "zsh uses different approach"
+pattern = "\\$\\{?BASH_SOURCE"
+
+[var_pwd]
+category = "variables"
+feature = "var_pwd"
+description = "Current directory PWD"
+
+[var_pwd.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[var_pwd.lint]
+severity = "info"
+message = "PWD is portable"
+suggestion = "POSIX compliant"
+pattern = "\\$\\{?PWD\\}?"
+
+[var_oldpwd]
+category = "variables"
+feature = "var_oldpwd"
+description = "Previous directory OLDPWD"
+
+[var_oldpwd.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[var_oldpwd.lint]
+severity = "info"
+message = "OLDPWD is portable"
+suggestion = "POSIX compliant"
+pattern = "\\$\\{?OLDPWD\\}?"
+
+[var_home]
+category = "variables"
+feature = "var_home"
+description = "Home directory HOME"
+
+[var_home.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[var_home.lint]
+severity = "info"
+message = "HOME is portable"
+suggestion = "POSIX compliant"
+pattern = "\\$\\{?HOME\\}?"
+
+[var_ifs]
+category = "variables"
+feature = "var_ifs"
+description = "Internal field separator IFS"
+
+[var_ifs.behavior]
+posix = "POSIX defined - default space, tab, newline"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[var_ifs.lint]
+severity = "info"
+message = "IFS is portable"
+suggestion = "POSIX compliant"
+pattern = "\\bIFS="
+
+[var_path]
+category = "variables"
+feature = "var_path"
+description = "Command search path PATH"
+
+[var_path.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same, plus path array"
+lush = "POSIX compliant"
+
+[var_path.lint]
+severity = "info"
+message = "PATH is portable"
+suggestion = "POSIX compliant"
+pattern = "\\bPATH="
+
+[var_reply]
+category = "variables"
+feature = "var_reply"
+description = "Default read variable REPLY"
+
+[var_reply.behavior]
+posix = "POSIX defined - default for read"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[var_reply.lint]
+severity = "info"
+message = "REPLY is portable"
+suggestion = "POSIX compliant default for read"
+pattern = "\\$\\{?REPLY\\}?"

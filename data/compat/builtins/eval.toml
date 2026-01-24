@@ -1,0 +1,36 @@
+# Eval builtin compatibility
+# Dynamic command execution
+
+[eval_basic]
+category = "builtins"
+feature = "eval"
+description = "Execute arguments as shell command"
+
+[eval_basic.behavior]
+posix = "POSIX defined - concatenate args and execute"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[eval_basic.lint]
+severity = "warning"
+message = "eval usage - potential security risk"
+suggestion = "eval can execute arbitrary code; ensure input is trusted"
+pattern = "\\beval\\s+"
+
+[eval_empty]
+category = "builtins"
+feature = "eval_empty"
+description = "Eval with no arguments"
+
+[eval_empty.behavior]
+posix = "Returns 0, does nothing"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[eval_empty.lint]
+severity = "info"
+message = "eval with no arguments"
+suggestion = "Empty eval returns 0"
+pattern = "\\beval\\s*$"

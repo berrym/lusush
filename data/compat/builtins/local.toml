@@ -1,0 +1,95 @@
+# Local variable builtin compatibility differences
+
+[local_basic]
+category = "builtin"
+feature = "local"
+description = "local builtin for function-scoped variables"
+
+[local_basic.behavior]
+posix = "Not specified; variables are global by default"
+bash = "Supported: local var=value in functions"
+zsh = "Supported: local var=value in functions"
+lush = "Supported: local var=value in functions"
+
+[local_basic.lint]
+severity = "warning"
+message = "local is not POSIX; common extension"
+suggestion = "Use naming conventions or typeset for strict portability"
+pattern = "^\\s*local\\s+"
+
+[local_inherit]
+category = "builtin"
+feature = "local"
+description = "Local variable inheritance behavior"
+
+[local_inherit.behavior]
+posix = "Not applicable"
+bash = "Local vars shadow outer vars; outer value preserved"
+zsh = "Same as bash; local creates new scope"
+lush = "Same as bash; local creates new scope"
+
+[local_readonly]
+category = "builtin"
+feature = "local"
+description = "local -r for readonly local variables"
+
+[local_readonly.behavior]
+posix = "Not specified"
+bash = "Supported: local -r var=value"
+zsh = "Supported: local -r var=value"
+lush = "Supported: local -r var=value"
+
+[local_readonly.lint]
+severity = "warning"
+message = "local -r is not portable"
+suggestion = "Use separate local and readonly declarations"
+pattern = "local\\s+.*-r\\b"
+
+[local_integer]
+category = "builtin"
+feature = "local"
+description = "local -i for integer local variables"
+
+[local_integer.behavior]
+posix = "Not specified"
+bash = "Supported: local -i var=value"
+zsh = "Supported: local -i var=value"
+lush = "Supported: local -i var=value"
+
+[local_integer.lint]
+severity = "warning"
+message = "local -i is not portable"
+pattern = "local\\s+.*-i\\b"
+
+[local_array]
+category = "builtin"
+feature = "local"
+description = "local -a for local arrays"
+
+[local_array.behavior]
+posix = "Not specified"
+bash = "Supported: local -a arrayname"
+zsh = "Supported: local -a arrayname"
+lush = "Supported: local -a arrayname"
+
+[local_array.lint]
+severity = "warning"
+message = "local -a is not portable"
+pattern = "local\\s+.*-a\\b"
+
+[local_nameref]
+category = "builtin"
+feature = "local"
+description = "local -n for local nameref"
+
+[local_nameref.behavior]
+posix = "Not specified"
+bash = "Supported (bash 4.3+): local -n ref=varname"
+zsh = "Not supported"
+lush = "Supported: local -n ref=varname"
+
+[local_nameref.lint]
+severity = "warning"
+message = "local -n is bash 4.3+ specific"
+suggestion = "Use eval or indirect expansion"
+pattern = "local\\s+.*-n\\b"

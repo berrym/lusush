@@ -1,0 +1,87 @@
+# Mapfile/readarray builtin compatibility
+# Read lines into array
+
+[mapfile_basic]
+category = "builtins"
+feature = "mapfile"
+description = "Read lines into array"
+
+[mapfile_basic.behavior]
+posix = "Not in POSIX (no arrays)"
+bash = "mapfile [-d delim] [-n count] [-O origin] [-s count] [-t] [-u fd] [-C callback] [-c quantum] [array]"
+zsh = "No direct equivalent; use ${(f)...} or read -A"
+lush = "Bash-compatible"
+
+[mapfile_basic.lint]
+severity = "warning"
+message = "mapfile is not portable"
+suggestion = "bash 4.0+ specific; use while read loop for portability"
+pattern = "\\bmapfile\\b"
+
+[readarray_basic]
+category = "builtins"
+feature = "readarray"
+description = "Read lines into array (alias for mapfile)"
+
+[readarray_basic.behavior]
+posix = "Not in POSIX"
+bash = "Synonym for mapfile"
+zsh = "Not available"
+lush = "Bash-compatible"
+
+[readarray_basic.lint]
+severity = "warning"
+message = "readarray is not portable"
+suggestion = "bash specific; synonym for mapfile"
+pattern = "\\breadarray\\b"
+
+[mapfile_t]
+category = "builtins"
+feature = "mapfile_trim"
+description = "Remove trailing delimiter (mapfile -t)"
+
+[mapfile_t.behavior]
+posix = "Not in POSIX"
+bash = "Remove trailing newline from each line"
+zsh = "Not applicable"
+lush = "Bash-compatible"
+
+[mapfile_t.lint]
+severity = "warning"
+message = "mapfile -t is bash specific"
+suggestion = "Common usage to strip newlines"
+pattern = "\\bmapfile\\s+[^;]*-t\\b"
+
+[mapfile_d]
+category = "builtins"
+feature = "mapfile_delimiter"
+description = "Custom delimiter (mapfile -d)"
+
+[mapfile_d.behavior]
+posix = "Not in POSIX"
+bash = "Use specified delimiter instead of newline (bash 4.4+)"
+zsh = "Not applicable"
+lush = "Bash-compatible"
+
+[mapfile_d.lint]
+severity = "warning"
+message = "mapfile -d is bash 4.4+ specific"
+suggestion = "Requires bash 4.4 or later"
+pattern = "\\bmapfile\\s+[^;]*-d\\b"
+
+[mapfile_n]
+category = "builtins"
+feature = "mapfile_count"
+description = "Read only N lines (mapfile -n)"
+
+[mapfile_n.behavior]
+posix = "Not in POSIX"
+bash = "Read at most N lines"
+zsh = "Not applicable"
+lush = "Bash-compatible"
+
+[mapfile_n.lint]
+severity = "warning"
+message = "mapfile -n is bash specific"
+suggestion = "Limits number of lines read"
+pattern = "\\bmapfile\\s+[^;]*-n\\b"

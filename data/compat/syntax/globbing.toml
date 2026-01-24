@@ -1,163 +1,172 @@
-# Extended globbing compatibility differences
+# Globbing and pathname expansion compatibility
+# Wildcards and pattern matching
 
-[extglob_patterns]
+[glob_basic]
 category = "syntax"
-feature = "extended_glob"
-description = "Extended glob patterns ?(pat), *(pat), +(pat), @(pat), !(pat)"
+feature = "globbing"
+description = "Basic glob patterns (*, ?, [...])"
 
-[extglob_patterns.behavior]
-posix = "Not specified; not available in POSIX sh"
-bash = "Requires shopt -s extglob to enable"
-zsh = "Available by default with EXTENDED_GLOB or (#e) syntax"
-lush = "Available by default; also supports bash extglob syntax"
+[glob_basic.behavior]
+posix = "POSIX defined - *, ?, [...] patterns"
+bash = "Same as POSIX"
+zsh = "Same as POSIX with many extensions"
+lush = "POSIX compliant with extensions"
 
-[extglob_patterns.lint]
+[glob_basic.lint]
+severity = "info"
+message = "Basic globbing is portable"
+suggestion = "POSIX compliant"
+pattern = "[*?]|\\[[^]]+\\]"
+
+[glob_extglob]
+category = "syntax"
+feature = "extglob"
+description = "Extended globbing ?(pat), *(pat), +(pat), @(pat), !(pat)"
+
+[glob_extglob.behavior]
+posix = "Not in POSIX"
+bash = "Requires shopt -s extglob"
+zsh = "Uses different syntax or setopt KSH_GLOB"
+lush = "Bash-compatible extglob"
+
+[glob_extglob.lint]
 severity = "warning"
-message = "Extended glob patterns are not portable to POSIX sh"
-suggestion = "Use find with -name or case statements for portability"
+message = "Extended globbing is not portable"
+suggestion = "Requires bash extglob or zsh KSH_GLOB option"
 pattern = "[?*+@!]\\([^)]+\\)"
 
-[extglob_question]
-category = "syntax"
-feature = "extended_glob"
-description = "?(pattern) - match zero or one occurrence"
-
-[extglob_question.behavior]
-posix = "Not available"
-bash = "Matches zero or one of the pattern (requires extglob)"
-zsh = "Use (#c0,1)pattern or ?(pattern) with KSH_GLOB"
-lush = "Matches zero or one of the pattern"
-
-[extglob_question.lint]
-severity = "warning"
-message = "?(pattern) extended glob requires extglob in bash"
-suggestion = "Enable with shopt -s extglob in bash scripts"
-pattern = "\\?\\([^)]+\\)"
-
-[extglob_star]
-category = "syntax"
-feature = "extended_glob"
-description = "*(pattern) - match zero or more occurrences"
-
-[extglob_star.behavior]
-posix = "Not available"
-bash = "Matches zero or more of the pattern (requires extglob)"
-zsh = "Use (#c0,)pattern or *(pattern) with KSH_GLOB"
-lush = "Matches zero or more of the pattern"
-
-[extglob_star.lint]
-severity = "warning"
-message = "*(pattern) extended glob requires extglob in bash"
-pattern = "\\*\\([^)]+\\)"
-
-[extglob_plus]
-category = "syntax"
-feature = "extended_glob"
-description = "+(pattern) - match one or more occurrences"
-
-[extglob_plus.behavior]
-posix = "Not available"
-bash = "Matches one or more of the pattern (requires extglob)"
-zsh = "Use (#c1,)pattern or +(pattern) with KSH_GLOB"
-lush = "Matches one or more of the pattern"
-
-[extglob_plus.lint]
-severity = "warning"
-message = "+(pattern) extended glob requires extglob in bash"
-pattern = "\\+\\([^)]+\\)"
-
-[extglob_at]
-category = "syntax"
-feature = "extended_glob"
-description = "@(pattern) - match exactly one occurrence"
-
-[extglob_at.behavior]
-posix = "Not available"
-bash = "Matches exactly one of the patterns (requires extglob)"
-zsh = "Use (pattern) or @(pattern) with KSH_GLOB"
-lush = "Matches exactly one of the patterns"
-
-[extglob_at.lint]
-severity = "warning"
-message = "@(pattern) extended glob requires extglob in bash"
-pattern = "@\\([^)]+\\)"
-
-[extglob_not]
-category = "syntax"
-feature = "extended_glob"
-description = "!(pattern) - match anything except pattern"
-
-[extglob_not.behavior]
-posix = "Not available"
-bash = "Matches anything except the pattern (requires extglob)"
-zsh = "Use ^pattern or !(pattern) with KSH_GLOB"
-lush = "Matches anything except the pattern"
-
-[extglob_not.lint]
-severity = "warning"
-message = "!(pattern) extended glob requires extglob in bash"
-pattern = "!\\([^)]+\\)"
-
-[globstar]
+[glob_globstar]
 category = "syntax"
 feature = "globstar"
-description = "** recursive directory matching"
+description = "Recursive globbing **"
 
-[globstar.behavior]
-posix = "Not specified; ** is just two *"
-bash = "Requires shopt -s globstar; ** matches directories recursively"
-zsh = "Enabled by default; ** matches directories recursively"
-lush = "Enabled by default; ** matches directories recursively"
+[glob_globstar.behavior]
+posix = "Not in POSIX"
+bash = "Requires shopt -s globstar (bash 4.0+)"
+zsh = "Enabled by default"
+lush = "Enabled by default"
 
-[globstar.lint]
+[glob_globstar.lint]
 severity = "warning"
-message = "** globstar requires shopt -s globstar in bash"
-suggestion = "Use find -name for portable recursive matching"
-pattern = "\\*\\*/"
+message = "Recursive glob ** is not portable"
+suggestion = "Requires bash 4.0+ with globstar or zsh; use find for portability"
+pattern = "\\*\\*"
 
-[nullglob]
+[glob_nullglob]
 category = "syntax"
-feature = "null_glob"
-description = "nullglob - unmatched globs expand to nothing"
+feature = "nullglob"
+description = "Nullglob - no matches returns empty"
 
-[nullglob.behavior]
-posix = "Unmatched patterns remain literal"
-bash = "Requires shopt -s nullglob; unmatched expands to nothing"
-zsh = "Requires setopt nullglob; unmatched expands to nothing"
-lush = "Enabled by default; unmatched expands to nothing"
+[glob_nullglob.behavior]
+posix = "Not in POSIX - unmatched pattern remains literal"
+bash = "shopt -s nullglob"
+zsh = "setopt NULL_GLOB"
+lush = "Supports nullglob option"
 
-[nullglob.lint]
+[glob_nullglob.lint]
 severity = "info"
-message = "nullglob behavior differs: POSIX keeps literal, bash/zsh/lush can expand to nothing"
-suggestion = "Check for matches explicitly if behavior matters"
+message = "nullglob behavior"
+suggestion = "POSIX: unmatched globs are literal; enable nullglob for empty result"
+pattern = "shopt\\s+-s\\s+nullglob|setopt.*NULL_GLOB"
 
-[dotglob]
+[glob_failglob]
 category = "syntax"
-feature = "dot_glob"
-description = "dotglob - include dotfiles in glob matches"
+feature = "failglob"
+description = "Failglob - error on no matches"
 
-[dotglob.behavior]
-posix = "Dotfiles excluded from * and ? matches"
-bash = "Requires shopt -s dotglob to include dotfiles"
-zsh = "Requires setopt dotglob or GLOB_DOTS to include dotfiles"
-lush = "Configurable; dotfiles excluded by default"
+[glob_failglob.behavior]
+posix = "Not in POSIX"
+bash = "shopt -s failglob"
+zsh = "setopt NOMATCH (default)"
+lush = "Supports failglob option"
 
-[dotglob.lint]
-severity = "info"
-message = "Dotfile inclusion in globs varies by shell and settings"
-suggestion = "Explicitly match .* if dotfiles are needed"
+[glob_failglob.lint]
+severity = "warning"
+message = "failglob is not portable"
+suggestion = "bash-specific; zsh has NOMATCH by default"
+pattern = "shopt\\s+-s\\s+failglob"
 
-[failglob]
+[glob_dotglob]
 category = "syntax"
-feature = "extended_glob"
-description = "failglob - error on unmatched glob patterns"
+feature = "dotglob"
+description = "Dotglob - match dotfiles"
 
-[failglob.behavior]
-posix = "Unmatched patterns remain literal; no error"
-bash = "With shopt -s failglob; unmatched is an error"
-zsh = "With setopt nomatch (default); unmatched is an error"
-lush = "Configurable via strict_glob option"
+[glob_dotglob.behavior]
+posix = "Not in POSIX - * does not match leading dot"
+bash = "shopt -s dotglob"
+zsh = "setopt GLOB_DOTS"
+lush = "Supports dotglob option"
 
-[failglob.lint]
+[glob_dotglob.lint]
+severity = "warning"
+message = "dotglob is not portable"
+suggestion = "By default * doesn't match dotfiles; use explicit .* pattern"
+pattern = "shopt\\s+-s\\s+dotglob|setopt.*GLOB_DOTS"
+
+[glob_nocaseglob]
+category = "syntax"
+feature = "nocaseglob"
+description = "Case-insensitive globbing"
+
+[glob_nocaseglob.behavior]
+posix = "Not in POSIX"
+bash = "shopt -s nocaseglob"
+zsh = "setopt NO_CASE_GLOB"
+lush = "Supports nocaseglob option"
+
+[glob_nocaseglob.lint]
+severity = "warning"
+message = "Case-insensitive glob is not portable"
+suggestion = "Not in POSIX; must use explicit patterns like [Ff]ile"
+pattern = "shopt\\s+-s\\s+nocaseglob|setopt.*NO_CASE_GLOB"
+
+[glob_brace_range]
+category = "syntax"
+feature = "glob_ranges"
+description = "Character ranges in brackets [a-z]"
+
+[glob_brace_range.behavior]
+posix = "POSIX defined but locale-dependent"
+bash = "Same, but may vary with LC_COLLATE"
+zsh = "Same as bash"
+lush = "POSIX compliant"
+
+[glob_brace_range.lint]
 severity = "info"
-message = "Glob failure behavior varies: POSIX literal, bash/zsh can error"
+message = "Character ranges are portable but locale-dependent"
+suggestion = "Use [:alpha:] classes for locale-independent matching"
+pattern = "\\[[a-z]-[a-z]\\]|\\[[A-Z]-[A-Z]\\]|\\[[0-9]-[0-9]\\]"
+
+[glob_posix_class]
+category = "syntax"
+feature = "glob_posix_class"
+description = "POSIX character classes [[:alpha:]]"
+
+[glob_posix_class.behavior]
+posix = "POSIX defined - [:alnum:], [:alpha:], [:digit:], etc."
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[glob_posix_class.lint]
+severity = "info"
+message = "POSIX character classes are portable"
+suggestion = "POSIX compliant; preferred over ranges for clarity"
+pattern = "\\[\\[:[a-z]+:\\]\\]"
+
+[glob_negation]
+category = "syntax"
+feature = "glob_negation"
+description = "Negation in brackets [!...] vs [^...]"
+
+[glob_negation.behavior]
+posix = "POSIX uses [!...] for negation"
+bash = "Accepts both [!...] and [^...]"
+zsh = "Accepts both"
+lush = "Accepts both"
+
+[glob_negation.lint]
+severity = "info"
+message = "Bracket negation syntax"
+suggestion = "[!...] is POSIX; [^...] is widely supported but not POSIX"
+pattern = "\\[\\^[^]]+\\]"

@@ -1,0 +1,146 @@
+# Read builtin compatibility differences
+
+[read_basic]
+category = "builtin"
+feature = "read"
+description = "Basic read builtin for reading input"
+
+[read_basic.behavior]
+posix = "Reads a line from standard input, splits on IFS"
+bash = "Reads a line, splits on IFS, supports many extensions"
+zsh = "Reads a line, splits on IFS, different extension syntax"
+lush = "Reads a line, splits on IFS, bash-compatible extensions"
+
+[read_array]
+category = "builtin"
+feature = "read"
+description = "read -a to read into an array"
+
+[read_array.behavior]
+posix = "Not specified; no array support in POSIX"
+bash = "Supported: read -a arrayname reads words into array"
+zsh = "Uses -A instead: read -A arrayname"
+lush = "Supported: read -a arrayname (bash-compatible)"
+
+[read_array.lint]
+severity = "warning"
+message = "read -a is not portable; zsh uses -A"
+suggestion = "Use read with positional parameters for portability"
+pattern = "read\\s+.*-a\\b"
+
+[read_prompt]
+category = "builtin"
+feature = "read"
+description = "read -p to display a prompt"
+
+[read_prompt.behavior]
+posix = "Not specified; use echo/printf before read"
+bash = "Supported: read -p 'prompt: ' var"
+zsh = "Uses different syntax: read 'var?prompt: '"
+lush = "Supported: read -p 'prompt: ' (bash-compatible)"
+
+[read_prompt.lint]
+severity = "warning"
+message = "read -p is bash-specific"
+suggestion = "Use printf '%s' 'prompt: '; read var for portability"
+pattern = "read\\s+.*-p\\b"
+
+[read_timeout]
+category = "builtin"
+feature = "read"
+description = "read -t to set a timeout"
+
+[read_timeout.behavior]
+posix = "Not specified; no timeout support"
+bash = "Supported: read -t seconds; fractional seconds allowed"
+zsh = "Supported: read -t seconds (zsh 4.3+)"
+lush = "Supported: read -t seconds (bash-compatible)"
+
+[read_timeout.lint]
+severity = "warning"
+message = "read -t timeout is not portable to POSIX sh"
+suggestion = "Use alarm or timeout command wrapper for portability"
+pattern = "read\\s+.*-t\\s*[0-9]"
+
+[read_nchars]
+category = "builtin"
+feature = "read"
+description = "read -n to read specific number of characters"
+
+[read_nchars.behavior]
+posix = "Not specified"
+bash = "Supported: read -n N reads N characters without waiting for newline"
+zsh = "Uses -k instead: read -k N"
+lush = "Supported: read -n N (bash-compatible)"
+
+[read_nchars.lint]
+severity = "warning"
+message = "read -n is bash-specific; zsh uses -k"
+suggestion = "Use dd or stty for portable character-by-character input"
+pattern = "read\\s+.*-n\\s*[0-9]"
+
+[read_delimiter]
+category = "builtin"
+feature = "read"
+description = "read -d to set a custom delimiter"
+
+[read_delimiter.behavior]
+posix = "Not specified; always reads to newline"
+bash = "Supported: read -d '' reads until NUL (for null-delimited input)"
+zsh = "Not supported; use IFS manipulation or other methods"
+lush = "Supported: read -d DELIM (bash-compatible)"
+
+[read_delimiter.lint]
+severity = "warning"
+message = "read -d is bash-specific"
+suggestion = "Use IFS= read -r for complex delimiter handling"
+pattern = "read\\s+.*-d\\b"
+
+[read_silent]
+category = "builtin"
+feature = "read"
+description = "read -s for silent/password input"
+
+[read_silent.behavior]
+posix = "Not specified; use stty -echo"
+bash = "Supported: read -s hides input (for passwords)"
+zsh = "Supported: read -s hides input"
+lush = "Supported: read -s hides input"
+
+[read_silent.lint]
+severity = "info"
+message = "read -s is not POSIX; common in bash and zsh"
+suggestion = "Use stty -echo; read var; stty echo for strict POSIX"
+pattern = "read\\s+.*-s\\b"
+
+[read_raw]
+category = "builtin"
+feature = "read"
+description = "read -r to disable backslash interpretation"
+
+[read_raw.behavior]
+posix = "Supported: -r prevents backslash as escape character"
+bash = "Supported: backslash is treated literally"
+zsh = "Supported: backslash is treated literally"
+lush = "Supported: backslash is treated literally"
+
+[read_raw.lint]
+severity = "info"
+message = "read -r is POSIX and recommended for most uses"
+suggestion = "Always use read -r unless backslash escaping is needed"
+
+[read_ifs]
+category = "builtin"
+feature = "read"
+description = "IFS handling with read"
+
+[read_ifs.behavior]
+posix = "Uses IFS for field splitting; leading/trailing handled specially"
+bash = "Uses IFS; empty IFS reads entire line into first variable"
+zsh = "Uses IFS; different default splitting behavior"
+lush = "Uses IFS; bash-compatible splitting behavior"
+
+[read_ifs.lint]
+severity = "info"
+message = "IFS handling in read varies subtly between shells"
+suggestion = "Set IFS explicitly when precise splitting is needed"

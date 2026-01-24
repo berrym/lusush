@@ -1,0 +1,110 @@
+# Printf builtin compatibility differences
+
+[printf_basic]
+category = "builtin"
+feature = "printf"
+description = "Printf builtin for formatted output"
+
+[printf_basic.behavior]
+posix = "Specified with limited format specifiers (%s, %d, %o, %x, %c, %%)"
+bash = "Extended format specifiers including %q, %(fmt)T"
+zsh = "Extended format specifiers including %q, print -P for prompts"
+lush = "Extended format specifiers (bash-compatible)"
+
+[printf_quote]
+category = "builtin"
+feature = "printf"
+description = "printf %q for shell quoting"
+
+[printf_quote.behavior]
+posix = "Not specified"
+bash = "Supported: outputs string quoted for shell reuse"
+zsh = "Supported: outputs string quoted for shell reuse"
+lush = "Supported: outputs string quoted for shell reuse"
+
+[printf_quote.lint]
+severity = "warning"
+message = "printf %q is not portable to POSIX sh"
+suggestion = "Use manual quoting or sed for portable shell quoting"
+pattern = "printf\\s+['\"]?%.*q"
+
+[printf_time]
+category = "builtin"
+feature = "printf"
+description = "printf %(fmt)T for time formatting"
+
+[printf_time.behavior]
+posix = "Not specified"
+bash = "Supported (bash 4.2+): %(fmt)T formats time using strftime"
+zsh = "Not supported; use strftime builtin or date command"
+lush = "Supported: %(fmt)T for strftime formatting"
+
+[printf_time.lint]
+severity = "warning"
+message = "printf %(fmt)T is bash 4.2+ specific"
+suggestion = "Use date command for portable time formatting"
+pattern = "printf\\s+['\"]?%\\([^)]+\\)T"
+
+[printf_width]
+category = "builtin"
+feature = "printf"
+description = "printf width and precision specifiers"
+
+[printf_width.behavior]
+posix = "Supports * for dynamic width/precision from arguments"
+bash = "Supports * and explicit numbers; handles negative width"
+zsh = "Supports * and explicit numbers"
+lush = "Supports * and explicit numbers (bash-compatible)"
+
+[printf_width.lint]
+severity = "info"
+message = "printf width/precision handling is mostly portable"
+
+[printf_escape]
+category = "builtin"
+feature = "printf"
+description = "printf escape sequences in format string"
+
+[printf_escape.behavior]
+posix = "Supports \\n, \\t, \\\\, \\0NNN (octal)"
+bash = "Adds \\xHH (hex), \\uHHHH (unicode), \\UHHHHHHHH"
+zsh = "Similar to bash with unicode escapes"
+lush = "Full escape sequence support including unicode"
+
+[printf_escape.lint]
+severity = "info"
+message = "Unicode escapes (\\u, \\U) are not POSIX portable"
+suggestion = "Use $'...' quoting or octal escapes for portability"
+pattern = "printf\\s+['\"]?.*\\\\[uU]"
+
+[printf_v]
+category = "builtin"
+feature = "printf"
+description = "printf -v to store output in variable"
+
+[printf_v.behavior]
+posix = "Not specified; use command substitution"
+bash = "Supported: printf -v varname fmt args..."
+zsh = "Uses different syntax or command substitution"
+lush = "Supported: printf -v varname (bash-compatible)"
+
+[printf_v.lint]
+severity = "warning"
+message = "printf -v is bash-specific"
+suggestion = "Use varname=$(printf fmt args) for portability"
+pattern = "printf\\s+-v\\b"
+
+[printf_b]
+category = "builtin"
+feature = "printf"
+description = "printf %b for backslash interpretation"
+
+[printf_b.behavior]
+posix = "Specified: %b interprets backslash escapes in argument"
+bash = "Supported: interprets echo-style escapes"
+zsh = "Supported: interprets echo-style escapes"
+lush = "Supported: interprets echo-style escapes"
+
+[printf_b.lint]
+severity = "info"
+message = "printf %b is POSIX but behavior details vary"

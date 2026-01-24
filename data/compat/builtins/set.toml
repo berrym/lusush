@@ -1,0 +1,240 @@
+# Set builtin compatibility
+# Shell options and positional parameters
+
+[set_basic]
+category = "builtins"
+feature = "set"
+description = "Set shell options and positional parameters"
+
+[set_basic.behavior]
+posix = "POSIX defined options: -a, -b, -C, -e, -f, -h, -m, -n, -u, -v, -x"
+bash = "Many additional options beyond POSIX"
+zsh = "Different option set, uses setopt for most"
+lush = "Superset supporting POSIX and bash options"
+
+[set_basic.lint]
+severity = "info"
+message = "set builtin usage"
+suggestion = "Stick to POSIX options for maximum portability"
+pattern = "\\bset\\s+-"
+
+[set_errexit]
+category = "builtins"
+feature = "set_errexit"
+description = "Exit on error (set -e)"
+
+[set_errexit.behavior]
+posix = "Exit when command fails, with exceptions for conditionals"
+bash = "Additional exceptions in command substitution depend on inherit_errexit"
+zsh = "Similar but ERR_EXIT option name"
+lush = "Bash-compatible errexit behavior"
+
+[set_errexit.lint]
+severity = "info"
+message = "set -e (errexit) is mostly portable"
+suggestion = "Behavior in subshells varies between shells"
+pattern = "\\bset\\s+[^;]*-[^;]*e"
+
+[set_nounset]
+category = "builtins"
+feature = "set_nounset"
+description = "Error on unset variables (set -u)"
+
+[set_nounset.behavior]
+posix = "Treat unset variables as error during expansion"
+bash = "Same as POSIX, also nounset"
+zsh = "Same, also NOUNSET option"
+lush = "POSIX compliant"
+
+[set_nounset.lint]
+severity = "info"
+message = "set -u (nounset) is portable"
+suggestion = "POSIX compliant option"
+pattern = "\\bset\\s+[^;]*-[^;]*u"
+
+[set_pipefail]
+category = "builtins"
+feature = "set_pipefail"
+description = "Pipeline fails if any command fails (set -o pipefail)"
+
+[set_pipefail.behavior]
+posix = "Not in POSIX (added in POSIX.1-2024 draft)"
+bash = "Pipeline return status is last non-zero exit or zero"
+zsh = "Same as bash with PIPE_FAIL option"
+lush = "Bash-compatible pipefail"
+
+[set_pipefail.lint]
+severity = "warning"
+message = "pipefail is not portable to older POSIX shells"
+suggestion = "pipefail is widely available but not in POSIX until 2024"
+pattern = "\\bset\\s+[^;]*-o\\s+pipefail"
+
+[set_noclobber]
+category = "builtins"
+feature = "set_noclobber"
+description = "Prevent overwriting files with > (set -C)"
+
+[set_noclobber.behavior]
+posix = "POSIX defined, prevents > from overwriting"
+bash = "Same, use >| to override"
+zsh = "Same, also >! or >| to override"
+lush = "POSIX compliant"
+
+[set_noclobber.lint]
+severity = "info"
+message = "set -C (noclobber) is portable"
+suggestion = "Override syntax varies: bash uses >|, zsh also allows >!"
+pattern = "\\bset\\s+[^;]*-[^;]*C"
+
+[set_xtrace]
+category = "builtins"
+feature = "set_xtrace"
+description = "Print commands before execution (set -x)"
+
+[set_xtrace.behavior]
+posix = "POSIX defined, print commands with PS4 prefix"
+bash = "Includes BASH_XTRACEFD for redirection"
+zsh = "Similar, XTRACE option"
+lush = "POSIX compliant with bash extensions"
+
+[set_xtrace.lint]
+severity = "info"
+message = "set -x (xtrace) is portable"
+suggestion = "POSIX compliant debugging option"
+pattern = "\\bset\\s+[^;]*-[^;]*x"
+
+[set_posix]
+category = "builtins"
+feature = "set_posix"
+description = "POSIX compatibility mode (set -o posix)"
+
+[set_posix.behavior]
+posix = "Not applicable"
+bash = "Enables strict POSIX compliance, changes many behaviors"
+zsh = "Uses emulate sh or POSIX_BUILTINS option"
+lush = "Supports posix mode for compatibility testing"
+
+[set_posix.lint]
+severity = "info"
+message = "POSIX mode is shell-specific"
+suggestion = "bash uses set -o posix, zsh uses emulate sh"
+pattern = "\\bset\\s+[^;]*-o\\s+posix"
+
+[set_verbose]
+category = "builtins"
+feature = "set_verbose"
+description = "Print input lines (set -v)"
+
+[set_verbose.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same, VERBOSE option"
+lush = "POSIX compliant"
+
+[set_verbose.lint]
+severity = "info"
+message = "set -v (verbose) is portable"
+suggestion = "POSIX compliant option"
+pattern = "\\bset\\s+[^;]*-[^;]*v"
+
+[set_allexport]
+category = "builtins"
+feature = "set_allexport"
+description = "Export all variables (set -a)"
+
+[set_allexport.behavior]
+posix = "POSIX defined, mark all variables for export"
+bash = "Same as POSIX"
+zsh = "Same, ALL_EXPORT option"
+lush = "POSIX compliant"
+
+[set_allexport.lint]
+severity = "info"
+message = "set -a (allexport) is portable"
+suggestion = "POSIX compliant option"
+pattern = "\\bset\\s+[^;]*-[^;]*a"
+
+[set_notify]
+category = "builtins"
+feature = "set_notify"
+description = "Immediate job notification (set -b)"
+
+[set_notify.behavior]
+posix = "POSIX defined for interactive shells"
+bash = "Same as POSIX"
+zsh = "Same, NOTIFY option"
+lush = "POSIX compliant"
+
+[set_notify.lint]
+severity = "info"
+message = "set -b (notify) is portable"
+suggestion = "POSIX compliant option"
+pattern = "\\bset\\s+[^;]*-[^;]*b"
+
+[set_noglob]
+category = "builtins"
+feature = "set_noglob"
+description = "Disable pathname expansion (set -f)"
+
+[set_noglob.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same, GLOB_SUBST affected differently"
+lush = "POSIX compliant"
+
+[set_noglob.lint]
+severity = "info"
+message = "set -f (noglob) is portable"
+suggestion = "POSIX compliant option"
+pattern = "\\bset\\s+[^;]*-[^;]*f"
+
+[set_hashall]
+category = "builtins"
+feature = "set_hashall"
+description = "Hash command locations (set -h)"
+
+[set_hashall.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX, hashall"
+zsh = "HASH_CMDS option"
+lush = "POSIX compliant"
+
+[set_hashall.lint]
+severity = "info"
+message = "set -h (hashall) is portable"
+suggestion = "POSIX compliant option"
+pattern = "\\bset\\s+[^;]*-[^;]*h"
+
+[set_monitor]
+category = "builtins"
+feature = "set_monitor"
+description = "Job control (set -m)"
+
+[set_monitor.behavior]
+posix = "POSIX defined for interactive shells"
+bash = "Same as POSIX"
+zsh = "Same, MONITOR option"
+lush = "POSIX compliant"
+
+[set_monitor.lint]
+severity = "info"
+message = "set -m (monitor) is portable"
+suggestion = "POSIX compliant option"
+pattern = "\\bset\\s+[^;]*-[^;]*m"
+
+[set_noexec]
+category = "builtins"
+feature = "set_noexec"
+description = "Read but don't execute (set -n)"
+
+[set_noexec.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same, NO_EXEC option"
+lush = "POSIX compliant"
+
+[set_noexec.lint]
+severity = "info"
+message = "set -n (noexec) is portable"
+suggestion = "POSIX compliant option"
+pattern = "\\bset\\s+[^;]*-[^;]*n"

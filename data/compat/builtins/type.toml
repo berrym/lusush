@@ -1,0 +1,104 @@
+# Type builtin compatibility
+# Describe command type
+
+[type_basic]
+category = "builtins"
+feature = "type"
+description = "Display information about command type"
+
+[type_basic.behavior]
+posix = "Not in POSIX (use command -V)"
+bash = "type [-afptP] name..."
+zsh = "type [-afmpwS] name..."
+lush = "Bash-compatible type builtin"
+
+[type_basic.lint]
+severity = "warning"
+message = "type is not portable"
+suggestion = "Use 'command -v' for portable command lookup"
+pattern = "\\btype\\s+[^|&;]"
+
+[type_a]
+category = "builtins"
+feature = "type_all"
+description = "Show all locations (type -a)"
+
+[type_a.behavior]
+posix = "Not in POSIX"
+bash = "Print all matching commands (aliases, functions, builtins, files)"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[type_a.lint]
+severity = "warning"
+message = "type -a is not portable"
+suggestion = "bash/zsh specific; no direct POSIX equivalent"
+pattern = "\\btype\\s+[^;]*-a\\b"
+
+[type_t]
+category = "builtins"
+feature = "type_type"
+description = "Print type only (type -t)"
+
+[type_t.behavior]
+posix = "Not in POSIX"
+bash = "Print alias, keyword, function, builtin, file, or nothing"
+zsh = "Not available, use whence -w"
+lush = "Bash-compatible"
+
+[type_t.lint]
+severity = "warning"
+message = "type -t is not portable"
+suggestion = "bash specific; zsh uses 'whence -w'"
+pattern = "\\btype\\s+[^;]*-t\\b"
+
+[type_p]
+category = "builtins"
+feature = "type_path"
+description = "Print path only (type -p)"
+
+[type_p.behavior]
+posix = "Not in POSIX"
+bash = "Print path if command is a file"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[type_p.lint]
+severity = "warning"
+message = "type -p is not portable"
+suggestion = "Use 'command -v' for portable path lookup"
+pattern = "\\btype\\s+[^;]*-p\\b"
+
+[type_P]
+category = "builtins"
+feature = "type_path_force"
+description = "Force path lookup (type -P)"
+
+[type_P.behavior]
+posix = "Not in POSIX"
+bash = "Search PATH even if other type exists"
+zsh = "Not available"
+lush = "Bash-compatible"
+
+[type_P.lint]
+severity = "warning"
+message = "type -P is bash specific"
+suggestion = "Not available in zsh; use 'command -v' for portability"
+pattern = "\\btype\\s+[^;]*-P\\b"
+
+[type_f]
+category = "builtins"
+feature = "type_no_function"
+description = "Skip functions (type -f)"
+
+[type_f.behavior]
+posix = "Not in POSIX"
+bash = "Do not search functions"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[type_f.lint]
+severity = "warning"
+message = "type -f is not portable"
+suggestion = "bash/zsh specific option"
+pattern = "\\btype\\s+[^;]*-f\\b"

@@ -1,0 +1,240 @@
+# Jobs and job control compatibility
+# Background processes and job management
+
+[jobs_basic]
+category = "builtins"
+feature = "jobs"
+description = "List background jobs"
+
+[jobs_basic.behavior]
+posix = "POSIX defined - jobs [-l|-p] [job...]"
+bash = "Same with additional options"
+zsh = "Same as bash"
+lush = "POSIX compliant with extensions"
+
+[jobs_basic.lint]
+severity = "info"
+message = "jobs builtin is portable"
+suggestion = "POSIX compliant"
+pattern = "\\bjobs\\b"
+
+[jobs_l]
+category = "builtins"
+feature = "jobs_long"
+description = "Long job listing (jobs -l)"
+
+[jobs_l.behavior]
+posix = "POSIX defined - include PID"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[jobs_l.lint]
+severity = "info"
+message = "jobs -l is portable"
+suggestion = "POSIX compliant"
+pattern = "\\bjobs\\s+-l\\b"
+
+[jobs_p]
+category = "builtins"
+feature = "jobs_pid"
+description = "Print only PIDs (jobs -p)"
+
+[jobs_p.behavior]
+posix = "POSIX defined - show only PID"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[jobs_p.lint]
+severity = "info"
+message = "jobs -p is portable"
+suggestion = "POSIX compliant"
+pattern = "\\bjobs\\s+-p\\b"
+
+[jobs_r]
+category = "builtins"
+feature = "jobs_running"
+description = "List running jobs (jobs -r)"
+
+[jobs_r.behavior]
+posix = "Not in POSIX"
+bash = "List only running jobs"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[jobs_r.lint]
+severity = "warning"
+message = "jobs -r is not portable"
+suggestion = "bash/zsh specific"
+pattern = "\\bjobs\\s+-r\\b"
+
+[jobs_s]
+category = "builtins"
+feature = "jobs_stopped"
+description = "List stopped jobs (jobs -s)"
+
+[jobs_s.behavior]
+posix = "Not in POSIX"
+bash = "List only stopped jobs"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[jobs_s.lint]
+severity = "warning"
+message = "jobs -s is not portable"
+suggestion = "bash/zsh specific"
+pattern = "\\bjobs\\s+-s\\b"
+
+[fg_basic]
+category = "builtins"
+feature = "fg"
+description = "Bring job to foreground"
+
+[fg_basic.behavior]
+posix = "POSIX defined - fg [job]"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[fg_basic.lint]
+severity = "info"
+message = "fg is portable"
+suggestion = "POSIX compliant"
+pattern = "\\bfg\\b"
+
+[bg_basic]
+category = "builtins"
+feature = "bg"
+description = "Resume job in background"
+
+[bg_basic.behavior]
+posix = "POSIX defined - bg [job...]"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[bg_basic.lint]
+severity = "info"
+message = "bg is portable"
+suggestion = "POSIX compliant"
+pattern = "\\bbg\\b"
+
+[wait_basic]
+category = "builtins"
+feature = "wait"
+description = "Wait for job/process"
+
+[wait_basic.behavior]
+posix = "POSIX defined - wait [pid|job...]"
+bash = "Same with additional options"
+zsh = "Same as bash"
+lush = "POSIX compliant with extensions"
+
+[wait_basic.lint]
+severity = "info"
+message = "wait is portable"
+suggestion = "POSIX compliant"
+pattern = "\\bwait\\b"
+
+[wait_n]
+category = "builtins"
+feature = "wait_any"
+description = "Wait for any job (wait -n)"
+
+[wait_n.behavior]
+posix = "Not in POSIX"
+bash = "Wait for any background job (bash 4.3+)"
+zsh = "Not available; different approach"
+lush = "Bash-compatible"
+
+[wait_n.lint]
+severity = "warning"
+message = "wait -n is not portable"
+suggestion = "bash 4.3+ specific"
+pattern = "\\bwait\\s+-n\\b"
+
+[wait_p]
+category = "builtins"
+feature = "wait_pid"
+description = "Store PID (wait -p)"
+
+[wait_p.behavior]
+posix = "Not in POSIX"
+bash = "Store PID of completed job (bash 5.1+)"
+zsh = "Not available"
+lush = "Bash-compatible"
+
+[wait_p.lint]
+severity = "warning"
+message = "wait -p is not portable"
+suggestion = "bash 5.1+ specific"
+pattern = "\\bwait\\s+-p\\b"
+
+[disown_basic]
+category = "builtins"
+feature = "disown"
+description = "Remove job from table"
+
+[disown_basic.behavior]
+posix = "Not in POSIX"
+bash = "Remove job from job table"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[disown_basic.lint]
+severity = "warning"
+message = "disown is not portable"
+suggestion = "bash/zsh specific; use nohup for POSIX"
+pattern = "\\bdisown\\b"
+
+[disown_h]
+category = "builtins"
+feature = "disown_nohup"
+description = "Don't send SIGHUP (disown -h)"
+
+[disown_h.behavior]
+posix = "Not in POSIX"
+bash = "Mark job to not receive SIGHUP"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[disown_h.lint]
+severity = "warning"
+message = "disown -h is not portable"
+suggestion = "Use nohup command for POSIX"
+pattern = "\\bdisown\\s+-h\\b"
+
+[kill_basic]
+category = "builtins"
+feature = "kill"
+description = "Send signal to process"
+
+[kill_basic.behavior]
+posix = "POSIX defined - kill [-s signal|-signal] pid..."
+bash = "Same with additional options"
+zsh = "Same as bash"
+lush = "POSIX compliant with extensions"
+
+[kill_basic.lint]
+severity = "info"
+message = "kill is portable"
+suggestion = "POSIX compliant"
+pattern = "\\bkill\\b"
+
+[kill_l]
+category = "builtins"
+feature = "kill_list"
+description = "List signals (kill -l)"
+
+[kill_l.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[kill_l.lint]
+severity = "info"
+message = "kill -l is portable"
+suggestion = "POSIX compliant"
+pattern = "\\bkill\\s+-l\\b"

@@ -1,0 +1,70 @@
+# Source/dot builtin compatibility
+# Execute commands from file in current environment
+
+[source_dot]
+category = "builtins"
+feature = "source_dot"
+description = "Source file using dot (.) command"
+
+[source_dot.behavior]
+posix = "POSIX defined - . filename [arguments]"
+bash = "Same as POSIX, searches PATH if no slash"
+zsh = "Same as bash"
+lush = "POSIX compliant with PATH search"
+
+[source_dot.lint]
+severity = "info"
+message = "dot command is portable"
+suggestion = "POSIX compliant way to source files"
+pattern = "^\\s*\\.\\s+[^|&;]"
+
+[source_keyword]
+category = "builtins"
+feature = "source"
+description = "Source file using source keyword"
+
+[source_keyword.behavior]
+posix = "Not in POSIX - use dot (.) instead"
+bash = "Synonym for dot command"
+zsh = "Synonym for dot command"
+lush = "Supports both source and dot"
+
+[source_keyword.lint]
+severity = "warning"
+message = "source keyword is not portable"
+suggestion = "Use . (dot) instead of source for POSIX compatibility"
+pattern = "\\bsource\\s+"
+
+[source_args]
+category = "builtins"
+feature = "source_arguments"
+description = "Source with arguments"
+
+[source_args.behavior]
+posix = "Arguments become positional parameters"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[source_args.lint]
+severity = "info"
+message = "source with arguments is portable"
+suggestion = "Arguments set positional parameters in sourced file"
+pattern = "\\bsource\\s+\\S+\\s+\\S"
+
+[source_return]
+category = "builtins"
+feature = "source_return"
+description = "Return from sourced file"
+
+[source_return.behavior]
+posix = "return exits sourced script"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[source_return.lint]
+severity = "info"
+message = "return in sourced file is portable"
+suggestion = "POSIX allows return in sourced scripts"
+pattern = "\\breturn\\b"

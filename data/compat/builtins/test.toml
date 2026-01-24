@@ -1,0 +1,146 @@
+# Test/[ builtin compatibility differences
+
+[test_basic]
+category = "builtin"
+feature = "test"
+description = "test/[ builtin for conditional expressions"
+
+[test_basic.behavior]
+posix = "Supports file tests, string tests, integer comparisons"
+bash = "Extends POSIX with additional operators"
+zsh = "Extends POSIX with additional operators"
+lush = "Extends POSIX with bash-compatible operators"
+
+[test_file_newer]
+category = "builtin"
+feature = "test"
+description = "test -nt and -ot for file time comparison"
+
+[test_file_newer.behavior]
+posix = "Not specified in POSIX"
+bash = "Supported: file1 -nt file2 (newer than)"
+zsh = "Supported: file1 -nt file2"
+lush = "Supported: file1 -nt file2"
+
+[test_file_newer.lint]
+severity = "warning"
+message = "-nt and -ot are not POSIX portable"
+suggestion = "Use find -newer or stat for portable file time comparison"
+pattern = "\\[\\s+.*\\s+-[no]t\\s+"
+
+[test_file_ef]
+category = "builtin"
+feature = "test"
+description = "test -ef for same file (inode) test"
+
+[test_file_ef.behavior]
+posix = "Not specified in POSIX"
+bash = "Supported: file1 -ef file2 (same device and inode)"
+zsh = "Supported: file1 -ef file2"
+lush = "Supported: file1 -ef file2"
+
+[test_file_ef.lint]
+severity = "warning"
+message = "-ef is not POSIX portable"
+suggestion = "Use stat or ls -i for portable inode comparison"
+pattern = "\\[\\s+.*\\s+-ef\\s+"
+
+[test_var_set]
+category = "builtin"
+feature = "test"
+description = "test -v for variable existence"
+
+[test_var_set.behavior]
+posix = "Not specified in POSIX"
+bash = "Supported (bash 4.2+): [ -v varname ] tests if variable is set"
+zsh = "Uses (( ${+varname} )) or [[ -v varname ]]"
+lush = "Supported: [ -v varname ] (bash-compatible)"
+
+[test_var_set.lint]
+severity = "warning"
+message = "[ -v var ] is bash 4.2+ specific"
+suggestion = "Use [ -n \"${var+x}\" ] for portable variable existence test"
+pattern = "\\[\\s+-v\\s+[a-zA-Z_]"
+
+[test_regex]
+category = "builtin"
+feature = "test"
+description = "Regex matching with =~"
+
+[test_regex.behavior]
+posix = "Not specified; use grep or expr"
+bash = "Only in [[ ]]: [[ string =~ regex ]]"
+zsh = "Only in [[ ]]: [[ string =~ regex ]]"
+lush = "Only in [[ ]]: [[ string =~ regex ]]"
+
+[test_regex.lint]
+severity = "warning"
+message = "Regex matching requires [[ ]] and is not POSIX"
+suggestion = "Use grep or expr for portable regex matching"
+pattern = "\\[\\[.*=~"
+
+[test_string_order]
+category = "builtin"
+feature = "test"
+description = "String comparison with < and >"
+
+[test_string_order.behavior]
+posix = "Not specified in [ ]; use expr or case"
+bash = "In [ ]: must escape (\\< \\>); in [[ ]]: unescaped"
+zsh = "In [ ]: must escape; in [[ ]]: unescaped"
+lush = "In [ ]: must escape; in [[ ]]: unescaped"
+
+[test_string_order.lint]
+severity = "warning"
+message = "String comparison < > requires escaping in [ ]"
+suggestion = "Use [[ ]] or case statement for portable string ordering"
+pattern = "\\[\\s+.*[<>].*\\]"
+
+[test_and_or]
+category = "builtin"
+feature = "test"
+description = "-a and -o logical operators in test"
+
+[test_and_or.behavior]
+posix = "Deprecated; behavior with more than 4 arguments is unspecified"
+bash = "Supported but deprecated; use && || between [ ] commands"
+zsh = "Supported but deprecated"
+lush = "Supported but deprecated"
+
+[test_and_or.lint]
+severity = "warning"
+message = "[ -a ] and [ -o ] are deprecated and problematic"
+suggestion = "Use [ cond1 ] && [ cond2 ] instead of [ cond1 -a cond2 ]"
+pattern = "\\[\\s+.*\\s+-[ao]\\s+"
+
+[test_parens]
+category = "builtin"
+feature = "test"
+description = "Parentheses grouping in test"
+
+[test_parens.behavior]
+posix = "Supported but must be escaped: \\( \\)"
+bash = "Must escape in [ ]; unescaped in [[ ]]"
+zsh = "Must escape in [ ]; unescaped in [[ ]]"
+lush = "Must escape in [ ]; unescaped in [[ ]]"
+
+[test_parens.lint]
+severity = "info"
+message = "Parentheses in [ ] must be escaped"
+suggestion = "Use [[ ]] for complex conditions without escaping"
+
+[test_empty_string]
+category = "builtin"
+feature = "test"
+description = "Testing empty strings safely"
+
+[test_empty_string.behavior]
+posix = "[ -n \"$var\" ] and [ -z \"$var\" ] are safe"
+bash = "Unquoted variables in [ ] can cause errors"
+zsh = "More forgiving with unquoted variables"
+lush = "Bash-compatible; quote variables in [ ]"
+
+[test_empty_string.lint]
+severity = "info"
+message = "Always quote variables in [ ] to handle empty strings"
+suggestion = "Use [ -n \"$var\" ] not [ -n $var ]"

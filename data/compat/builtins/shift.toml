@@ -1,0 +1,53 @@
+# Shift builtin compatibility
+# Positional parameter manipulation
+
+[shift_basic]
+category = "builtins"
+feature = "shift"
+description = "Shift positional parameters"
+
+[shift_basic.behavior]
+posix = "POSIX defined - shift [n]"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[shift_basic.lint]
+severity = "info"
+message = "shift is portable"
+suggestion = "POSIX compliant"
+pattern = "\\bshift\\b"
+
+[shift_n]
+category = "builtins"
+feature = "shift_count"
+description = "Shift by N positions"
+
+[shift_n.behavior]
+posix = "POSIX defined - shift by n positions"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[shift_n.lint]
+severity = "info"
+message = "shift n is portable"
+suggestion = "POSIX compliant"
+pattern = "\\bshift\\s+[0-9]+"
+
+[shift_error]
+category = "builtins"
+feature = "shift_error"
+description = "Shift more than available"
+
+[shift_error.behavior]
+posix = "POSIX: error if n > $#"
+bash = "Returns error, no shift"
+zsh = "Returns error, no shift"
+lush = "POSIX compliant"
+
+[shift_error.lint]
+severity = "info"
+message = "Shift beyond $# behavior"
+suggestion = "Check $# before shifting to avoid errors"
+pattern = ""

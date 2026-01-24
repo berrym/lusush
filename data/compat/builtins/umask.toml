@@ -1,0 +1,53 @@
+# Umask builtin compatibility
+# File creation mask
+
+[umask_basic]
+category = "builtins"
+feature = "umask"
+description = "Set file creation mask"
+
+[umask_basic.behavior]
+posix = "POSIX defined - umask [-S] [mask]"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[umask_basic.lint]
+severity = "info"
+message = "umask is portable"
+suggestion = "POSIX compliant"
+pattern = "\\bumask\\b"
+
+[umask_S]
+category = "builtins"
+feature = "umask_symbolic"
+description = "Symbolic mode (umask -S)"
+
+[umask_S.behavior]
+posix = "POSIX defined - display in symbolic form"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[umask_S.lint]
+severity = "info"
+message = "umask -S is portable"
+suggestion = "POSIX compliant"
+pattern = "\\bumask\\s+-S\\b"
+
+[umask_p]
+category = "builtins"
+feature = "umask_print"
+description = "Print in reusable form (umask -p)"
+
+[umask_p.behavior]
+posix = "Not in POSIX"
+bash = "Print as umask command"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[umask_p.lint]
+severity = "warning"
+message = "umask -p is not portable"
+suggestion = "bash/zsh extension"
+pattern = "\\bumask\\s+-p\\b"

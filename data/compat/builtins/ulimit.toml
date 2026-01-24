@@ -1,0 +1,121 @@
+# Ulimit builtin compatibility
+# Resource limits
+
+[ulimit_basic]
+category = "builtins"
+feature = "ulimit"
+description = "Set or display resource limits"
+
+[ulimit_basic.behavior]
+posix = "POSIX defined - ulimit [-f [blocks]]"
+bash = "Extended with many more options"
+zsh = "Similar to bash with limit/unlimit aliases"
+lush = "POSIX compliant with extensions"
+
+[ulimit_basic.lint]
+severity = "info"
+message = "ulimit is mostly portable"
+suggestion = "Basic usage is POSIX; many options are extensions"
+pattern = "\\bulimit\\b"
+
+[ulimit_f]
+category = "builtins"
+feature = "ulimit_filesize"
+description = "File size limit (ulimit -f)"
+
+[ulimit_f.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[ulimit_f.lint]
+severity = "info"
+message = "ulimit -f is portable"
+suggestion = "POSIX compliant"
+pattern = "\\bulimit\\s+-f\\b"
+
+[ulimit_n]
+category = "builtins"
+feature = "ulimit_nofile"
+description = "Open files limit (ulimit -n)"
+
+[ulimit_n.behavior]
+posix = "Not in POSIX"
+bash = "Maximum number of open file descriptors"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[ulimit_n.lint]
+severity = "warning"
+message = "ulimit -n is not strictly POSIX"
+suggestion = "Widely supported but not in POSIX"
+pattern = "\\bulimit\\s+-n\\b"
+
+[ulimit_u]
+category = "builtins"
+feature = "ulimit_nproc"
+description = "Process limit (ulimit -u)"
+
+[ulimit_u.behavior]
+posix = "Not in POSIX"
+bash = "Maximum user processes"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[ulimit_u.lint]
+severity = "warning"
+message = "ulimit -u is not POSIX"
+suggestion = "bash/zsh extension"
+pattern = "\\bulimit\\s+-u\\b"
+
+[ulimit_a]
+category = "builtins"
+feature = "ulimit_all"
+description = "Show all limits (ulimit -a)"
+
+[ulimit_a.behavior]
+posix = "Not in POSIX"
+bash = "Display all limits"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[ulimit_a.lint]
+severity = "warning"
+message = "ulimit -a is not POSIX"
+suggestion = "Widely supported extension"
+pattern = "\\bulimit\\s+-a\\b"
+
+[ulimit_H]
+category = "builtins"
+feature = "ulimit_hard"
+description = "Hard limit (ulimit -H)"
+
+[ulimit_H.behavior]
+posix = "Not in POSIX"
+bash = "Set or show hard limit"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[ulimit_H.lint]
+severity = "warning"
+message = "ulimit -H is not POSIX"
+suggestion = "bash/zsh extension for hard limits"
+pattern = "\\bulimit\\s+[^;]*-H\\b"
+
+[ulimit_S]
+category = "builtins"
+feature = "ulimit_soft"
+description = "Soft limit (ulimit -S)"
+
+[ulimit_S.behavior]
+posix = "Not in POSIX"
+bash = "Set or show soft limit"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[ulimit_S.lint]
+severity = "warning"
+message = "ulimit -S is not POSIX"
+suggestion = "bash/zsh extension for soft limits"
+pattern = "\\bulimit\\s+[^;]*-S\\b"

@@ -1,0 +1,70 @@
+# Command substitution compatibility
+# Capturing command output
+
+[cmdsub_dollar]
+category = "expansion"
+feature = "command_substitution"
+description = "Command substitution $(command)"
+
+[cmdsub_dollar.behavior]
+posix = "POSIX defined - $(command)"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[cmdsub_dollar.lint]
+severity = "info"
+message = "Command substitution is portable"
+suggestion = "POSIX compliant; preferred over backticks"
+pattern = "\\$\\([^(][^)]*\\)"
+
+[cmdsub_backtick]
+category = "expansion"
+feature = "command_substitution_backtick"
+description = "Backtick command substitution `command`"
+
+[cmdsub_backtick.behavior]
+posix = "POSIX defined but deprecated style"
+bash = "Supported for compatibility"
+zsh = "Supported for compatibility"
+lush = "Supported but $(cmd) preferred"
+
+[cmdsub_backtick.lint]
+severity = "info"
+message = "Backtick substitution is portable but discouraged"
+suggestion = "Use $(cmd) instead; backticks have quoting complications"
+pattern = "`[^`]+`"
+
+[cmdsub_nested]
+category = "expansion"
+feature = "command_substitution_nested"
+description = "Nested command substitution"
+
+[cmdsub_nested.behavior]
+posix = "POSIX defined with $()"
+bash = "Easy nesting with $()"
+zsh = "Same as bash"
+lush = "POSIX compliant"
+
+[cmdsub_nested.lint]
+severity = "info"
+message = "Nested command substitution"
+suggestion = "$() nests cleanly; backticks require escaping"
+pattern = "\\$\\([^)]*\\$\\([^)]*\\)[^)]*\\)"
+
+[cmdsub_arithmetic]
+category = "expansion"
+feature = "command_substitution_arith"
+description = "Arithmetic in command substitution"
+
+[cmdsub_arithmetic.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[cmdsub_arithmetic.lint]
+severity = "info"
+message = "Mixing arithmetic and command substitution"
+suggestion = "Both are POSIX compliant"
+pattern = "\\$\\([^)]*\\$\\(\\([^)]+\\)\\)[^)]*\\)"

@@ -1,86 +1,121 @@
-# Brace expansion compatibility differences
+# Brace expansion compatibility
+# Generating sequences and combinations
 
-[brace_expansion_list]
+[brace_basic]
 category = "expansion"
-feature = "brace"
-description = "{a,b,c} brace expansion with comma-separated list"
+feature = "brace_expansion"
+description = "Brace expansion {a,b,c}"
 
-[brace_expansion_list.behavior]
-posix = "Not specified; braces are literal characters"
-bash = "Supported: expands to 'a b c'"
-zsh = "Supported: expands to 'a b c'"
-lush = "Supported: expands to 'a b c'"
+[brace_basic.behavior]
+posix = "Not in POSIX"
+bash = "Generates a b c from {a,b,c}"
+zsh = "Same as bash"
+lush = "Bash-compatible"
 
-[brace_expansion_list.lint]
+[brace_basic.lint]
 severity = "warning"
-message = "Brace expansion is not portable to POSIX sh"
-suggestion = "Use explicit list or for loop for POSIX portability"
+message = "Brace expansion is not portable"
+suggestion = "Not in POSIX; braces are literal in POSIX sh"
 pattern = "\\{[^{}]+,[^{}]+\\}"
 
-[brace_expansion_sequence]
+[brace_sequence]
 category = "expansion"
-feature = "brace"
-description = "{1..10} numeric sequence expansion"
+feature = "brace_sequence"
+description = "Numeric sequence {1..10}"
 
-[brace_expansion_sequence.behavior]
-posix = "Not specified; braces are literal characters"
-bash = "Supported: expands to '1 2 3 4 5 6 7 8 9 10'"
-zsh = "Supported: expands to '1 2 3 4 5 6 7 8 9 10'"
-lush = "Supported: expands to '1 2 3 4 5 6 7 8 9 10'"
+[brace_sequence.behavior]
+posix = "Not in POSIX"
+bash = "Generates 1 2 3 ... 10"
+zsh = "Same as bash"
+lush = "Bash-compatible"
 
-[brace_expansion_sequence.lint]
+[brace_sequence.lint]
 severity = "warning"
-message = "Sequence brace expansion is not portable to POSIX sh"
-suggestion = "Use seq command or arithmetic for loop"
+message = "Brace sequence is not portable"
+suggestion = "Use seq command for POSIX compatibility"
 pattern = "\\{[0-9]+\\.\\.[0-9]+\\}"
 
-[brace_expansion_alpha]
+[brace_sequence_step]
 category = "expansion"
-feature = "brace"
-description = "{a..z} alphabetic sequence expansion"
+feature = "brace_sequence_step"
+description = "Sequence with step {1..10..2}"
 
-[brace_expansion_alpha.behavior]
-posix = "Not specified; braces are literal characters"
-bash = "Supported: expands to 'a b c ... z'"
-zsh = "Supported: expands to 'a b c ... z'"
-lush = "Supported: expands to 'a b c ... z'"
+[brace_sequence_step.behavior]
+posix = "Not in POSIX"
+bash = "Generates 1 3 5 7 9 (bash 4.0+)"
+zsh = "Same as bash"
+lush = "Bash-compatible"
 
-[brace_expansion_alpha.lint]
+[brace_sequence_step.lint]
 severity = "warning"
-message = "Alphabetic brace expansion is not portable to POSIX sh"
-suggestion = "Use explicit list for POSIX portability"
-pattern = "\\{[a-zA-Z]\\.\\.[a-zA-Z]\\}"
-
-[brace_expansion_step]
-category = "expansion"
-feature = "brace"
-description = "{1..10..2} sequence with step"
-
-[brace_expansion_step.behavior]
-posix = "Not specified"
-bash = "Supported: expands to '1 3 5 7 9'"
-zsh = "Supported: expands to '1 3 5 7 9'"
-lush = "Supported: expands to '1 3 5 7 9'"
-
-[brace_expansion_step.lint]
-severity = "warning"
-message = "Stepped sequence expansion is not portable"
-suggestion = "Use seq with step argument"
+message = "Brace sequence with step is not portable"
+suggestion = "bash 4.0+ and zsh; use seq for portability"
 pattern = "\\{[0-9]+\\.\\.[0-9]+\\.\\.[0-9]+\\}"
 
-[brace_expansion_nested]
+[brace_alpha]
 category = "expansion"
-feature = "brace"
-description = "Nested brace expansion {a,b{1,2},c}"
+feature = "brace_alpha_sequence"
+description = "Alphabetic sequence {a..z}"
 
-[brace_expansion_nested.behavior]
-posix = "Not specified"
-bash = "Supported: expands to 'a b1 b2 c'"
-zsh = "Supported: expands to 'a b1 b2 c'"
-lush = "Supported: expands to 'a b1 b2 c'"
+[brace_alpha.behavior]
+posix = "Not in POSIX"
+bash = "Generates a b c ... z"
+zsh = "Same as bash"
+lush = "Bash-compatible"
 
-[brace_expansion_nested.lint]
+[brace_alpha.lint]
 severity = "warning"
-message = "Nested brace expansion is not portable to POSIX sh"
-suggestion = "Expand manually or use multiple commands"
+message = "Alphabetic sequence is not portable"
+suggestion = "Not in POSIX; no simple portable alternative"
+pattern = "\\{[a-zA-Z]\\.\\.[a-zA-Z]\\}"
+
+[brace_nested]
+category = "expansion"
+feature = "brace_nested"
+description = "Nested brace expansion"
+
+[brace_nested.behavior]
+posix = "Not in POSIX"
+bash = "Nested braces expand from inner to outer"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[brace_nested.lint]
+severity = "warning"
+message = "Nested brace expansion is not portable"
+suggestion = "Not in POSIX"
 pattern = "\\{[^{}]*\\{[^{}]+\\}[^{}]*\\}"
+
+[brace_preamble]
+category = "expansion"
+feature = "brace_preamble"
+description = "Brace with preamble/postscript"
+
+[brace_preamble.behavior]
+posix = "Not in POSIX"
+bash = "pre{a,b}post generates prepost preapost prebpost"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[brace_preamble.lint]
+severity = "warning"
+message = "Brace with preamble is not portable"
+suggestion = "Not in POSIX"
+pattern = "[a-zA-Z0-9_]+\\{[^{}]+\\}[a-zA-Z0-9_]+"
+
+[brace_zero_pad]
+category = "expansion"
+feature = "brace_zero_pad"
+description = "Zero-padded sequence {01..10}"
+
+[brace_zero_pad.behavior]
+posix = "Not in POSIX"
+bash = "Generates 01 02 03 ... 10 (bash 4.0+)"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[brace_zero_pad.lint]
+severity = "warning"
+message = "Zero-padded sequence is not portable"
+suggestion = "bash 4.0+ and zsh; use seq -w for portability"
+pattern = "\\{0[0-9]+\\.\\.[0-9]+\\}"

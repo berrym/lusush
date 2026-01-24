@@ -1,0 +1,87 @@
+# Exec builtin compatibility
+# Replace shell process and redirections
+
+[exec_basic]
+category = "builtins"
+feature = "exec"
+description = "Replace shell with command or apply redirections"
+
+[exec_basic.behavior]
+posix = "POSIX defined - replace shell or set redirections"
+bash = "Same as POSIX with -c, -l, -a options"
+zsh = "Same as bash"
+lush = "Superset with all options"
+
+[exec_basic.lint]
+severity = "info"
+message = "exec builtin usage"
+suggestion = "Basic exec is POSIX compliant"
+pattern = "\\bexec\\s+"
+
+[exec_redirect]
+category = "builtins"
+feature = "exec_redirect"
+description = "Exec with redirections only (no command)"
+
+[exec_redirect.behavior]
+posix = "POSIX defined - apply redirections to current shell"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[exec_redirect.lint]
+severity = "info"
+message = "exec for redirections is portable"
+suggestion = "Common pattern: exec 3>&1 for fd manipulation"
+pattern = "\\bexec\\s+[0-9]*[<>]"
+
+[exec_c]
+category = "builtins"
+feature = "exec_clear_env"
+description = "Clear environment (exec -c)"
+
+[exec_c.behavior]
+posix = "Not in POSIX"
+bash = "Execute with empty environment"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[exec_c.lint]
+severity = "warning"
+message = "exec -c is not portable"
+suggestion = "Use env -i for portable empty environment"
+pattern = "\\bexec\\s+-c\\b"
+
+[exec_l]
+category = "builtins"
+feature = "exec_login"
+description = "Login shell (exec -l)"
+
+[exec_l.behavior]
+posix = "Not in POSIX"
+bash = "Place dash at start of argv[0] (login shell)"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[exec_l.lint]
+severity = "warning"
+message = "exec -l is not portable"
+suggestion = "Login shell flag is bash/zsh specific"
+pattern = "\\bexec\\s+-l\\b"
+
+[exec_a]
+category = "builtins"
+feature = "exec_argv0"
+description = "Set argv[0] (exec -a name)"
+
+[exec_a.behavior]
+posix = "Not in POSIX"
+bash = "Set argv[0] to specified name"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[exec_a.lint]
+severity = "warning"
+message = "exec -a is not portable"
+suggestion = "Setting argv[0] is bash/zsh specific"
+pattern = "\\bexec\\s+-a\\b"

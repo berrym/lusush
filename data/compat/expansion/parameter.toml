@@ -1,83 +1,410 @@
-# Parameter expansion compatibility differences
+# Parameter expansion compatibility
+# Variable expansion and manipulation
 
-[braced_expansion_command]
+[param_basic]
 category = "expansion"
-feature = "parameter"
-description = "Braced parameter expansion in command position"
+feature = "parameter_expansion"
+description = "Basic parameter expansion ${var}"
 
-[braced_expansion_command.behavior]
-posix = "Expansion result is executed as command"
-bash = "Expansion result is executed as command"
-zsh = "Expansion result is executed as command"
-lush = "Expansion result is executed as command"
-
-[braced_expansion_command.lint]
-severity = "info"
-message = "Braced parameter expansion in command position"
-suggestion = "Ensure expanded value is a valid command"
-pattern = "^\\s*\\$\\{[^}]+\\}"
-
-[parameter_default_value]
-category = "expansion"
-feature = "parameter"
-description = "${var:-default} vs ${var-default} semantics"
-
-[parameter_default_value.behavior]
-posix = "${var:-word} uses word if var is unset or null; ${var-word} only if unset"
+[param_basic.behavior]
+posix = "POSIX defined - ${parameter}"
 bash = "Same as POSIX"
 zsh = "Same as POSIX"
-lush = "Same as POSIX"
+lush = "POSIX compliant"
 
-[parameter_default_value.lint]
+[param_basic.lint]
 severity = "info"
-message = "Parameter default value expansion"
-pattern = "\\$\\{[^:}]+:-?[^}]+\\}"
+message = "Basic parameter expansion is portable"
+suggestion = "POSIX compliant syntax"
+pattern = "\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}"
 
-[parameter_assignment]
+[param_default]
 category = "expansion"
-feature = "parameter"
-description = "${var:=value} assigns and returns value"
+feature = "param_default"
+description = "Default value ${var:-default}"
 
-[parameter_assignment.behavior]
-posix = "Assigns value to var if unset/null, then expands to value"
+[param_default.behavior]
+posix = "POSIX defined - use default if unset or null"
 bash = "Same as POSIX"
 zsh = "Same as POSIX"
-lush = "Same as POSIX"
+lush = "POSIX compliant"
 
-[parameter_assignment.lint]
+[param_default.lint]
 severity = "info"
-message = "Parameter assignment expansion"
-pattern = "\\$\\{[^:}]+:?=[^}]+\\}"
+message = "Default value expansion is portable"
+suggestion = "POSIX compliant; ${var:-default} uses default if var is unset/null"
+pattern = "\\$\\{[^}]+:-[^}]*\\}"
 
-[parameter_length]
+[param_default_unset]
 category = "expansion"
-feature = "parameter"
-description = "${#var} returns length of variable value"
+feature = "param_default_unset"
+description = "Default if unset only ${var-default}"
 
-[parameter_length.behavior]
-posix = "Returns character length of var's value"
+[param_default_unset.behavior]
+posix = "POSIX defined - use default only if unset"
 bash = "Same as POSIX"
 zsh = "Same as POSIX"
-lush = "Same as POSIX"
+lush = "POSIX compliant"
 
-[parameter_length.lint]
+[param_default_unset.lint]
 severity = "info"
-message = "Parameter length expansion"
-pattern = "\\$\\{#[^}]+\\}"
+message = "Default if unset is portable"
+suggestion = "POSIX compliant; differs from :- which also checks for null"
+pattern = "\\$\\{[A-Za-z_][A-Za-z0-9_]*-[^}]*\\}"
 
-[parameter_substring]
+[param_assign]
 category = "expansion"
-feature = "parameter"
-description = "${var:offset:length} substring extraction"
+feature = "param_assign"
+description = "Assign default ${var:=default}"
 
-[parameter_substring.behavior]
-posix = "Not specified in base POSIX"
-bash = "Supported: extracts substring from offset"
-zsh = "Supported: extracts substring from offset"
-lush = "Supported: extracts substring from offset"
+[param_assign.behavior]
+posix = "POSIX defined - assign and use default if unset or null"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
 
-[parameter_substring.lint]
+[param_assign.lint]
+severity = "info"
+message = "Assign default expansion is portable"
+suggestion = "POSIX compliant; assigns default to var if unset/null"
+pattern = "\\$\\{[^}]+:=[^}]*\\}"
+
+[param_error]
+category = "expansion"
+feature = "param_error"
+description = "Error if unset ${var:?message}"
+
+[param_error.behavior]
+posix = "POSIX defined - error if unset or null"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[param_error.lint]
+severity = "info"
+message = "Error if unset expansion is portable"
+suggestion = "POSIX compliant; prints message and exits if unset/null"
+pattern = "\\$\\{[^}]+:\\?[^}]*\\}"
+
+[param_alternate]
+category = "expansion"
+feature = "param_alternate"
+description = "Alternate value ${var:+alternate}"
+
+[param_alternate.behavior]
+posix = "POSIX defined - use alternate if set and non-null"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[param_alternate.lint]
+severity = "info"
+message = "Alternate value expansion is portable"
+suggestion = "POSIX compliant; uses alternate only if var is set/non-null"
+pattern = "\\$\\{[^}]+:\\+[^}]*\\}"
+
+[param_length]
+category = "expansion"
+feature = "param_length"
+description = "String length ${#var}"
+
+[param_length.behavior]
+posix = "POSIX defined - length of parameter value"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[param_length.lint]
+severity = "info"
+message = "String length expansion is portable"
+suggestion = "POSIX compliant"
+pattern = "\\$\\{#[A-Za-z_][A-Za-z0-9_]*\\}"
+
+[param_prefix_short]
+category = "expansion"
+feature = "param_prefix_short"
+description = "Remove shortest prefix ${var#pattern}"
+
+[param_prefix_short.behavior]
+posix = "POSIX defined - remove shortest matching prefix"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[param_prefix_short.lint]
+severity = "info"
+message = "Remove prefix (short) is portable"
+suggestion = "POSIX compliant; ${var#*/} removes up to first /"
+pattern = "\\$\\{[A-Za-z_][A-Za-z0-9_]*#[^#][^}]*\\}"
+
+[param_prefix_long]
+category = "expansion"
+feature = "param_prefix_long"
+description = "Remove longest prefix ${var##pattern}"
+
+[param_prefix_long.behavior]
+posix = "POSIX defined - remove longest matching prefix"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[param_prefix_long.lint]
+severity = "info"
+message = "Remove prefix (long) is portable"
+suggestion = "POSIX compliant; ${var##*/} removes up to last /"
+pattern = "\\$\\{[A-Za-z_][A-Za-z0-9_]*##[^}]*\\}"
+
+[param_suffix_short]
+category = "expansion"
+feature = "param_suffix_short"
+description = "Remove shortest suffix ${var%pattern}"
+
+[param_suffix_short.behavior]
+posix = "POSIX defined - remove shortest matching suffix"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[param_suffix_short.lint]
+severity = "info"
+message = "Remove suffix (short) is portable"
+suggestion = "POSIX compliant; ${var%.*} removes extension"
+pattern = "\\$\\{[A-Za-z_][A-Za-z0-9_]*%[^%][^}]*\\}"
+
+[param_suffix_long]
+category = "expansion"
+feature = "param_suffix_long"
+description = "Remove longest suffix ${var%%pattern}"
+
+[param_suffix_long.behavior]
+posix = "POSIX defined - remove longest matching suffix"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[param_suffix_long.lint]
+severity = "info"
+message = "Remove suffix (long) is portable"
+suggestion = "POSIX compliant; ${var%%.*} removes all extensions"
+pattern = "\\$\\{[A-Za-z_][A-Za-z0-9_]*%%[^}]*\\}"
+
+[param_substitute]
+category = "expansion"
+feature = "param_substitute"
+description = "Pattern substitution ${var/pattern/replacement}"
+
+[param_substitute.behavior]
+posix = "Not in POSIX"
+bash = "Replace first match of pattern"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[param_substitute.lint]
 severity = "warning"
-message = "Substring expansion is not portable to POSIX sh"
-suggestion = "Use expr or cut for POSIX portability"
-pattern = "\\$\\{[^}]+:[0-9]+:[0-9]+\\}"
+message = "Pattern substitution is not portable"
+suggestion = "Use sed or other tools for POSIX compatibility"
+pattern = "\\$\\{[A-Za-z_][A-Za-z0-9_]*/[^/]*/[^}]*\\}"
+
+[param_substitute_all]
+category = "expansion"
+feature = "param_substitute_all"
+description = "Global substitution ${var//pattern/replacement}"
+
+[param_substitute_all.behavior]
+posix = "Not in POSIX"
+bash = "Replace all matches of pattern"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[param_substitute_all.lint]
+severity = "warning"
+message = "Global substitution is not portable"
+suggestion = "Use sed or other tools for POSIX compatibility"
+pattern = "\\$\\{[A-Za-z_][A-Za-z0-9_]*//[^}]*\\}"
+
+[param_substitute_prefix]
+category = "expansion"
+feature = "param_substitute_prefix"
+description = "Prefix substitution ${var/#pattern/replacement}"
+
+[param_substitute_prefix.behavior]
+posix = "Not in POSIX"
+bash = "Replace pattern if at beginning"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[param_substitute_prefix.lint]
+severity = "warning"
+message = "Prefix substitution is not portable"
+suggestion = "Not in POSIX; pattern must match at start"
+pattern = "\\$\\{[A-Za-z_][A-Za-z0-9_]*/#[^}]*\\}"
+
+[param_substitute_suffix]
+category = "expansion"
+feature = "param_substitute_suffix"
+description = "Suffix substitution ${var/%pattern/replacement}"
+
+[param_substitute_suffix.behavior]
+posix = "Not in POSIX"
+bash = "Replace pattern if at end"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[param_substitute_suffix.lint]
+severity = "warning"
+message = "Suffix substitution is not portable"
+suggestion = "Not in POSIX; pattern must match at end"
+pattern = "\\$\\{[A-Za-z_][A-Za-z0-9_]*/%[^}]*\\}"
+
+[param_uppercase]
+category = "expansion"
+feature = "param_uppercase"
+description = "Uppercase conversion ${var^^}"
+
+[param_uppercase.behavior]
+posix = "Not in POSIX"
+bash = "Convert to uppercase (bash 4.0+)"
+zsh = "Use ${(U)var} instead"
+lush = "Bash-compatible with zsh alias"
+
+[param_uppercase.lint]
+severity = "warning"
+message = "Uppercase conversion is not portable"
+suggestion = "Not in POSIX; zsh uses ${(U)var}"
+pattern = "\\$\\{[A-Za-z_][A-Za-z0-9_]*\\^\\^\\}"
+
+[param_uppercase_first]
+category = "expansion"
+feature = "param_uppercase_first"
+description = "Uppercase first char ${var^}"
+
+[param_uppercase_first.behavior]
+posix = "Not in POSIX"
+bash = "Uppercase first character (bash 4.0+)"
+zsh = "Use ${(C)var} for capitalize"
+lush = "Bash-compatible"
+
+[param_uppercase_first.lint]
+severity = "warning"
+message = "Uppercase first is not portable"
+suggestion = "Not in POSIX; zsh uses ${(C)var}"
+pattern = "\\$\\{[A-Za-z_][A-Za-z0-9_]*\\^\\}"
+
+[param_lowercase]
+category = "expansion"
+feature = "param_lowercase"
+description = "Lowercase conversion ${var,,}"
+
+[param_lowercase.behavior]
+posix = "Not in POSIX"
+bash = "Convert to lowercase (bash 4.0+)"
+zsh = "Use ${(L)var} instead"
+lush = "Bash-compatible with zsh alias"
+
+[param_lowercase.lint]
+severity = "warning"
+message = "Lowercase conversion is not portable"
+suggestion = "Not in POSIX; zsh uses ${(L)var}"
+pattern = "\\$\\{[A-Za-z_][A-Za-z0-9_]*,,\\}"
+
+[param_lowercase_first]
+category = "expansion"
+feature = "param_lowercase_first"
+description = "Lowercase first char ${var,}"
+
+[param_lowercase_first.behavior]
+posix = "Not in POSIX"
+bash = "Lowercase first character (bash 4.0+)"
+zsh = "No direct equivalent"
+lush = "Bash-compatible"
+
+[param_lowercase_first.lint]
+severity = "warning"
+message = "Lowercase first is not portable"
+suggestion = "Not in POSIX; bash-specific"
+pattern = "\\$\\{[A-Za-z_][A-Za-z0-9_]*,\\}"
+
+[param_indirect]
+category = "expansion"
+feature = "param_indirect"
+description = "Indirect expansion ${!var}"
+
+[param_indirect.behavior]
+posix = "Not in POSIX"
+bash = "Use var as name of variable to expand"
+zsh = "Use ${(P)var} instead"
+lush = "Bash-compatible with zsh alias"
+
+[param_indirect.lint]
+severity = "warning"
+message = "Indirect expansion is not portable"
+suggestion = "Not in POSIX; zsh uses ${(P)var}; use eval for portability"
+pattern = "\\$\\{![A-Za-z_][A-Za-z0-9_]*\\}"
+
+[param_prefix_names]
+category = "expansion"
+feature = "param_prefix_names"
+description = "Variable names by prefix ${!prefix*}"
+
+[param_prefix_names.behavior]
+posix = "Not in POSIX"
+bash = "Expand to names starting with prefix"
+zsh = "Use ${(k)parameters[(I)prefix*]}"
+lush = "Bash-compatible"
+
+[param_prefix_names.lint]
+severity = "warning"
+message = "Prefix name expansion is not portable"
+suggestion = "Not in POSIX; bash-specific; zsh uses different syntax"
+pattern = "\\$\\{![A-Za-z_][A-Za-z0-9_]*[*@]\\}"
+
+[param_substring]
+category = "expansion"
+feature = "param_substring"
+description = "Substring extraction ${var:offset:length}"
+
+[param_substring.behavior]
+posix = "Not in POSIX"
+bash = "Extract substring from offset (0-based)"
+zsh = "Same but 1-based indexing by default"
+lush = "Bash-compatible (0-based)"
+
+[param_substring.lint]
+severity = "warning"
+message = "Substring extraction is not portable"
+suggestion = "Not in POSIX; index base differs between bash (0) and zsh (1)"
+pattern = "\\$\\{[A-Za-z_][A-Za-z0-9_]*:[0-9-]+:[0-9]+\\}"
+
+[param_substring_offset]
+category = "expansion"
+feature = "param_substring_offset"
+description = "Substring from offset ${var:offset}"
+
+[param_substring_offset.behavior]
+posix = "Not in POSIX"
+bash = "Extract from offset to end"
+zsh = "Same but 1-based indexing"
+lush = "Bash-compatible (0-based)"
+
+[param_substring_offset.lint]
+severity = "warning"
+message = "Substring from offset is not portable"
+suggestion = "Not in POSIX; index base differs between shells"
+pattern = "\\$\\{[A-Za-z_][A-Za-z0-9_]*:[0-9-]+\\}"
+
+[param_transform]
+category = "expansion"
+feature = "param_transform"
+description = "Parameter transformation ${var@operator}"
+
+[param_transform.behavior]
+posix = "Not in POSIX"
+bash = "bash 4.4+ transformations: U, u, L, Q, E, P, A, K, a"
+zsh = "Uses ${(flag)var} syntax instead"
+lush = "Bash-compatible with zsh aliases"
+
+[param_transform.lint]
+severity = "warning"
+message = "Parameter transformation is not portable"
+suggestion = "bash 4.4+ specific; zsh uses different syntax"
+pattern = "\\$\\{[A-Za-z_][A-Za-z0-9_]*@[UuLQEPAKa]\\}"

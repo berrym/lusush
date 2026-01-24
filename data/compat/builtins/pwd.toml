@@ -1,0 +1,53 @@
+# Pwd builtin compatibility
+# Print working directory
+
+[pwd_basic]
+category = "builtins"
+feature = "pwd"
+description = "Print working directory"
+
+[pwd_basic.behavior]
+posix = "POSIX defined - pwd [-L|-P]"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[pwd_basic.lint]
+severity = "info"
+message = "pwd is portable"
+suggestion = "POSIX compliant"
+pattern = "\\bpwd\\b"
+
+[pwd_L]
+category = "builtins"
+feature = "pwd_logical"
+description = "Logical path (pwd -L)"
+
+[pwd_L.behavior]
+posix = "POSIX defined - print logical path with symlinks"
+bash = "Same as POSIX, default behavior"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[pwd_L.lint]
+severity = "info"
+message = "pwd -L is portable"
+suggestion = "POSIX compliant"
+pattern = "\\bpwd\\s+-L\\b"
+
+[pwd_P]
+category = "builtins"
+feature = "pwd_physical"
+description = "Physical path (pwd -P)"
+
+[pwd_P.behavior]
+posix = "POSIX defined - print physical path without symlinks"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[pwd_P.lint]
+severity = "info"
+message = "pwd -P is portable"
+suggestion = "POSIX compliant"
+pattern = "\\bpwd\\s+-P\\b"

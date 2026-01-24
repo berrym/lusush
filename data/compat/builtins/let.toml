@@ -1,0 +1,53 @@
+# Let builtin compatibility
+# Arithmetic evaluation
+
+[let_basic]
+category = "builtins"
+feature = "let"
+description = "Evaluate arithmetic expression"
+
+[let_basic.behavior]
+posix = "Not in POSIX - use $(( )) or (( ))"
+bash = "let expr [expr...]"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[let_basic.lint]
+severity = "warning"
+message = "let is not portable"
+suggestion = "Use $(( )) for POSIX arithmetic"
+pattern = "\\blet\\s+"
+
+[let_multiple]
+category = "builtins"
+feature = "let_multiple"
+description = "Multiple expressions in let"
+
+[let_multiple.behavior]
+posix = "Not in POSIX"
+bash = "Evaluate multiple expressions left to right"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[let_multiple.lint]
+severity = "warning"
+message = "let with multiple expressions is not portable"
+suggestion = "Use separate $(( )) expressions"
+pattern = "\\blet\\s+[^;]+\\s+[^;]+"
+
+[arith_cmd]
+category = "builtins"
+feature = "arithmetic_command"
+description = "(( )) arithmetic command"
+
+[arith_cmd.behavior]
+posix = "Not in POSIX"
+bash = "(( expr )) returns 0 if non-zero, 1 if zero"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[arith_cmd.lint]
+severity = "warning"
+message = "(( )) is not portable"
+suggestion = "Use [ $((expr)) -ne 0 ] for POSIX"
+pattern = "\\(\\([^)]+\\)\\)"

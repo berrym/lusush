@@ -1,0 +1,87 @@
+# Hash builtin compatibility
+# Command path caching
+
+[hash_basic]
+category = "builtins"
+feature = "hash"
+description = "Remember command locations"
+
+[hash_basic.behavior]
+posix = "POSIX defined - hash [-r] [utility...]"
+bash = "Same with additional options"
+zsh = "Same as bash with rehash alias"
+lush = "POSIX compliant with extensions"
+
+[hash_basic.lint]
+severity = "info"
+message = "hash is portable"
+suggestion = "POSIX compliant"
+pattern = "\\bhash\\b"
+
+[hash_r]
+category = "builtins"
+feature = "hash_clear"
+description = "Clear hash table (hash -r)"
+
+[hash_r.behavior]
+posix = "POSIX defined - forget all locations"
+bash = "Same as POSIX"
+zsh = "Same, also rehash command"
+lush = "POSIX compliant"
+
+[hash_r.lint]
+severity = "info"
+message = "hash -r is portable"
+suggestion = "POSIX compliant"
+pattern = "\\bhash\\s+-r\\b"
+
+[hash_l]
+category = "builtins"
+feature = "hash_list"
+description = "List hash table (hash -l)"
+
+[hash_l.behavior]
+posix = "Not in POSIX"
+bash = "List in reusable format"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[hash_l.lint]
+severity = "warning"
+message = "hash -l is not portable"
+suggestion = "bash/zsh extension"
+pattern = "\\bhash\\s+-l\\b"
+
+[hash_d]
+category = "builtins"
+feature = "hash_delete"
+description = "Delete entry (hash -d)"
+
+[hash_d.behavior]
+posix = "Not in POSIX"
+bash = "Remove named entry"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[hash_d.lint]
+severity = "warning"
+message = "hash -d is not portable"
+suggestion = "bash/zsh extension"
+pattern = "\\bhash\\s+-d\\b"
+
+[hash_t]
+category = "builtins"
+feature = "hash_show"
+description = "Show path (hash -t)"
+
+[hash_t.behavior]
+posix = "Not in POSIX"
+bash = "Print path for command"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[hash_t.lint]
+severity = "warning"
+message = "hash -t is not portable"
+suggestion = "bash/zsh extension"
+pattern = "\\bhash\\s+-t\\b"

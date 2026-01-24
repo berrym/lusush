@@ -1,0 +1,87 @@
+# Readonly builtin compatibility
+# Constant/immutable variables
+
+[readonly_basic]
+category = "builtins"
+feature = "readonly"
+description = "Mark variables as readonly"
+
+[readonly_basic.behavior]
+posix = "readonly name[=value]... or readonly -p"
+bash = "Same as POSIX with -a, -A, -f options"
+zsh = "Same as bash"
+lush = "Superset with all options"
+
+[readonly_basic.lint]
+severity = "info"
+message = "readonly builtin usage"
+suggestion = "Basic readonly is POSIX compliant"
+pattern = "\\breadonly\\s+[A-Za-z_]"
+
+[readonly_p]
+category = "builtins"
+feature = "readonly_print"
+description = "Print readonly variables (readonly -p)"
+
+[readonly_p.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[readonly_p.lint]
+severity = "info"
+message = "readonly -p is portable"
+suggestion = "POSIX compliant option"
+pattern = "\\breadonly\\s+-p\\b"
+
+[readonly_a]
+category = "builtins"
+feature = "readonly_array"
+description = "Readonly indexed array (readonly -a)"
+
+[readonly_a.behavior]
+posix = "Not in POSIX (no arrays)"
+bash = "Mark indexed array as readonly"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[readonly_a.lint]
+severity = "warning"
+message = "readonly -a is not portable"
+suggestion = "Arrays are not in POSIX"
+pattern = "\\breadonly\\s+-a\\b"
+
+[readonly_A]
+category = "builtins"
+feature = "readonly_assoc"
+description = "Readonly associative array (readonly -A)"
+
+[readonly_A.behavior]
+posix = "Not in POSIX"
+bash = "Mark associative array as readonly"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[readonly_A.lint]
+severity = "warning"
+message = "readonly -A is not portable"
+suggestion = "Associative arrays are not in POSIX"
+pattern = "\\breadonly\\s+-A\\b"
+
+[readonly_f]
+category = "builtins"
+feature = "readonly_function"
+description = "Readonly function (readonly -f)"
+
+[readonly_f.behavior]
+posix = "Not in POSIX"
+bash = "Mark function as readonly (cannot be unset)"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[readonly_f.lint]
+severity = "warning"
+message = "readonly -f is not portable"
+suggestion = "Function readonly is bash/zsh specific"
+pattern = "\\breadonly\\s+-f\\b"

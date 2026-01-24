@@ -1,0 +1,87 @@
+# Unset builtin compatibility
+# Remove variables and functions
+
+[unset_basic]
+category = "builtins"
+feature = "unset"
+description = "Unset variables or functions"
+
+[unset_basic.behavior]
+posix = "unset name... with -v (default) or -f"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[unset_basic.lint]
+severity = "info"
+message = "unset builtin usage"
+suggestion = "Basic unset is POSIX compliant"
+pattern = "\\bunset\\s+[A-Za-z_]"
+
+[unset_v]
+category = "builtins"
+feature = "unset_variable"
+description = "Unset variable (unset -v)"
+
+[unset_v.behavior]
+posix = "POSIX defined, unset variable only"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[unset_v.lint]
+severity = "info"
+message = "unset -v is portable"
+suggestion = "POSIX compliant option"
+pattern = "\\bunset\\s+-v\\b"
+
+[unset_f]
+category = "builtins"
+feature = "unset_function"
+description = "Unset function (unset -f)"
+
+[unset_f.behavior]
+posix = "POSIX defined, unset function only"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[unset_f.lint]
+severity = "info"
+message = "unset -f is portable"
+suggestion = "POSIX compliant option"
+pattern = "\\bunset\\s+-f\\b"
+
+[unset_n]
+category = "builtins"
+feature = "unset_nameref"
+description = "Unset nameref itself (unset -n)"
+
+[unset_n.behavior]
+posix = "Not in POSIX"
+bash = "Unset the nameref variable, not what it references"
+zsh = "Different behavior with namerefs"
+lush = "Bash-compatible"
+
+[unset_n.lint]
+severity = "warning"
+message = "unset -n is not portable"
+suggestion = "Nameref unset is bash-specific"
+pattern = "\\bunset\\s+-n\\b"
+
+[unset_array_element]
+category = "builtins"
+feature = "unset_array_element"
+description = "Unset array element (unset arr[n])"
+
+[unset_array_element.behavior]
+posix = "Not in POSIX (no arrays)"
+bash = "Unset specific array index"
+zsh = "Same but 1-indexed by default"
+lush = "Bash-compatible (0-indexed)"
+
+[unset_array_element.lint]
+severity = "warning"
+message = "Unsetting array elements is not portable"
+suggestion = "Arrays are not in POSIX; zsh uses 1-based indexing"
+pattern = "\\bunset\\s+[A-Za-z_][A-Za-z0-9_]*\\["

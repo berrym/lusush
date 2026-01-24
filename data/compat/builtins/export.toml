@@ -1,0 +1,87 @@
+# Export builtin compatibility
+# Environment variable management
+
+[export_basic]
+category = "builtins"
+feature = "export"
+description = "Export variables to environment"
+
+[export_basic.behavior]
+posix = "export name[=value]... or export -p"
+bash = "Same as POSIX with -n and -f options"
+zsh = "Same as bash"
+lush = "Superset with all options"
+
+[export_basic.lint]
+severity = "info"
+message = "export builtin usage"
+suggestion = "Basic export is POSIX compliant"
+pattern = "\\bexport\\s+[A-Za-z_]"
+
+[export_n]
+category = "builtins"
+feature = "export_unexport"
+description = "Remove export attribute (export -n)"
+
+[export_n.behavior]
+posix = "Not in POSIX"
+bash = "Removes export attribute, variable remains"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[export_n.lint]
+severity = "warning"
+message = "export -n is not portable"
+suggestion = "Not in POSIX; use unset and reassign for portability"
+pattern = "\\bexport\\s+-n\\b"
+
+[export_f]
+category = "builtins"
+feature = "export_function"
+description = "Export functions (export -f)"
+
+[export_f.behavior]
+posix = "Not in POSIX"
+bash = "Exports shell functions to child processes"
+zsh = "Functions exported differently via FPATH"
+lush = "Bash-compatible function export"
+
+[export_f.lint]
+severity = "warning"
+message = "export -f is not portable"
+suggestion = "Function export is bash-specific; zsh uses different mechanism"
+pattern = "\\bexport\\s+-f\\b"
+
+[export_p]
+category = "builtins"
+feature = "export_print"
+description = "Print exported variables (export -p)"
+
+[export_p.behavior]
+posix = "POSIX defined, prints in reusable format"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[export_p.lint]
+severity = "info"
+message = "export -p is portable"
+suggestion = "POSIX compliant option"
+pattern = "\\bexport\\s+-p\\b"
+
+[export_assign]
+category = "builtins"
+feature = "export_assign"
+description = "Export with assignment (export VAR=value)"
+
+[export_assign.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[export_assign.lint]
+severity = "info"
+message = "export with assignment is portable"
+suggestion = "POSIX compliant syntax"
+pattern = "\\bexport\\s+[A-Za-z_][A-Za-z0-9_]*="

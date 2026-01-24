@@ -1,0 +1,203 @@
+# Declare/typeset builtin compatibility differences
+
+[declare_basic]
+category = "builtin"
+feature = "declare"
+description = "declare/typeset for variable attributes"
+
+[declare_basic.behavior]
+posix = "Not specified; use export, readonly instead"
+bash = "declare sets variable attributes; typeset is alias"
+zsh = "typeset is primary; declare is alias"
+lush = "Both declare and typeset supported (bash-compatible)"
+
+[declare_basic.lint]
+severity = "warning"
+message = "declare/typeset is not POSIX portable"
+suggestion = "Use export for exports, readonly for constants"
+pattern = "^\\s*(declare|typeset)\\s+"
+
+[declare_export]
+category = "builtin"
+feature = "declare"
+description = "declare -x for export attribute"
+
+[declare_export.behavior]
+posix = "Use export builtin instead"
+bash = "Supported: declare -x var=value exports variable"
+zsh = "Supported: typeset -x var=value"
+lush = "Supported: declare -x var=value"
+
+[declare_export.lint]
+severity = "info"
+message = "declare -x works but export is more portable"
+suggestion = "Use export var=value for portability"
+pattern = "(declare|typeset)\\s+.*-x\\b"
+
+[declare_readonly]
+category = "builtin"
+feature = "declare"
+description = "declare -r for readonly attribute"
+
+[declare_readonly.behavior]
+posix = "Use readonly builtin instead"
+bash = "Supported: declare -r var=value makes readonly"
+zsh = "Supported: typeset -r var=value"
+lush = "Supported: declare -r var=value"
+
+[declare_readonly.lint]
+severity = "info"
+message = "declare -r works but readonly is more portable"
+suggestion = "Use readonly var=value for portability"
+pattern = "(declare|typeset)\\s+.*-r\\b"
+
+[declare_integer]
+category = "builtin"
+feature = "declare"
+description = "declare -i for integer attribute"
+
+[declare_integer.behavior]
+posix = "Not specified"
+bash = "Supported: declare -i var makes arithmetic automatic"
+zsh = "Supported: typeset -i var"
+lush = "Supported: declare -i var"
+
+[declare_integer.lint]
+severity = "warning"
+message = "declare -i is not POSIX portable"
+suggestion = "Use $(( )) arithmetic expansion for portability"
+pattern = "(declare|typeset)\\s+.*-i\\b"
+
+[declare_array]
+category = "builtin"
+feature = "declare"
+description = "declare -a for indexed array"
+
+[declare_array.behavior]
+posix = "Not specified; no arrays in POSIX"
+bash = "Supported: declare -a arrayname"
+zsh = "Supported: typeset -a arrayname"
+lush = "Supported: declare -a arrayname"
+
+[declare_array.lint]
+severity = "warning"
+message = "declare -a is not POSIX portable"
+suggestion = "Use positional parameters or separate variables"
+pattern = "(declare|typeset)\\s+.*-a\\b"
+
+[declare_assoc]
+category = "builtin"
+feature = "declare"
+description = "declare -A for associative array"
+
+[declare_assoc.behavior]
+posix = "Not specified"
+bash = "Supported (bash 4.0+): declare -A hashname"
+zsh = "Supported: typeset -A hashname"
+lush = "Supported: declare -A hashname"
+
+[declare_assoc.lint]
+severity = "warning"
+message = "Associative arrays require bash 4.0+ or zsh"
+suggestion = "Use external tools or naming conventions for portability"
+pattern = "(declare|typeset)\\s+.*-A\\b"
+
+[declare_lowercase]
+category = "builtin"
+feature = "declare"
+description = "declare -l for lowercase conversion"
+
+[declare_lowercase.behavior]
+posix = "Not specified"
+bash = "Supported (bash 4.0+): declare -l var converts to lowercase"
+zsh = "Uses typeset -l or ${(L)var}"
+lush = "Supported: declare -l var"
+
+[declare_lowercase.lint]
+severity = "warning"
+message = "declare -l is bash 4.0+ specific"
+suggestion = "Use tr '[:upper:]' '[:lower:]' for portability"
+pattern = "(declare|typeset)\\s+.*-l\\b"
+
+[declare_uppercase]
+category = "builtin"
+feature = "declare"
+description = "declare -u for uppercase conversion"
+
+[declare_uppercase.behavior]
+posix = "Not specified"
+bash = "Supported (bash 4.0+): declare -u var converts to uppercase"
+zsh = "Uses typeset -u or ${(U)var}"
+lush = "Supported: declare -u var"
+
+[declare_uppercase.lint]
+severity = "warning"
+message = "declare -u is bash 4.0+ specific"
+suggestion = "Use tr '[:lower:]' '[:upper:]' for portability"
+pattern = "(declare|typeset)\\s+.*-u\\b"
+
+[declare_nameref]
+category = "builtin"
+feature = "declare"
+description = "declare -n for nameref (reference to another variable)"
+
+[declare_nameref.behavior]
+posix = "Not specified"
+bash = "Supported (bash 4.3+): declare -n ref=varname"
+zsh = "Not directly supported; use different patterns"
+lush = "Supported: declare -n ref=varname"
+
+[declare_nameref.lint]
+severity = "warning"
+message = "declare -n nameref is bash 4.3+ specific"
+suggestion = "Use eval or indirect expansion for portability"
+pattern = "(declare|typeset)\\s+.*-n\\b"
+
+[declare_function]
+category = "builtin"
+feature = "declare"
+description = "declare -f to display functions"
+
+[declare_function.behavior]
+posix = "Not specified"
+bash = "Supported: declare -f shows function definitions"
+zsh = "Supported: typeset -f shows functions"
+lush = "Supported: declare -f shows functions"
+
+[declare_function.lint]
+severity = "info"
+message = "declare -f output format varies between shells"
+pattern = "(declare|typeset)\\s+.*-f\\b"
+
+[declare_print]
+category = "builtin"
+feature = "declare"
+description = "declare -p to print variable declarations"
+
+[declare_print.behavior]
+posix = "Not specified"
+bash = "Supported: declare -p var shows declarable form"
+zsh = "Supported: typeset -p var"
+lush = "Supported: declare -p var"
+
+[declare_print.lint]
+severity = "info"
+message = "declare -p output format varies between shells"
+pattern = "(declare|typeset)\\s+.*-p\\b"
+
+[declare_global]
+category = "builtin"
+feature = "declare"
+description = "declare -g for global scope in functions"
+
+[declare_global.behavior]
+posix = "Not specified"
+bash = "Supported (bash 4.2+): declare -g makes variable global"
+zsh = "Supported: typeset -g makes variable global"
+lush = "Supported: declare -g makes variable global"
+
+[declare_global.lint]
+severity = "warning"
+message = "declare -g is bash 4.2+ specific"
+suggestion = "Avoid or use explicit global assignment patterns"
+pattern = "(declare|typeset)\\s+.*-g\\b"

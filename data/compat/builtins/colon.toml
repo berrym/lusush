@@ -1,0 +1,53 @@
+# Colon and true/false builtins compatibility
+# Null commands and exit status
+
+[colon_basic]
+category = "builtins"
+feature = "colon"
+description = "Null command (:)"
+
+[colon_basic.behavior]
+posix = "POSIX defined - do nothing, return 0"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[colon_basic.lint]
+severity = "info"
+message = "Colon command is portable"
+suggestion = "POSIX compliant null command"
+pattern = "^\\s*:\\s*$|;\\s*:\\s*;"
+
+[true_basic]
+category = "builtins"
+feature = "true"
+description = "Return success (true)"
+
+[true_basic.behavior]
+posix = "POSIX defined - return 0"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[true_basic.lint]
+severity = "info"
+message = "true is portable"
+suggestion = "POSIX compliant"
+pattern = "\\btrue\\b"
+
+[false_basic]
+category = "builtins"
+feature = "false"
+description = "Return failure (false)"
+
+[false_basic.behavior]
+posix = "POSIX defined - return 1"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[false_basic.lint]
+severity = "info"
+message = "false is portable"
+suggestion = "POSIX compliant"
+pattern = "\\bfalse\\b"

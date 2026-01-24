@@ -1,0 +1,121 @@
+# Pushd/popd/dirs compatibility
+# Directory stack management
+
+[pushd_basic]
+category = "builtins"
+feature = "pushd"
+description = "Push directory onto stack"
+
+[pushd_basic.behavior]
+posix = "Not in POSIX"
+bash = "Push directory and cd to it"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[pushd_basic.lint]
+severity = "warning"
+message = "pushd is not portable"
+suggestion = "Not in POSIX; use cd and save OLDPWD manually"
+pattern = "\\bpushd\\b"
+
+[popd_basic]
+category = "builtins"
+feature = "popd"
+description = "Pop directory from stack"
+
+[popd_basic.behavior]
+posix = "Not in POSIX"
+bash = "Pop directory and cd to it"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[popd_basic.lint]
+severity = "warning"
+message = "popd is not portable"
+suggestion = "Not in POSIX; use saved directories manually"
+pattern = "\\bpopd\\b"
+
+[dirs_basic]
+category = "builtins"
+feature = "dirs"
+description = "Display directory stack"
+
+[dirs_basic.behavior]
+posix = "Not in POSIX"
+bash = "Display directory stack"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[dirs_basic.lint]
+severity = "warning"
+message = "dirs is not portable"
+suggestion = "Not in POSIX"
+pattern = "\\bdirs\\b"
+
+[pushd_swap]
+category = "builtins"
+feature = "pushd_swap"
+description = "Swap top directories (pushd with no args)"
+
+[pushd_swap.behavior]
+posix = "Not in POSIX"
+bash = "Swap top two directories"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[pushd_swap.lint]
+severity = "warning"
+message = "pushd without args is not portable"
+suggestion = "bash/zsh specific"
+pattern = "\\bpushd\\s*$"
+
+[pushd_n]
+category = "builtins"
+feature = "pushd_no_cd"
+description = "Push without cd (pushd -n)"
+
+[pushd_n.behavior]
+posix = "Not in POSIX"
+bash = "Add to stack without changing directory"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[pushd_n.lint]
+severity = "warning"
+message = "pushd -n is not portable"
+suggestion = "bash/zsh specific"
+pattern = "\\bpushd\\s+-n\\b"
+
+[dirs_v]
+category = "builtins"
+feature = "dirs_vertical"
+description = "Vertical directory listing (dirs -v)"
+
+[dirs_v.behavior]
+posix = "Not in POSIX"
+bash = "One directory per line with index"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[dirs_v.lint]
+severity = "warning"
+message = "dirs -v is not portable"
+suggestion = "bash/zsh specific"
+pattern = "\\bdirs\\s+-v\\b"
+
+[dirs_c]
+category = "builtins"
+feature = "dirs_clear"
+description = "Clear directory stack (dirs -c)"
+
+[dirs_c.behavior]
+posix = "Not in POSIX"
+bash = "Clear the directory stack"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[dirs_c.lint]
+severity = "warning"
+message = "dirs -c is not portable"
+suggestion = "bash/zsh specific"
+pattern = "\\bdirs\\s+-c\\b"

@@ -1,0 +1,121 @@
+# Alias builtin compatibility
+# Command aliases
+
+[alias_basic]
+category = "builtins"
+feature = "alias"
+description = "Define command alias"
+
+[alias_basic.behavior]
+posix = "POSIX defined - alias [name[=value]...]"
+bash = "Same as POSIX"
+zsh = "Same with extensions for global/suffix aliases"
+lush = "POSIX compliant with extensions"
+
+[alias_basic.lint]
+severity = "info"
+message = "alias is portable"
+suggestion = "POSIX compliant"
+pattern = "\\balias\\s+[A-Za-z_]"
+
+[alias_list]
+category = "builtins"
+feature = "alias_list"
+description = "List aliases (alias without args)"
+
+[alias_list.behavior]
+posix = "POSIX defined - list all aliases"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[alias_list.lint]
+severity = "info"
+message = "Listing aliases is portable"
+suggestion = "POSIX compliant"
+pattern = "\\balias\\s*$"
+
+[unalias_basic]
+category = "builtins"
+feature = "unalias"
+description = "Remove alias"
+
+[unalias_basic.behavior]
+posix = "POSIX defined - unalias name... or unalias -a"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[unalias_basic.lint]
+severity = "info"
+message = "unalias is portable"
+suggestion = "POSIX compliant"
+pattern = "\\bunalias\\b"
+
+[unalias_a]
+category = "builtins"
+feature = "unalias_all"
+description = "Remove all aliases (unalias -a)"
+
+[unalias_a.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[unalias_a.lint]
+severity = "info"
+message = "unalias -a is portable"
+suggestion = "POSIX compliant"
+pattern = "\\bunalias\\s+-a\\b"
+
+[alias_global]
+category = "builtins"
+feature = "alias_global"
+description = "Global alias (alias -g)"
+
+[alias_global.behavior]
+posix = "Not in POSIX"
+bash = "Not available"
+zsh = "Expand anywhere in command line"
+lush = "zsh-compatible global aliases"
+
+[alias_global.lint]
+severity = "warning"
+message = "Global aliases are zsh specific"
+suggestion = "zsh only; not available in bash"
+pattern = "\\balias\\s+-g\\b"
+
+[alias_suffix]
+category = "builtins"
+feature = "alias_suffix"
+description = "Suffix alias (alias -s)"
+
+[alias_suffix.behavior]
+posix = "Not in POSIX"
+bash = "Not available"
+zsh = "Associate file extensions with commands"
+lush = "zsh-compatible suffix aliases"
+
+[alias_suffix.lint]
+severity = "warning"
+message = "Suffix aliases are zsh specific"
+suggestion = "zsh only; not available in bash"
+pattern = "\\balias\\s+-s\\b"
+
+[alias_expansion]
+category = "builtins"
+feature = "alias_in_scripts"
+description = "Alias expansion in scripts"
+
+[alias_expansion.behavior]
+posix = "POSIX: aliases expanded in interactive shells only by default"
+bash = "shopt -s expand_aliases for scripts"
+zsh = "setopt ALIASES for scripts"
+lush = "Configurable alias expansion"
+
+[alias_expansion.lint]
+severity = "info"
+message = "Alias expansion in scripts varies"
+suggestion = "Aliases typically don't expand in scripts; use functions instead"
+pattern = "shopt\\s+-s\\s+expand_aliases|setopt.*ALIASES"

@@ -1,131 +1,155 @@
-# Function syntax compatibility differences
+# Function definition compatibility
+# Function syntax and features
 
-[function_keyword]
+[func_posix]
 category = "syntax"
-feature = "functions"
-description = "function keyword syntax: function name { }"
+feature = "function_definition"
+description = "POSIX function definition name()"
 
-[function_keyword.behavior]
-posix = "Not specified; use name() { } syntax"
-bash = "Supported: function name { } and function name() { }"
-zsh = "Supported: function name { } and function name() { }"
-lush = "Supported: function name { } and function name() { }"
+[func_posix.behavior]
+posix = "POSIX defined - name() compound-command"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
 
-[function_keyword.lint]
-severity = "warning"
-message = "function keyword is not portable to POSIX sh"
-suggestion = "Use name() { } syntax for POSIX compatibility"
-pattern = "^\\s*function\\s+[a-zA-Z_][a-zA-Z0-9_]*"
-
-[function_parens]
-category = "syntax"
-feature = "functions"
-description = "POSIX function syntax: name() { }"
-
-[function_parens.behavior]
-posix = "Standard syntax: name() { commands; }"
-bash = "Supported: name() { } or name() (subshell body)"
-zsh = "Supported: name() { } or name() (subshell body)"
-lush = "Supported: name() { } or name() (subshell body)"
-
-[function_parens.lint]
+[func_posix.lint]
 severity = "info"
-message = "name() { } is the portable POSIX function syntax"
+message = "POSIX function syntax is portable"
+suggestion = "POSIX compliant"
+pattern = "^[A-Za-z_][A-Za-z0-9_]*\\s*\\(\\)\\s*\\{"
 
-[local_variables]
+[func_keyword]
 category = "syntax"
-feature = "functions"
-description = "local builtin for local variables"
+feature = "function_keyword"
+description = "Function keyword function name"
 
-[local_variables.behavior]
-posix = "Not specified; variables are global"
-bash = "Supported: local var=value in functions"
-zsh = "Supported: local var=value in functions"
-lush = "Supported: local var=value in functions"
+[func_keyword.behavior]
+posix = "Not in POSIX"
+bash = "function name { ... } or function name() { ... }"
+zsh = "Same as bash"
+lush = "Bash-compatible"
 
-[local_variables.lint]
+[func_keyword.lint]
 severity = "warning"
-message = "local builtin is not portable to POSIX sh"
-suggestion = "Use subshells or careful variable management"
-pattern = "^\\s*local\\s+"
+message = "function keyword is not portable"
+suggestion = "Use name() { ... } for POSIX compatibility"
+pattern = "\\bfunction\\s+[A-Za-z_][A-Za-z0-9_]*"
 
-[typeset_local]
+[func_local]
 category = "syntax"
-feature = "functions"
-description = "typeset for local variables (ksh/zsh style)"
+feature = "function_local"
+description = "Local variables in functions"
 
-[typeset_local.behavior]
-posix = "Not specified"
-bash = "typeset is alias for declare; -l flag for local in functions"
-zsh = "typeset creates local variables in functions by default"
-lush = "typeset is alias for declare; works in functions"
+[func_local.behavior]
+posix = "Not in POSIX (but widely supported)"
+bash = "local var=value"
+zsh = "local var=value or typeset var=value"
+lush = "Bash-compatible local"
 
-[typeset_local.lint]
-severity = "info"
-message = "typeset scoping varies between bash and zsh"
-suggestion = "Use local explicitly for clarity"
-
-[nameref]
-category = "syntax"
-feature = "nameref"
-description = "local -n for name references"
-
-[nameref.behavior]
-posix = "Not specified"
-bash = "Supported: local -n ref=varname or declare -n"
-zsh = "Different approach: use ${(P)varname} for indirect"
-lush = "Supported: local -n ref=varname (bash-style)"
-
-[nameref.lint]
+[func_local.lint]
 severity = "warning"
-message = "Name references (local -n) are not portable"
-suggestion = "Use eval for indirect variable access in POSIX"
-pattern = "(local|declare)\\s+-n\\s+"
+message = "local is not strictly POSIX"
+suggestion = "local is widely available but not in POSIX; variables are global by default"
+pattern = "\\blocal\\s+"
 
-[anonymous_functions]
+[func_return]
 category = "syntax"
-feature = "anonymous_functions"
-description = "Anonymous functions () { }"
+feature = "function_return"
+description = "Return from function"
 
-[anonymous_functions.behavior]
-posix = "Not specified"
-bash = "Not supported directly; use subshells"
-zsh = "Supported: () { body } executes immediately"
-lush = "Supported: () { body } zsh-style anonymous functions"
+[func_return.behavior]
+posix = "POSIX defined - return [n]"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
 
-[anonymous_functions.lint]
+[func_return.lint]
+severity = "info"
+message = "return is portable"
+suggestion = "POSIX compliant; value 0-255"
+pattern = "\\breturn\\b"
+
+[func_recursion]
+category = "syntax"
+feature = "function_recursion"
+description = "Recursive function calls"
+
+[func_recursion.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[func_recursion.lint]
+severity = "info"
+message = "Recursive functions are portable"
+suggestion = "POSIX compliant"
+pattern = ""
+
+[func_nameref]
+category = "syntax"
+feature = "function_nameref"
+description = "Nameref for pass-by-reference"
+
+[func_nameref.behavior]
+posix = "Not in POSIX"
+bash = "declare -n or local -n (bash 4.3+)"
+zsh = "Different approach with (P) flag"
+lush = "Bash-compatible nameref"
+
+[func_nameref.lint]
 severity = "warning"
-message = "Anonymous functions are zsh-specific"
-suggestion = "Define named function or use subshell"
-pattern = "^\\s*\\(\\)\\s*\\{"
+message = "Nameref is not portable"
+suggestion = "bash 4.3+; use eval for portable pass-by-reference"
+pattern = "\\b(declare|local)\\s+-n\\b"
 
-[return_anywhere]
+[func_compound]
 category = "syntax"
-feature = "return_anywhere"
-description = "return from sourced scripts"
+feature = "function_compound"
+description = "Function with non-brace compound command"
 
-[return_anywhere.behavior]
-posix = "return only valid in functions"
-bash = "return valid in functions and sourced scripts"
-zsh = "return valid in functions and sourced scripts"
-lush = "return valid in functions and sourced scripts"
+[func_compound.behavior]
+posix = "POSIX allows any compound command after ()"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
 
-[return_anywhere.lint]
+[func_compound.lint]
 severity = "info"
-message = "return in sourced scripts is not strictly POSIX"
+message = "Compound command functions are portable"
+suggestion = "POSIX allows: name() (subshell), name() for..."
+pattern = "^[A-Za-z_][A-Za-z0-9_]*\\s*\\(\\)\\s*\\("
 
-[function_recursion_limit]
+[func_export]
 category = "syntax"
-feature = "functions"
-description = "Recursion limits in functions"
+feature = "function_export"
+description = "Exported functions"
 
-[function_recursion_limit.behavior]
-posix = "Implementation-defined"
-bash = "FUNCNEST variable limits recursion depth"
-zsh = "No built-in limit; relies on stack size"
-lush = "Configurable recursion limit"
+[func_export.behavior]
+posix = "Not in POSIX"
+bash = "export -f name"
+zsh = "Functions not exported; use FPATH/autoload"
+lush = "Bash-compatible export -f"
 
-[function_recursion_limit.lint]
-severity = "info"
-message = "Deep recursion handling varies by shell"
-suggestion = "Set FUNCNEST in bash for safety"
+[func_export.lint]
+severity = "warning"
+message = "Function export is not portable"
+suggestion = "bash-specific; zsh uses autoload/FPATH"
+pattern = "\\bexport\\s+-f\\b"
+
+[func_autoload]
+category = "syntax"
+feature = "function_autoload"
+description = "Autoloaded functions"
+
+[func_autoload.behavior]
+posix = "Not in POSIX"
+bash = "No built-in autoload"
+zsh = "autoload -Uz name with FPATH"
+lush = "Supports autoload for zsh compatibility"
+
+[func_autoload.lint]
+severity = "warning"
+message = "autoload is zsh-specific"
+suggestion = "zsh feature; bash sources functions explicitly"
+pattern = "\\bautoload\\b"

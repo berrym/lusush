@@ -1,0 +1,172 @@
+# Pipeline compatibility
+# Command pipelines and lists
+
+[pipe_basic]
+category = "syntax"
+feature = "pipeline"
+description = "Basic pipeline cmd1 | cmd2"
+
+[pipe_basic.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[pipe_basic.lint]
+severity = "info"
+message = "Pipelines are portable"
+suggestion = "POSIX compliant"
+pattern = "\\|[^|&]"
+
+[pipe_lastpipe]
+category = "syntax"
+feature = "lastpipe"
+description = "Last pipeline command in current shell"
+
+[pipe_lastpipe.behavior]
+posix = "Not in POSIX - all pipeline commands run in subshells"
+bash = "shopt -s lastpipe runs last command in current shell"
+zsh = "Default behavior (last runs in current shell)"
+lush = "Configurable behavior"
+
+[pipe_lastpipe.lint]
+severity = "info"
+message = "Pipeline execution context varies"
+suggestion = "POSIX: all in subshells; bash needs lastpipe; zsh is different"
+pattern = "shopt\\s+-s\\s+lastpipe"
+
+[pipe_negation]
+category = "syntax"
+feature = "pipeline_negation"
+description = "Pipeline negation ! cmd"
+
+[pipe_negation.behavior]
+posix = "POSIX defined - negate exit status"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[pipe_negation.lint]
+severity = "info"
+message = "Pipeline negation is portable"
+suggestion = "POSIX compliant"
+pattern = "!\\s+[a-zA-Z]"
+
+[pipe_time]
+category = "syntax"
+feature = "pipeline_time"
+description = "Time pipeline execution"
+
+[pipe_time.behavior]
+posix = "time is external command"
+bash = "time keyword for pipelines"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[pipe_time.lint]
+severity = "info"
+message = "time keyword is bash/zsh specific"
+suggestion = "POSIX time is external command"
+pattern = "\\btime\\s+[^-]"
+
+[and_list]
+category = "syntax"
+feature = "and_list"
+description = "AND list cmd1 && cmd2"
+
+[and_list.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[and_list.lint]
+severity = "info"
+message = "AND lists are portable"
+suggestion = "POSIX compliant"
+pattern = "&&"
+
+[or_list]
+category = "syntax"
+feature = "or_list"
+description = "OR list cmd1 || cmd2"
+
+[or_list.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[or_list.lint]
+severity = "info"
+message = "OR lists are portable"
+suggestion = "POSIX compliant"
+pattern = "\\|\\|"
+
+[background]
+category = "syntax"
+feature = "background"
+description = "Background execution cmd &"
+
+[background.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[background.lint]
+severity = "info"
+message = "Background execution is portable"
+suggestion = "POSIX compliant"
+pattern = "&[^&>]|&$"
+
+[coproc]
+category = "syntax"
+feature = "coproc"
+description = "Coprocess coproc cmd"
+
+[coproc.behavior]
+posix = "Not in POSIX"
+bash = "Coprocess with bidirectional pipe (bash 4.0+)"
+zsh = "coproc keyword with different syntax"
+lush = "Bash-compatible coproc"
+
+[coproc.lint]
+severity = "warning"
+message = "coproc is not portable"
+suggestion = "bash 4.0+; zsh has different coproc syntax"
+pattern = "\\bcoproc\\b"
+
+[subshell]
+category = "syntax"
+feature = "subshell"
+description = "Subshell (commands)"
+
+[subshell.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[subshell.lint]
+severity = "info"
+message = "Subshells are portable"
+suggestion = "POSIX compliant"
+pattern = "\\([^)]+\\)"
+
+[brace_group]
+category = "syntax"
+feature = "brace_group"
+description = "Brace group { commands; }"
+
+[brace_group.behavior]
+posix = "POSIX defined - execute in current shell"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[brace_group.lint]
+severity = "info"
+message = "Brace groups are portable"
+suggestion = "POSIX compliant; note space and semicolon requirements"
+pattern = "\\{[^}]+;\\s*\\}"

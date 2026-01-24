@@ -1,0 +1,138 @@
+# Cd builtin compatibility
+# Change directory
+
+[cd_basic]
+category = "builtins"
+feature = "cd"
+description = "Change current directory"
+
+[cd_basic.behavior]
+posix = "cd [-L|-P] [directory]"
+bash = "Same as POSIX with -e, -@ options"
+zsh = "Many additional options and behaviors"
+lush = "POSIX compliant with common extensions"
+
+[cd_basic.lint]
+severity = "info"
+message = "cd builtin usage"
+suggestion = "Basic cd is POSIX compliant"
+pattern = "\\bcd\\s+"
+
+[cd_home]
+category = "builtins"
+feature = "cd_home"
+description = "cd with no arguments goes to HOME"
+
+[cd_home.behavior]
+posix = "POSIX defined - cd to $HOME"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[cd_home.lint]
+severity = "info"
+message = "cd without arguments is portable"
+suggestion = "Goes to $HOME directory"
+pattern = "\\bcd\\s*$"
+
+[cd_dash]
+category = "builtins"
+feature = "cd_dash"
+description = "cd - goes to previous directory"
+
+[cd_dash.behavior]
+posix = "POSIX defined - cd to $OLDPWD"
+bash = "Same as POSIX"
+zsh = "Same as POSIX, also supports cd -2, cd -3, etc."
+lush = "POSIX compliant"
+
+[cd_dash.lint]
+severity = "info"
+message = "cd - is portable"
+suggestion = "POSIX compliant, goes to $OLDPWD"
+pattern = "\\bcd\\s+-\\s*$"
+
+[cd_L]
+category = "builtins"
+feature = "cd_logical"
+description = "Logical directory resolution (cd -L)"
+
+[cd_L.behavior]
+posix = "POSIX defined - follow symlinks logically"
+bash = "Same as POSIX, default behavior"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[cd_L.lint]
+severity = "info"
+message = "cd -L is portable"
+suggestion = "POSIX compliant, follows symlinks"
+pattern = "\\bcd\\s+-L\\b"
+
+[cd_P]
+category = "builtins"
+feature = "cd_physical"
+description = "Physical directory resolution (cd -P)"
+
+[cd_P.behavior]
+posix = "POSIX defined - resolve symlinks physically"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[cd_P.lint]
+severity = "info"
+message = "cd -P is portable"
+suggestion = "POSIX compliant, resolves symlinks"
+pattern = "\\bcd\\s+-P\\b"
+
+[cd_e]
+category = "builtins"
+feature = "cd_error"
+description = "Exit on error (cd -e)"
+
+[cd_e.behavior]
+posix = "Not in POSIX"
+bash = "With -P, exit non-zero if PWD cannot be determined"
+zsh = "Not available"
+lush = "Bash-compatible"
+
+[cd_e.lint]
+severity = "warning"
+message = "cd -e is not portable"
+suggestion = "bash-specific option for -P error handling"
+pattern = "\\bcd\\s+[^;]*-e\\b"
+
+[cd_at]
+category = "builtins"
+feature = "cd_xattr"
+description = "Extended attributes (cd -@)"
+
+[cd_at.behavior]
+posix = "Not in POSIX"
+bash = "macOS: present extended attributes as directory"
+zsh = "Not available"
+lush = "Platform-dependent"
+
+[cd_at.lint]
+severity = "warning"
+message = "cd -@ is not portable"
+suggestion = "macOS-specific bash option"
+pattern = "\\bcd\\s+[^;]*-@\\b"
+
+[cd_tilde]
+category = "builtins"
+feature = "cd_tilde"
+description = "cd with tilde expansion"
+
+[cd_tilde.behavior]
+posix = "POSIX defined - ~ expands to HOME"
+bash = "Also ~user, ~+, ~-"
+zsh = "Same as bash with additional forms"
+lush = "POSIX compliant with common extensions"
+
+[cd_tilde.lint]
+severity = "info"
+message = "Tilde expansion in cd"
+suggestion = "~ for HOME is POSIX; ~user may vary"
+pattern = "\\bcd\\s+~"

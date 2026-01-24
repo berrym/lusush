@@ -1,0 +1,172 @@
+# History builtin compatibility
+# Command history management
+
+[history_basic]
+category = "builtins"
+feature = "history"
+description = "Display command history"
+
+[history_basic.behavior]
+posix = "Not in POSIX (fc is POSIX)"
+bash = "Display or manipulate history"
+zsh = "Same as bash with extensions"
+lush = "Bash-compatible"
+
+[history_basic.lint]
+severity = "warning"
+message = "history builtin is not portable"
+suggestion = "Use fc for POSIX-compliant history access"
+pattern = "\\bhistory\\b"
+
+[fc_basic]
+category = "builtins"
+feature = "fc"
+description = "Fix command (POSIX history)"
+
+[fc_basic.behavior]
+posix = "POSIX defined - fc [-e editor] [-lnr] [first [last]]"
+bash = "Same as POSIX with extensions"
+zsh = "Same as POSIX with extensions"
+lush = "POSIX compliant"
+
+[fc_basic.lint]
+severity = "info"
+message = "fc is portable"
+suggestion = "POSIX compliant"
+pattern = "\\bfc\\b"
+
+[fc_list]
+category = "builtins"
+feature = "fc_list"
+description = "List history (fc -l)"
+
+[fc_list.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[fc_list.lint]
+severity = "info"
+message = "fc -l is portable"
+suggestion = "POSIX compliant"
+pattern = "\\bfc\\s+-l\\b"
+
+[fc_edit]
+category = "builtins"
+feature = "fc_edit"
+description = "Edit history with editor (fc -e)"
+
+[fc_edit.behavior]
+posix = "POSIX defined - use specified editor"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[fc_edit.lint]
+severity = "info"
+message = "fc -e is portable"
+suggestion = "POSIX compliant; uses $FCEDIT or $EDITOR"
+pattern = "\\bfc\\s+-e\\b"
+
+[fc_s]
+category = "builtins"
+feature = "fc_substitute"
+description = "Quick substitution (fc -s)"
+
+[fc_s.behavior]
+posix = "POSIX defined - fc -s [pat=rep] [command]"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[fc_s.lint]
+severity = "info"
+message = "fc -s is portable"
+suggestion = "POSIX compliant"
+pattern = "\\bfc\\s+-s\\b"
+
+[history_c]
+category = "builtins"
+feature = "history_clear"
+description = "Clear history (history -c)"
+
+[history_c.behavior]
+posix = "Not in POSIX"
+bash = "Clear the history list"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[history_c.lint]
+severity = "warning"
+message = "history -c is not portable"
+suggestion = "bash/zsh specific"
+pattern = "\\bhistory\\s+-c\\b"
+
+[history_d]
+category = "builtins"
+feature = "history_delete"
+description = "Delete history entry (history -d)"
+
+[history_d.behavior]
+posix = "Not in POSIX"
+bash = "Delete specific history entry"
+zsh = "Not available"
+lush = "Bash-compatible"
+
+[history_d.lint]
+severity = "warning"
+message = "history -d is bash specific"
+suggestion = "Not available in zsh"
+pattern = "\\bhistory\\s+-d\\b"
+
+[history_a]
+category = "builtins"
+feature = "history_append"
+description = "Append to history file (history -a)"
+
+[history_a.behavior]
+posix = "Not in POSIX"
+bash = "Append new entries to history file"
+zsh = "Use fc -AI or setopt INC_APPEND_HISTORY"
+lush = "Bash-compatible"
+
+[history_a.lint]
+severity = "warning"
+message = "history -a is not portable"
+suggestion = "bash specific; zsh uses different mechanism"
+pattern = "\\bhistory\\s+-a\\b"
+
+[history_r]
+category = "builtins"
+feature = "history_read"
+description = "Read history file (history -r)"
+
+[history_r.behavior]
+posix = "Not in POSIX"
+bash = "Read history file into memory"
+zsh = "Use fc -R"
+lush = "Bash-compatible"
+
+[history_r.lint]
+severity = "warning"
+message = "history -r is not portable"
+suggestion = "bash specific; zsh uses fc -R"
+pattern = "\\bhistory\\s+-r\\b"
+
+[history_expansion]
+category = "builtins"
+feature = "history_expansion"
+description = "History expansion (!!, !n, !string)"
+
+[history_expansion.behavior]
+posix = "Not in POSIX"
+bash = "Interactive history expansion"
+zsh = "Same as bash with extensions"
+lush = "Bash-compatible"
+
+[history_expansion.lint]
+severity = "warning"
+message = "History expansion is not portable"
+suggestion = "bash/zsh interactive feature"
+pattern = "!!"

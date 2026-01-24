@@ -1,0 +1,70 @@
+# Builtin builtin compatibility
+# Execute builtin directly
+
+[builtin_basic]
+category = "builtins"
+feature = "builtin"
+description = "Execute shell builtin"
+
+[builtin_basic.behavior]
+posix = "Not in POSIX (use command for similar effect)"
+bash = "Execute builtin, bypassing functions"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[builtin_basic.lint]
+severity = "warning"
+message = "builtin is not portable"
+suggestion = "Use 'command' for POSIX; builtin is bash/zsh specific"
+pattern = "\\bbuiltin\\s+[a-z]"
+
+[enable_basic]
+category = "builtins"
+feature = "enable"
+description = "Enable/disable shell builtins"
+
+[enable_basic.behavior]
+posix = "Not in POSIX"
+bash = "Enable or disable builtins"
+zsh = "Use disable/enable builtins"
+lush = "Bash-compatible"
+
+[enable_basic.lint]
+severity = "warning"
+message = "enable is not portable"
+suggestion = "bash specific"
+pattern = "\\benable\\b"
+
+[enable_n]
+category = "builtins"
+feature = "enable_disable"
+description = "Disable builtin (enable -n)"
+
+[enable_n.behavior]
+posix = "Not in POSIX"
+bash = "Disable specified builtin"
+zsh = "Use 'disable' builtin"
+lush = "Bash-compatible"
+
+[enable_n.lint]
+severity = "warning"
+message = "enable -n is bash specific"
+suggestion = "zsh uses 'disable' builtin"
+pattern = "\\benable\\s+-n\\b"
+
+[enable_f]
+category = "builtins"
+feature = "enable_load"
+description = "Load builtin from shared object (enable -f)"
+
+[enable_f.behavior]
+posix = "Not in POSIX"
+bash = "Load builtin from .so file"
+zsh = "Use zmodload"
+lush = "Bash-compatible"
+
+[enable_f.lint]
+severity = "warning"
+message = "enable -f is bash specific"
+suggestion = "zsh uses zmodload for loadable modules"
+pattern = "\\benable\\s+-f\\b"

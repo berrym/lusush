@@ -1,132 +1,291 @@
-# Redirection syntax compatibility differences
+# Redirection compatibility
+# Input/output redirection operators
 
-[pipe_stderr]
+[redir_basic_out]
 category = "syntax"
-feature = "pipe_stderr"
-description = "|& pipe both stdout and stderr"
+feature = "redirect_output"
+description = "Basic output redirection >"
 
-[pipe_stderr.behavior]
-posix = "Not specified; use 2>&1 |"
-bash = "Supported: cmd1 |& cmd2 pipes both streams"
-zsh = "Supported: cmd1 |& cmd2 pipes both streams"
-lush = "Supported: cmd1 |& cmd2 pipes both streams"
+[redir_basic_out.behavior]
+posix = "POSIX defined - redirect stdout to file"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
 
-[pipe_stderr.lint]
-severity = "warning"
-message = "|& is not portable to POSIX sh"
-suggestion = "Use: cmd1 2>&1 | cmd2"
-pattern = "\\|&"
+[redir_basic_out.lint]
+severity = "info"
+message = "Output redirection is portable"
+suggestion = "POSIX compliant"
+pattern = "[^|&]>[^>&]"
 
-[append_both]
+[redir_basic_in]
 category = "syntax"
-feature = "append_both"
-description = "&>> append both stdout and stderr"
+feature = "redirect_input"
+description = "Basic input redirection <"
 
-[append_both.behavior]
-posix = "Not specified; use >> file 2>&1"
-bash = "Supported: cmd &>> file appends both streams"
-zsh = "Supported: cmd &>> file appends both streams"
-lush = "Supported: cmd &>> file appends both streams"
+[redir_basic_in.behavior]
+posix = "POSIX defined - redirect stdin from file"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
 
-[append_both.lint]
-severity = "warning"
-message = "&>> is not portable to POSIX sh"
-suggestion = "Use: cmd >> file 2>&1"
-pattern = "&>>"
+[redir_basic_in.lint]
+severity = "info"
+message = "Input redirection is portable"
+suggestion = "POSIX compliant"
+pattern = "<[^<(]"
 
-[redirect_both]
+[redir_append]
 category = "syntax"
-feature = "append_both"
-description = "&> redirect both stdout and stderr"
+feature = "redirect_append"
+description = "Append redirection >>"
 
-[redirect_both.behavior]
-posix = "Not specified; use > file 2>&1"
-bash = "Supported: cmd &> file redirects both streams"
-zsh = "Supported: cmd &> file redirects both streams"
-lush = "Supported: cmd &> file redirects both streams"
+[redir_append.behavior]
+posix = "POSIX defined - append to file"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
 
-[redirect_both.lint]
+[redir_append.lint]
+severity = "info"
+message = "Append redirection is portable"
+suggestion = "POSIX compliant"
+pattern = ">>"
+
+[redir_fd]
+category = "syntax"
+feature = "redirect_fd"
+description = "File descriptor redirection n>"
+
+[redir_fd.behavior]
+posix = "POSIX defined - redirect fd n"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[redir_fd.lint]
+severity = "info"
+message = "FD redirection is portable"
+suggestion = "POSIX compliant"
+pattern = "[0-9]+>"
+
+[redir_dup]
+category = "syntax"
+feature = "redirect_dup"
+description = "Duplicate fd >&n, <&n"
+
+[redir_dup.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[redir_dup.lint]
+severity = "info"
+message = "FD duplication is portable"
+suggestion = "POSIX compliant"
+pattern = "[<>]&[0-9]+"
+
+[redir_close]
+category = "syntax"
+feature = "redirect_close"
+description = "Close fd n>&- or n<&-"
+
+[redir_close.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[redir_close.lint]
+severity = "info"
+message = "FD close is portable"
+suggestion = "POSIX compliant"
+pattern = "[0-9]*[<>]&-"
+
+[redir_stderr_stdout]
+category = "syntax"
+feature = "redirect_stderr_stdout"
+description = "Redirect stderr to stdout 2>&1"
+
+[redir_stderr_stdout.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[redir_stderr_stdout.lint]
+severity = "info"
+message = "2>&1 is portable"
+suggestion = "POSIX compliant; order matters: cmd >file 2>&1"
+pattern = "2>&1"
+
+[redir_both]
+category = "syntax"
+feature = "redirect_both"
+description = "Redirect both stdout and stderr &>"
+
+[redir_both.behavior]
+posix = "Not in POSIX - use >file 2>&1"
+bash = "&>file or >&file"
+zsh = "&>file or >&file"
+lush = "Bash-compatible"
+
+[redir_both.lint]
 severity = "warning"
-message = "&> is not portable to POSIX sh"
-suggestion = "Use: cmd > file 2>&1"
+message = "&> is not portable"
+suggestion = "Use >file 2>&1 for POSIX compatibility"
 pattern = "&>"
 
-[here_string]
+[redir_append_both]
+category = "syntax"
+feature = "redirect_append_both"
+description = "Append both stdout and stderr &>>"
+
+[redir_append_both.behavior]
+posix = "Not in POSIX - use >>file 2>&1"
+bash = "&>>file (bash 4.0+)"
+zsh = "&>>file"
+lush = "Bash-compatible"
+
+[redir_append_both.lint]
+severity = "warning"
+message = "&>> is not portable"
+suggestion = "Use >>file 2>&1 for POSIX compatibility"
+pattern = "&>>"
+
+[redir_pipe_stderr]
+category = "syntax"
+feature = "redirect_pipe_stderr"
+description = "Pipe stderr |&"
+
+[redir_pipe_stderr.behavior]
+posix = "Not in POSIX"
+bash = "|& is shorthand for 2>&1 |"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[redir_pipe_stderr.lint]
+severity = "warning"
+message = "|& is not portable"
+suggestion = "Use 2>&1 | for POSIX compatibility"
+pattern = "\\|&"
+
+[redir_here_doc]
+category = "syntax"
+feature = "here_document"
+description = "Here document <<DELIM"
+
+[redir_here_doc.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[redir_here_doc.lint]
+severity = "info"
+message = "Here document is portable"
+suggestion = "POSIX compliant"
+pattern = "<<[A-Za-z_][A-Za-z0-9_]*"
+
+[redir_here_doc_tab]
+category = "syntax"
+feature = "here_document_tab"
+description = "Here document with tab stripping <<-"
+
+[redir_here_doc_tab.behavior]
+posix = "POSIX defined - strips leading tabs"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[redir_here_doc_tab.lint]
+severity = "info"
+message = "Here document with tab strip is portable"
+suggestion = "POSIX compliant; strips leading tabs from content"
+pattern = "<<-[A-Za-z_][A-Za-z0-9_]*"
+
+[redir_here_string]
 category = "syntax"
 feature = "here_string"
-description = "<<< here-string redirection"
+description = "Here string <<<"
 
-[here_string.behavior]
-posix = "Not specified; use echo | or here-document"
-bash = "Supported: cmd <<< 'string'"
-zsh = "Supported: cmd <<< 'string'"
-lush = "Supported: cmd <<< 'string'"
+[redir_here_string.behavior]
+posix = "Not in POSIX"
+bash = "<<<word expands word and provides as stdin"
+zsh = "Same as bash"
+lush = "Bash-compatible"
 
-[here_string.lint]
+[redir_here_string.lint]
 severity = "warning"
-message = "Here-string <<< is not portable to POSIX sh"
-suggestion = "Use: echo 'string' | cmd or here-document"
+message = "Here string is not portable"
+suggestion = "Use echo 'string' | cmd or here-doc for POSIX"
 pattern = "<<<"
 
-[fd_copy]
+[redir_noclobber]
 category = "syntax"
-feature = "redirections"
-description = "File descriptor copying n>&m and n<&m"
+feature = "redirect_noclobber_override"
+description = "Force overwrite with noclobber >|"
 
-[fd_copy.behavior]
-posix = "Specified: n>&m copies fd m to fd n"
-bash = "Supported: standard POSIX behavior"
-zsh = "Supported: standard POSIX behavior"
-lush = "Supported: standard POSIX behavior"
+[redir_noclobber.behavior]
+posix = "POSIX defined - override noclobber"
+bash = "Same as POSIX"
+zsh = "Same, also >!"
+lush = "POSIX compliant"
 
-[fd_copy.lint]
+[redir_noclobber.lint]
 severity = "info"
-message = "File descriptor copying is POSIX-compliant"
+message = ">| is portable"
+suggestion = "POSIX compliant; zsh also allows >!"
+pattern = ">\\|"
 
-[fd_move]
+[redir_read_write]
 category = "syntax"
-feature = "redirections"
-description = "File descriptor moving n>&m- and n<&m-"
+feature = "redirect_read_write"
+description = "Open for read/write <>"
 
-[fd_move.behavior]
-posix = "Not specified"
-bash = "Supported: n>&m- copies then closes m"
-zsh = "Supported: n>&m- copies then closes m"
-lush = "Supported: n>&m- copies then closes m"
+[redir_read_write.behavior]
+posix = "POSIX defined - open fd for read and write"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
 
-[fd_move.lint]
+[redir_read_write.lint]
+severity = "info"
+message = "<> is portable"
+suggestion = "POSIX compliant; opens file for read and write"
+pattern = "[0-9]*<>"
+
+[redir_process_sub_in]
+category = "syntax"
+feature = "process_substitution"
+description = "Process substitution <(command)"
+
+[redir_process_sub_in.behavior]
+posix = "Not in POSIX"
+bash = "Expands to filename connected to command output"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[redir_process_sub_in.lint]
 severity = "warning"
-message = "File descriptor move (n>&m-) is not portable to POSIX sh"
-suggestion = "Use: exec n>&m m>&-"
-pattern = "[0-9]+>&[0-9]+-"
+message = "Process substitution is not portable"
+suggestion = "Use named pipes or temp files for POSIX compatibility"
+pattern = "<\\([^)]+\\)"
 
-[noclobber_override]
+[redir_process_sub_out]
 category = "syntax"
-feature = "redirections"
-description = ">| force overwrite with noclobber"
+feature = "process_substitution"
+description = "Process substitution >(command)"
 
-[noclobber_override.behavior]
-posix = "Specified: >| overrides noclobber option"
-bash = "Supported: >| forces overwrite"
-zsh = "Supported: >| forces overwrite"
-lush = "Supported: >| forces overwrite"
+[redir_process_sub_out.behavior]
+posix = "Not in POSIX"
+bash = "Expands to filename connected to command input"
+zsh = "Same as bash"
+lush = "Bash-compatible"
 
-[noclobber_override.lint]
-severity = "info"
-message = ">| to override noclobber is POSIX-compliant"
-
-[multios]
-category = "syntax"
-feature = "redirections"
-description = "Multiple redirections to same fd (zsh multios)"
-
-[multios.behavior]
-posix = "Last redirection wins"
-bash = "Last redirection wins"
-zsh = "With MULTIOS: output goes to all targets (tee-like)"
-lush = "Last redirection wins (POSIX behavior)"
-
-[multios.lint]
-severity = "info"
-message = "zsh MULTIOS creates implicit tee; other shells use last redirection"
-suggestion = "Use explicit tee for portable multi-output"
+[redir_process_sub_out.lint]
+severity = "warning"
+message = "Process substitution is not portable"
+suggestion = "Use named pipes or temp files for POSIX compatibility"
+pattern = ">\\([^)]+\\)"

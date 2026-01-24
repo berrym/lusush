@@ -1,0 +1,138 @@
+# Quoting compatibility
+# String quoting and escaping
+
+[quote_single]
+category = "syntax"
+feature = "quoting_single"
+description = "Single quotes 'string'"
+
+[quote_single.behavior]
+posix = "POSIX defined - literal string, no expansion"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[quote_single.lint]
+severity = "info"
+message = "Single quotes are portable"
+suggestion = "POSIX compliant; no expansions inside"
+pattern = "'[^']*'"
+
+[quote_double]
+category = "syntax"
+feature = "quoting_double"
+description = "Double quotes \"string\""
+
+[quote_double.behavior]
+posix = "POSIX defined - allows $, `, \\, and !"
+bash = "Same as POSIX (! only in interactive)"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[quote_double.lint]
+severity = "info"
+message = "Double quotes are portable"
+suggestion = "POSIX compliant; allows variable expansion"
+pattern = "\"[^\"]*\""
+
+[quote_escape]
+category = "syntax"
+feature = "quoting_escape"
+description = "Backslash escape \\char"
+
+[quote_escape.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[quote_escape.lint]
+severity = "info"
+message = "Backslash escaping is portable"
+suggestion = "POSIX compliant"
+pattern = "\\\\."
+
+[quote_dollar_single]
+category = "syntax"
+feature = "quoting_dollar_single"
+description = "$'string' ANSI-C quoting"
+
+[quote_dollar_single.behavior]
+posix = "Not in POSIX"
+bash = "ANSI-C escape sequences (\\n, \\t, \\xHH, etc.)"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[quote_dollar_single.lint]
+severity = "warning"
+message = "$'...' quoting is not portable"
+suggestion = "Use printf for portable escape sequences"
+pattern = "\\$'[^']*'"
+
+[quote_dollar_double]
+category = "syntax"
+feature = "quoting_dollar_double"
+description = "$\"string\" locale translation"
+
+[quote_dollar_double.behavior]
+posix = "Not in POSIX"
+bash = "Locale-specific translation via gettext"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[quote_dollar_double.lint]
+severity = "warning"
+message = "$\"...\" quoting is not portable"
+suggestion = "bash/zsh specific locale translation"
+pattern = "\\$\"[^\"]*\""
+
+[quote_backquote]
+category = "syntax"
+feature = "quoting_backquote"
+description = "Command substitution with backquotes"
+
+[quote_backquote.behavior]
+posix = "POSIX defined but deprecated"
+bash = "Supported for compatibility"
+zsh = "Supported for compatibility"
+lush = "Supported; $() preferred"
+
+[quote_backquote.lint]
+severity = "info"
+message = "Backquotes are portable but discouraged"
+suggestion = "Use $(cmd) instead; better nesting and readability"
+pattern = "`[^`]+`"
+
+[quote_brace]
+category = "syntax"
+feature = "quoting_brace"
+description = "Brace quoting ${var}"
+
+[quote_brace.behavior]
+posix = "POSIX defined - disambiguates variable name"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[quote_brace.lint]
+severity = "info"
+message = "Brace quoting is portable"
+suggestion = "POSIX compliant; useful for ${var}text"
+pattern = "\\$\\{[^}]+\\}"
+
+[quote_empty]
+category = "syntax"
+feature = "quoting_empty"
+description = "Empty string preservation"
+
+[quote_empty.behavior]
+posix = "POSIX defined - \"\" preserves empty argument"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[quote_empty.lint]
+severity = "info"
+message = "Empty string quoting is portable"
+suggestion = "Use \"\" to pass empty argument"
+pattern = "\"\""

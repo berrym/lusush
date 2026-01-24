@@ -1,0 +1,104 @@
+# Complete/compgen/compopt compatibility
+# Programmable completion
+
+[complete_basic]
+category = "builtins"
+feature = "complete"
+description = "Define completion specifications"
+
+[complete_basic.behavior]
+posix = "Not in POSIX"
+bash = "Programmable completion system"
+zsh = "Uses compdef/compadd (different system)"
+lush = "Bash-compatible completion"
+
+[complete_basic.lint]
+severity = "warning"
+message = "complete is bash specific"
+suggestion = "zsh uses different completion system (compdef)"
+pattern = "\\bcomplete\\b"
+
+[compgen_basic]
+category = "builtins"
+feature = "compgen"
+description = "Generate completion matches"
+
+[compgen_basic.behavior]
+posix = "Not in POSIX"
+bash = "Generate possible completions"
+zsh = "Use compadd or _arguments"
+lush = "Bash-compatible"
+
+[compgen_basic.lint]
+severity = "warning"
+message = "compgen is bash specific"
+suggestion = "zsh uses different completion primitives"
+pattern = "\\bcompgen\\b"
+
+[compopt_basic]
+category = "builtins"
+feature = "compopt"
+description = "Modify completion options"
+
+[compopt_basic.behavior]
+posix = "Not in POSIX"
+bash = "Modify completion behavior"
+zsh = "Use compadd options"
+lush = "Bash-compatible"
+
+[compopt_basic.lint]
+severity = "warning"
+message = "compopt is bash specific"
+suggestion = "bash 4.0+ programmable completion"
+pattern = "\\bcompopt\\b"
+
+[complete_F]
+category = "builtins"
+feature = "complete_function"
+description = "Completion function (complete -F)"
+
+[complete_F.behavior]
+posix = "Not in POSIX"
+bash = "Call function to generate completions"
+zsh = "Use compdef funcname command"
+lush = "Bash-compatible"
+
+[complete_F.lint]
+severity = "warning"
+message = "complete -F is bash specific"
+suggestion = "zsh uses compdef for function-based completion"
+pattern = "\\bcomplete\\s+[^;]*-F\\b"
+
+[complete_W]
+category = "builtins"
+feature = "complete_wordlist"
+description = "Completion word list (complete -W)"
+
+[complete_W.behavior]
+posix = "Not in POSIX"
+bash = "Complete from word list"
+zsh = "Use compadd with words"
+lush = "Bash-compatible"
+
+[complete_W.lint]
+severity = "warning"
+message = "complete -W is bash specific"
+suggestion = "Simple word-based completion"
+pattern = "\\bcomplete\\s+[^;]*-W\\b"
+
+[complete_C]
+category = "builtins"
+feature = "complete_command"
+description = "Completion command (complete -C)"
+
+[complete_C.behavior]
+posix = "Not in POSIX"
+bash = "Run command to generate completions"
+zsh = "Not directly available"
+lush = "Bash-compatible"
+
+[complete_C.lint]
+severity = "warning"
+message = "complete -C is bash specific"
+suggestion = "Command-based completion generation"
+pattern = "\\bcomplete\\s+[^;]*-C\\b"

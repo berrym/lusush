@@ -1,0 +1,87 @@
+# Tilde expansion compatibility
+# Home directory expansion
+
+[tilde_home]
+category = "expansion"
+feature = "tilde_expansion"
+description = "Tilde expansion ~ for HOME"
+
+[tilde_home.behavior]
+posix = "POSIX defined - ~ expands to $HOME"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[tilde_home.lint]
+severity = "info"
+message = "Tilde expansion is portable"
+suggestion = "POSIX compliant"
+pattern = "(?<![\\w])~(?=[/\\s]|$)"
+
+[tilde_user]
+category = "expansion"
+feature = "tilde_user"
+description = "User home directory ~username"
+
+[tilde_user.behavior]
+posix = "POSIX defined - expands to user's home"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[tilde_user.lint]
+severity = "info"
+message = "User tilde expansion is portable"
+suggestion = "POSIX compliant"
+pattern = "~[a-zA-Z_][a-zA-Z0-9_]*"
+
+[tilde_plus]
+category = "expansion"
+feature = "tilde_pwd"
+description = "Current directory ~+"
+
+[tilde_plus.behavior]
+posix = "Not in POSIX"
+bash = "Expands to $PWD"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[tilde_plus.lint]
+severity = "warning"
+message = "~+ is not portable"
+suggestion = "Use $PWD instead for POSIX compatibility"
+pattern = "~\\+"
+
+[tilde_minus]
+category = "expansion"
+feature = "tilde_oldpwd"
+description = "Previous directory ~-"
+
+[tilde_minus.behavior]
+posix = "Not in POSIX"
+bash = "Expands to $OLDPWD"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[tilde_minus.lint]
+severity = "warning"
+message = "~- is not portable"
+suggestion = "Use $OLDPWD instead for POSIX compatibility"
+pattern = "~-"
+
+[tilde_stack]
+category = "expansion"
+feature = "tilde_dirstack"
+description = "Directory stack ~N, ~+N, ~-N"
+
+[tilde_stack.behavior]
+posix = "Not in POSIX"
+bash = "Expands to directory stack entries"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[tilde_stack.lint]
+severity = "warning"
+message = "Directory stack tilde is not portable"
+suggestion = "Not in POSIX; use dirs builtin output"
+pattern = "~[+-]?[0-9]+"

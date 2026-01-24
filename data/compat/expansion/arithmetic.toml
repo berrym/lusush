@@ -1,0 +1,223 @@
+# Arithmetic expansion compatibility
+# Math expressions and operators
+
+[arith_expansion]
+category = "expansion"
+feature = "arithmetic_expansion"
+description = "Arithmetic expansion $((expr))"
+
+[arith_expansion.behavior]
+posix = "POSIX defined - $((expression))"
+bash = "Extended with more operators"
+zsh = "Same as bash"
+lush = "Superset of POSIX arithmetic"
+
+[arith_expansion.lint]
+severity = "info"
+message = "Arithmetic expansion is mostly portable"
+suggestion = "Basic arithmetic is POSIX; some operators are extensions"
+pattern = "\\$\\(\\([^)]+\\)\\)"
+
+[arith_operators_basic]
+category = "expansion"
+feature = "arith_operators_basic"
+description = "Basic arithmetic operators (+, -, *, /, %)"
+
+[arith_operators_basic.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[arith_operators_basic.lint]
+severity = "info"
+message = "Basic arithmetic operators are portable"
+suggestion = "POSIX compliant"
+pattern = "\\$\\(\\([^)]*[+\\-*/%][^)]*\\)\\)"
+
+[arith_comparison]
+category = "expansion"
+feature = "arith_comparison"
+description = "Comparison operators (<, >, <=, >=, ==, !=)"
+
+[arith_comparison.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[arith_comparison.lint]
+severity = "info"
+message = "Arithmetic comparison operators are portable"
+suggestion = "POSIX compliant"
+pattern = "\\$\\(\\([^)]*[<>=!]+[^)]*\\)\\)"
+
+[arith_logical]
+category = "expansion"
+feature = "arith_logical"
+description = "Logical operators (&&, ||, !)"
+
+[arith_logical.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[arith_logical.lint]
+severity = "info"
+message = "Logical operators are portable"
+suggestion = "POSIX compliant"
+pattern = "\\$\\(\\([^)]*[&|!]+[^)]*\\)\\)"
+
+[arith_bitwise]
+category = "expansion"
+feature = "arith_bitwise"
+description = "Bitwise operators (&, |, ^, ~, <<, >>)"
+
+[arith_bitwise.behavior]
+posix = "Not explicitly in older POSIX, added in recent versions"
+bash = "Full bitwise support"
+zsh = "Same as bash"
+lush = "Full bitwise support"
+
+[arith_bitwise.lint]
+severity = "info"
+message = "Bitwise operators are widely supported"
+suggestion = "Supported in bash/zsh; check POSIX version for strict compliance"
+pattern = "\\$\\(\\([^)]*[&|^~]|<<|>>[^)]*\\)\\)"
+
+[arith_ternary]
+category = "expansion"
+feature = "arith_ternary"
+description = "Ternary operator (expr ? true : false)"
+
+[arith_ternary.behavior]
+posix = "Not in POSIX"
+bash = "C-style ternary operator"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[arith_ternary.lint]
+severity = "warning"
+message = "Ternary operator is not portable"
+suggestion = "Not in POSIX; use if/then/else for portability"
+pattern = "\\$\\(\\([^)]*\\?[^)]*:[^)]*\\)\\)"
+
+[arith_assignment]
+category = "expansion"
+feature = "arith_assignment"
+description = "Assignment in arithmetic (var=expr, +=, -=, etc.)"
+
+[arith_assignment.behavior]
+posix = "POSIX defined for simple assignment"
+bash = "Extended assignment operators (+=, -=, *=, /=, %=, etc.)"
+zsh = "Same as bash"
+lush = "Full assignment operator support"
+
+[arith_assignment.lint]
+severity = "info"
+message = "Arithmetic assignment"
+suggestion = "Simple = is POSIX; compound operators (+=) are extensions"
+pattern = "\\$\\(\\([^)]*[+\\-*/%&|^]=[^)]*\\)\\)"
+
+[arith_increment]
+category = "expansion"
+feature = "arith_increment"
+description = "Increment/decrement (++, --)"
+
+[arith_increment.behavior]
+posix = "Not in POSIX"
+bash = "Pre and post increment/decrement"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[arith_increment.lint]
+severity = "warning"
+message = "Increment/decrement operators not portable"
+suggestion = "Not in POSIX; use var=var+1 for portability"
+pattern = "\\$\\(\\([^)]*\\+\\+|--[^)]*\\)\\)"
+
+[arith_comma]
+category = "expansion"
+feature = "arith_comma"
+description = "Comma operator (expr1, expr2)"
+
+[arith_comma.behavior]
+posix = "Not explicitly in POSIX"
+bash = "Evaluate both, return second"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[arith_comma.lint]
+severity = "warning"
+message = "Comma operator may not be portable"
+suggestion = "Check target shell support"
+pattern = "\\$\\(\\([^)]*,[^)]*\\)\\)"
+
+[arith_exponent]
+category = "expansion"
+feature = "arith_exponent"
+description = "Exponentiation operator (**)"
+
+[arith_exponent.behavior]
+posix = "Not in POSIX"
+bash = "Exponentiation (bash 2.02+)"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[arith_exponent.lint]
+severity = "warning"
+message = "Exponentiation is not portable"
+suggestion = "Not in POSIX; use external tool for portability"
+pattern = "\\$\\(\\([^)]*\\*\\*[^)]*\\)\\)"
+
+[arith_base]
+category = "expansion"
+feature = "arith_base"
+description = "Base notation (base#number)"
+
+[arith_base.behavior]
+posix = "Not in POSIX"
+bash = "Support bases 2-64"
+zsh = "Same as bash"
+lush = "Bash-compatible"
+
+[arith_base.lint]
+severity = "warning"
+message = "Base notation is not portable"
+suggestion = "Not in POSIX; bash/zsh support bases 2-64"
+pattern = "\\$\\(\\([^)]*[0-9]+#[^)]*\\)\\)"
+
+[arith_hex]
+category = "expansion"
+feature = "arith_hex"
+description = "Hexadecimal notation (0x...)"
+
+[arith_hex.behavior]
+posix = "Added in recent POSIX versions"
+bash = "Full support"
+zsh = "Same as bash"
+lush = "Full support"
+
+[arith_hex.lint]
+severity = "info"
+message = "Hexadecimal notation is widely supported"
+suggestion = "Supported in modern shells; older POSIX may not support"
+pattern = "\\$\\(\\([^)]*0[xX][0-9a-fA-F]+[^)]*\\)\\)"
+
+[arith_octal]
+category = "expansion"
+feature = "arith_octal"
+description = "Octal notation (0...)"
+
+[arith_octal.behavior]
+posix = "POSIX defined"
+bash = "Same as POSIX"
+zsh = "Same as POSIX"
+lush = "POSIX compliant"
+
+[arith_octal.lint]
+severity = "info"
+message = "Octal notation is portable"
+suggestion = "POSIX compliant; leading 0 indicates octal"
+pattern = "\\$\\(\\([^)]*\\b0[0-7]+\\b[^)]*\\)\\)"
