@@ -1078,6 +1078,14 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                         tokenizer->column++;
                     }
 
+                    // Check for unclosed arithmetic expansion
+                    if (paren_count > 0) {
+                        size_t length = tokenizer->position - start;
+                        return token_new(TOK_ERROR, &tokenizer->input[start],
+                                         length, start_line, start_column,
+                                         start_pos);
+                    }
+
                     size_t length = tokenizer->position - start;
                     return token_new(TOK_ARITH_EXP, &tokenizer->input[start],
                                      length, start_line, start_column,
@@ -1098,6 +1106,14 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                         }
                         tokenizer->position++;
                         tokenizer->column++;
+                    }
+
+                    // Check for unclosed command substitution
+                    if (paren_count > 0) {
+                        size_t length = tokenizer->position - start;
+                        return token_new(TOK_ERROR, &tokenizer->input[start],
+                                         length, start_line, start_column,
+                                         start_pos);
                     }
 
                     size_t length = tokenizer->position - start;
@@ -1220,6 +1236,11 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
         if (tokenizer->position < tokenizer->input_length) {
             tokenizer->position++; // Skip closing backtick
             tokenizer->column++;
+        } else {
+            // Unclosed backtick - return error token
+            size_t length = tokenizer->position - start;
+            return token_new(TOK_ERROR, &tokenizer->input[start], length,
+                             start_line, start_column, start_pos);
         }
 
         size_t length = tokenizer->position - start;

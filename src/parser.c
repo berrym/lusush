@@ -1113,8 +1113,35 @@ static node_t *parse_simple_command(parser_t *parser) {
 
     // Parse regular command
     if (current->type == TOK_ERROR) {
-        parser_error_add(parser, SHELL_ERR_UNCLOSED_QUOTE,
-                         "unterminated quoted string");
+        // Provide specific error message based on what's unclosed
+        const char *text = current->text;
+        if (text && text[0] == '$' && text[1] == '(') {
+            if (text[2] == '(') {
+                parser_push_context(parser, "parsing arithmetic expansion $((..))");
+                parser_error_add_with_help(parser, SHELL_ERR_UNCLOSED_SUBST,
+                                 "arithmetic expansion requires closing '))'",
+                                 "unterminated arithmetic expansion $((");
+                parser_pop_context(parser);
+            } else {
+                parser_push_context(parser, "parsing command substitution $(...)");
+                parser_error_add_with_help(parser, SHELL_ERR_UNCLOSED_SUBST,
+                                 "command substitution requires closing ')'",
+                                 "unterminated command substitution $(");
+                parser_pop_context(parser);
+            }
+        } else if (text && text[0] == '`') {
+            parser_push_context(parser, "parsing backtick substitution `...`");
+            parser_error_add_with_help(parser, SHELL_ERR_UNCLOSED_SUBST,
+                             "backtick substitution requires closing '`'",
+                             "unterminated backtick command substitution");
+            parser_pop_context(parser);
+        } else {
+            parser_push_context(parser, "parsing quoted string");
+            parser_error_add_with_help(parser, SHELL_ERR_UNCLOSED_QUOTE,
+                             "strings must be properly closed",
+                             "unterminated quoted string");
+            parser_pop_context(parser);
+        }
         return NULL;
     }
 

@@ -11505,12 +11505,41 @@ static int execute_arithmetic_command(executor_t *executor,
 
     if (!result_str || arithm_error_flag) {
         // Arithmetic error - could be syntax error or division by zero
-        if (executor->debug) {
-            printf("DEBUG: Arithmetic error in expression: %s\n", expr);
+        // Create structured error with help suggestion
+        shell_error_t *error = shell_error_create(SHELL_ERR_ARITHMETIC_SYNTAX,
+                                                   SHELL_SEVERITY_ERROR,
+                                                   arith_node->loc,
+                                                   "arithmetic syntax error in expression: %s", expr);
+        if (error) {
+            // Build the source line: (( expr ))
+            char *source_line = NULL;
+            size_t expr_len = strlen(expr);
+            if (asprintf(&source_line, "(( %s ))", expr) > 0) {
+                shell_error_set_source_line(error, source_line, 3, 3 + expr_len);
+                free(source_line);
+            }
+            // Update location to highlight the expression (column is 1-indexed)
+            error->location.column = 4;  // After "(( "
+            error->location.length = expr_len;
+            // Add context stack from executor
+            for (size_t i = 0; i < executor->context_depth && i < SHELL_ERROR_CONTEXT_MAX; i++) {
+                if (executor->context_stack[i]) {
+                    shell_error_push_context(error, "%s", executor->context_stack[i]);
+                }
+            }
+            // Add specific context for arithmetic command
+            shell_error_push_context(error, "evaluating arithmetic command (( %s ))", expr);
+            // Add help suggestion
+            shell_error_set_suggestion(error,
+                "(( )) expects arithmetic expressions, not shell commands");
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
         }
+        executor->has_error = true;
         if (result_str) {
             free(result_str);
         }
+        free(expanded_expr);
         return 1;
     }
 
