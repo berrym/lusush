@@ -1183,12 +1183,12 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                                  start_line, start_column, start_pos);
             } else if (isalnum(next) || next == '_' || next == '?' ||
                        next == '$' || next == '!' || next == '@' ||
-                       next == '*' || next == '#') {
-                // Simple variable $var, $?, $$, $!, etc.
+                       next == '*' || next == '#' || next == '-') {
+                // Simple variable $var, $?, $$, $!, $-, etc.
 
                 // For special single-character variables, only advance by one
                 if (next == '?' || next == '$' || next == '!' || next == '@' ||
-                    next == '*' || next == '#') {
+                    next == '*' || next == '#' || next == '-') {
                     tokenizer
                         ->position++; // Just one character for special vars
                     tokenizer->column++;
