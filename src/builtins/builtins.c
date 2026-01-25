@@ -1763,6 +1763,10 @@ static int evaluate_single_test(char **argv, int start, int end) {
             // test -s FILE - true if file exists and is not empty
             struct stat st;
             return (stat(argv[start + 1], &st) == 0 && st.st_size > 0) ? 0 : 1;
+        } else if (strcmp(argv[start], "-t") == 0) {
+            // test -t FD - true if file descriptor is open and refers to a terminal
+            int fd = atoi(argv[start + 1]);
+            return isatty(fd) ? 0 : 1;
         }
     }
 
