@@ -34,11 +34,14 @@ static int tests_failed = 0;
 #define RUN_TEST(name)                                                         \
     do {                                                                       \
         tests_run++;                                                           \
+        int _prev_failed = tests_failed;                                       \
         printf("  Running %s...", #name);                                      \
         fflush(stdout);                                                        \
         test_##name();                                                         \
-        printf(" PASSED\n");                                                   \
-        tests_passed++;                                                        \
+        if (tests_failed == _prev_failed) {                                    \
+            printf(" PASSED\n");                                               \
+            tests_passed++;                                                    \
+        }                                                                      \
     } while (0)
 
 #define ASSERT(cond, msg)                                                      \

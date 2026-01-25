@@ -401,23 +401,36 @@ fixer_result_t fixer_apply_fixes(fixer_context_t *ctx,
         size_t repl_len = strlen(fix->replacement);
         size_t new_len = working_len - fix->match_length + repl_len;
         
-        /* Make room if needed */
-        char *new_working = realloc(working, new_len + 1);
-        if (!new_working) {
-            free(working);
-            return FIXER_ERR_NOMEM;
-        }
-        working = new_working;
-        
-        /* Shift tail */
+        /* Calculate tail position */
         size_t tail_start = fix->match_start + fix->match_length;
         size_t tail_len = working_len - tail_start;
+        
+        /* If replacement is longer, grow buffer first */
+        if (repl_len > fix->match_length) {
+            char *new_working = realloc(working, new_len + 1);
+            if (!new_working) {
+                free(working);
+                return FIXER_ERR_NOMEM;
+            }
+            working = new_working;
+        }
+        
+        /* Shift tail (memmove handles overlap) */
         memmove(working + fix->match_start + repl_len,
                 working + tail_start, tail_len + 1);
         
         /* Insert replacement */
         memcpy(working + fix->match_start, fix->replacement, repl_len);
         working_len = new_len;
+        
+        /* If replacement is shorter, shrink buffer after the move */
+        if (repl_len < fix->match_length) {
+            char *new_working = realloc(working, new_len + 1);
+            if (new_working) {
+                working = new_working;
+            }
+            /* If realloc fails on shrink, we can continue with larger buffer */
+        }
         
         applied++;
     }
