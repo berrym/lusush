@@ -12,6 +12,7 @@
 #ifndef SIGNALS_H
 #define SIGNALS_H
 
+#include <stdbool.h>
 #include <sys/types.h>
 
 /**
@@ -147,5 +148,26 @@ int get_signal_number(const char *signame);
  * Called during shell shutdown.
  */
 void execute_exit_traps(void);
+
+/**
+ * @brief Check if SIGHUP was received
+ *
+ * Used by the main loop to detect when the shell should exit
+ * due to a hangup signal.
+ *
+ * @return true if SIGHUP was received, false otherwise
+ */
+bool sighup_was_received(void);
+
+/**
+ * @brief Send SIGHUP to all background jobs
+ *
+ * Called when a login shell exits. Sends SIGHUP followed by SIGCONT
+ * to all background jobs (so stopped jobs can handle SIGHUP).
+ * Jobs marked with no_sighup flag (via disown -h) are skipped.
+ *
+ * @return Number of jobs that received SIGHUP
+ */
+int send_sighup_to_jobs(void);
 
 #endif

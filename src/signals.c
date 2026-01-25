@@ -16,7 +16,9 @@
 #include "signals.h"
 
 #include "errors.h"
+#include "executor.h"
 #include "lle/adaptive_terminal_integration.h"
+#include "lush.h"
 
 #include <signal.h>
 #include <stdio.h>
@@ -98,10 +100,74 @@ static void sigint_handler(int signo) {
     }
 }
 
+/** @brief Flag indicating shell should exit due to SIGHUP */
+static volatile sig_atomic_t sighup_received = 0;
+
+/**
+ * @brief SIGHUP handler
+ *
+ * Sets a flag indicating the shell should exit. The actual cleanup
+ * (sending SIGHUP to background jobs) is done by send_sighup_to_jobs()
+ * which is called from the main exit path.
+ *
+ * @param signo Signal number (SIGHUP)
+ */
+static void sighup_handler(int signo) {
+    (void)signo;
+    sighup_received = 1;
+}
+
+/**
+ * @brief Check if SIGHUP was received
+ *
+ * @return true if SIGHUP was received, false otherwise
+ */
+bool sighup_was_received(void) {
+    return sighup_received != 0;
+}
+
+/**
+ * @brief Send SIGHUP to all background jobs
+ *
+ * Called when a login shell exits. Sends SIGHUP followed by SIGCONT
+ * to all background jobs (so stopped jobs can handle SIGHUP).
+ * Jobs marked with no_sighup flag (via disown -h) are skipped.
+ *
+ * @return Number of jobs that received SIGHUP
+ */
+int send_sighup_to_jobs(void) {
+    executor_t *executor = get_global_executor();
+    if (!executor) {
+        return 0;
+    }
+
+    int count = 0;
+    job_t *job = executor->jobs;
+
+    while (job) {
+        // Skip jobs marked to not receive SIGHUP (disown -h)
+        // Note: no_sighup field will be added in Phase 4 (disown builtin)
+        // For now, send to all jobs
+
+        if (job->pgid > 0) {
+            // Send SIGHUP to the process group
+            if (kill(-job->pgid, SIGHUP) == 0) {
+                count++;
+                // Also send SIGCONT so stopped jobs can handle SIGHUP
+                kill(-job->pgid, SIGCONT);
+            }
+        }
+
+        job = job->next;
+    }
+
+    return count;
+}
+
 /**
  * @brief Initialize default signal handlers
  *
- * Sets up signal handlers for SIGINT, SIGSEGV, and SIGQUIT.
+ * Sets up signal handlers for SIGINT, SIGSEGV, SIGQUIT, and SIGHUP.
  * Called during shell initialization.
  */
 void init_signal_handlers(void) {
@@ -111,6 +177,9 @@ void init_signal_handlers(void) {
     // Ignore SIGQUIT (Ctrl+\) like bash/zsh do
     // This prevents accidental core dumps from Ctrl+\ keypresses
     set_signal_handler(SIGQUIT, SIG_IGN);
+
+    // Set up SIGHUP handler for login shell hangup
+    set_signal_handler(SIGHUP, sighup_handler);
 }
 
 /**

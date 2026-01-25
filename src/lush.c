@@ -370,8 +370,12 @@ int main(int argc, char **argv) {
         fclose(in);
     }
 
-    // Execute logout scripts if this is a login shell
+    // For login shells: send SIGHUP to background jobs and execute logout scripts
     if (is_login_shell()) {
+        // Send SIGHUP to all background jobs (standard login shell behavior)
+        // This must happen before logout scripts so jobs can be cleaned up
+        send_sighup_to_jobs();
+
         config_execute_logout_scripts();
     }
 
