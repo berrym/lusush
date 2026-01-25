@@ -207,17 +207,16 @@ TEST(fixer_add_fix_basic) {
     fixer_init(&ctx);
     fixer_load_string(&ctx, "echo hello", "test.sh");
     
-    fixer_fix_t fix = {
-        .line = 1,
-        .column = 1,
-        .match_start = 0,
-        .match_length = 4,
-        .original = "echo",
-        .replacement = "printf",
-        .type = FIX_TYPE_SAFE,
-        .message = "Use printf for portability",
-        .entry = NULL,
-    };
+    fixer_fix_t fix = {0};
+    fix.line = 1;
+    fix.column = 1;
+    fix.match_start = 0;
+    fix.match_length = 4;
+    fix.original = "echo";
+    fix.replacement = "printf";
+    fix.type = FIX_TYPE_SAFE;
+    fix.message = "Use printf for portability";
+    fix.entry = NULL;
     
     fixer_result_t result = fixer_add_fix(&ctx, &fix);
     ASSERT_EQ(result, FIXER_OK, "add_fix should succeed");
@@ -244,9 +243,12 @@ TEST(fixer_count_safe) {
     fixer_init(&ctx);
     fixer_load_string(&ctx, "test", NULL);
     
-    fixer_fix_t safe_fix = { .type = FIX_TYPE_SAFE };
-    fixer_fix_t unsafe_fix = { .type = FIX_TYPE_UNSAFE };
-    fixer_fix_t manual_fix = { .type = FIX_TYPE_MANUAL };
+    fixer_fix_t safe_fix = {0};
+    safe_fix.type = FIX_TYPE_SAFE;
+    fixer_fix_t unsafe_fix = {0};
+    unsafe_fix.type = FIX_TYPE_UNSAFE;
+    fixer_fix_t manual_fix = {0};
+    manual_fix.type = FIX_TYPE_MANUAL;
     
     fixer_add_fix(&ctx, &safe_fix);
     fixer_add_fix(&ctx, &safe_fix);
@@ -298,16 +300,16 @@ TEST(fixer_apply_fixes_single) {
     fixer_init(&ctx);
     fixer_load_string(&ctx, "source config.sh", "test.sh");
     
-    fixer_fix_t fix = {
-        .line = 1,
-        .column = 1,
-        .match_start = 0,
-        .match_length = 6, /* "source" */
-        .original = "source",
-        .replacement = ".",
-        .type = FIX_TYPE_SAFE,
-        .message = "Use . for POSIX compatibility",
-    };
+    fixer_fix_t fix = {0};  /* Zero-initialize all fields first */
+    fix.line = 1;
+    fix.column = 1;
+    fix.match_start = 0;
+    fix.match_length = 6;  /* "source" */
+    fix.original = "source";
+    fix.replacement = ".";
+    fix.type = FIX_TYPE_SAFE;
+    fix.message = "Use . for POSIX compatibility";
+    fix.entry = NULL;
     
     fixer_add_fix(&ctx, &fix);
     
@@ -334,12 +336,11 @@ TEST(fixer_apply_fixes_skip_unsafe) {
     fixer_init(&ctx);
     fixer_load_string(&ctx, "echo test", "test.sh");
     
-    fixer_fix_t fix = {
-        .match_start = 0,
-        .match_length = 4,
-        .replacement = "printf",
-        .type = FIX_TYPE_UNSAFE,
-    };
+    fixer_fix_t fix = {0};
+    fix.match_start = 0;
+    fix.match_length = 4;
+    fix.replacement = "printf";
+    fix.type = FIX_TYPE_UNSAFE;
     
     fixer_add_fix(&ctx, &fix);
     
@@ -363,12 +364,11 @@ TEST(fixer_apply_fixes_include_unsafe) {
     fixer_init(&ctx);
     fixer_load_string(&ctx, "echo test", "test.sh");
     
-    fixer_fix_t fix = {
-        .match_start = 0,
-        .match_length = 4,
-        .replacement = "printf",
-        .type = FIX_TYPE_UNSAFE,
-    };
+    fixer_fix_t fix = {0};
+    fix.match_start = 0;
+    fix.match_length = 4;
+    fix.replacement = "printf";
+    fix.type = FIX_TYPE_UNSAFE;
     
     fixer_add_fix(&ctx, &fix);
     
@@ -392,12 +392,11 @@ TEST(fixer_apply_fixes_skip_manual) {
     fixer_init(&ctx);
     fixer_load_string(&ctx, "eval $cmd", "test.sh");
     
-    fixer_fix_t fix = {
-        .match_start = 0,
-        .match_length = 4,
-        .replacement = NULL,  /* No replacement for manual */
-        .type = FIX_TYPE_MANUAL,
-    };
+    fixer_fix_t fix = {0};
+    fix.match_start = 0;
+    fix.match_length = 4;
+    fix.replacement = NULL;  /* No replacement for manual */
+    fix.type = FIX_TYPE_MANUAL;
     
     fixer_add_fix(&ctx, &fix);
     
@@ -420,12 +419,11 @@ TEST(fixer_apply_fixes_alloc) {
     fixer_init(&ctx);
     fixer_load_string(&ctx, "source file.sh", "test.sh");
     
-    fixer_fix_t fix = {
-        .match_start = 0,
-        .match_length = 6,
-        .replacement = ".",
-        .type = FIX_TYPE_SAFE,
-    };
+    fixer_fix_t fix = {0};
+    fix.match_start = 0;
+    fix.match_length = 6;
+    fix.replacement = ".";
+    fix.type = FIX_TYPE_SAFE;
     
     fixer_add_fix(&ctx, &fix);
     
@@ -557,12 +555,11 @@ TEST(fixer_generate_diff_with_changes) {
     fixer_init(&ctx);
     fixer_load_string(&ctx, "source file.sh", "test.sh");
     
-    fixer_fix_t fix = {
-        .match_start = 0,
-        .match_length = 6,
-        .replacement = ".",
-        .type = FIX_TYPE_SAFE,
-    };
+    fixer_fix_t fix = {0};
+    fix.match_start = 0;
+    fix.match_length = 6;
+    fix.replacement = ".";
+    fix.type = FIX_TYPE_SAFE;
     fixer_add_fix(&ctx, &fix);
     
     fixer_options_t opts = { 0 };
@@ -586,7 +583,9 @@ TEST(fixer_interactive_init_basic) {
     fixer_init(&ctx);
     fixer_load_string(&ctx, "echo test", NULL);
     
-    fixer_fix_t fix = { .type = FIX_TYPE_SAFE, .replacement = "printf" };
+    fixer_fix_t fix = {0};
+    fix.type = FIX_TYPE_SAFE;
+    fix.replacement = "printf";
     fixer_add_fix(&ctx, &fix);
     
     fixer_options_t opts = { 0 };
@@ -630,10 +629,9 @@ TEST(fixer_interactive_next_basic) {
     fixer_init(&ctx);
     fixer_load_string(&ctx, "source file", NULL);
     
-    fixer_fix_t fix = {
-        .type = FIX_TYPE_SAFE,
-        .replacement = ".",
-    };
+    fixer_fix_t fix = {0};
+    fix.type = FIX_TYPE_SAFE;
+    fix.replacement = ".";
     fixer_add_fix(&ctx, &fix);
     
     fixer_options_t opts = { 0 };
@@ -656,8 +654,11 @@ TEST(fixer_interactive_next_skip_manual) {
     fixer_init(&ctx);
     fixer_load_string(&ctx, "eval cmd", NULL);
     
-    fixer_fix_t manual = { .type = FIX_TYPE_MANUAL };
-    fixer_fix_t safe = { .type = FIX_TYPE_SAFE, .replacement = "test" };
+    fixer_fix_t manual = {0};
+    manual.type = FIX_TYPE_MANUAL;
+    fixer_fix_t safe = {0};
+    safe.type = FIX_TYPE_SAFE;
+    safe.replacement = "test";
     
     fixer_add_fix(&ctx, &manual);
     fixer_add_fix(&ctx, &safe);
@@ -681,8 +682,12 @@ TEST(fixer_interactive_next_skip_unsafe_when_disabled) {
     fixer_init(&ctx);
     fixer_load_string(&ctx, "test", NULL);
     
-    fixer_fix_t unsafe = { .type = FIX_TYPE_UNSAFE, .replacement = "a" };
-    fixer_fix_t safe = { .type = FIX_TYPE_SAFE, .replacement = "b" };
+    fixer_fix_t unsafe = {0};
+    unsafe.type = FIX_TYPE_UNSAFE;
+    unsafe.replacement = "a";
+    fixer_fix_t safe = {0};
+    safe.type = FIX_TYPE_SAFE;
+    safe.replacement = "b";
     
     fixer_add_fix(&ctx, &unsafe);
     fixer_add_fix(&ctx, &safe);
@@ -706,7 +711,9 @@ TEST(fixer_interactive_respond_yes) {
     fixer_init(&ctx);
     fixer_load_string(&ctx, "test", NULL);
     
-    fixer_fix_t fix = { .type = FIX_TYPE_SAFE, .replacement = "a" };
+    fixer_fix_t fix = {0};
+    fix.type = FIX_TYPE_SAFE;
+    fix.replacement = "a";
     fixer_add_fix(&ctx, &fix);
     
     fixer_options_t opts = { 0 };
@@ -729,7 +736,9 @@ TEST(fixer_interactive_respond_no) {
     fixer_init(&ctx);
     fixer_load_string(&ctx, "test", NULL);
     
-    fixer_fix_t fix = { .type = FIX_TYPE_SAFE, .replacement = "a" };
+    fixer_fix_t fix = {0};
+    fix.type = FIX_TYPE_SAFE;
+    fix.replacement = "a";
     fixer_add_fix(&ctx, &fix);
     
     fixer_options_t opts = { 0 };
@@ -752,9 +761,15 @@ TEST(fixer_interactive_respond_all) {
     fixer_init(&ctx);
     fixer_load_string(&ctx, "test", NULL);
     
-    fixer_fix_t fix1 = { .type = FIX_TYPE_SAFE, .replacement = "a" };
-    fixer_fix_t fix2 = { .type = FIX_TYPE_SAFE, .replacement = "b" };
-    fixer_fix_t fix3 = { .type = FIX_TYPE_SAFE, .replacement = "c" };
+    fixer_fix_t fix1 = {0};
+    fix1.type = FIX_TYPE_SAFE;
+    fix1.replacement = "a";
+    fixer_fix_t fix2 = {0};
+    fix2.type = FIX_TYPE_SAFE;
+    fix2.replacement = "b";
+    fixer_fix_t fix3 = {0};
+    fix3.type = FIX_TYPE_SAFE;
+    fix3.replacement = "c";
     
     fixer_add_fix(&ctx, &fix1);
     fixer_add_fix(&ctx, &fix2);
@@ -783,7 +798,9 @@ TEST(fixer_interactive_respond_quit) {
     fixer_init(&ctx);
     fixer_load_string(&ctx, "test", NULL);
     
-    fixer_fix_t fix = { .type = FIX_TYPE_SAFE, .replacement = "a" };
+    fixer_fix_t fix = {0};
+    fix.type = FIX_TYPE_SAFE;
+    fix.replacement = "a";
     fixer_add_fix(&ctx, &fix);
     
     fixer_options_t opts = { 0 };
@@ -806,7 +823,9 @@ TEST(fixer_interactive_apply_none_accepted) {
     fixer_init(&ctx);
     fixer_load_string(&ctx, "source file", NULL);
     
-    fixer_fix_t fix = { .type = FIX_TYPE_SAFE, .replacement = "." };
+    fixer_fix_t fix = {0};
+    fix.type = FIX_TYPE_SAFE;
+    fix.replacement = ".";
     fixer_add_fix(&ctx, &fix);
     
     fixer_options_t opts = { 0 };
@@ -836,12 +855,11 @@ TEST(fixer_interactive_apply_some_accepted) {
     fixer_init(&ctx);
     fixer_load_string(&ctx, "source file", NULL);
     
-    fixer_fix_t fix = {
-        .match_start = 0,
-        .match_length = 6,
-        .replacement = ".",
-        .type = FIX_TYPE_SAFE,
-    };
+    fixer_fix_t fix = {0};
+    fix.match_start = 0;
+    fix.match_length = 6;
+    fix.replacement = ".";
+    fix.type = FIX_TYPE_SAFE;
     fixer_add_fix(&ctx, &fix);
     
     fixer_options_t opts = { 0 };
