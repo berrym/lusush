@@ -13,6 +13,7 @@
 #include "debug.h"
 #include "compat.h"
 #include "errors.h"
+#include "fixer.h"
 #include "node.h"
 #include "parser.h"
 #include "tokenizer.h"
@@ -586,4 +587,304 @@ void debug_show_analysis_report(debug_context_t *ctx) {
     debug_printf(
         ctx,
         "  - Address portability issues for cross-platform compatibility\n");
+}
+
+/**
+ * @brief Display analysis report with mode filtering
+ *
+ * In LINT mode, only shows warnings and errors (skips info items).
+ * This makes the output actionable rather than informational.
+ *
+ * @param ctx Debug context containing analysis results
+ * @param mode Analysis mode (FULL or LINT)
+ */
+void debug_show_analysis_report_filtered(debug_context_t *ctx,
+                                          analysis_mode_t mode) {
+    if (!ctx) {
+        return;
+    }
+
+    const char *header = (mode == ANALYSIS_MODE_LINT) 
+                         ? "Lint Report" 
+                         : "Script Analysis Report";
+    debug_print_header(ctx, header);
+
+    // Count issues by severity (respecting mode filter)
+    int error_count = 0, warning_count = 0, info_count = 0;
+    analysis_issue_t *issue = ctx->analysis_issues;
+    while (issue) {
+        if (strcmp(issue->severity, "error") == 0) {
+            error_count++;
+        } else if (strcmp(issue->severity, "warning") == 0) {
+            warning_count++;
+        } else if (strcmp(issue->severity, "info") == 0) {
+            info_count++;
+        }
+        issue = issue->next;
+    }
+
+    // In lint mode, only count actionable items
+    int actionable_count = error_count + warning_count;
+    if (mode == ANALYSIS_MODE_LINT) {
+        if (actionable_count == 0) {
+            debug_printf(ctx, "No actionable issues found.\n");
+            return;
+        }
+        debug_printf(ctx, "Issues found: %d (%d errors, %d warnings)\n\n",
+                     actionable_count, error_count, warning_count);
+    } else {
+        if (ctx->issue_count == 0) {
+            debug_printf(ctx, "No issues found - script looks good!\n");
+            return;
+        }
+        debug_printf(ctx,
+                     "Issues found: %d total (%d errors, %d warnings, %d info)\n\n",
+                     ctx->issue_count, error_count, warning_count, info_count);
+    }
+
+    // Show issues by category
+    const char *categories[] = {"syntax", "security", "performance", "style",
+                                "portability"};
+    const char *category_names[] = {"Syntax", "Security", "Performance",
+                                    "Style", "Portability"};
+
+    for (int i = 0; i < 5; i++) {
+        bool has_issues = false;
+        issue = ctx->analysis_issues;
+
+        // Check if we have issues in this category (respecting mode filter)
+        while (issue) {
+            if (strcmp(issue->category, categories[i]) == 0) {
+                // In lint mode, skip info items
+                if (mode == ANALYSIS_MODE_LINT &&
+                    strcmp(issue->severity, "info") == 0) {
+                    issue = issue->next;
+                    continue;
+                }
+                has_issues = true;
+                break;
+            }
+            issue = issue->next;
+        }
+
+        if (!has_issues) {
+            continue;
+        }
+
+        debug_printf(ctx, "%s Issues:\n", category_names[i]);
+        debug_printf(ctx, "%-8s %-4s %-60s\n", "Severity", "Line", "Message");
+        debug_printf(ctx, "%-8s %-4s %-60s\n", "--------", "----", "-------");
+
+        issue = ctx->analysis_issues;
+        while (issue) {
+            if (strcmp(issue->category, categories[i]) == 0) {
+                // In lint mode, skip info items
+                if (mode == ANALYSIS_MODE_LINT &&
+                    strcmp(issue->severity, "info") == 0) {
+                    issue = issue->next;
+                    continue;
+                }
+                debug_printf(ctx, "%-8s %-4d %s\n", issue->severity,
+                             issue->line_number, issue->message);
+                if (issue->suggestion) {
+                    debug_printf(ctx, "         %-4s Suggestion: %s\n", "",
+                                 issue->suggestion);
+                }
+            }
+            issue = issue->next;
+        }
+        debug_printf(ctx, "\n");
+    }
+
+    // Summary (different for lint vs analyze)
+    if (mode == ANALYSIS_MODE_LINT) {
+        debug_printf(ctx, "Summary:\n");
+        if (error_count > 0) {
+            debug_printf(ctx, "  %d error(s) must be fixed\n", error_count);
+        }
+        if (warning_count > 0) {
+            debug_printf(ctx, "  %d warning(s) should be addressed\n",
+                         warning_count);
+        }
+    } else {
+        debug_printf(ctx, "Summary:\n");
+        if (error_count > 0) {
+            debug_printf(ctx,
+                "  WARNING: %d syntax or critical errors need to be fixed\n",
+                error_count);
+        }
+        if (warning_count > 0) {
+            debug_printf(ctx, "  WARNING: %d warnings should be addressed\n",
+                         warning_count);
+        }
+        if (info_count > 0) {
+            debug_printf(ctx,
+                "  INFO: %d informational items for improvement\n",
+                info_count);
+        }
+
+        debug_printf(ctx, "\nRecommendations:\n");
+        debug_printf(ctx,
+            "  - Fix all syntax errors before running the script\n");
+        debug_printf(ctx,
+            "  - Address security warnings to prevent vulnerabilities\n");
+        debug_printf(ctx,
+            "  - Consider performance suggestions for better efficiency\n");
+        debug_printf(ctx,
+            "  - Follow style guidelines for maintainability\n");
+        debug_printf(ctx,
+            "  - Address portability issues for cross-platform compatibility\n");
+    }
+}
+
+/**
+ * @brief Lint a script for actionable issues with optional auto-fix
+ *
+ * Unlike debug_analyze_script(), this function:
+ * - Only shows warnings and errors (not info items)
+ * - Can optionally apply automatic fixes
+ * - Returns the number of remaining unfixed issues
+ *
+ * @param ctx Debug context for output
+ * @param script_path Path to the script file to lint
+ * @param fix Apply safe fixes
+ * @param unsafe_fixes Also apply unsafe fixes
+ * @param dry_run Preview fixes without applying
+ * @return Number of unfixed issues remaining (0 = success)
+ */
+int debug_lint_script(debug_context_t *ctx, const char *script_path,
+                      bool fix, bool unsafe_fixes, bool dry_run) {
+    if (!ctx || !script_path) {
+        return -1;
+    }
+
+    debug_printf(ctx, "Linting script: %s\n", script_path);
+
+    // Check if file exists
+    struct stat st;
+    if (stat(script_path, &st) != 0) {
+        debug_printf(ctx, "ERROR: Script file not found: %s\n", script_path);
+        return -1;
+    }
+
+    // Read script file
+    FILE *file = fopen(script_path, "r");
+    if (!file) {
+        debug_printf(ctx, "ERROR: Cannot open script file: %s\n", script_path);
+        return -1;
+    }
+
+    fseek(file, 0, SEEK_END);
+    long file_size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    char *script_content = malloc(file_size + 1);
+    if (!script_content) {
+        fclose(file);
+        debug_printf(ctx, "ERROR: Memory allocation failed\n");
+        return -1;
+    }
+
+    fread(script_content, 1, file_size, file);
+    script_content[file_size] = '\0';
+    fclose(file);
+
+    // Clear previous analysis results
+    debug_clear_analysis_issues(ctx);
+
+    // Perform analysis (same as analyze, we'll filter in the report)
+    node_t *ast = debug_analyze_syntax(ctx, script_path, script_content);
+    debug_analyze_style(ctx, script_path, script_content);
+    debug_analyze_performance(ctx, script_path, script_content);
+    debug_analyze_security(ctx, script_path, script_content);
+    debug_analyze_portability(ctx, script_path, script_content, ast);
+
+    // Count actionable issues (errors + warnings only)
+    int error_count = 0, warning_count = 0;
+    analysis_issue_t *issue = ctx->analysis_issues;
+    while (issue) {
+        if (strcmp(issue->severity, "error") == 0) {
+            error_count++;
+        } else if (strcmp(issue->severity, "warning") == 0) {
+            warning_count++;
+        }
+        issue = issue->next;
+    }
+
+    int actionable_count = error_count + warning_count;
+
+    // Handle fix mode
+    if (fix && actionable_count > 0) {
+        fixer_context_t fixer_ctx;
+        if (fixer_init(&fixer_ctx) == FIXER_OK) {
+            if (fixer_load_string(&fixer_ctx, script_content, script_path) == FIXER_OK) {
+                shell_mode_t target = compat_get_target();
+                size_t fixes_found = fixer_collect_fixes(&fixer_ctx, target);
+
+                if (fixes_found > 0) {
+                    fixer_options_t opts = {
+                        .include_unsafe = unsafe_fixes,
+                        .dry_run = dry_run,
+                        .create_backup = true,
+                        .verify_syntax = true,
+                        .target = target,
+                    };
+
+                    if (dry_run) {
+                        debug_printf(ctx, "\nDry run - would apply fixes:\n");
+                        fixer_print_diff(&fixer_ctx, &opts);
+                    } else {
+                        char *fixed_content = NULL;
+                        size_t applied = 0;
+
+                        if (fixer_apply_fixes_alloc(&fixer_ctx, &opts,
+                                                     &fixed_content,
+                                                     &applied) == FIXER_OK) {
+                            if (applied > 0) {
+                                // Verify syntax before writing
+                                if (fixer_verify_syntax(fixed_content, target)) {
+                                    if (fixer_write_file(script_path,
+                                                          fixed_content,
+                                                          true) == FIXER_OK) {
+                                        debug_printf(ctx,
+                                            "\nApplied %zu fix(es) to %s\n",
+                                            applied, script_path);
+                                        debug_printf(ctx,
+                                            "Backup saved to %s.bak\n",
+                                            script_path);
+                                        actionable_count -= (int)applied;
+                                    } else {
+                                        debug_printf(ctx,
+                                            "ERROR: Failed to write fixed file\n");
+                                    }
+                                } else {
+                                    debug_printf(ctx,
+                                        "ERROR: Fixed script has syntax errors, "
+                                        "not applying\n");
+                                }
+                            }
+                            free(fixed_content);
+                        }
+                    }
+
+                    fixer_print_summary(&fixer_ctx, &opts);
+                } else {
+                    debug_printf(ctx, "\nNo automatic fixes available.\n");
+                }
+            }
+            fixer_cleanup(&fixer_ctx);
+        }
+    }
+
+    // Show filtered report (lint mode - no info items)
+    debug_show_analysis_report_filtered(ctx, ANALYSIS_MODE_LINT);
+
+    // Cleanup
+    if (ast) {
+        free_node_tree(ast);
+    }
+    free(script_content);
+
+    // Return remaining unfixed issues
+    return (actionable_count > 0) ? actionable_count : 0;
 }

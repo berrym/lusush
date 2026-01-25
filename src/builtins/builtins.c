@@ -74,6 +74,7 @@ int bin_debug(int argc, char **argv);
 int bin_mapfile(int argc, char **argv);
 int bin_env(int argc, char **argv);
 int bin_analyze(int argc, char **argv);
+int bin_lint(int argc, char **argv);
 
 // Forward declarations for POSIX compliance
 bool is_posix_mode_enabled(void);
@@ -192,8 +193,8 @@ builtin builtins[] = {
     {"readarray", "read lines from stdin into array", bin_mapfile},
     {"env", "run command with modified environment", bin_env},
     {"printenv", "print environment variables", bin_env},
-    {"analyze", "analyze scripts for issues and portability", bin_analyze},
-    {"lint", "analyze scripts for issues and portability", bin_analyze},
+    {"analyze", "full script analysis with info, warnings, and errors", bin_analyze},
+    {"lint", "lint scripts and optionally apply automatic fixes", bin_lint},
 };
 
 const size_t builtins_count = sizeof(builtins) / sizeof(builtins[0]);
@@ -7534,6 +7535,158 @@ int bin_analyze(int argc, char **argv) {
     /* Determine exit code based on issues found */
     int exit_status = 0;
     if (ctx->issue_count > 0) {
+        analysis_issue_t *issue = ctx->analysis_issues;
+        while (issue) {
+            if (strcmp(issue->severity, "error") == 0) {
+                exit_status = 2;
+                break;
+            } else if (strcmp(issue->severity, "warning") == 0 && exit_status < 1) {
+                exit_status = 1;
+            }
+            issue = issue->next;
+        }
+        
+        /* In strict mode, warnings become errors */
+        if (strict_mode && exit_status == 1) {
+            exit_status = 2;
+        }
+    }
+    
+    /* Cleanup */
+    debug_cleanup(ctx);
+    
+    /* Reset strict mode */
+    if (strict_mode) {
+        compat_set_strict(false);
+    }
+    
+    return exit_status;
+}
+
+/**
+ * @brief Lint builtin - actionable script linting with optional auto-fix
+ *
+ * Unlike analyze, lint only shows warnings and errors (not info items)
+ * and can optionally apply automatic fixes.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 if no issues, 1 if unfixed warnings remain, 2 if errors remain
+ */
+int bin_lint(int argc, char **argv) {
+    bool strict_mode = false;
+    bool fix_mode = false;
+    bool unsafe_fixes = false;
+    bool dry_run = false;
+    bool show_diff = false;
+    bool create_backup = true;
+    const char *target_shell = NULL;
+    const char *script_file = NULL;
+    
+    /* Parse arguments */
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
+            printf("Usage: %s [OPTIONS] <script>\n", argv[0]);
+            printf("\nLint shell scripts for actionable issues.\n");
+            printf("\nOptions:\n");
+            printf("  -t, --target=SHELL  Target shell (posix, bash, zsh)\n");
+            printf("  -s, --strict        Treat warnings as errors\n");
+            printf("  --fix               Apply safe automatic fixes\n");
+            printf("  --unsafe-fixes      Also apply unsafe fixes (implies --fix)\n");
+            printf("  --dry-run           Preview fixes without applying\n");
+            printf("  --diff              Show unified diff of changes\n");
+            printf("  --no-backup         Don't create .bak backup when fixing\n");
+            printf("  -h, --help          Show this help message\n");
+            printf("\nFix safety levels:\n");
+            printf("  safe   - Applied with --fix (e.g., source -> .)\n");
+            printf("  unsafe - Requires --unsafe-fixes (e.g., [[ ]] -> [ ])\n");
+            printf("  manual - Cannot be auto-fixed, shown as suggestions\n");
+            printf("\nExit codes:\n");
+            printf("  0  No issues or all fixed\n");
+            printf("  1  Unfixed warnings remain\n");
+            printf("  2  Unfixed errors remain\n");
+            printf("  3  Fix application failed\n");
+            return 0;
+        } else if (strcmp(argv[i], "-s") == 0 || strcmp(argv[i], "--strict") == 0) {
+            strict_mode = true;
+        } else if (strcmp(argv[i], "--fix") == 0) {
+            fix_mode = true;
+        } else if (strcmp(argv[i], "--unsafe-fixes") == 0) {
+            fix_mode = true;
+            unsafe_fixes = true;
+        } else if (strcmp(argv[i], "--dry-run") == 0) {
+            dry_run = true;
+        } else if (strcmp(argv[i], "--diff") == 0) {
+            show_diff = true;
+        } else if (strcmp(argv[i], "--no-backup") == 0) {
+            create_backup = false;
+        } else if (strcmp(argv[i], "--backup") == 0) {
+            create_backup = true;
+        } else if (strcmp(argv[i], "-t") == 0) {
+            if (i + 1 < argc) {
+                target_shell = argv[++i];
+            } else {
+                fprintf(stderr, "%s: -t requires an argument\n", argv[0]);
+                return 1;
+            }
+        } else if (strncmp(argv[i], "--target=", 9) == 0) {
+            target_shell = argv[i] + 9;
+        } else if (argv[i][0] == '-') {
+            fprintf(stderr, "%s: unknown option: %s\n", argv[0], argv[i]);
+            return 1;
+        } else {
+            script_file = argv[i];
+        }
+    }
+    
+    if (!script_file) {
+        fprintf(stderr, "%s: missing script file argument\n", argv[0]);
+        fprintf(stderr, "Usage: %s [OPTIONS] <script>\n", argv[0]);
+        return 1;
+    }
+    
+    /* Set target shell if specified */
+    if (target_shell) {
+        shell_mode_t target;
+        if (shell_mode_parse(target_shell, &target)) {
+            compat_set_target(target);
+        } else {
+            fprintf(stderr, "%s: invalid target shell '%s'\n", argv[0], target_shell);
+            fprintf(stderr, "Valid targets: posix, bash, zsh, lush\n");
+            return 1;
+        }
+    }
+    
+    /* Set strict mode if requested */
+    if (strict_mode) {
+        compat_set_strict(true);
+    }
+    
+    /* Initialize debug context for analysis */
+    debug_context_t *ctx = debug_init();
+    if (!ctx) {
+        fprintf(stderr, "%s: failed to initialize lint context\n", argv[0]);
+        return 1;
+    }
+    
+    /* Enable context so debug_printf works for output */
+    debug_enable(ctx, true);
+    
+    /* Suppress unused variable warnings - these will be used when fixer
+     * is fully integrated with TOML fix patterns */
+    (void)show_diff;
+    (void)create_backup;
+    
+    /* Run lint analysis with optional fix */
+    int remaining = debug_lint_script(ctx, script_file, fix_mode, 
+                                       unsafe_fixes, dry_run);
+    
+    /* Determine exit code */
+    int exit_status = 0;
+    if (remaining < 0) {
+        exit_status = 3;  /* Fix application error */
+    } else if (remaining > 0) {
+        /* Check if we have errors or just warnings */
         analysis_issue_t *issue = ctx->analysis_issues;
         while (issue) {
             if (strcmp(issue->severity, "error") == 0) {

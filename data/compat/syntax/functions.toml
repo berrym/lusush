@@ -35,6 +35,15 @@ message = "function keyword is not portable"
 suggestion = "Use name() { ... } for POSIX compatibility"
 pattern = "\\bfunction\\s+[A-Za-z_][A-Za-z0-9_]*"
 
+[func_keyword.fix]
+# Removing 'function' keyword is safe for all shells
+# 'function name { }' -> 'name() { }' is syntactically equivalent
+posix = "safe"
+bash = "safe"
+zsh = "safe"
+lush = "safe"
+replacement = ""
+
 [func_local]
 category = "syntax"
 feature = "function_local"

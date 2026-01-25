@@ -719,17 +719,32 @@ static int parse_opts(int argc, char **argv) {
                             argv[0]);
                     usage(EXIT_FAILURE);
                 }
-            } else if (strcmp(arg, "--analyze") == 0 || strcmp(arg, "--lint") == 0) {
-                // Enable analyze mode
+            } else if (strcmp(arg, "--analyze") == 0) {
+                // Enable full analyze mode
                 shell_opts.analyze_mode = true;
+            } else if (strcmp(arg, "--lint") == 0) {
+                // Enable lint mode (actionable issues only)
+                shell_opts.lint_mode = true;
             } else if (strncmp(arg, "--analyze=", 10) == 0) {
                 // --analyze=FILE
                 shell_opts.analyze_mode = true;
                 shell_opts.analyze_file = strdup(arg + 10);
             } else if (strncmp(arg, "--lint=", 7) == 0) {
-                // --lint=FILE (alias)
-                shell_opts.analyze_mode = true;
+                // --lint=FILE (actionable linting)
+                shell_opts.lint_mode = true;
                 shell_opts.analyze_file = strdup(arg + 7);
+            } else if (strcmp(arg, "--fix") == 0) {
+                // Enable safe auto-fix (implies --lint)
+                shell_opts.lint_mode = true;
+                shell_opts.fix_mode = true;
+            } else if (strcmp(arg, "--unsafe-fixes") == 0) {
+                // Include unsafe fixes (implies --fix and --lint)
+                shell_opts.lint_mode = true;
+                shell_opts.fix_mode = true;
+                shell_opts.unsafe_fixes = true;
+            } else if (strcmp(arg, "--dry-run") == 0) {
+                // Preview fixes without applying
+                shell_opts.dry_run = true;
             } else if (strcmp(arg, "--format") == 0) {
                 // --format <fmt> (space-separated)
                 if (arg_index + 1 < argc) {
@@ -863,8 +878,11 @@ static void usage(int err) {
     printf("Options:\n");
     printf("      --help              Show this help message and exit\n");
     printf("  -V, --version           Show version information and exit\n");
-    printf("      --analyze[=FILE]    Analyze script for issues and portability\n");
-    printf("      --lint[=FILE]       Alias for --analyze\n");
+    printf("      --analyze[=FILE]    Full script analysis (info, warnings, errors)\n");
+    printf("      --lint[=FILE]       Lint for actionable issues (warnings, errors)\n");
+    printf("      --fix               Apply safe automatic fixes (implies --lint)\n");
+    printf("      --unsafe-fixes      Also apply unsafe fixes (implies --fix)\n");
+    printf("      --dry-run           Preview fixes without applying\n");
     printf("      --format=FMT        Output format: text (default), json, gcc\n");
     printf("      --strict            Treat compatibility warnings as errors\n");
     printf("      --target=<shell>    Check compatibility against shell "

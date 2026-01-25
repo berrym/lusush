@@ -35,6 +35,14 @@ message = "source keyword is not portable"
 suggestion = "Use . (dot) instead of source for POSIX compatibility"
 pattern = "\\bsource\\s+"
 
+[source_keyword.fix]
+# source -> . is safe for all shells (just syntax)
+posix = "safe"
+bash = "safe"
+zsh = "safe"
+lush = "safe"
+replacement = ". "
+
 [source_args]
 category = "builtins"
 feature = "source_arguments"

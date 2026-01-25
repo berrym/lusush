@@ -50,3 +50,15 @@ severity = "info"
 message = "echo -e is bash-specific; unnecessary in zsh/lush"
 suggestion = "Omit -e in zsh/lush, or use printf for portability"
 pattern = "echo\\s+-e\\b"
+
+[echo_e_flag.fix]
+# echo -e -> printf: safety depends on target shell
+# POSIX: safe (echo -e doesn't exist, printf is correct)
+# Bash: unsafe (printf '%b\n' differs slightly from echo -e)
+# Zsh: manual (zsh already interprets escapes, may want $'...' instead)
+# Lush: manual (same as zsh)
+posix = "safe"
+bash = "unsafe"
+zsh = "manual"
+lush = "manual"
+replacement = "printf '%b\\n' "

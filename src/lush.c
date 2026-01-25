@@ -157,7 +157,7 @@ int main(int argc, char **argv) {
         exit(exit_status);
     }
 
-    // Handle analyze/lint mode (--analyze or --lint option)
+    // Handle analyze mode (--analyze option) - full analysis
     if (shell_opts.analyze_mode) {
         // Determine file to analyze: explicit argument or first positional arg
         const char *file_to_analyze = shell_opts.analyze_file;
@@ -186,13 +186,78 @@ int main(int argc, char **argv) {
         // Enable context so debug_printf works for output
         debug_enable(ctx, true);
 
-        // Run analysis (includes report output)
+        // Run full analysis (includes report output)
         debug_analyze_script(ctx, file_to_analyze);
 
         // Determine exit code based on issues found
         int exit_status = 0;
         if (ctx->issue_count > 0) {
             // Check severity levels
+            analysis_issue_t *issue = ctx->analysis_issues;
+            while (issue) {
+                if (strcmp(issue->severity, "error") == 0) {
+                    exit_status = 2;  // Errors found
+                    break;
+                } else if (strcmp(issue->severity, "warning") == 0 && exit_status < 1) {
+                    exit_status = 1;  // Warnings found
+                }
+                issue = issue->next;
+            }
+        }
+
+        // Cleanup
+        debug_cleanup(ctx);
+        if (shell_opts.analyze_file) {
+            free(shell_opts.analyze_file);
+        }
+        if (shell_opts.output_format) {
+            free(shell_opts.output_format);
+        }
+
+        exit(exit_status);
+    }
+
+    // Handle lint mode (--lint option) - actionable issues with optional fix
+    if (shell_opts.lint_mode) {
+        // Determine file to lint: explicit argument or first positional arg
+        const char *file_to_lint = shell_opts.analyze_file;
+        if (!file_to_lint && argc > 1) {
+            // Find first non-option argument
+            for (int i = 1; i < argc; i++) {
+                if (argv[i][0] != '-') {
+                    file_to_lint = argv[i];
+                    break;
+                }
+            }
+        }
+
+        if (!file_to_lint) {
+            fprintf(stderr, "%s: --lint requires a script file\n", argv[0]);
+            exit(EXIT_FAILURE);
+        }
+
+        // Initialize debug context for linting
+        debug_context_t *ctx = debug_init();
+        if (!ctx) {
+            fprintf(stderr, "%s: failed to initialize lint context\n", argv[0]);
+            exit(EXIT_FAILURE);
+        }
+
+        // Enable context so debug_printf works for output
+        debug_enable(ctx, true);
+
+        // Run lint analysis with optional fix
+        int remaining = debug_lint_script(ctx, file_to_lint,
+                                          shell_opts.fix_mode,
+                                          shell_opts.unsafe_fixes,
+                                          shell_opts.dry_run);
+
+        // Determine exit code
+        int exit_status = 0;
+        if (remaining < 0) {
+            exit_status = 3;  // Fix application error
+        } else if (remaining > 0) {
+            // Check severity levels of remaining issues
             analysis_issue_t *issue = ctx->analysis_issues;
             while (issue) {
                 if (strcmp(issue->severity, "error") == 0) {

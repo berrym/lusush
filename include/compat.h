@@ -53,6 +53,19 @@ typedef enum {
 } compat_severity_t;
 
 /**
+ * @brief Fix type classification for auto-fix linter
+ *
+ * Classifies fixes by their safety level, controlling whether they are
+ * applied automatically by the linter.
+ */
+typedef enum {
+    FIX_TYPE_NONE,   /**< No automatic fix available */
+    FIX_TYPE_SAFE,   /**< Safe to apply automatically (--fix) */
+    FIX_TYPE_UNSAFE, /**< Risky fix, requires --unsafe-fixes */
+    FIX_TYPE_MANUAL, /**< Cannot be auto-fixed, requires manual rewrite */
+} fix_type_t;
+
+/**
  * @brief Shell behavior description
  *
  * Describes how a specific shell handles a particular construct.
@@ -65,16 +78,33 @@ typedef struct {
 } compat_behavior_t;
 
 /**
+ * @brief Per-shell fix classification
+ *
+ * A fix may be safe for one target shell but unsafe for another.
+ * For example, `echo -e` -> `printf` is safe when targeting POSIX
+ * (since echo -e doesn't exist), but unsafe when targeting bash
+ * (since the behavior differs slightly).
+ */
+typedef struct {
+    fix_type_t posix;  /**< Fix safety when targeting POSIX */
+    fix_type_t bash;   /**< Fix safety when targeting Bash */
+    fix_type_t zsh;    /**< Fix safety when targeting Zsh */
+    fix_type_t lush;   /**< Fix safety when targeting Lush */
+} compat_fix_class_t;
+
+/**
  * @brief Lint configuration for a compatibility entry
  *
  * Defines how the analyzer should detect and report this compatibility
- * issue.
+ * issue, including optional auto-fix configuration.
  */
 typedef struct {
     compat_severity_t severity; /**< Severity level */
     const char *message;        /**< Message shown to user */
     const char *suggestion;     /**< Suggested fix (optional) */
     const char *pattern;        /**< Regex pattern to detect (optional) */
+    compat_fix_class_t fix;     /**< Per-shell fix classification */
+    const char *replacement;    /**< Replacement pattern for auto-fix */
 } compat_lint_t;
 
 /**
@@ -394,6 +424,36 @@ bool compat_category_parse(const char *name, compat_category_t *category);
  * @return true on success, false if name is not recognized
  */
 bool compat_severity_parse(const char *name, compat_severity_t *severity);
+
+/**
+ * @brief Get fix type name as string
+ *
+ * @param type Fix type to get name for
+ * @return Fix type name string (static, do not free)
+ */
+const char *compat_fix_type_name(fix_type_t type);
+
+/**
+ * @brief Parse a fix type name string
+ *
+ * @param name Fix type name to parse ("safe", "unsafe", "manual")
+ * @param type Output parameter for parsed fix type
+ * @return true on success, false if name is not recognized
+ */
+bool compat_fix_type_parse(const char *name, fix_type_t *type);
+
+/**
+ * @brief Get fix type for a specific target shell
+ *
+ * Returns the appropriate fix classification based on the target shell.
+ * This allows the same fix to be safe for one shell but unsafe for another.
+ *
+ * @param fix_class Per-shell fix classification
+ * @param target Target shell mode
+ * @return Fix type for the specified target
+ */
+fix_type_t compat_get_fix_type_for_target(const compat_fix_class_t *fix_class,
+                                           shell_mode_t target);
 
 /**
  * @brief Format a compatibility result as a message

@@ -471,12 +471,41 @@ void debug_profile_reset(debug_context_t *ctx);
  * ============================================================================ */
 
 /**
- * @brief Analyze a script for issues
+ * @brief Analysis mode for script checking
+ *
+ * Determines what level of output and functionality is available.
+ */
+typedef enum {
+    ANALYSIS_MODE_FULL, /**< Full analysis: info + warnings + errors */
+    ANALYSIS_MODE_LINT, /**< Lint mode: warnings + errors only, supports fixes */
+} analysis_mode_t;
+
+/**
+ * @brief Analyze a script for issues (full mode)
+ *
+ * Performs full analysis including info, warnings, and errors.
+ * Use this for understanding a script's characteristics.
  *
  * @param ctx Debug context
  * @param script_path Path to script file
  */
 void debug_analyze_script(debug_context_t *ctx, const char *script_path);
+
+/**
+ * @brief Lint a script for actionable issues
+ *
+ * Performs lint analysis showing only warnings and errors.
+ * Optionally applies automatic fixes.
+ *
+ * @param ctx Debug context
+ * @param script_path Path to script file
+ * @param fix Apply safe fixes
+ * @param unsafe_fixes Also apply unsafe fixes (requires fix=true)
+ * @param dry_run Preview fixes without applying
+ * @return Number of unfixed issues remaining
+ */
+int debug_lint_script(debug_context_t *ctx, const char *script_path,
+                      bool fix, bool unsafe_fixes, bool dry_run);
 
 /**
  * @brief Add an analysis issue
@@ -499,6 +528,15 @@ void debug_add_analysis_issue(debug_context_t *ctx, const char *file, int line,
  * @param ctx Debug context
  */
 void debug_show_analysis_report(debug_context_t *ctx);
+
+/**
+ * @brief Display analysis report with mode filtering
+ *
+ * @param ctx Debug context
+ * @param mode Analysis mode (FULL shows all, LINT filters info items)
+ */
+void debug_show_analysis_report_filtered(debug_context_t *ctx,
+                                          analysis_mode_t mode);
 
 /**
  * @brief Clear all analysis issues

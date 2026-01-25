@@ -214,8 +214,12 @@ typedef struct shell_options {
     bool stdin_mode;      /**< -s flag: read from stdin */
     bool interactive;     /**< -i flag: force interactive mode */
     bool login_shell;     /**< -l flag: login shell behavior */
-    bool analyze_mode;    /**< --analyze/--lint: analyze script for issues */
-    char *analyze_file;   /**< --analyze argument: file to analyze */
+    bool analyze_mode;    /**< --analyze: full script analysis */
+    bool lint_mode;       /**< --lint: actionable linting with fix support */
+    bool fix_mode;        /**< --fix: apply safe automatic fixes */
+    bool unsafe_fixes;    /**< --unsafe-fixes: also apply unsafe fixes */
+    bool dry_run;         /**< --dry-run: preview fixes without applying */
+    char *analyze_file;   /**< --analyze/--lint argument: file to analyze */
     char *output_format;  /**< --format: output format (text, json, gcc) */
 
     /* Shell behavior flags */

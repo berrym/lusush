@@ -68,6 +68,8 @@ typedef struct {
     char *lint_message;
     char *lint_suggestion;
     char *lint_pattern;
+    compat_fix_class_t fix_class;  /**< Per-shell fix classification */
+    char *fix_replacement;
     regex_t *compiled_regex;
     bool regex_valid;
 } internal_entry_t;
@@ -103,6 +105,13 @@ static const char *severity_names[] = {
     [COMPAT_SEVERITY_ERROR] = "error",
 };
 
+static const char *fix_type_names[] = {
+    [FIX_TYPE_NONE] = "none",
+    [FIX_TYPE_SAFE] = "safe",
+    [FIX_TYPE_UNSAFE] = "unsafe",
+    [FIX_TYPE_MANUAL] = "manual",
+};
+
 /* ============================================================================
  * Internal Helpers
  * ============================================================================ */
@@ -131,6 +140,7 @@ static void free_internal_entry(internal_entry_t *entry) {
     free(entry->lint_message);
     free(entry->lint_suggestion);
     free(entry->lint_pattern);
+    free(entry->fix_replacement);
     
     if (entry->compiled_regex && entry->regex_valid) {
         regfree(entry->compiled_regex);
@@ -157,6 +167,8 @@ static void internal_to_public(const internal_entry_t *internal,
     public->lint.message = internal->lint_message;
     public->lint.suggestion = internal->lint_suggestion;
     public->lint.pattern = internal->lint_pattern;
+    public->lint.fix = internal->fix_class;
+    public->lint.replacement = internal->fix_replacement;
 }
 
 /**
@@ -197,6 +209,7 @@ typedef struct {
     char current_id[256];
     bool in_behavior;
     bool in_lint;
+    bool in_fix;
 } parse_context_t;
 
 /**
@@ -233,7 +246,7 @@ static toml_result_t compat_toml_callback(const char *section, const char *key,
         return TOML_SUCCESS;
     }
     
-    /* Parse section path: entry_id or entry_id.behavior or entry_id.lint */
+    /* Parse section path: entry_id or entry_id.behavior or entry_id.lint or entry_id.fix */
     char entry_id[256];
     const char *dot = strchr(section, '.');
     
@@ -248,10 +261,12 @@ static toml_result_t compat_toml_callback(const char *section, const char *key,
         const char *subsection = dot + 1;
         ctx->in_behavior = (strcmp(subsection, "behavior") == 0);
         ctx->in_lint = (strcmp(subsection, "lint") == 0);
+        ctx->in_fix = (strcmp(subsection, "fix") == 0);
     } else {
         snprintf(entry_id, sizeof(entry_id), "%s", section);
         ctx->in_behavior = false;
         ctx->in_lint = false;
+        ctx->in_fix = false;
     }
     
     /* Find or create entry */
@@ -293,6 +308,32 @@ static toml_result_t compat_toml_callback(const char *section, const char *key,
         } else if (strcmp(key, "pattern") == 0 && str_val) {
             free(entry->lint_pattern);
             entry->lint_pattern = safe_strdup(str_val);
+        }
+    } else if (ctx->in_fix) {
+        /* Fix subsection - per-shell classification */
+        if (strcmp(key, "posix") == 0 && str_val) {
+            fix_type_t ftype;
+            if (compat_fix_type_parse(str_val, &ftype)) {
+                entry->fix_class.posix = ftype;
+            }
+        } else if (strcmp(key, "bash") == 0 && str_val) {
+            fix_type_t ftype;
+            if (compat_fix_type_parse(str_val, &ftype)) {
+                entry->fix_class.bash = ftype;
+            }
+        } else if (strcmp(key, "zsh") == 0 && str_val) {
+            fix_type_t ftype;
+            if (compat_fix_type_parse(str_val, &ftype)) {
+                entry->fix_class.zsh = ftype;
+            }
+        } else if (strcmp(key, "lush") == 0 && str_val) {
+            fix_type_t ftype;
+            if (compat_fix_type_parse(str_val, &ftype)) {
+                entry->fix_class.lush = ftype;
+            }
+        } else if (strcmp(key, "replacement") == 0 && str_val) {
+            free(entry->fix_replacement);
+            entry->fix_replacement = safe_strdup(str_val);
         }
     } else {
         /* Main entry section */
@@ -1134,6 +1175,57 @@ bool compat_severity_parse(const char *name, compat_severity_t *severity) {
     }
     
     return false;
+}
+
+const char *compat_fix_type_name(fix_type_t type) {
+    if (type > FIX_TYPE_MANUAL) {
+        return "unknown";
+    }
+    return fix_type_names[type];
+}
+
+bool compat_fix_type_parse(const char *name, fix_type_t *type) {
+    if (!name || !type) {
+        return false;
+    }
+    
+    /* Check known fix type names */
+    if (strcmp(name, "safe") == 0) {
+        *type = FIX_TYPE_SAFE;
+        return true;
+    } else if (strcmp(name, "unsafe") == 0) {
+        *type = FIX_TYPE_UNSAFE;
+        return true;
+    } else if (strcmp(name, "manual") == 0) {
+        *type = FIX_TYPE_MANUAL;
+        return true;
+    } else if (strcmp(name, "none") == 0) {
+        *type = FIX_TYPE_NONE;
+        return true;
+    }
+    
+    return false;
+}
+
+fix_type_t compat_get_fix_type_for_target(const compat_fix_class_t *fix_class,
+                                           shell_mode_t target) {
+    if (!fix_class) {
+        return FIX_TYPE_NONE;
+    }
+    
+    switch (target) {
+    case SHELL_MODE_POSIX:
+        return fix_class->posix;
+    case SHELL_MODE_BASH:
+        return fix_class->bash;
+    case SHELL_MODE_ZSH:
+        return fix_class->zsh;
+    case SHELL_MODE_LUSH:
+        return fix_class->lush;
+    default:
+        /* Default to POSIX (most conservative) */
+        return fix_class->posix;
+    }
 }
 
 int compat_format_result(const compat_result_t *result, char *buffer,
