@@ -1098,6 +1098,28 @@ if fs.exists('tests/unit/test_parser.c')
        timeout: 30)
 endif
 
+# Parser Fuzzer Tests - Edge cases and comprehensive parser coverage
+if fs.exists('tests/unit/test_parser_fuzzer.c')
+  test_parser_fuzzer = executable('test_parser_fuzzer',
+                           'tests/unit/test_parser_fuzzer.c',
+                           'src/parser.c',
+                           'src/tokenizer.c',
+                           'src/node.c',
+                           'src/shell_mode.c',
+                           'src/shell_error.c',
+                           'src/strings.c',
+                           'src/symtable.c',
+                           'src/libhashtable/ht.c',
+                           'src/libhashtable/ht_fnv1a.c',
+                           'src/libhashtable/ht_strstr.c',
+                           'tests/unit/test_parser_stubs.c',
+                           include_directories: inc,
+                           dependencies: [lle_dep])
+  test('Parser Fuzzer', test_parser_fuzzer,
+       suite: 'unit',
+       timeout: 60)
+endif
+
 # ============================================================================
 # Symbol Table Unit Tests
 # Tests variable scoping, arrays, namerefs, exports
