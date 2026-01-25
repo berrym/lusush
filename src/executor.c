@@ -123,7 +123,7 @@ static int execute_array_append(executor_t *executor, node_t *append_node);
 static int execute_extended_test(executor_t *executor, node_t *test_node);
 
 // Forward declarations for Phase 3: Process Substitution
-static char *expand_process_substitution(executor_t *executor, node_t *proc_sub);
+char *expand_process_substitution(executor_t *executor, node_t *proc_sub);
 static bool is_builtin_command(const char *cmd);
 static void set_executor_error(executor_t *executor, const char *message);
 static char *expand_variable(executor_t *executor, const char *var_text);
@@ -12515,7 +12515,7 @@ static int execute_array_append(executor_t *executor, node_t *append_node) {
  * @param proc_sub Process substitution node (NODE_PROC_SUB_IN or NODE_PROC_SUB_OUT)
  * @return Path to the FIFO/fd, or NULL on error (caller must free)
  */
-static char *expand_process_substitution(executor_t *executor, node_t *proc_sub) {
+char *expand_process_substitution(executor_t *executor, node_t *proc_sub) {
     if (!executor || !proc_sub) {
         return NULL;
     }

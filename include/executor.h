@@ -262,6 +262,19 @@ void executor_error_report(executor_t *executor, shell_error_code_t code,
  */
 char *expand_if_needed(executor_t *executor, const char *text);
 
+/**
+ * @brief Expand a process substitution node
+ *
+ * Handles <(cmd) and >(cmd) process substitution by forking a child
+ * process to execute the command and returning a /dev/fd/N path that
+ * can be used as a filename for redirection.
+ *
+ * @param executor Executor context
+ * @param proc_sub Process substitution node (NODE_PROC_SUB_IN or NODE_PROC_SUB_OUT)
+ * @return Path string like "/dev/fd/N" (caller must free) or NULL on error
+ */
+char *expand_process_substitution(executor_t *executor, node_t *proc_sub);
+
 /* ============================================================================
  * Job Control
  * ============================================================================ */

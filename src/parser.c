@@ -1744,6 +1744,20 @@ static node_t *parse_redirection(parser_t *parser) {
         // Otherwise fall through to parse target file
     }
 
+    // Check for process substitution as redirection target: < <(cmd) or > >(cmd)
+    // This is valid bash/zsh syntax for redirecting from/to process substitution
+    if (target_token && (target_token->type == TOK_PROC_SUB_IN ||
+                         target_token->type == TOK_PROC_SUB_OUT)) {
+        // Parse the process substitution and attach as child of redirection
+        node_t *proc_sub_node = parse_process_substitution(parser);
+        if (!proc_sub_node) {
+            free_node_tree(redir_node);
+            return NULL;
+        }
+        add_child_node(redir_node, proc_sub_node);
+        return redir_node;
+    }
+
     if (!target_token || !token_is_word_like(target_token->type)) {
         if (node_type == NODE_REDIR_HEREDOC ||
             node_type == NODE_REDIR_HEREDOC_STRIP) {

@@ -145,7 +145,123 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
 
     // Get the target (filename) from the first child for other redirections
     node_t *target_node = redir_node->first_child;
-    if (!target_node || !target_node->val.str) {
+    if (!target_node) {
+        return 1; // No target specified
+    }
+
+    // Check if target is a process substitution node (< <(cmd) or > >(cmd))
+    // This is valid bash/zsh syntax for redirecting from/to process substitution
+    if (target_node->type == NODE_PROC_SUB_IN ||
+        target_node->type == NODE_PROC_SUB_OUT) {
+        // Expand the process substitution to get /dev/fd/N path
+        char *proc_sub_path = expand_process_substitution(executor, target_node);
+        if (!proc_sub_path) {
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_PROCESS_SUBST, SHELL_SEVERITY_ERROR, redir_node->loc,
+                "process substitution expansion failed");
+            // Copy executor's context stack to error
+            for (size_t i = 0; i < executor->context_depth &&
+                              i < SHELL_ERROR_CONTEXT_MAX; i++) {
+                if (executor->context_stack[i]) {
+                    shell_error_push_context(error, "%s",
+                                             executor->context_stack[i]);
+                }
+            }
+            shell_error_set_suggestion(error,
+                "ensure the command inside <(...) or >(...) is valid");
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
+            return 1;
+        }
+
+        // Now use the /dev/fd/N path as the target for redirection
+        int result = 0;
+        int fd;
+
+        switch (redir_node->type) {
+        case NODE_REDIR_IN:
+            // < <(cmd) - redirect stdin from process substitution
+            fd = open(proc_sub_path, O_RDONLY);
+            if (fd == -1) {
+                shell_error_t *error = shell_error_create(
+                    SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR,
+                    redir_node->loc, "%s: %s", proc_sub_path, strerror(errno));
+                for (size_t i = 0; i < executor->context_depth &&
+                                  i < SHELL_ERROR_CONTEXT_MAX; i++) {
+                    if (executor->context_stack[i]) {
+                        shell_error_push_context(error, "%s",
+                                                 executor->context_stack[i]);
+                    }
+                }
+                shell_error_display(error, stderr, isatty(STDERR_FILENO));
+                shell_error_free(error);
+                result = 1;
+            } else {
+                if (dup2(fd, STDIN_FILENO) == -1) {
+                    shell_error_t *error = shell_error_create(
+                        SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, redir_node->loc,
+                        "dup2: %s", strerror(errno));
+                    shell_error_display(error, stderr, isatty(STDERR_FILENO));
+                    shell_error_free(error);
+                    result = 1;
+                }
+                close(fd);
+            }
+            break;
+
+        case NODE_REDIR_OUT:
+            // > >(cmd) - redirect stdout to process substitution
+            fd = open(proc_sub_path, O_WRONLY);
+            if (fd == -1) {
+                shell_error_t *error = shell_error_create(
+                    SHELL_ERR_FILE_NOT_FOUND, SHELL_SEVERITY_ERROR,
+                    redir_node->loc, "%s: %s", proc_sub_path, strerror(errno));
+                for (size_t i = 0; i < executor->context_depth &&
+                                  i < SHELL_ERROR_CONTEXT_MAX; i++) {
+                    if (executor->context_stack[i]) {
+                        shell_error_push_context(error, "%s",
+                                                 executor->context_stack[i]);
+                    }
+                }
+                shell_error_display(error, stderr, isatty(STDERR_FILENO));
+                shell_error_free(error);
+                result = 1;
+            } else {
+                if (dup2(fd, STDOUT_FILENO) == -1) {
+                    shell_error_t *error = shell_error_create(
+                        SHELL_ERR_BAD_FD, SHELL_SEVERITY_ERROR, redir_node->loc,
+                        "dup2: %s", strerror(errno));
+                    shell_error_display(error, stderr, isatty(STDERR_FILENO));
+                    shell_error_free(error);
+                    result = 1;
+                }
+                close(fd);
+            }
+            break;
+
+        default:
+            // Other redirection types with process substitution
+            {
+                shell_error_t *error = shell_error_create(
+                    SHELL_ERR_INVALID_REDIRECT, SHELL_SEVERITY_ERROR,
+                    redir_node->loc,
+                    "unsupported redirection type with process substitution");
+                shell_error_set_suggestion(error,
+                    "use '< <(cmd)' to read from a command or "
+                    "'> >(cmd)' to write to one");
+                shell_error_display(error, stderr, isatty(STDERR_FILENO));
+                shell_error_free(error);
+                result = 1;
+            }
+            break;
+        }
+
+        free(proc_sub_path);
+        return result;
+    }
+
+    // Regular file target - must have val.str
+    if (!target_node->val.str) {
         return 1; // No target specified
     }
 

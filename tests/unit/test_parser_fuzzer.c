@@ -763,10 +763,10 @@ TEST(process_sub_output) {
 }
 
 TEST(process_sub_in_loop) {
-    /* Process substitution in loop - Issue #20: not yet supported */
-    /* TODO: Enable when process substitution as redirect target is fixed */
-    /* ASSERT_PARSES("while read line; do echo $line; done < <(cat file)"); */
-    (void)0; /* placeholder - test disabled pending issue #20 */
+    /* Process substitution as redirection target - Issue #20 fixed */
+    ASSERT_PARSES("while read line; do echo $line; done < <(cat file)");
+    ASSERT_PARSES("cat < <(echo hello)");
+    ASSERT_PARSES("diff <(cat file1) <(cat file2)");
 }
 
 /* ============================================================================
