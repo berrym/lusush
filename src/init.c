@@ -243,6 +243,9 @@ int init(int argc, char **argv, FILE **in) {
 
     // Execute login scripts for login shells
     if (IS_LOGIN_SHELL) {
+        // First source system-wide profiles (/etc/profile, /etc/profile.d/*.sh)
+        config_execute_system_profile();
+        // Then source user profiles (~/.profile, ~/.lush_login)
         config_execute_login_scripts();
     }
 

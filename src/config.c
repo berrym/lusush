@@ -22,6 +22,7 @@
 #include "symtable.h"
 
 #include <ctype.h>
+#include <dirent.h>
 #include <errno.h>
 #include <getopt.h>
 #include <pwd.h>
@@ -1322,6 +1323,124 @@ int config_execute_script_file(const char *path) {
 
     free(line);
     fclose(file);
+    return result;
+}
+
+/**
+ * @brief Compare function for sorting directory entries alphabetically
+ */
+static int profile_d_compare(const void *a, const void *b) {
+    const char *const *sa = a;
+    const char *const *sb = b;
+    return strcmp(*sa, *sb);
+}
+
+/**
+ * @brief Execute system profile scripts for login shells
+ *
+ * Sources system-wide configuration files in the following order:
+ * 1. /etc/lushrc (lush-specific system config, if exists)
+ * 2. /etc/profile (standard POSIX login config, if exists)
+ * 3. /etc/profile.d/ shell scripts (*.sh files, alphabetically)
+ *
+ * This should be called BEFORE user profile scripts (~/.profile, ~/.lush_login).
+ *
+ * @return 0 on success, -1 if any script fails (non-fatal, continues execution)
+ */
+int config_execute_system_profile(void) {
+    if (!config_should_execute_scripts()) {
+        return 0;
+    }
+
+    int result = 0;
+
+    // 1. Source /etc/lushrc if it exists (lush-specific system config)
+    if (config_script_exists("/etc/lushrc")) {
+        if (config_execute_script_file("/etc/lushrc") != 0) {
+            // Log warning but continue - system config failure shouldn't block login
+            fprintf(stderr, "lush: warning: error sourcing /etc/lushrc\n");
+            result = -1;
+        }
+    }
+
+    // 2. Source /etc/profile if it exists (standard POSIX login config)
+    if (config_script_exists("/etc/profile")) {
+        if (config_execute_script_file("/etc/profile") != 0) {
+            fprintf(stderr, "lush: warning: error sourcing /etc/profile\n");
+            result = -1;
+        }
+    }
+
+    // 3. Source /etc/profile.d/*.sh files in alphabetical order
+    DIR *dir = opendir("/etc/profile.d");
+    if (dir) {
+        // Collect all .sh files first for sorting
+        char **scripts = NULL;
+        size_t script_count = 0;
+        size_t script_capacity = 0;
+
+        struct dirent *entry;
+        while ((entry = readdir(dir)) != NULL) {
+            // Skip . and ..
+            if (entry->d_name[0] == '.') {
+                continue;
+            }
+
+            // Check for .sh extension
+            size_t len = strlen(entry->d_name);
+            if (len < 4 || strcmp(entry->d_name + len - 3, ".sh") != 0) {
+                continue;
+            }
+
+            // Build full path
+            char path[CONFIG_PATH_MAX];
+            int written = snprintf(path, sizeof(path), "/etc/profile.d/%s",
+                                   entry->d_name);
+            if (written < 0 || (size_t)written >= sizeof(path)) {
+                continue;
+            }
+
+            // Verify it's a regular file and readable
+            struct stat st;
+            if (stat(path, &st) != 0 || !S_ISREG(st.st_mode)) {
+                continue;
+            }
+
+            // Add to list
+            if (script_count >= script_capacity) {
+                script_capacity = script_capacity ? script_capacity * 2 : 16;
+                char **new_scripts = realloc(scripts,
+                                             script_capacity * sizeof(char *));
+                if (!new_scripts) {
+                    break;
+                }
+                scripts = new_scripts;
+            }
+            scripts[script_count] = strdup(path);
+            if (scripts[script_count]) {
+                script_count++;
+            }
+        }
+        closedir(dir);
+
+        // Sort alphabetically
+        if (scripts && script_count > 0) {
+            qsort(scripts, script_count, sizeof(char *), profile_d_compare);
+
+            // Execute each script
+            for (size_t i = 0; i < script_count; i++) {
+                if (config_execute_script_file(scripts[i]) != 0) {
+                    fprintf(stderr, "lush: warning: error sourcing %s\n",
+                            scripts[i]);
+                    // Don't set result = -1 for individual profile.d failures
+                    // These are often optional and may have shell-specific code
+                }
+                free(scripts[i]);
+            }
+            free(scripts);
+        }
+    }
+
     return result;
 }
 

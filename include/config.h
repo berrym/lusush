@@ -669,9 +669,23 @@ int config_get_script_config_path(char *buffer, size_t size);
 int config_execute_startup_scripts(void);
 
 /**
+ * @brief Execute system profile scripts for login shells
+ *
+ * Sources system-wide configuration files in the following order:
+ * 1. /etc/lushrc (lush-specific system config, if exists)
+ * 2. /etc/profile (standard POSIX login config, if exists)
+ * 3. /etc/profile.d/ shell scripts (*.sh files, alphabetically)
+ *
+ * This should be called BEFORE user profile scripts.
+ *
+ * @return 0 on success, -1 if any script fails (non-fatal)
+ */
+int config_execute_system_profile(void);
+
+/**
  * @brief Execute login scripts
  *
- * Runs login-specific shell scripts.
+ * Runs user login-specific shell scripts (~/.profile, ~/.lush_login).
  *
  * @return 0 on success, non-zero on error
  */
