@@ -3554,7 +3554,8 @@ static node_t *parse_case_statement(parser_t *parser) {
                 continue;
             }
 
-            node_t *command = parse_simple_command(parser);
+            // Use parse_logical_expression to handle && and || in case body
+            node_t *command = parse_logical_expression(parser);
             if (!command) {
                 break; // Can't parse more commands
             }
