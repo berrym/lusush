@@ -1451,21 +1451,15 @@ static lle_result_t segment_git_render(const lle_prompt_segment_t *self,
 
     /* Fetch git status if cache invalid */
     if (!state->cache_valid) {
-        /* Try async first for non-blocking operation */
-        if (state->async_initialized) {
-            /* Queue async request - will update on next render */
-            queue_async_git_fetch(state);
-
-            /* If we have no cached data at all, do one sync fetch
-             * to avoid showing empty git segment on first prompt */
-            if (!state->is_repo && !state->branch[0]) {
-                fetch_git_status(state);
-            }
-            /* Otherwise, render with stale cached data while async runs */
-        } else {
-            /* No async available - do sync fetch */
-            fetch_git_status(state);
-        }
+        /* Always do synchronous fetch when cache is invalid.
+         * 
+         * Previously this tried async first and rendered with stale data,
+         * but that caused the git prompt to show outdated status until
+         * a second command was executed (issue #25).
+         * 
+         * After a command completes, the user is waiting for the prompt
+         * anyway, so a brief sync fetch is acceptable for accuracy. */
+        fetch_git_status(state);
     }
 
     if (!state->is_repo) {

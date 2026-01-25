@@ -288,6 +288,8 @@ executor_t *executor_new(void) {
 
     /* Initialize process substitution fd tracking */
     executor->procsub_fd_count = 0;
+    memset(executor->procsub_fds, -1, sizeof(executor->procsub_fds));
+    memset(executor->procsub_pids, 0, sizeof(executor->procsub_pids));
 
     initialize_job_control(executor);
 
@@ -324,6 +326,8 @@ executor_t *executor_new_with_symtable(symtable_manager_t *symtable) {
     executor->loop_depth = 0;
     executor->source_depth = 0;
     executor->procsub_fd_count = 0;
+    memset(executor->procsub_fds, -1, sizeof(executor->procsub_fds));
+    memset(executor->procsub_pids, 0, sizeof(executor->procsub_pids));
     initialize_job_control(executor);
 
     return executor;
