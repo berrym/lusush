@@ -131,6 +131,7 @@ typedef struct tokenizer {
     token_t *current;     // Current token
     token_t *lookahead;   // Next token (for lookahead)
     bool enable_keywords; // Whether to recognize keywords (context-sensitive)
+    int arith_cmd_depth;  // Nesting depth of (( )) arithmetic commands
 } tokenizer_t;
 
 /* ============================================================================

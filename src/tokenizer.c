@@ -73,6 +73,7 @@ tokenizer_t *tokenizer_new(const char *input) {
     tokenizer->current = NULL;
     tokenizer->lookahead = NULL;
     tokenizer->enable_keywords = true;
+    tokenizer->arith_cmd_depth = 0;
 
     // Initialize by getting the first two tokens
     tokenizer->current = tokenize_next(tokenizer);
@@ -1557,6 +1558,7 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                 shell_mode_allows(FEATURE_ARITH_COMMAND)) {
                 tokenizer->position += 2;
                 tokenizer->column += 2;
+                tokenizer->arith_cmd_depth++;  // Track arithmetic context
                 return token_new(TOK_DOUBLE_LPAREN, "((", 2, start_line,
                                  start_column, start_pos);
             }
@@ -1626,12 +1628,17 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                              start_pos);
 
         case ')':
-            // Check for )) arithmetic command end
+            // Check for )) arithmetic command end - only when inside (( ))
+            // Without this check, nested process substitutions like
+            // cat <(cat <(echo nested)) would fail because )) gets
+            // tokenized as TOK_DOUBLE_RPAREN instead of two TOK_RPAREN
             if (tokenizer->position + 1 < tokenizer->input_length &&
                 tokenizer->input[tokenizer->position + 1] == ')' &&
+                tokenizer->arith_cmd_depth > 0 &&
                 shell_mode_allows(FEATURE_ARITH_COMMAND)) {
                 tokenizer->position += 2;
                 tokenizer->column += 2;
+                tokenizer->arith_cmd_depth--;  // Leaving arithmetic context
                 return token_new(TOK_DOUBLE_RPAREN, "))", 2, start_line,
                                  start_column, start_pos);
             }

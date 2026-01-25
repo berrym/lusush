@@ -101,6 +101,7 @@ static int execute_builtin_with_captured_stdout(executor_t *executor,
 static int add_to_argv_list(char ***argv_list, int *argv_count,
                             int *argv_capacity, char *arg);
 static char **ifs_field_split(const char *text, const char *ifs, int *count);
+static void cleanup_procsub_fds(executor_t *executor);
 
 // Forward declarations for POSIX compliance
 bool is_posix_mode_enabled(void);
@@ -285,6 +286,9 @@ executor_t *executor_new(void) {
         executor->context_locations[i] = SOURCE_LOC_UNKNOWN;
     }
 
+    /* Initialize process substitution fd tracking */
+    executor->procsub_fd_count = 0;
+
     initialize_job_control(executor);
 
     return executor;
@@ -319,6 +323,7 @@ executor_t *executor_new_with_symtable(symtable_manager_t *symtable) {
     executor->loop_control = LOOP_NORMAL;
     executor->loop_depth = 0;
     executor->source_depth = 0;
+    executor->procsub_fd_count = 0;
     initialize_job_control(executor);
 
     return executor;
@@ -864,8 +869,12 @@ static int execute_node(executor_t *executor, node_t *node) {
     }
 
     switch (node->type) {
-    case NODE_COMMAND:
-        return execute_command(executor, node);
+    case NODE_COMMAND: {
+        int result = execute_command(executor, node);
+        // Clean up any process substitution fds after command execution
+        cleanup_procsub_fds(executor);
+        return result;
+    }
     case NODE_PIPE:
         return execute_pipeline(executor, node);
     case NODE_IF:
@@ -12537,6 +12546,37 @@ static int execute_array_append(executor_t *executor, node_t *append_node) {
  * @param proc_sub Process substitution node (NODE_PROC_SUB_IN or NODE_PROC_SUB_OUT)
  * @return Path to the FIFO/fd, or NULL on error (caller must free)
  */
+char *expand_process_substitution(executor_t *executor, node_t *proc_sub);
+
+/**
+ * @brief Clean up file descriptors from process substitutions
+ *
+ * Closes all tracked process substitution file descriptors and resets
+ * the tracking counter. Should be called after a command completes
+ * to prevent fd leaks with nested process substitutions.
+ *
+ * @param executor Executor context
+ */
+static void cleanup_procsub_fds(executor_t *executor) {
+    if (!executor) {
+        return;
+    }
+    // Close all tracked file descriptors first
+    for (int i = 0; i < executor->procsub_fd_count; i++) {
+        if (executor->procsub_fds[i] >= 0) {
+            close(executor->procsub_fds[i]);
+        }
+    }
+    // Wait for all child processes to prevent zombies and terminal issues
+    for (int i = 0; i < executor->procsub_fd_count; i++) {
+        if (executor->procsub_pids[i] > 0) {
+            int status;
+            waitpid(executor->procsub_pids[i], &status, 0);
+        }
+    }
+    executor->procsub_fd_count = 0;
+}
+
 char *expand_process_substitution(executor_t *executor, node_t *proc_sub) {
     if (!executor || !proc_sub) {
         return NULL;
@@ -12572,6 +12612,12 @@ char *expand_process_substitution(executor_t *executor, node_t *proc_sub) {
             close(pipefd[0]);  // Close read end
             dup2(pipefd[1], STDOUT_FILENO);
             close(pipefd[1]);
+            // Disconnect stdin from terminal to prevent stealing input
+            int devnull = open("/dev/null", O_RDONLY);
+            if (devnull >= 0) {
+                dup2(devnull, STDIN_FILENO);
+                close(devnull);
+            }
         } else {
             // >(cmd): parent writes to pipe, command reads
             close(pipefd[1]);  // Close write end
@@ -12607,31 +12653,38 @@ char *expand_process_substitution(executor_t *executor, node_t *proc_sub) {
 
     // Parent process
     char *path = NULL;
+    int kept_fd = -1;
 
     if (is_input) {
         // <(cmd): We need to provide a readable path
         // Close write end, keep read end
         close(pipefd[1]);
+        kept_fd = pipefd[0];
 
         // Use /dev/fd/N mechanism if available (macOS and Linux)
         path = malloc(32);
         if (path) {
-            snprintf(path, 32, "/dev/fd/%d", pipefd[0]);
+            snprintf(path, 32, "/dev/fd/%d", kept_fd);
         }
     } else {
         // >(cmd): We need to provide a writable path
         // Close read end, keep write end
         close(pipefd[0]);
+        kept_fd = pipefd[1];
 
         path = malloc(32);
         if (path) {
-            snprintf(path, 32, "/dev/fd/%d", pipefd[1]);
+            snprintf(path, 32, "/dev/fd/%d", kept_fd);
         }
     }
 
-    // Note: The pipe fd remains open and will be used when the command
-    // accesses the /dev/fd/N path. The child will be reaped by SIGCHLD handler
-    // or waitpid in the main execution loop.
+    // Track this fd and pid for cleanup after command execution
+    // This prevents fd leaks and zombie processes with nested process substitutions
+    if (kept_fd >= 0 && executor->procsub_fd_count < 32) {
+        executor->procsub_fds[executor->procsub_fd_count] = kept_fd;
+        executor->procsub_pids[executor->procsub_fd_count] = pid;
+        executor->procsub_fd_count++;
+    }
 
     return path;
 }

@@ -102,6 +102,11 @@ typedef struct executor {
     source_location_t context_locations[EXECUTOR_CONTEXT_STACK_MAX];
     size_t context_depth;      // Current depth of context stack
 
+    // Process substitution fd tracking (for cleanup after command execution)
+    int procsub_fds[32];       // File descriptors from process substitutions
+    pid_t procsub_pids[32];    // Child PIDs from process substitutions
+    int procsub_fd_count;      // Number of tracked fds/pids
+
 } executor_t;
 
 /** Global executor instance */
