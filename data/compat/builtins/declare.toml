@@ -32,7 +32,16 @@ lush = "Supported: declare -x var=value"
 severity = "info"
 message = "declare -x works but export is more portable"
 suggestion = "Use export var=value for portability"
-pattern = "(declare|typeset)\\s+.*-x\\b"
+pattern = "(declare|typeset)\\s+-x\\s+"
+
+[declare_export.fix]
+# declare -x var -> export var is safe for simple cases
+# Complex: declare -x -i var (multiple flags) needs manual handling
+posix = "unsafe"
+bash = "none"
+zsh = "none"
+lush = "none"
+replacement = "export "
 
 [declare_readonly]
 category = "builtin"
@@ -49,7 +58,15 @@ lush = "Supported: declare -r var=value"
 severity = "info"
 message = "declare -r works but readonly is more portable"
 suggestion = "Use readonly var=value for portability"
-pattern = "(declare|typeset)\\s+.*-r\\b"
+pattern = "(declare|typeset)\\s+-r\\s+"
+
+[declare_readonly.fix]
+# declare -r var -> readonly var is safe for simple cases
+posix = "unsafe"
+bash = "none"
+zsh = "none"
+lush = "none"
+replacement = "readonly "
 
 [declare_integer]
 category = "builtin"

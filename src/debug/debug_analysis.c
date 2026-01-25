@@ -374,13 +374,21 @@ static void debug_analyze_portability(debug_context_t *ctx, const char *file,
         return;
     }
 
+    // Get target shell for portability checking (before potential init reset)
+    const char *target_str = compat_get_target();
+    
     // Initialize compat system if not already done
     if (compat_get_entry_count() == 0) {
         compat_init(NULL);
+        // Restore target that was set before init
+        compat_set_target(target_str);
     }
-
-    // Get target shell for portability checking
-    shell_mode_t target = compat_get_target();
+    
+    // Convert string target to enum for API functions that still use shell_mode_t
+    shell_mode_t target = SHELL_MODE_POSIX;
+    if (target_str) {
+        shell_mode_parse(target_str, &target);
+    }
 
     // === Level 1: AST-based checking (most accurate) ===
     // Process AST findings one at a time to avoid static buffer issues
@@ -453,35 +461,38 @@ static void debug_analyze_portability(debug_context_t *ctx, const char *file,
 
     // === Level 3: Legacy pattern-based checks ===
     // These are simple checks not yet in the TOML database
-    int line_number = 1;
-    const char *pos = content;
+    // Only report if targeting POSIX (these features work in bash/zsh/lush)
+    if (target == SHELL_MODE_POSIX) {
+        int line_number = 1;
+        const char *pos = content;
 
-    while (*pos) {
-        if (*pos == '\n') {
-            line_number++;
+        while (*pos) {
+            if (*pos == '\n') {
+                line_number++;
+            }
+
+            // Check for bash-specific function syntax (not yet in AST)
+            if (strncmp(pos, "function ", 9) == 0) {
+                debug_add_analysis_issue(
+                    ctx, file, line_number, "info", "portability",
+                    "Bash-specific function syntax", "Use POSIX function syntax");
+            }
+
+            // Check for non-portable commands
+            if (strncmp(pos, "echo -e ", 8) == 0) {
+                debug_add_analysis_issue(ctx, file, line_number, "warning",
+                                         "portability", "Non-portable echo option",
+                                         "Use printf instead");
+            }
+
+            if (strncmp(pos, "source ", 7) == 0) {
+                debug_add_analysis_issue(ctx, file, line_number, "info",
+                                         "portability", "Bash-specific source",
+                                         "Use . instead for POSIX compliance");
+            }
+
+            pos++;
         }
-
-        // Check for bash-specific function syntax (not yet in AST)
-        if (strncmp(pos, "function ", 9) == 0) {
-            debug_add_analysis_issue(
-                ctx, file, line_number, "info", "portability",
-                "Bash-specific function syntax", "Use POSIX function syntax");
-        }
-
-        // Check for non-portable commands
-        if (strncmp(pos, "echo -e ", 8) == 0) {
-            debug_add_analysis_issue(ctx, file, line_number, "warning",
-                                     "portability", "Non-portable echo option",
-                                     "Use printf instead");
-        }
-
-        if (strncmp(pos, "source ", 7) == 0) {
-            debug_add_analysis_issue(ctx, file, line_number, "info",
-                                     "portability", "Bash-specific source",
-                                     "Use . instead for POSIX compliance");
-        }
-
-        pos++;
     }
 }
 
@@ -818,7 +829,12 @@ int debug_lint_script(debug_context_t *ctx, const char *script_path,
         fixer_context_t fixer_ctx;
         if (fixer_init(&fixer_ctx) == FIXER_OK) {
             if (fixer_load_string(&fixer_ctx, script_content, script_path) == FIXER_OK) {
-                shell_mode_t target = compat_get_target();
+                // Convert string target to enum for fixer API
+                shell_mode_t target = SHELL_MODE_POSIX;
+                const char *target_str = compat_get_target();
+                if (target_str) {
+                    shell_mode_parse(target_str, &target);
+                }
                 size_t fixes_found = fixer_collect_fixes(&fixer_ctx, target);
 
                 if (fixes_found > 0) {

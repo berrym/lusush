@@ -23,8 +23,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-/* Cross-platform forward declaration */
+/* Cross-platform forward declarations */
 int strncasecmp(const char *s1, const char *s2, size_t n);
+int strcasecmp(const char *s1, const char *s2);
 
 /* ============================================================================
  * Constants
@@ -75,6 +76,11 @@ typedef struct {
 } internal_entry_t;
 
 /**
+ * @brief Maximum length for target shell name
+ */
+#define COMPAT_TARGET_MAX 32
+
+/**
  * @brief Database state
  */
 typedef struct {
@@ -82,7 +88,7 @@ typedef struct {
     internal_entry_t entries[COMPAT_MAX_ENTRIES];
     size_t entry_count;
     bool strict_mode;
-    shell_mode_t target_shell;
+    char target_shell[COMPAT_TARGET_MAX];  /**< Target shell name (string) */
     char data_dir[COMPAT_PATH_MAX];
 } compat_state_t;
 
@@ -497,8 +503,20 @@ int compat_init(const char *data_dir) {
         return 0;
     }
     
+    /* Preserve target if it was set before init */
+    char saved_target[COMPAT_TARGET_MAX] = {0};
+    if (g_compat.target_shell[0] != '\0') {
+        strncpy(saved_target, g_compat.target_shell, COMPAT_TARGET_MAX - 1);
+    }
+    
     memset(&g_compat, 0, sizeof(g_compat));
-    g_compat.target_shell = SHELL_MODE_POSIX; /* Default target */
+    
+    /* Restore target or use default */
+    if (saved_target[0] != '\0') {
+        strncpy(g_compat.target_shell, saved_target, COMPAT_TARGET_MAX - 1);
+    } else {
+        strncpy(g_compat.target_shell, "posix", COMPAT_TARGET_MAX - 1);
+    }
     
     int total_loaded = 0;
     char path_buf[COMPAT_PATH_MAX];
@@ -777,11 +795,73 @@ bool compat_is_portable(const char *construct, shell_mode_t target,
     return true;
 }
 
+/**
+ * @brief Check if a behavior string indicates the feature is unavailable
+ *
+ * Returns true if the behavior indicates the feature doesn't work in that shell.
+ */
+static bool behavior_indicates_unavailable(const char *behavior) {
+    if (!behavior) {
+        return false;  /* No info means we can't say it's unavailable */
+    }
+    
+    /* Common patterns indicating feature is not available */
+    if (strncasecmp(behavior, "Not in POSIX", 12) == 0 ||
+        strncasecmp(behavior, "Not specified", 13) == 0 ||
+        strncasecmp(behavior, "Not available", 13) == 0 ||
+        strncasecmp(behavior, "Not supported", 13) == 0 ||
+        strncasecmp(behavior, "Not applicable", 14) == 0 ||
+        strncasecmp(behavior, "Not directly", 12) == 0 ||
+        strncasecmp(behavior, "No built-in", 11) == 0 ||
+        strncasecmp(behavior, "Use ", 4) == 0) {  /* "Use X instead" */
+        return true;
+    }
+    
+    return false;
+}
+
+/**
+ * @brief Get behavior string for a target shell name
+ *
+ * Maps target shell name to the corresponding behavior field.
+ */
+static const char *get_behavior_for_target(const internal_entry_t *entry,
+                                            const char *target) {
+    if (!target || strcasecmp(target, "posix") == 0 || strcasecmp(target, "sh") == 0) {
+        return entry->behavior_posix;
+    } else if (strcasecmp(target, "bash") == 0) {
+        return entry->behavior_bash;
+    } else if (strcasecmp(target, "zsh") == 0) {
+        return entry->behavior_zsh;
+    } else if (strcasecmp(target, "lush") == 0) {
+        return entry->behavior_lush;
+    }
+    /* Unknown target, default to POSIX (most conservative) */
+    return entry->behavior_posix;
+}
+
+/**
+ * @brief Check if a feature is problematic for the target shell
+ *
+ * Returns true if the entry describes a portability issue for the target.
+ * If the feature works in the target shell, it's not a problem.
+ */
+static bool is_issue_for_target(const internal_entry_t *entry,
+                                 const char *target) {
+    const char *target_behavior = get_behavior_for_target(entry, target);
+    
+    /* If the feature is unavailable/problematic in target, it's an issue */
+    return behavior_indicates_unavailable(target_behavior);
+}
+
 size_t compat_check_line(const char *line, shell_mode_t target,
                          compat_result_t *results, size_t max_results) {
     if (!g_compat.initialized || !line || !results || max_results == 0) {
         return 0;
     }
+    
+    /* Convert enum to string for internal comparison */
+    const char *target_name = shell_mode_name(target);
     
     size_t found = 0;
     
@@ -789,6 +869,11 @@ size_t compat_check_line(const char *line, shell_mode_t target,
         internal_entry_t *entry = &g_compat.entries[i];
         
         if (!entry->regex_valid || !entry->compiled_regex) {
+            continue;
+        }
+        
+        /* Skip if this isn't an issue for the target shell */
+        if (!is_issue_for_target(entry, target_name)) {
             continue;
         }
         
@@ -950,14 +1035,8 @@ static bool shell_supports_feature(shell_mode_t shell, const char *feature) {
         return true;  /* No behavior defined, assume supported */
     }
 
-    /* Check if behavior indicates lack of support (ASCII-only comparison) */
-    /* Common patterns: "Not in POSIX", "Not supported", "No built-in" */
-    if (strncasecmp(behavior, "Not ", 4) == 0 ||
-        strncasecmp(behavior, "No ", 3) == 0) {
-        return false;
-    }
-
-    return true;
+    /* Use unified unavailability check */
+    return !behavior_indicates_unavailable(behavior);
 }
 
 /**
@@ -1121,11 +1200,19 @@ compat_severity_t compat_effective_severity(const compat_entry_t *entry) {
  * Public API - Target Shell
  * ============================================================================ */
 
-void compat_set_target(shell_mode_t target) {
-    g_compat.target_shell = target;
+void compat_set_target(const char *target) {
+    if (target) {
+        strncpy(g_compat.target_shell, target, COMPAT_TARGET_MAX - 1);
+        g_compat.target_shell[COMPAT_TARGET_MAX - 1] = '\0';
+    } else {
+        strncpy(g_compat.target_shell, "posix", COMPAT_TARGET_MAX - 1);
+    }
 }
 
-shell_mode_t compat_get_target(void) {
+const char *compat_get_target(void) {
+    if (g_compat.target_shell[0] == '\0') {
+        return "posix";  /* Default if not set */
+    }
     return g_compat.target_shell;
 }
 
@@ -1208,24 +1295,22 @@ bool compat_fix_type_parse(const char *name, fix_type_t *type) {
 }
 
 fix_type_t compat_get_fix_type_for_target(const compat_fix_class_t *fix_class,
-                                           shell_mode_t target) {
+                                           const char *target) {
     if (!fix_class) {
         return FIX_TYPE_NONE;
     }
     
-    switch (target) {
-    case SHELL_MODE_POSIX:
+    if (!target || strcasecmp(target, "posix") == 0 || strcasecmp(target, "sh") == 0) {
         return fix_class->posix;
-    case SHELL_MODE_BASH:
+    } else if (strcasecmp(target, "bash") == 0) {
         return fix_class->bash;
-    case SHELL_MODE_ZSH:
+    } else if (strcasecmp(target, "zsh") == 0) {
         return fix_class->zsh;
-    case SHELL_MODE_LUSH:
+    } else if (strcasecmp(target, "lush") == 0) {
         return fix_class->lush;
-    default:
-        /* Default to POSIX (most conservative) */
-        return fix_class->posix;
     }
+    /* Unknown target, default to POSIX (most conservative) */
+    return fix_class->posix;
 }
 
 int compat_format_result(const compat_result_t *result, char *buffer,
@@ -1265,7 +1350,7 @@ void compat_debug_print_stats(void) {
     fprintf(stderr, "  Initialized: %s\n", g_compat.initialized ? "yes" : "no");
     fprintf(stderr, "  Total entries: %zu\n", g_compat.entry_count);
     fprintf(stderr, "  Strict mode: %s\n", g_compat.strict_mode ? "yes" : "no");
-    fprintf(stderr, "  Target shell: %s\n", shell_mode_name(g_compat.target_shell));
+    fprintf(stderr, "  Target shell: %s\n", compat_get_target());
     
     /* Count by category */
     size_t by_category[COMPAT_CATEGORY_COUNT] = {0};

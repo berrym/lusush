@@ -18,6 +18,14 @@ message = "let is not portable"
 suggestion = "Use $(( )) for POSIX arithmetic"
 pattern = "\\blet\\s+"
 
+[let_basic.fix]
+# let expr -> : $(( expr )) is conceptually correct but complex to auto-fix
+# because let supports multiple expressions and has different return semantics
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [let_multiple]
 category = "builtins"
 feature = "let_multiple"
@@ -51,3 +59,11 @@ severity = "warning"
 message = "(( )) is not portable"
 suggestion = "Use [ $((expr)) -ne 0 ] for POSIX"
 pattern = "\\(\\([^)]+\\)\\)"
+
+[arith_cmd.fix]
+# (( expr )) -> [ $((expr)) -ne 0 ] changes semantics and is complex
+# The return value behavior differs and conditional context matters
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"

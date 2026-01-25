@@ -17,6 +17,10 @@
 #include <string.h>
 #include <regex.h>
 
+/* Cross-platform forward declarations */
+int strncasecmp(const char *s1, const char *s2, size_t n);
+int strcasecmp(const char *s1, const char *s2);
+
 /* ============================================================================
  * Constants
  * ============================================================================ */
@@ -71,7 +75,7 @@ static size_t (*calc_offset_ptr)(const char *, int, int) = calc_offset;
  */
 typedef struct {
     fixer_context_t *fixer_ctx;
-    shell_mode_t target;
+    const char *target;  /* Target shell name (string for flexibility) */
     const char *line;
     int line_num;
     size_t line_offset;  /* Byte offset of line start in content */
@@ -233,6 +237,9 @@ size_t fixer_collect_fixes(fixer_context_t *ctx, shell_mode_t target) {
         return 0;
     }
     
+    /* Convert enum to string for internal use */
+    const char *target_str = shell_mode_name(target);
+    
     /* Suppress unused warning */
     (void)calc_offset_ptr;
     
@@ -262,7 +269,7 @@ size_t fixer_collect_fixes(fixer_context_t *ctx, shell_mode_t target) {
         /* Set up callback context for this line */
         collect_ctx_t collect_ctx = {
             .fixer_ctx = ctx,
-            .target = target,
+            .target = target_str,
             .line = line,
             .line_num = line_num,
             .line_offset = line_offset,

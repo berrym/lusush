@@ -7502,16 +7502,9 @@ int bin_analyze(int argc, char **argv) {
         return 1;
     }
     
-    /* Set target shell if specified */
+    /* Set target shell if specified (stored as string for flexibility) */
     if (target_shell) {
-        shell_mode_t target;
-        if (shell_mode_parse(target_shell, &target)) {
-            compat_set_target(target);
-        } else {
-            fprintf(stderr, "%s: invalid target shell '%s'\n", argv[0], target_shell);
-            fprintf(stderr, "Valid targets: posix, bash, zsh, lush\n");
-            return 1;
-        }
+        compat_set_target(target_shell);
     }
     
     /* Set strict mode if requested */
@@ -7645,16 +7638,9 @@ int bin_lint(int argc, char **argv) {
         return 1;
     }
     
-    /* Set target shell if specified */
+    /* Set target shell if specified (stored as string for flexibility) */
     if (target_shell) {
-        shell_mode_t target;
-        if (shell_mode_parse(target_shell, &target)) {
-            compat_set_target(target);
-        } else {
-            fprintf(stderr, "%s: invalid target shell '%s'\n", argv[0], target_shell);
-            fprintf(stderr, "Valid targets: posix, bash, zsh, lush\n");
-            return 1;
-        }
+        compat_set_target(target_shell);
     }
     
     /* Set strict mode if requested */

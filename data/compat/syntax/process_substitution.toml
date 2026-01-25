@@ -17,6 +17,13 @@ message = "Process substitution <() is not portable to POSIX sh"
 suggestion = "Use named pipes (mkfifo) or temporary files"
 pattern = "<\\([^)]+\\)"
 
+[process_substitution_input.fix]
+# <(cmd) -> mkfifo/temp file requires multi-line rewrite
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [process_substitution_output]
 category = "syntax"
 feature = "process_substitution"

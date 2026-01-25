@@ -137,6 +137,14 @@ message = "Increment/decrement operators not portable"
 suggestion = "Not in POSIX; use var=var+1 for portability"
 pattern = "\\$\\(\\([^)]*\\+\\+|--[^)]*\\)\\)"
 
+[arith_increment.fix]
+# ++var or var++ -> var=var+1 requires understanding pre/post semantics
+# and expression context - must be manual
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [arith_comma]
 category = "expansion"
 feature = "arith_comma"
@@ -170,6 +178,13 @@ severity = "warning"
 message = "Exponentiation is not portable"
 suggestion = "Not in POSIX; use external tool for portability"
 pattern = "\\$\\(\\([^)]*\\*\\*[^)]*\\)\\)"
+
+[arith_exponent.fix]
+# ** -> requires awk/bc, no simple replacement
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
 
 [arith_base]
 category = "expansion"

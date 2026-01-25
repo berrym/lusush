@@ -17,6 +17,14 @@ message = "Array syntax is not portable to POSIX sh"
 suggestion = "Use positional parameters or separate variables"
 pattern = "[a-zA-Z_][a-zA-Z0-9_]*=\\([^)]*\\)"
 
+[array_declaration.fix]
+# Arrays have no POSIX equivalent - requires manual rewrite
+# to positional parameters or separate variables
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [array_index_access]
 category = "syntax"
 feature = "arrays"
@@ -99,3 +107,10 @@ severity = "warning"
 message = "Associative arrays are not portable to POSIX sh"
 suggestion = "Use case statements or external tools for key-value storage"
 pattern = "declare\\s+-A|typeset\\s+-A"
+
+[associative_arrays.fix]
+# Associative arrays have no POSIX equivalent
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"

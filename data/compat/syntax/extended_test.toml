@@ -17,6 +17,17 @@ message = "[[ ]] extended test is not portable to POSIX sh"
 suggestion = "Use [ ] or test for POSIX compatibility"
 pattern = "\\[\\[\\s+.*\\s+\\]\\]"
 
+[extended_test_syntax.fix]
+# [[ ]] -> [ ] has semantic differences:
+# - Word splitting behavior differs
+# - Pattern matching in [[ ]] vs literal in [ ]
+# - Quoting requirements differ
+# Must be manual to avoid breaking scripts
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [extended_test_regex]
 category = "syntax"
 feature = "extended_test"

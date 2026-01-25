@@ -375,17 +375,19 @@ compat_severity_t compat_effective_severity(const compat_entry_t *entry);
  * @brief Set the target shell for compatibility checking
  *
  * Sets the default target shell used when checking for compatibility.
+ * The target is stored as a string for flexibility (e.g., "posix", "bash",
+ * "zsh", "lush", or future variants like "bash5").
  *
- * @param target Target shell mode
+ * @param target Target shell name (NULL resets to "posix")
  */
-void compat_set_target(shell_mode_t target);
+void compat_set_target(const char *target);
 
 /**
  * @brief Get the current target shell
  *
- * @return Current target shell mode
+ * @return Current target shell name (never NULL, defaults to "posix")
  */
-shell_mode_t compat_get_target(void);
+const char *compat_get_target(void);
 
 /* ============================================================================
  * Utility Functions
@@ -449,11 +451,11 @@ bool compat_fix_type_parse(const char *name, fix_type_t *type);
  * This allows the same fix to be safe for one shell but unsafe for another.
  *
  * @param fix_class Per-shell fix classification
- * @param target Target shell mode
+ * @param target Target shell name (e.g., "posix", "bash", "zsh", "lush")
  * @return Fix type for the specified target
  */
 fix_type_t compat_get_fix_type_for_target(const compat_fix_class_t *fix_class,
-                                           shell_mode_t target);
+                                           const char *target);
 
 /**
  * @brief Format a compatibility result as a message

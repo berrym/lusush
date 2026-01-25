@@ -689,31 +689,15 @@ static int parse_opts(int argc, char **argv) {
                 // Enable strict compatibility mode - warnings become errors
                 compat_set_strict(true);
             } else if (strncmp(arg, "--target=", 9) == 0) {
-                // Set target shell for compatibility checking
+                // Set target shell for compatibility checking (stored as string)
                 const char *target_name = arg + 9;
-                shell_mode_t target;
-                if (shell_mode_parse(target_name, &target)) {
-                    compat_set_target(target);
-                } else {
-                    fprintf(stderr, "%s: invalid target shell '%s'\n",
-                            argv[0], target_name);
-                    fprintf(stderr, "Valid targets: posix, bash, zsh, lush\n");
-                    exit(EXIT_FAILURE);
-                }
+                compat_set_target(target_name);
             } else if (strncmp(arg, "--target", 8) == 0) {
                 // Handle --target <shell> (space-separated)
                 if (arg_index + 1 < argc) {
                     arg_index++;
                     const char *target_name = argv[arg_index];
-                    shell_mode_t target;
-                    if (shell_mode_parse(target_name, &target)) {
-                        compat_set_target(target);
-                    } else {
-                        fprintf(stderr, "%s: invalid target shell '%s'\n",
-                                argv[0], target_name);
-                        fprintf(stderr, "Valid targets: posix, bash, zsh, lush\n");
-                        exit(EXIT_FAILURE);
-                    }
+                    compat_set_target(target_name);
                 } else {
                     fprintf(stderr, "%s: --target requires an argument\n",
                             argv[0]);
