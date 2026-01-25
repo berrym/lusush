@@ -52,6 +52,15 @@ message = "~+ is not portable"
 suggestion = "Use $PWD instead for POSIX compatibility"
 pattern = "~\\+"
 
+[tilde_plus.fix]
+type = "safe"
+description = "Replace with $PWD"
+replacement = "$PWD"
+posix = "safe"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [tilde_minus]
 category = "expansion"
 feature = "tilde_oldpwd"
@@ -69,6 +78,15 @@ message = "~- is not portable"
 suggestion = "Use $OLDPWD instead for POSIX compatibility"
 pattern = "~-"
 
+[tilde_minus.fix]
+type = "safe"
+description = "Replace with $OLDPWD"
+replacement = "$OLDPWD"
+posix = "safe"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [tilde_stack]
 category = "expansion"
 feature = "tilde_dirstack"
@@ -85,3 +103,11 @@ severity = "warning"
 message = "Directory stack tilde is not portable"
 suggestion = "Not in POSIX; use dirs builtin output"
 pattern = "~[+-]?[0-9]+"
+
+[tilde_stack.fix]
+type = "manual"
+description = "Directory stack has no POSIX equivalent; restructure code"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"

@@ -28,6 +28,13 @@ message = "read -a is not portable; zsh uses -A"
 suggestion = "Use read with positional parameters for portability"
 pattern = "read\\s+.*-a\\b"
 
+[read_array.fix]
+# Arrays not in POSIX; zsh uses different flag
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
+
 [read_prompt]
 category = "builtin"
 feature = "read"
@@ -70,6 +77,13 @@ message = "read -t timeout is not portable to POSIX sh"
 suggestion = "Use alarm or timeout command wrapper for portability"
 pattern = "read\\s+.*-t\\s*[0-9]"
 
+[read_timeout.fix]
+# No simple POSIX equivalent for read timeout
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [read_nchars]
 category = "builtin"
 feature = "read"
@@ -86,6 +100,13 @@ severity = "warning"
 message = "read -n is bash-specific; zsh uses -k"
 suggestion = "Use dd or stty for portable character-by-character input"
 pattern = "read\\s+.*-n\\s*[0-9]"
+
+[read_nchars.fix]
+# Different syntax in zsh; no POSIX equivalent
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
 
 [read_delimiter]
 category = "builtin"
@@ -104,6 +125,13 @@ message = "read -d is bash-specific"
 suggestion = "Use IFS= read -r for complex delimiter handling"
 pattern = "read\\s+.*-d\\b"
 
+[read_delimiter.fix]
+# No direct equivalent in POSIX or zsh
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
+
 [read_silent]
 category = "builtin"
 feature = "read"
@@ -120,6 +148,13 @@ severity = "info"
 message = "read -s is not POSIX; common in bash and zsh"
 suggestion = "Use stty -echo; read var; stty echo for strict POSIX"
 pattern = "read\\s+.*-s\\b"
+
+[read_silent.fix]
+# read -s var -> stty -echo; read var; stty echo
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
 
 [read_raw]
 category = "builtin"

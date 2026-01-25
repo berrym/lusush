@@ -86,6 +86,14 @@ message = "Global aliases are zsh specific"
 suggestion = "zsh only; not available in bash"
 pattern = "\\balias\\s+-g\\b"
 
+[alias_global.fix]
+type = "manual"
+description = "Global aliases have no direct equivalent; restructure code"
+posix = "manual"
+bash = "manual"
+zsh = "none"
+lush = "none"
+
 [alias_suffix]
 category = "builtins"
 feature = "alias_suffix"
@@ -102,6 +110,14 @@ severity = "warning"
 message = "Suffix aliases are zsh specific"
 suggestion = "zsh only; not available in bash"
 pattern = "\\balias\\s+-s\\b"
+
+[alias_suffix.fix]
+type = "manual"
+description = "Suffix aliases have no direct equivalent; use file associations"
+posix = "manual"
+bash = "manual"
+zsh = "none"
+lush = "none"
 
 [alias_expansion]
 category = "builtins"

@@ -17,6 +17,14 @@ message = "local is not POSIX; common extension"
 suggestion = "Use naming conventions or typeset for strict portability"
 pattern = "^\\s*local\\s+"
 
+[local_basic.fix]
+# No POSIX equivalent for local variables
+# Workarounds include naming conventions or subshells
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [local_inherit]
 category = "builtin"
 feature = "local"
@@ -45,6 +53,13 @@ message = "local -r is not portable"
 suggestion = "Use separate local and readonly declarations"
 pattern = "local\\s+.*-r\\b"
 
+[local_readonly.fix]
+# local -r var -> local var; readonly var requires multi-statement
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [local_integer]
 category = "builtin"
 feature = "local"
@@ -60,6 +75,13 @@ lush = "Supported: local -i var=value"
 severity = "warning"
 message = "local -i is not portable"
 pattern = "local\\s+.*-i\\b"
+
+[local_integer.fix]
+# No POSIX equivalent for typed integers
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
 
 [local_array]
 category = "builtin"
@@ -77,6 +99,13 @@ severity = "warning"
 message = "local -a is not portable"
 pattern = "local\\s+.*-a\\b"
 
+[local_array.fix]
+# No POSIX equivalent for arrays
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [local_nameref]
 category = "builtin"
 feature = "local"
@@ -93,3 +122,10 @@ severity = "warning"
 message = "local -n is bash 4.3+ specific"
 suggestion = "Use eval or indirect expansion"
 pattern = "local\\s+.*-n\\b"
+
+[local_nameref.fix]
+# Namerefs require eval or indirect expansion workarounds
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"

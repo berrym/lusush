@@ -18,6 +18,15 @@ message = "history builtin is not portable"
 suggestion = "Use fc for POSIX-compliant history access"
 pattern = "\\bhistory\\b"
 
+[history_basic.fix]
+type = "unsafe"
+description = "Use 'fc -l' for POSIX-compliant history listing"
+replacement = "fc -l"
+posix = "unsafe"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [fc_basic]
 category = "builtins"
 feature = "fc"
@@ -103,6 +112,14 @@ message = "history -c is not portable"
 suggestion = "bash/zsh specific"
 pattern = "\\bhistory\\s+-c\\b"
 
+[history_c.fix]
+type = "manual"
+description = "No POSIX equivalent for clearing history"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [history_d]
 category = "builtins"
 feature = "history_delete"
@@ -119,6 +136,14 @@ severity = "warning"
 message = "history -d is bash specific"
 suggestion = "Not available in zsh"
 pattern = "\\bhistory\\s+-d\\b"
+
+[history_d.fix]
+type = "manual"
+description = "No portable equivalent for deleting history entries"
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
 
 [history_a]
 category = "builtins"
@@ -137,6 +162,14 @@ message = "history -a is not portable"
 suggestion = "bash specific; zsh uses different mechanism"
 pattern = "\\bhistory\\s+-a\\b"
 
+[history_a.fix]
+type = "manual"
+description = "zsh uses 'fc -AI' or setopt INC_APPEND_HISTORY"
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
+
 [history_r]
 category = "builtins"
 feature = "history_read"
@@ -154,6 +187,15 @@ message = "history -r is not portable"
 suggestion = "bash specific; zsh uses fc -R"
 pattern = "\\bhistory\\s+-r\\b"
 
+[history_r.fix]
+type = "unsafe"
+description = "zsh uses 'fc -R' to read history file"
+replacement = "fc -R"
+posix = "manual"
+bash = "none"
+zsh = "unsafe"
+lush = "none"
+
 [history_expansion]
 category = "builtins"
 feature = "history_expansion"
@@ -170,3 +212,11 @@ severity = "warning"
 message = "History expansion is not portable"
 suggestion = "bash/zsh interactive feature"
 pattern = "!!"
+
+[history_expansion.fix]
+type = "manual"
+description = "History expansion is interactive-only; use fc -s for POSIX"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"

@@ -69,6 +69,13 @@ message = "pipefail is not portable to older POSIX shells"
 suggestion = "pipefail is widely available but not in POSIX until 2024"
 pattern = "\\bset\\s+[^;]*-o\\s+pipefail"
 
+[set_pipefail.fix]
+# No simple POSIX alternative; requires explicit exit status checking
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [set_noclobber]
 category = "builtins"
 feature = "set_noclobber"

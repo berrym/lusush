@@ -52,6 +52,14 @@ message = "readonly -a is not portable"
 suggestion = "Arrays are not in POSIX"
 pattern = "\\breadonly\\s+-a\\b"
 
+[readonly_a.fix]
+type = "manual"
+description = "Arrays are not in POSIX; restructure without arrays"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [readonly_A]
 category = "builtins"
 feature = "readonly_assoc"
@@ -69,6 +77,14 @@ message = "readonly -A is not portable"
 suggestion = "Associative arrays are not in POSIX"
 pattern = "\\breadonly\\s+-A\\b"
 
+[readonly_A.fix]
+type = "manual"
+description = "Associative arrays have no POSIX equivalent"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [readonly_f]
 category = "builtins"
 feature = "readonly_function"
@@ -85,3 +101,11 @@ severity = "warning"
 message = "readonly -f is not portable"
 suggestion = "Function readonly is bash/zsh specific"
 pattern = "\\breadonly\\s+-f\\b"
+
+[readonly_f.fix]
+type = "manual"
+description = "No POSIX equivalent for readonly functions"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"

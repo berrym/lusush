@@ -80,3 +80,12 @@ severity = "warning"
 message = "$'...' quoting is not portable to POSIX sh"
 suggestion = "Use printf or echo with escape sequences"
 pattern = "\\$'[^']*'"
+
+[dollar_single_quote.fix]
+type = "unsafe"
+description = "Use printf for portable escape sequences"
+replacement = "$(printf '...')"
+posix = "unsafe"
+bash = "none"
+zsh = "none"
+lush = "none"

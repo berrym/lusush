@@ -45,6 +45,14 @@ message = "Regex matching =~ is not portable to POSIX sh"
 suggestion = "Use grep or expr for portable regex matching"
 pattern = "\\[\\[.*=~.*\\]\\]"
 
+[extended_test_regex.fix]
+type = "manual"
+description = "Use: echo \"$var\" | grep -qE 'pattern'"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [extended_test_pattern]
 category = "syntax"
 feature = "extended_test"
@@ -95,6 +103,14 @@ message = "&& and || inside [[ ]] are not portable to POSIX sh"
 suggestion = "Use [ cond1 ] && [ cond2 ] for POSIX compatibility"
 pattern = "\\[\\[.*(&&|\\|\\|).*\\]\\]"
 
+[extended_test_logical_ops.fix]
+type = "manual"
+description = "Split into: [ cond1 ] && [ cond2 ]"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [extended_test_string_compare]
 category = "syntax"
 feature = "extended_test"
@@ -111,3 +127,11 @@ severity = "warning"
 message = "String comparison < > in [[ ]] not portable to POSIX sh"
 suggestion = "Use [ \"$a\" \\< \"$b\" ] or expr for POSIX compatibility"
 pattern = "\\[\\[.*[^=!<>][<>][^=].*\\]\\]"
+
+[extended_test_string_compare.fix]
+type = "manual"
+description = "Use [ \"$a\" \\< \"$b\" ] with escaped operators"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"

@@ -18,6 +18,13 @@ message = "shopt is bash specific"
 suggestion = "Use set -o for POSIX options; zsh uses setopt"
 pattern = "\\bshopt\\b"
 
+[shopt_basic.fix]
+# shopt is bash-specific; requires different commands per shell
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
+
 [shopt_s]
 category = "builtins"
 feature = "shopt_set"
@@ -34,6 +41,13 @@ severity = "warning"
 message = "shopt -s is bash specific"
 suggestion = "zsh uses setopt"
 pattern = "\\bshopt\\s+-s\\b"
+
+[shopt_s.fix]
+# shopt -s optname -> setopt optname in zsh (option names differ)
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
 
 [shopt_u]
 category = "builtins"
@@ -52,6 +66,13 @@ message = "shopt -u is bash specific"
 suggestion = "zsh uses unsetopt"
 pattern = "\\bshopt\\s+-u\\b"
 
+[shopt_u.fix]
+# shopt -u optname -> unsetopt optname in zsh (option names differ)
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
+
 [shopt_q]
 category = "builtins"
 feature = "shopt_query"
@@ -69,6 +90,13 @@ message = "shopt -q is bash specific"
 suggestion = "zsh uses [[ -o optname ]] for testing"
 pattern = "\\bshopt\\s+-q\\b"
 
+[shopt_q.fix]
+# shopt -q optname -> [[ -o optname ]] in zsh
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
+
 [shopt_o]
 category = "builtins"
 feature = "shopt_set_o"
@@ -85,3 +113,10 @@ severity = "warning"
 message = "shopt -o is bash specific"
 suggestion = "Use set -o directly for portability"
 pattern = "\\bshopt\\s+[^;]*-o\\b"
+
+[shopt_o.fix]
+# shopt -s -o optname -> set -o optname
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"

@@ -18,6 +18,13 @@ message = "pushd is not portable"
 suggestion = "Not in POSIX; use cd and save OLDPWD manually"
 pattern = "\\bpushd\\b"
 
+[pushd_basic.fix]
+# No POSIX equivalent; requires manual stack management
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [popd_basic]
 category = "builtins"
 feature = "popd"
@@ -34,6 +41,13 @@ severity = "warning"
 message = "popd is not portable"
 suggestion = "Not in POSIX; use saved directories manually"
 pattern = "\\bpopd\\b"
+
+[popd_basic.fix]
+# No POSIX equivalent; requires manual stack management
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
 
 [dirs_basic]
 category = "builtins"
@@ -52,6 +66,12 @@ message = "dirs is not portable"
 suggestion = "Not in POSIX"
 pattern = "\\bdirs\\b"
 
+[dirs_basic.fix]
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [pushd_swap]
 category = "builtins"
 feature = "pushd_swap"
@@ -68,6 +88,12 @@ severity = "warning"
 message = "pushd without args is not portable"
 suggestion = "bash/zsh specific"
 pattern = "\\bpushd\\s*$"
+
+[pushd_swap.fix]
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
 
 [pushd_n]
 category = "builtins"
@@ -86,6 +112,12 @@ message = "pushd -n is not portable"
 suggestion = "bash/zsh specific"
 pattern = "\\bpushd\\s+-n\\b"
 
+[pushd_n.fix]
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [dirs_v]
 category = "builtins"
 feature = "dirs_vertical"
@@ -103,6 +135,12 @@ message = "dirs -v is not portable"
 suggestion = "bash/zsh specific"
 pattern = "\\bdirs\\s+-v\\b"
 
+[dirs_v.fix]
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [dirs_c]
 category = "builtins"
 feature = "dirs_clear"
@@ -119,3 +157,9 @@ severity = "warning"
 message = "dirs -c is not portable"
 suggestion = "bash/zsh specific"
 pattern = "\\bdirs\\s+-c\\b"
+
+[dirs_c.fix]
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"

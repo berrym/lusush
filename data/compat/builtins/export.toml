@@ -35,6 +35,13 @@ message = "export -n is not portable"
 suggestion = "Not in POSIX; use unset and reassign for portability"
 pattern = "\\bexport\\s+-n\\b"
 
+[export_n.fix]
+# No direct POSIX equivalent for removing export attribute
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [export_f]
 category = "builtins"
 feature = "export_function"
@@ -51,6 +58,13 @@ severity = "warning"
 message = "export -f is not portable"
 suggestion = "Function export is bash-specific; zsh uses different mechanism"
 pattern = "\\bexport\\s+-f\\b"
+
+[export_f.fix]
+# Function export is bash-specific; no POSIX equivalent
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
 
 [export_p]
 category = "builtins"

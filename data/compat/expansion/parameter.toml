@@ -205,6 +205,14 @@ message = "Pattern substitution is not portable"
 suggestion = "Use sed or other tools for POSIX compatibility"
 pattern = "\\$\\{[A-Za-z_][A-Za-z0-9_]*/[^/]*/[^}]*\\}"
 
+[param_substitute.fix]
+type = "unsafe"
+description = "Use sed: echo \"$var\" | sed 's/pattern/replacement/'"
+posix = "unsafe"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [param_substitute_all]
 category = "expansion"
 feature = "param_substitute_all"
@@ -221,6 +229,14 @@ severity = "warning"
 message = "Global substitution is not portable"
 suggestion = "Use sed or other tools for POSIX compatibility"
 pattern = "\\$\\{[A-Za-z_][A-Za-z0-9_]*//[^}]*\\}"
+
+[param_substitute_all.fix]
+type = "unsafe"
+description = "Use sed: echo \"$var\" | sed 's/pattern/replacement/g'"
+posix = "unsafe"
+bash = "none"
+zsh = "none"
+lush = "none"
 
 [param_substitute_prefix]
 category = "expansion"
@@ -239,6 +255,14 @@ message = "Prefix substitution is not portable"
 suggestion = "Not in POSIX; pattern must match at start"
 pattern = "\\$\\{[A-Za-z_][A-Za-z0-9_]*/#[^}]*\\}"
 
+[param_substitute_prefix.fix]
+type = "unsafe"
+description = "Use sed: echo \"$var\" | sed 's/^pattern/replacement/'"
+posix = "unsafe"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [param_substitute_suffix]
 category = "expansion"
 feature = "param_substitute_suffix"
@@ -255,6 +279,14 @@ severity = "warning"
 message = "Suffix substitution is not portable"
 suggestion = "Not in POSIX; pattern must match at end"
 pattern = "\\$\\{[A-Za-z_][A-Za-z0-9_]*/%[^}]*\\}"
+
+[param_substitute_suffix.fix]
+type = "unsafe"
+description = "Use sed: echo \"$var\" | sed 's/pattern$/replacement/'"
+posix = "unsafe"
+bash = "none"
+zsh = "none"
+lush = "none"
 
 [param_uppercase]
 category = "expansion"
@@ -273,6 +305,14 @@ message = "Uppercase conversion is not portable"
 suggestion = "Not in POSIX; zsh uses ${(U)var}"
 pattern = "\\$\\{[A-Za-z_][A-Za-z0-9_]*\\^\\^\\}"
 
+[param_uppercase.fix]
+type = "unsafe"
+description = "Use tr: echo \"$var\" | tr '[:lower:]' '[:upper:]'"
+posix = "unsafe"
+bash = "none"
+zsh = "unsafe"
+lush = "none"
+
 [param_uppercase_first]
 category = "expansion"
 feature = "param_uppercase_first"
@@ -289,6 +329,14 @@ severity = "warning"
 message = "Uppercase first is not portable"
 suggestion = "Not in POSIX; zsh uses ${(C)var}"
 pattern = "\\$\\{[A-Za-z_][A-Za-z0-9_]*\\^\\}"
+
+[param_uppercase_first.fix]
+type = "manual"
+description = "Complex manual transformation needed for capitalize"
+posix = "manual"
+bash = "none"
+zsh = "unsafe"
+lush = "none"
 
 [param_lowercase]
 category = "expansion"
@@ -307,6 +355,14 @@ message = "Lowercase conversion is not portable"
 suggestion = "Not in POSIX; zsh uses ${(L)var}"
 pattern = "\\$\\{[A-Za-z_][A-Za-z0-9_]*,,\\}"
 
+[param_lowercase.fix]
+type = "unsafe"
+description = "Use tr: echo \"$var\" | tr '[:upper:]' '[:lower:]'"
+posix = "unsafe"
+bash = "none"
+zsh = "unsafe"
+lush = "none"
+
 [param_lowercase_first]
 category = "expansion"
 feature = "param_lowercase_first"
@@ -323,6 +379,14 @@ severity = "warning"
 message = "Lowercase first is not portable"
 suggestion = "Not in POSIX; bash-specific"
 pattern = "\\$\\{[A-Za-z_][A-Za-z0-9_]*,\\}"
+
+[param_lowercase_first.fix]
+type = "manual"
+description = "Complex manual transformation needed"
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
 
 [param_indirect]
 category = "expansion"
@@ -341,6 +405,14 @@ message = "Indirect expansion is not portable"
 suggestion = "Not in POSIX; zsh uses ${(P)var}; use eval for portability"
 pattern = "\\$\\{![A-Za-z_][A-Za-z0-9_]*\\}"
 
+[param_indirect.fix]
+type = "unsafe"
+description = "Use eval: eval echo \\$$var"
+posix = "unsafe"
+bash = "none"
+zsh = "unsafe"
+lush = "none"
+
 [param_prefix_names]
 category = "expansion"
 feature = "param_prefix_names"
@@ -357,6 +429,14 @@ severity = "warning"
 message = "Prefix name expansion is not portable"
 suggestion = "Not in POSIX; bash-specific; zsh uses different syntax"
 pattern = "\\$\\{![A-Za-z_][A-Za-z0-9_]*[*@]\\}"
+
+[param_prefix_names.fix]
+type = "manual"
+description = "No POSIX equivalent; restructure code"
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
 
 [param_substring]
 category = "expansion"
@@ -375,6 +455,14 @@ message = "Substring extraction is not portable"
 suggestion = "Not in POSIX; index base differs between bash (0) and zsh (1)"
 pattern = "\\$\\{[A-Za-z_][A-Za-z0-9_]*:[0-9-]+:[0-9]+\\}"
 
+[param_substring.fix]
+type = "unsafe"
+description = "Use expr substr or cut for POSIX substring"
+posix = "unsafe"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [param_substring_offset]
 category = "expansion"
 feature = "param_substring_offset"
@@ -392,6 +480,14 @@ message = "Substring from offset is not portable"
 suggestion = "Not in POSIX; index base differs between shells"
 pattern = "\\$\\{[A-Za-z_][A-Za-z0-9_]*:[0-9-]+\\}"
 
+[param_substring_offset.fix]
+type = "unsafe"
+description = "Use expr substr or cut for POSIX substring"
+posix = "unsafe"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [param_transform]
 category = "expansion"
 feature = "param_transform"
@@ -408,3 +504,11 @@ severity = "warning"
 message = "Parameter transformation is not portable"
 suggestion = "bash 4.4+ specific; zsh uses different syntax"
 pattern = "\\$\\{[A-Za-z_][A-Za-z0-9_]*@[UuLQEPAKa]\\}"
+
+[param_transform.fix]
+type = "manual"
+description = "Transformations are shell-specific; use external tools"
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"

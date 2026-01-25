@@ -18,6 +18,13 @@ message = "mapfile is not portable"
 suggestion = "bash 4.0+ specific; use while read loop for portability"
 pattern = "\\bmapfile\\b"
 
+[mapfile_basic.fix]
+# mapfile arr < file -> while IFS= read -r line; do arr+=("$line"); done < file
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
+
 [readarray_basic]
 category = "builtins"
 feature = "readarray"
@@ -34,6 +41,13 @@ severity = "warning"
 message = "readarray is not portable"
 suggestion = "bash specific; synonym for mapfile"
 pattern = "\\breadarray\\b"
+
+[readarray_basic.fix]
+# Same as mapfile - requires while read loop
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
 
 [mapfile_t]
 category = "builtins"
@@ -52,6 +66,12 @@ message = "mapfile -t is bash specific"
 suggestion = "Common usage to strip newlines"
 pattern = "\\bmapfile\\s+[^;]*-t\\b"
 
+[mapfile_t.fix]
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
+
 [mapfile_d]
 category = "builtins"
 feature = "mapfile_delimiter"
@@ -69,6 +89,12 @@ message = "mapfile -d is bash 4.4+ specific"
 suggestion = "Requires bash 4.4 or later"
 pattern = "\\bmapfile\\s+[^;]*-d\\b"
 
+[mapfile_d.fix]
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
+
 [mapfile_n]
 category = "builtins"
 feature = "mapfile_count"
@@ -85,3 +111,9 @@ severity = "warning"
 message = "mapfile -n is bash specific"
 suggestion = "Limits number of lines read"
 pattern = "\\bmapfile\\s+[^;]*-n\\b"
+
+[mapfile_n.fix]
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"

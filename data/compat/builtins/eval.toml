@@ -18,6 +18,14 @@ message = "eval usage - potential security risk"
 suggestion = "eval can execute arbitrary code; ensure input is trusted"
 pattern = "\\beval\\s+"
 
+[eval_basic.fix]
+type = "manual"
+description = "Security review required; consider safer alternatives"
+posix = "manual"
+bash = "manual"
+zsh = "manual"
+lush = "manual"
+
 [eval_empty]
 category = "builtins"
 feature = "eval_empty"

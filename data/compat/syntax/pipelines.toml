@@ -137,6 +137,14 @@ message = "coproc is not portable"
 suggestion = "bash 4.0+; zsh has different coproc syntax"
 pattern = "\\bcoproc\\b"
 
+[coproc.fix]
+type = "manual"
+description = "Coprocesses are shell-specific; use named pipes for POSIX"
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
+
 [subshell]
 category = "syntax"
 feature = "subshell"

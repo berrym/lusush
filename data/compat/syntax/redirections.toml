@@ -244,6 +244,14 @@ message = "Here string is not portable"
 suggestion = "Use echo 'string' | cmd or here-doc for POSIX"
 pattern = "<<<"
 
+[redir_here_string.fix]
+type = "unsafe"
+description = "Use: echo 'string' | cmd or printf '%s' 'string' | cmd"
+posix = "unsafe"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [redir_noclobber]
 category = "syntax"
 feature = "redirect_noclobber_override"
@@ -295,6 +303,14 @@ message = "Process substitution is not portable"
 suggestion = "Use named pipes or temp files for POSIX compatibility"
 pattern = "<\\([^)]+\\)"
 
+[redir_process_sub_in.fix]
+type = "manual"
+description = "Use named pipes (mkfifo) or temp files"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [redir_process_sub_out]
 category = "syntax"
 feature = "process_substitution"
@@ -311,3 +327,11 @@ severity = "warning"
 message = "Process substitution is not portable"
 suggestion = "Use named pipes or temp files for POSIX compatibility"
 pattern = ">\\([^)]+\\)"
+
+[redir_process_sub_out.fix]
+type = "manual"
+description = "Use named pipes (mkfifo) or tee with temp files"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"

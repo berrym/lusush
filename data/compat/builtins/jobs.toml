@@ -69,6 +69,14 @@ message = "jobs -r is not portable"
 suggestion = "bash/zsh specific"
 pattern = "\\bjobs\\s+-r\\b"
 
+[jobs_r.fix]
+type = "unsafe"
+description = "Use 'jobs' and filter output for POSIX"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [jobs_s]
 category = "builtins"
 feature = "jobs_stopped"
@@ -85,6 +93,14 @@ severity = "warning"
 message = "jobs -s is not portable"
 suggestion = "bash/zsh specific"
 pattern = "\\bjobs\\s+-s\\b"
+
+[jobs_s.fix]
+type = "unsafe"
+description = "Use 'jobs' and filter output for POSIX"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
 
 [fg_basic]
 category = "builtins"
@@ -154,6 +170,14 @@ message = "wait -n is not portable"
 suggestion = "bash 4.3+ specific"
 pattern = "\\bwait\\s+-n\\b"
 
+[wait_n.fix]
+type = "manual"
+description = "No POSIX equivalent; restructure job management"
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
+
 [wait_p]
 category = "builtins"
 feature = "wait_pid"
@@ -170,6 +194,14 @@ severity = "warning"
 message = "wait -p is not portable"
 suggestion = "bash 5.1+ specific"
 pattern = "\\bwait\\s+-p\\b"
+
+[wait_p.fix]
+type = "manual"
+description = "No POSIX equivalent; use $! to track PIDs manually"
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
 
 [disown_basic]
 category = "builtins"
@@ -188,6 +220,15 @@ message = "disown is not portable"
 suggestion = "bash/zsh specific; use nohup for POSIX"
 pattern = "\\bdisown\\b"
 
+[disown_basic.fix]
+type = "unsafe"
+description = "Use 'nohup' command for POSIX job detachment"
+replacement = "nohup"
+posix = "unsafe"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [disown_h]
 category = "builtins"
 feature = "disown_nohup"
@@ -204,6 +245,15 @@ severity = "warning"
 message = "disown -h is not portable"
 suggestion = "Use nohup command for POSIX"
 pattern = "\\bdisown\\s+-h\\b"
+
+[disown_h.fix]
+type = "unsafe"
+description = "Use 'nohup' to run command immune to hangups"
+replacement = "nohup"
+posix = "unsafe"
+bash = "none"
+zsh = "none"
+lush = "none"
 
 [kill_basic]
 category = "builtins"

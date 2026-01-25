@@ -18,6 +18,13 @@ message = "Brace expansion is not portable"
 suggestion = "Not in POSIX; braces are literal in POSIX sh"
 pattern = "\\{[^{}]+,[^{}]+\\}"
 
+[brace_basic.fix]
+# No simple POSIX equivalent; must enumerate explicitly
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [brace_sequence]
 category = "expansion"
 feature = "brace_sequence"
@@ -34,6 +41,13 @@ severity = "warning"
 message = "Brace sequence is not portable"
 suggestion = "Use seq command for POSIX compatibility"
 pattern = "\\{[0-9]+\\.\\.[0-9]+\\}"
+
+[brace_sequence.fix]
+# {1..10} -> $(seq 1 10) requires parsing numbers
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
 
 [brace_sequence_step]
 category = "expansion"
@@ -52,6 +66,13 @@ message = "Brace sequence with step is not portable"
 suggestion = "bash 4.0+ and zsh; use seq for portability"
 pattern = "\\{[0-9]+\\.\\.[0-9]+\\.\\.[0-9]+\\}"
 
+[brace_sequence_step.fix]
+# {1..10..2} -> $(seq 1 2 10) requires parsing
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [brace_alpha]
 category = "expansion"
 feature = "brace_alpha_sequence"
@@ -68,6 +89,13 @@ severity = "warning"
 message = "Alphabetic sequence is not portable"
 suggestion = "Not in POSIX; no simple portable alternative"
 pattern = "\\{[a-zA-Z]\\.\\.[a-zA-Z]\\}"
+
+[brace_alpha.fix]
+# No portable equivalent for alphabetic sequences
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
 
 [brace_nested]
 category = "expansion"
@@ -86,6 +114,12 @@ message = "Nested brace expansion is not portable"
 suggestion = "Not in POSIX"
 pattern = "\\{[^{}]*\\{[^{}]+\\}[^{}]*\\}"
 
+[brace_nested.fix]
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [brace_preamble]
 category = "expansion"
 feature = "brace_preamble"
@@ -103,6 +137,12 @@ message = "Brace with preamble is not portable"
 suggestion = "Not in POSIX"
 pattern = "[a-zA-Z0-9_]+\\{[^{}]+\\}[a-zA-Z0-9_]+"
 
+[brace_preamble.fix]
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [brace_zero_pad]
 category = "expansion"
 feature = "brace_zero_pad"
@@ -119,3 +159,10 @@ severity = "warning"
 message = "Zero-padded sequence is not portable"
 suggestion = "bash 4.0+ and zsh; use seq -w for portability"
 pattern = "\\{0[0-9]+\\.\\.[0-9]+\\}"
+
+[brace_zero_pad.fix]
+# {01..10} -> $(seq -w 1 10) requires parsing
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"

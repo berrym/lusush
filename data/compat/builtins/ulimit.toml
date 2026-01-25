@@ -52,6 +52,14 @@ message = "ulimit -n is not strictly POSIX"
 suggestion = "Widely supported but not in POSIX"
 pattern = "\\bulimit\\s+-n\\b"
 
+[ulimit_n.fix]
+type = "manual"
+description = "Widely supported extension; consider if portability needed"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [ulimit_u]
 category = "builtins"
 feature = "ulimit_nproc"
@@ -68,6 +76,14 @@ severity = "warning"
 message = "ulimit -u is not POSIX"
 suggestion = "bash/zsh extension"
 pattern = "\\bulimit\\s+-u\\b"
+
+[ulimit_u.fix]
+type = "manual"
+description = "No POSIX equivalent for process limits"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
 
 [ulimit_a]
 category = "builtins"
@@ -86,6 +102,14 @@ message = "ulimit -a is not POSIX"
 suggestion = "Widely supported extension"
 pattern = "\\bulimit\\s+-a\\b"
 
+[ulimit_a.fix]
+type = "manual"
+description = "No POSIX equivalent for listing all limits"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [ulimit_H]
 category = "builtins"
 feature = "ulimit_hard"
@@ -103,6 +127,14 @@ message = "ulimit -H is not POSIX"
 suggestion = "bash/zsh extension for hard limits"
 pattern = "\\bulimit\\s+[^;]*-H\\b"
 
+[ulimit_H.fix]
+type = "manual"
+description = "Hard/soft limit distinction not in POSIX"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [ulimit_S]
 category = "builtins"
 feature = "ulimit_soft"
@@ -119,3 +151,11 @@ severity = "warning"
 message = "ulimit -S is not POSIX"
 suggestion = "bash/zsh extension for soft limits"
 pattern = "\\bulimit\\s+[^;]*-S\\b"
+
+[ulimit_S.fix]
+type = "manual"
+description = "Hard/soft limit distinction not in POSIX"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"

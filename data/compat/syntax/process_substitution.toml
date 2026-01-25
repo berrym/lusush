@@ -41,6 +41,14 @@ message = "Process substitution >() is not portable to POSIX sh"
 suggestion = "Use pipes or temporary files"
 pattern = ">\\([^)]+\\)"
 
+[process_substitution_output.fix]
+type = "manual"
+description = "Use named pipes (mkfifo) or tee with temp files"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [process_substitution_diff]
 category = "syntax"
 feature = "process_substitution"

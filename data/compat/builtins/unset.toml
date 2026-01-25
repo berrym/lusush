@@ -69,6 +69,14 @@ message = "unset -n is not portable"
 suggestion = "Nameref unset is bash-specific"
 pattern = "\\bunset\\s+-n\\b"
 
+[unset_n.fix]
+type = "manual"
+description = "Namerefs are bash-specific; restructure without namerefs"
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
+
 [unset_array_element]
 category = "builtins"
 feature = "unset_array_element"
@@ -85,3 +93,11 @@ severity = "warning"
 message = "Unsetting array elements is not portable"
 suggestion = "Arrays are not in POSIX; zsh uses 1-based indexing"
 pattern = "\\bunset\\s+[A-Za-z_][A-Za-z0-9_]*\\["
+
+[unset_array_element.fix]
+type = "manual"
+description = "Arrays are not in POSIX; restructure code"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"

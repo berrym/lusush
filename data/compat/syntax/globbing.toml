@@ -35,6 +35,13 @@ message = "Extended globbing is not portable"
 suggestion = "Requires bash extglob or zsh KSH_GLOB option"
 pattern = "[?*+@!]\\([^)]+\\)"
 
+[glob_extglob.fix]
+# No simple portable equivalent; requires case or find
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
+
 [glob_globstar]
 category = "syntax"
 feature = "globstar"
@@ -51,6 +58,13 @@ severity = "warning"
 message = "Recursive glob ** is not portable"
 suggestion = "Requires bash 4.0+ with globstar or zsh; use find for portability"
 pattern = "\\*\\*"
+
+[glob_globstar.fix]
+# ** -> find . -type f requires restructuring
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
 
 [glob_nullglob]
 category = "syntax"
@@ -86,6 +100,13 @@ message = "failglob is not portable"
 suggestion = "bash-specific; zsh has NOMATCH by default"
 pattern = "shopt\\s+-s\\s+failglob"
 
+[glob_failglob.fix]
+# shopt -s failglob -> setopt NOMATCH in zsh
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
+
 [glob_dotglob]
 category = "syntax"
 feature = "dotglob"
@@ -103,6 +124,13 @@ message = "dotglob is not portable"
 suggestion = "By default * doesn't match dotfiles; use explicit .* pattern"
 pattern = "shopt\\s+-s\\s+dotglob|setopt.*GLOB_DOTS"
 
+[glob_dotglob.fix]
+# shopt -s dotglob -> setopt GLOB_DOTS in zsh
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
+
 [glob_nocaseglob]
 category = "syntax"
 feature = "nocaseglob"
@@ -119,6 +147,13 @@ severity = "warning"
 message = "Case-insensitive glob is not portable"
 suggestion = "Not in POSIX; must use explicit patterns like [Ff]ile"
 pattern = "shopt\\s+-s\\s+nocaseglob|setopt.*NO_CASE_GLOB"
+
+[glob_nocaseglob.fix]
+# No portable equivalent; must use explicit [Ff] patterns
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
 
 [glob_brace_range]
 category = "syntax"

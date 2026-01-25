@@ -35,6 +35,13 @@ message = "DEBUG trap is not portable"
 suggestion = "DEBUG trap is bash/zsh specific, not available in POSIX sh"
 pattern = "\\btrap\\s+[^;]+\\s+DEBUG\\b"
 
+[trap_debug.fix]
+# No POSIX equivalent for DEBUG trap
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [trap_err]
 category = "builtins"
 feature = "trap_err"
@@ -52,6 +59,13 @@ message = "ERR trap is not portable"
 suggestion = "Use explicit error checking for POSIX compatibility; zsh uses ZERR"
 pattern = "\\btrap\\s+[^;]+\\s+ERR\\b"
 
+[trap_err.fix]
+# No POSIX equivalent; zsh uses ZERR
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
+
 [trap_return]
 category = "builtins"
 feature = "trap_return"
@@ -68,6 +82,13 @@ severity = "warning"
 message = "RETURN trap is not portable"
 suggestion = "RETURN trap is bash/zsh specific"
 pattern = "\\btrap\\s+[^;]+\\s+RETURN\\b"
+
+[trap_return.fix]
+# No POSIX equivalent for RETURN trap
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
 
 [trap_exit]
 category = "builtins"

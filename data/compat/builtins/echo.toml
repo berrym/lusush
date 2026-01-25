@@ -17,6 +17,15 @@ message = "echo escape sequences behave differently across shells"
 suggestion = "Use printf for portable escape sequence handling"
 pattern = "echo\\s+(['\"])?.*\\\\[nrtabfv\\\\]"
 
+[echo_escape_sequences.fix]
+type = "unsafe"
+description = "Use printf '%b\\n' for portable escape handling"
+replacement = "printf '%b\\n' "
+posix = "unsafe"
+bash = "unsafe"
+zsh = "none"
+lush = "none"
+
 [echo_n_flag]
 category = "builtin"
 feature = "echo"

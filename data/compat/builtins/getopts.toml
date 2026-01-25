@@ -69,6 +69,15 @@ message = "OPTERR is not portable"
 suggestion = "Use leading colon in optstring for portable error handling"
 pattern = "OPTERR="
 
+[getopts_opterr.fix]
+type = "safe"
+description = "Use leading colon in optstring instead"
+replacement = "getopts :..."
+posix = "safe"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [getopts_silent]
 category = "builtins"
 feature = "getopts_silent"

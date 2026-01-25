@@ -18,6 +18,15 @@ message = "type is not portable"
 suggestion = "Use 'command -v' for portable command lookup"
 pattern = "\\btype\\s+[^|&;]"
 
+[type_basic.fix]
+type = "safe"
+description = "Use 'command -v' for POSIX-compliant lookup"
+replacement = "command -v"
+posix = "safe"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [type_a]
 category = "builtins"
 feature = "type_all"
@@ -34,6 +43,14 @@ severity = "warning"
 message = "type -a is not portable"
 suggestion = "bash/zsh specific; no direct POSIX equivalent"
 pattern = "\\btype\\s+[^;]*-a\\b"
+
+[type_a.fix]
+type = "manual"
+description = "No POSIX equivalent for listing all matches"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
 
 [type_t]
 category = "builtins"
@@ -52,6 +69,14 @@ message = "type -t is not portable"
 suggestion = "bash specific; zsh uses 'whence -w'"
 pattern = "\\btype\\s+[^;]*-t\\b"
 
+[type_t.fix]
+type = "manual"
+description = "bash uses type -t; zsh uses 'whence -w'"
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
+
 [type_p]
 category = "builtins"
 feature = "type_path"
@@ -68,6 +93,15 @@ severity = "warning"
 message = "type -p is not portable"
 suggestion = "Use 'command -v' for portable path lookup"
 pattern = "\\btype\\s+[^;]*-p\\b"
+
+[type_p.fix]
+type = "safe"
+description = "Use 'command -v' for portable path lookup"
+replacement = "command -v"
+posix = "safe"
+bash = "none"
+zsh = "none"
+lush = "none"
 
 [type_P]
 category = "builtins"
@@ -86,6 +120,15 @@ message = "type -P is bash specific"
 suggestion = "Not available in zsh; use 'command -v' for portability"
 pattern = "\\btype\\s+[^;]*-P\\b"
 
+[type_P.fix]
+type = "safe"
+description = "Use 'command -v' for portable path lookup"
+replacement = "command -v"
+posix = "safe"
+bash = "none"
+zsh = "safe"
+lush = "none"
+
 [type_f]
 category = "builtins"
 feature = "type_no_function"
@@ -102,3 +145,11 @@ severity = "warning"
 message = "type -f is not portable"
 suggestion = "bash/zsh specific option"
 pattern = "\\btype\\s+[^;]*-f\\b"
+
+[type_f.fix]
+type = "manual"
+description = "No POSIX equivalent for skipping functions"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"

@@ -42,6 +42,14 @@ message = "Array indexing is not portable to POSIX sh"
 suggestion = "Use positional parameters with shift/set"
 pattern = "\\$\\{[a-zA-Z_][a-zA-Z0-9_]*\\[[^]]+\\]\\}"
 
+[array_index_access.fix]
+type = "manual"
+description = "Arrays not in POSIX; use positional params with set/shift"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [array_index_base]
 category = "syntax"
 feature = "arrays"
@@ -59,6 +67,14 @@ message = "Array index base differs between bash (0) and zsh (1)"
 suggestion = "Use ${arr[0]} for bash/lush, ${arr[1]} for zsh"
 pattern = "\\$\\{[a-zA-Z_][a-zA-Z0-9_]*\\[0\\]\\}"
 
+[array_index_base.fix]
+type = "manual"
+description = "Index base differs; zsh uses 1-based, bash uses 0-based"
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
+
 [array_all_elements]
 category = "syntax"
 feature = "arrays"
@@ -75,6 +91,14 @@ severity = "warning"
 message = "Array expansion is not portable to POSIX sh"
 pattern = "\\$\\{[a-zA-Z_][a-zA-Z0-9_]*\\[[@*]\\]\\}"
 
+[array_all_elements.fix]
+type = "manual"
+description = "Use \"$@\" with positional params for POSIX"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [array_length]
 category = "syntax"
 feature = "arrays"
@@ -90,6 +114,14 @@ lush = "Returns number of elements in array"
 severity = "warning"
 message = "Array length syntax is not portable to POSIX sh"
 pattern = "\\$\\{#[a-zA-Z_][a-zA-Z0-9_]*\\[[@*]\\]\\}"
+
+[array_length.fix]
+type = "manual"
+description = "Use $# with positional params for POSIX"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
 
 [associative_arrays]
 category = "syntax"

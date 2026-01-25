@@ -18,6 +18,15 @@ message = "builtin is not portable"
 suggestion = "Use 'command' for POSIX; builtin is bash/zsh specific"
 pattern = "\\bbuiltin\\s+[a-z]"
 
+[builtin_basic.fix]
+type = "unsafe"
+description = "command has different semantics than builtin"
+replacement = "command"
+posix = "unsafe"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [enable_basic]
 category = "builtins"
 feature = "enable"
@@ -34,6 +43,14 @@ severity = "warning"
 message = "enable is not portable"
 suggestion = "bash specific"
 pattern = "\\benable\\b"
+
+[enable_basic.fix]
+type = "manual"
+description = "No POSIX equivalent for enabling/disabling builtins"
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
 
 [enable_n]
 category = "builtins"
@@ -52,6 +69,14 @@ message = "enable -n is bash specific"
 suggestion = "zsh uses 'disable' builtin"
 pattern = "\\benable\\s+-n\\b"
 
+[enable_n.fix]
+type = "manual"
+description = "zsh uses 'disable' builtin; no POSIX equivalent"
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
+
 [enable_f]
 category = "builtins"
 feature = "enable_load"
@@ -68,3 +93,11 @@ severity = "warning"
 message = "enable -f is bash specific"
 suggestion = "zsh uses zmodload for loadable modules"
 pattern = "\\benable\\s+-f\\b"
+
+[enable_f.fix]
+type = "manual"
+description = "zsh uses 'zmodload'; no POSIX equivalent"
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"

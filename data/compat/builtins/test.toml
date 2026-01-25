@@ -28,6 +28,13 @@ message = "-nt and -ot are not POSIX portable"
 suggestion = "Use find -newer or stat for portable file time comparison"
 pattern = "\\[\\s+.*\\s+-[no]t\\s+"
 
+[test_file_newer.fix]
+# No simple replacement; requires find or stat
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [test_file_ef]
 category = "builtin"
 feature = "test"
@@ -44,6 +51,13 @@ severity = "warning"
 message = "-ef is not POSIX portable"
 suggestion = "Use stat or ls -i for portable inode comparison"
 pattern = "\\[\\s+.*\\s+-ef\\s+"
+
+[test_file_ef.fix]
+# Requires stat command for portable equivalent
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
 
 [test_var_set]
 category = "builtin"
@@ -62,6 +76,14 @@ message = "[ -v var ] is bash 4.2+ specific"
 suggestion = "Use [ -n \"${var+x}\" ] for portable variable existence test"
 pattern = "\\[\\s+-v\\s+[a-zA-Z_]"
 
+[test_var_set.fix]
+# [ -v var ] -> [ -n "${var+x}" ] is a safe transformation
+posix = "unsafe"
+bash = "none"
+zsh = "unsafe"
+lush = "none"
+replacement = "[ -n \"${%s+x}\" ]"
+
 [test_regex]
 category = "builtin"
 feature = "test"
@@ -78,6 +100,13 @@ severity = "warning"
 message = "Regex matching requires [[ ]] and is not POSIX"
 suggestion = "Use grep or expr for portable regex matching"
 pattern = "\\[\\[.*=~"
+
+[test_regex.fix]
+# Regex requires grep/expr rewrite
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
 
 [test_string_order]
 category = "builtin"
@@ -96,6 +125,13 @@ message = "String comparison < > requires escaping in [ ]"
 suggestion = "Use [[ ]] or case statement for portable string ordering"
 pattern = "\\[\\s+.*[<>].*\\]"
 
+[test_string_order.fix]
+# Complex rewrite to expr or case
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [test_and_or]
 category = "builtin"
 feature = "test"
@@ -112,6 +148,13 @@ severity = "warning"
 message = "[ -a ] and [ -o ] are deprecated and problematic"
 suggestion = "Use [ cond1 ] && [ cond2 ] instead of [ cond1 -a cond2 ]"
 pattern = "\\[\\s+.*\\s+-[ao]\\s+"
+
+[test_and_or.fix]
+# [ a -a b ] -> [ a ] && [ b ] requires parsing expressions
+posix = "manual"
+bash = "manual"
+zsh = "manual"
+lush = "manual"
 
 [test_parens]
 category = "builtin"

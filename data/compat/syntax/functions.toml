@@ -61,6 +61,14 @@ message = "local is not strictly POSIX"
 suggestion = "local is widely available but not in POSIX; variables are global by default"
 pattern = "\\blocal\\s+"
 
+[func_local.fix]
+type = "manual"
+description = "local is widely supported; remove if strict POSIX needed"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [func_return]
 category = "syntax"
 feature = "function_return"
@@ -112,6 +120,14 @@ message = "Nameref is not portable"
 suggestion = "bash 4.3+; use eval for portable pass-by-reference"
 pattern = "\\b(declare|local)\\s+-n\\b"
 
+[func_nameref.fix]
+type = "manual"
+description = "Use eval for indirect access: eval \"$ref=value\""
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
+
 [func_compound]
 category = "syntax"
 feature = "function_compound"
@@ -146,6 +162,14 @@ message = "Function export is not portable"
 suggestion = "bash-specific; zsh uses autoload/FPATH"
 pattern = "\\bexport\\s+-f\\b"
 
+[func_export.fix]
+type = "manual"
+description = "No POSIX equivalent; define functions in child scripts"
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
+
 [func_autoload]
 category = "syntax"
 feature = "function_autoload"
@@ -163,6 +187,14 @@ message = "autoload is zsh-specific"
 suggestion = "zsh feature; bash sources functions explicitly"
 pattern = "\\bautoload\\b"
 
+[func_autoload.fix]
+type = "manual"
+description = "Use explicit sourcing: . /path/to/function"
+posix = "manual"
+bash = "manual"
+zsh = "none"
+lush = "none"
+
 [func_anonymous]
 category = "syntax"
 feature = "anonymous_function"
@@ -179,3 +211,11 @@ severity = "warning"
 message = "Anonymous functions are zsh-specific"
 suggestion = "zsh feature; use named function or subshell in bash"
 pattern = "^\\s*\\(\\)\\s*\\{"
+
+[func_anonymous.fix]
+type = "manual"
+description = "Use subshell (cmd) or named function"
+posix = "manual"
+bash = "manual"
+zsh = "none"
+lush = "none"

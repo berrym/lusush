@@ -17,6 +17,13 @@ message = ";& case fallthrough is not portable to POSIX sh"
 suggestion = "Restructure case statement or use nested if"
 pattern = ";\\s*&\\s*$"
 
+[case_fallthrough_single.fix]
+# Requires restructuring case statement
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [case_fallthrough_test]
 category = "syntax"
 feature = "case_fallthrough"
@@ -34,6 +41,13 @@ message = ";;& case fallthrough with testing is not portable to POSIX sh"
 suggestion = "Use multiple patterns or restructure logic"
 pattern = ";;\\s*&\\s*$"
 
+[case_fallthrough_test.fix]
+# Requires restructuring case statement
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [select_loop]
 category = "syntax"
 feature = "select_loop"
@@ -50,6 +64,13 @@ severity = "warning"
 message = "select loop is not portable to POSIX sh"
 suggestion = "Implement menu with while loop and read"
 pattern = "select\\s+[a-zA-Z_][a-zA-Z0-9_]*\\s+in"
+
+[select_loop.fix]
+# Requires while loop + read implementation
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
 
 [time_keyword]
 category = "syntax"
@@ -100,6 +121,13 @@ message = "coproc is not portable to POSIX sh"
 suggestion = "Use named pipes (mkfifo) for IPC"
 pattern = "^\\s*coproc\\s+"
 
+[coproc.fix]
+# Requires mkfifo-based IPC implementation
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
+
 [arithmetic_for]
 category = "syntax"
 feature = "arithmetic_for"
@@ -116,6 +144,13 @@ severity = "warning"
 message = "C-style for loop is not portable to POSIX sh"
 suggestion = "Use: i=0; while [ $i -lt $n ]; do ...; i=$((i+1)); done"
 pattern = "for\\s*\\(\\("
+
+[arithmetic_for.fix]
+# for ((init; cond; incr)) -> init; while [ cond ]; do ...; incr; done
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
 
 [arithmetic_command]
 category = "syntax"
@@ -134,6 +169,13 @@ message = "(( )) as command is not portable to POSIX sh"
 suggestion = "Use [ $(( expr )) -ne 0 ] or test with arithmetic expansion"
 pattern = "^\\s*\\(\\([^)]+\\)\\)"
 
+[arithmetic_command.fix]
+# (( expr )) -> [ $(( expr )) -ne 0 ] changes semantics slightly
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [let_builtin]
 category = "syntax"
 feature = "let_builtin"
@@ -150,3 +192,10 @@ severity = "warning"
 message = "let builtin is not portable to POSIX sh"
 suggestion = "Use : $(( var = expr )) for portable arithmetic assignment"
 pattern = "^\\s*let\\s+"
+
+[let_builtin.fix]
+# let 'var=expr' -> : $(( var = expr ))
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"

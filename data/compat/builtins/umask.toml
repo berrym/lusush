@@ -51,3 +51,12 @@ severity = "warning"
 message = "umask -p is not portable"
 suggestion = "bash/zsh extension"
 pattern = "\\bumask\\s+-p\\b"
+
+[umask_p.fix]
+type = "unsafe"
+description = "Use 'umask' without -p; format output manually"
+replacement = "umask"
+posix = "unsafe"
+bash = "none"
+zsh = "none"
+lush = "none"

@@ -52,6 +52,15 @@ message = "exec -c is not portable"
 suggestion = "Use env -i for portable empty environment"
 pattern = "\\bexec\\s+-c\\b"
 
+[exec_c.fix]
+type = "safe"
+description = "Replace with env -i for empty environment"
+replacement = "env -i"
+posix = "safe"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [exec_l]
 category = "builtins"
 feature = "exec_login"
@@ -69,6 +78,14 @@ message = "exec -l is not portable"
 suggestion = "Login shell flag is bash/zsh specific"
 pattern = "\\bexec\\s+-l\\b"
 
+[exec_l.fix]
+type = "manual"
+description = "No POSIX equivalent; manually set argv[0] with dash prefix"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [exec_a]
 category = "builtins"
 feature = "exec_argv0"
@@ -85,3 +102,11 @@ severity = "warning"
 message = "exec -a is not portable"
 suggestion = "Setting argv[0] is bash/zsh specific"
 pattern = "\\bexec\\s+-a\\b"
+
+[exec_a.fix]
+type = "manual"
+description = "No POSIX equivalent for setting argv[0]"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"

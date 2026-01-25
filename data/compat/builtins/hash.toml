@@ -52,6 +52,15 @@ message = "hash -l is not portable"
 suggestion = "bash/zsh extension"
 pattern = "\\bhash\\s+-l\\b"
 
+[hash_l.fix]
+type = "unsafe"
+description = "Use 'hash' without options for basic listing"
+replacement = "hash"
+posix = "unsafe"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [hash_d]
 category = "builtins"
 feature = "hash_delete"
@@ -69,6 +78,14 @@ message = "hash -d is not portable"
 suggestion = "bash/zsh extension"
 pattern = "\\bhash\\s+-d\\b"
 
+[hash_d.fix]
+type = "unsafe"
+description = "Use 'hash -r' to clear all; no selective delete in POSIX"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [hash_t]
 category = "builtins"
 feature = "hash_show"
@@ -85,3 +102,12 @@ severity = "warning"
 message = "hash -t is not portable"
 suggestion = "bash/zsh extension"
 pattern = "\\bhash\\s+-t\\b"
+
+[hash_t.fix]
+type = "unsafe"
+description = "Use 'command -v' for portable path lookup"
+replacement = "command -v"
+posix = "unsafe"
+bash = "none"
+zsh = "none"
+lush = "none"

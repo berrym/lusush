@@ -69,6 +69,15 @@ message = "$'...' quoting is not portable"
 suggestion = "Use printf for portable escape sequences"
 pattern = "\\$'[^']*'"
 
+[quote_dollar_single.fix]
+type = "unsafe"
+description = "Use printf for portable escape sequences"
+replacement = "$(printf '...')"
+posix = "unsafe"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [quote_dollar_double]
 category = "syntax"
 feature = "quoting_dollar_double"
@@ -85,6 +94,14 @@ severity = "warning"
 message = "$\"...\" quoting is not portable"
 suggestion = "bash/zsh specific locale translation"
 pattern = "\\$\"[^\"]*\""
+
+[quote_dollar_double.fix]
+type = "manual"
+description = "Locale translation requires gettext or similar"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
 
 [quote_backquote]
 category = "syntax"

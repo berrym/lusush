@@ -18,6 +18,14 @@ message = "complete is bash specific"
 suggestion = "zsh uses different completion system (compdef)"
 pattern = "\\bcomplete\\b"
 
+[complete_basic.fix]
+type = "manual"
+description = "Programmable completion systems are shell-specific"
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
+
 [compgen_basic]
 category = "builtins"
 feature = "compgen"
@@ -34,6 +42,14 @@ severity = "warning"
 message = "compgen is bash specific"
 suggestion = "zsh uses different completion primitives"
 pattern = "\\bcompgen\\b"
+
+[compgen_basic.fix]
+type = "manual"
+description = "zsh uses compadd; no POSIX equivalent"
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
 
 [compopt_basic]
 category = "builtins"
@@ -52,6 +68,14 @@ message = "compopt is bash specific"
 suggestion = "bash 4.0+ programmable completion"
 pattern = "\\bcompopt\\b"
 
+[compopt_basic.fix]
+type = "manual"
+description = "Completion options are shell-specific"
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
+
 [complete_F]
 category = "builtins"
 feature = "complete_function"
@@ -68,6 +92,14 @@ severity = "warning"
 message = "complete -F is bash specific"
 suggestion = "zsh uses compdef for function-based completion"
 pattern = "\\bcomplete\\s+[^;]*-F\\b"
+
+[complete_F.fix]
+type = "manual"
+description = "zsh uses 'compdef funcname command'"
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
 
 [complete_W]
 category = "builtins"
@@ -86,6 +118,14 @@ message = "complete -W is bash specific"
 suggestion = "Simple word-based completion"
 pattern = "\\bcomplete\\s+[^;]*-W\\b"
 
+[complete_W.fix]
+type = "manual"
+description = "zsh uses 'compadd' for word lists"
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
+
 [complete_C]
 category = "builtins"
 feature = "complete_command"
@@ -102,3 +142,11 @@ severity = "warning"
 message = "complete -C is bash specific"
 suggestion = "Command-based completion generation"
 pattern = "\\bcomplete\\s+[^;]*-C\\b"
+
+[complete_C.fix]
+type = "manual"
+description = "No direct zsh equivalent; use completion functions"
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"

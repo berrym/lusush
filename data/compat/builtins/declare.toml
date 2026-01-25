@@ -17,6 +17,14 @@ message = "declare/typeset is not POSIX portable"
 suggestion = "Use export for exports, readonly for constants"
 pattern = "^\\s*(declare|typeset)\\s+"
 
+[declare_basic.fix]
+type = "manual"
+description = "Replace with export, readonly, or plain assignment"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [declare_export]
 category = "builtin"
 feature = "declare"
@@ -85,6 +93,14 @@ message = "declare -i is not POSIX portable"
 suggestion = "Use $(( )) arithmetic expansion for portability"
 pattern = "(declare|typeset)\\s+.*-i\\b"
 
+[declare_integer.fix]
+type = "manual"
+description = "Remove -i; use arithmetic expansion $(( )) for math"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [declare_array]
 category = "builtin"
 feature = "declare"
@@ -101,6 +117,14 @@ severity = "warning"
 message = "declare -a is not POSIX portable"
 suggestion = "Use positional parameters or separate variables"
 pattern = "(declare|typeset)\\s+.*-a\\b"
+
+[declare_array.fix]
+type = "manual"
+description = "Arrays not in POSIX; use positional params or separate vars"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
 
 [declare_assoc]
 category = "builtin"
@@ -119,6 +143,14 @@ message = "Associative arrays require bash 4.0+ or zsh"
 suggestion = "Use external tools or naming conventions for portability"
 pattern = "(declare|typeset)\\s+.*-A\\b"
 
+[declare_assoc.fix]
+type = "manual"
+description = "Associative arrays have no POSIX equivalent; restructure"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [declare_lowercase]
 category = "builtin"
 feature = "declare"
@@ -135,6 +167,14 @@ severity = "warning"
 message = "declare -l is bash 4.0+ specific"
 suggestion = "Use tr '[:upper:]' '[:lower:]' for portability"
 pattern = "(declare|typeset)\\s+.*-l\\b"
+
+[declare_lowercase.fix]
+type = "unsafe"
+description = "Assign using: var=$(echo \"$val\" | tr '[:upper:]' '[:lower:]')"
+posix = "unsafe"
+bash = "none"
+zsh = "none"
+lush = "none"
 
 [declare_uppercase]
 category = "builtin"
@@ -153,6 +193,14 @@ message = "declare -u is bash 4.0+ specific"
 suggestion = "Use tr '[:lower:]' '[:upper:]' for portability"
 pattern = "(declare|typeset)\\s+.*-u\\b"
 
+[declare_uppercase.fix]
+type = "unsafe"
+description = "Assign using: var=$(echo \"$val\" | tr '[:lower:]' '[:upper:]')"
+posix = "unsafe"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [declare_nameref]
 category = "builtin"
 feature = "declare"
@@ -169,6 +217,14 @@ severity = "warning"
 message = "declare -n nameref is bash 4.3+ specific"
 suggestion = "Use eval or indirect expansion for portability"
 pattern = "(declare|typeset)\\s+.*-n\\b"
+
+[declare_nameref.fix]
+type = "manual"
+description = "Use eval for indirect access: eval echo \\$$ref"
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
 
 [declare_function]
 category = "builtin"
@@ -218,3 +274,11 @@ severity = "warning"
 message = "declare -g is bash 4.2+ specific"
 suggestion = "Avoid or use explicit global assignment patterns"
 pattern = "(declare|typeset)\\s+.*-g\\b"
+
+[declare_global.fix]
+type = "manual"
+description = "Remove -g and assign outside function scope"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"

@@ -171,6 +171,14 @@ message = "PIPESTATUS is not portable"
 suggestion = "bash uses PIPESTATUS, zsh uses pipestatus (case differs)"
 pattern = "\\$\\{?PIPESTATUS|\\$\\{?pipestatus"
 
+[var_pipestatus.fix]
+type = "manual"
+description = "No POSIX equivalent; use set -o pipefail and $?"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [var_bashpid]
 category = "variables"
 feature = "var_bashpid"
@@ -187,6 +195,15 @@ severity = "warning"
 message = "BASHPID is bash specific"
 suggestion = "Use $$ for POSIX; BASHPID shows actual PID in subshells"
 pattern = "\\$\\{?BASHPID\\}?"
+
+[var_bashpid.fix]
+type = "unsafe"
+description = "Use $$ or sh -c 'echo $$' for subshell PID"
+replacement = "$$"
+posix = "unsafe"
+bash = "none"
+zsh = "unsafe"
+lush = "none"
 
 [var_random]
 category = "variables"
@@ -205,6 +222,14 @@ message = "RANDOM is not portable"
 suggestion = "Use awk or /dev/urandom for POSIX-compatible random"
 pattern = "\\$\\{?RANDOM\\}?"
 
+[var_random.fix]
+type = "unsafe"
+description = "Use awk 'BEGIN{srand();print int(rand()*32768)}'"
+posix = "unsafe"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [var_seconds]
 category = "variables"
 feature = "var_seconds"
@@ -221,6 +246,14 @@ severity = "warning"
 message = "SECONDS is not portable"
 suggestion = "bash/zsh specific; use date for POSIX timing"
 pattern = "\\$\\{?SECONDS\\}?"
+
+[var_seconds.fix]
+type = "unsafe"
+description = "Use date +%s and arithmetic for elapsed time"
+posix = "unsafe"
+bash = "none"
+zsh = "none"
+lush = "none"
 
 [var_lineno]
 category = "variables"
@@ -256,6 +289,14 @@ message = "FUNCNAME is not portable"
 suggestion = "bash uses FUNCNAME, zsh uses funcstack"
 pattern = "\\$\\{?FUNCNAME"
 
+[var_funcname.fix]
+type = "manual"
+description = "No POSIX equivalent; restructure without function introspection"
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
+
 [var_bash_source]
 category = "variables"
 feature = "var_bash_source"
@@ -272,6 +313,14 @@ severity = "warning"
 message = "BASH_SOURCE is bash specific"
 suggestion = "zsh uses different approach"
 pattern = "\\$\\{?BASH_SOURCE"
+
+[var_bash_source.fix]
+type = "manual"
+description = "No POSIX equivalent; use $0 or restructure"
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
 
 [var_pwd]
 category = "variables"

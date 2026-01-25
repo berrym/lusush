@@ -43,6 +43,14 @@ message = "let with multiple expressions is not portable"
 suggestion = "Use separate $(( )) expressions"
 pattern = "\\blet\\s+[^;]+\\s+[^;]+"
 
+[let_multiple.fix]
+type = "manual"
+description = "Split into separate $(( )) expressions"
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [arith_cmd]
 category = "builtins"
 feature = "arithmetic_command"

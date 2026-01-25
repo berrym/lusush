@@ -103,6 +103,14 @@ message = "cd -e is not portable"
 suggestion = "bash-specific option for -P error handling"
 pattern = "\\bcd\\s+[^;]*-e\\b"
 
+[cd_e.fix]
+type = "manual"
+description = "Check pwd after cd -P manually for POSIX"
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
+
 [cd_at]
 category = "builtins"
 feature = "cd_xattr"
@@ -119,6 +127,14 @@ severity = "warning"
 message = "cd -@ is not portable"
 suggestion = "macOS-specific bash option"
 pattern = "\\bcd\\s+[^;]*-@\\b"
+
+[cd_at.fix]
+type = "manual"
+description = "Extended attributes access is platform-specific"
+posix = "manual"
+bash = "manual"
+zsh = "manual"
+lush = "manual"
 
 [cd_tilde]
 category = "builtins"
