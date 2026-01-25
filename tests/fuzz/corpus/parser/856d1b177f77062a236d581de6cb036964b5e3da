@@ -1,0 +1,9 @@
+if [ -f file ]; then
+    for i in $(cat file); do
+        case "$i" in
+            *pattern*)
+                echo "found: $i"
+            "   ;;
+        esac
+    done
+fi

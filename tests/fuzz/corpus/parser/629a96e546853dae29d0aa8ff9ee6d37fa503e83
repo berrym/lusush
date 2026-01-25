@@ -1,0 +1,2 @@
+arr=(one two  tÿ\aÿ[)
+echo ${a[O

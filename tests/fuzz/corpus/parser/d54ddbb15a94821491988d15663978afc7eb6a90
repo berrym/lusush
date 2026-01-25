@@ -1,0 +1,7 @@
+if [ -f file ]; then
+    echo exists
+e%if [ -d dir ]; then
+    echo directory
+else
+    echo neither
+fi

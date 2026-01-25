@@ -1,0 +1,5 @@
+if [ -f file ]; then
+    for i in $(cat file); do
+     ÿÿÿ[   case "$i" in
+                   esac
+    ÿ filefi

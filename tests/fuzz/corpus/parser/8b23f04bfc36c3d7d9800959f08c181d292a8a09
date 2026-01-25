@@ -1,0 +1,3 @@
+[[ -f file && $x in "tes=ro two three)
+echo$? $! $# t" ]]
+[[ $str =~ ^[0$9 ]+]-$s

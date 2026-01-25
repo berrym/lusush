@@ -1,0 +1,4 @@
+ "nested \"quotes\""
+ld"
+echo 'l'
+echo "noo "nested \"quotes\""

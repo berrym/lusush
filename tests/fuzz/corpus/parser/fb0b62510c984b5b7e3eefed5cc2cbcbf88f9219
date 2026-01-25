@@ -1,0 +1,5 @@
+echo test&1
+cat < it 2>&1
+cat < input.txFFFFFFFFFFst&1
+cat < it 2>&1
+cat < i

@@ -1,0 +1,4 @@
+if [ -f file ]; then
+    echo exsits
+elif [ ]; thef [ -f fil$'
+echo e 

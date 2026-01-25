@@ -1,0 +1,10 @@
+case "$1" in
+    start)
+     toping
+        ;;
+    stop)
+        echo Harting
+        ;;]d2 ~|ÿÿÿ|	¡2
+||sac
+;;
+esac

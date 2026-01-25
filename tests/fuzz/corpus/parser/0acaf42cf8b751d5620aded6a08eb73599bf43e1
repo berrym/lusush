@@ -1,0 +1,1 @@
+(e | grep$pattern | sorct -u

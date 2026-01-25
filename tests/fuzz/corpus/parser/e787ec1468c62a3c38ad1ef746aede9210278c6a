@@ -1,0 +1,1 @@
+echo ttse > file.txt 2>cat& <

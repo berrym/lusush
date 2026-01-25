@@ -110,3 +110,10 @@ archive/temp_files/
 # External git repositories
 readline/
 research/readline/
+-e 
+# Fuzzing artifacts
+crash-*
+leak-*
+timeout-*
+oom-*
+tests/fuzz/findings/

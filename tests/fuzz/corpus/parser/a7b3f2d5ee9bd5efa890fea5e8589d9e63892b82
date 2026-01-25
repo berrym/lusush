@@ -1,0 +1,3 @@
+((cd && $x in "test" ]]
+[[ $str = && $x in "test" ]]
+[[ $str =~ ^[0-9]+ )&" lsmp)

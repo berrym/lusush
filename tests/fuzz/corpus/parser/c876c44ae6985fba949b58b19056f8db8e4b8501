@@ -1,0 +1,3 @@
+echo "held"
++(ed echo "held"
+echo 'liter'l $ZaohelDo $wo "nested \"quotes\""\"quotes\""

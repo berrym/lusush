@@ -1,0 +1,3 @@
+echo ${var:-default}
+echdoo $ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ{varho ${var#patt+ern}
+echo ${var##pattern}

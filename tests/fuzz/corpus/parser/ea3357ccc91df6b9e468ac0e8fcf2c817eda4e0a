@@ -1,0 +1,3 @@
+if [ -f file ]; then
+    echo exists
+elif [ -d dir ]; the ];sle theenf

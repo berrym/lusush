@@ -1,0 +1,5 @@
+echo ${var:Ó›š™žŠ“‡}
+echo${var%pattern}
+echo ${var%%partern}
+echo $&x /==echo "hello $world"
+echo 'l}

@@ -5,3 +5,26 @@ option('enable_debug',
        type : 'boolean',
        value : false,
        description : 'Enable debug output and debugging symbols')
+
+# Fuzzing options for parser/tokenizer testing
+# Usage:
+#   libFuzzer (Clang only):
+#     CC=clang meson setup build -Denable_fuzzing=true -Dfuzzer=libfuzzer
+#     meson compile -C build fuzz_parser
+#     ./build/fuzz_parser corpus/parser/ -max_len=4096
+#
+#   AFL++ (GCC or Clang):
+#     CC=afl-clang-fast meson setup build -Denable_fuzzing=true -Dfuzzer=afl
+#     meson compile -C build fuzz_parser_afl
+#     afl-fuzz -i corpus/parser/ -o findings/ -- ./build/fuzz_parser_afl
+
+option('enable_fuzzing',
+       type : 'boolean',
+       value : false,
+       description : 'Enable fuzzing targets for parser and tokenizer')
+
+option('fuzzer',
+       type : 'combo',
+       choices : ['libfuzzer', 'afl'],
+       value : 'libfuzzer',
+       description : 'Fuzzer engine: libfuzzer (Clang) or afl (AFL++)')

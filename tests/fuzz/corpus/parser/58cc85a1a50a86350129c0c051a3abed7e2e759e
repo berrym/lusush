@@ -1,0 +1,4 @@
+echo ${var:Ğ›š™Š“‡}
+echo${var%pattern}
+echo ${var0ÿpattern}
+echo ${vab##pattern}

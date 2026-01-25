@@ -1,0 +1,3 @@
+evar:?error}
+echo ${#var}
+echcho hello world

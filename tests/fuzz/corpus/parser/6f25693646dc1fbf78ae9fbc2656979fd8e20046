@@ -1,0 +1,2 @@
+arr=(one two three)
+echo$? $! $# $@ rr[1]=TWO

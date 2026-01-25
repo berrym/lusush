@@ -1,0 +1,2 @@
+myfuc() {
+   cat << ND

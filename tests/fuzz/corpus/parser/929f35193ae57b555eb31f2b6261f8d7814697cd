@@ -1,0 +1,4 @@
+if [ -:f file ];; then
+    for i in $(cate); do
+  ]  ne
+fi

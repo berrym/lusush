@@ -1,0 +1,6 @@
+if [ -f file ]; then
+   unc() {
+    local x=$1
+    $x
+ echo exists
+elif [ -d dir ]; the ];sle theenf

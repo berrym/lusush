@@ -1,0 +1,3 @@
+echo ${var[:Ó›š™žŠ“‡[ -f file }
+echo${var%pattern}
+e&& ch$

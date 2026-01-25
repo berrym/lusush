@@ -1553,3 +1553,192 @@ endif
 
 # Phase 4: Continuation Prompt Tests
 # ============================================================================
+
+# ============================================================================
+# FUZZING TARGETS
+# ============================================================================
+# Fuzz testing for parser and tokenizer to find edge cases and crashes.
+#
+# Supports two fuzzing engines:
+#   1. libFuzzer (Clang only) - fast, integrated sanitizers
+#   2. AFL++ (GCC or Clang) - coverage-guided, fork server
+#
+# Build examples:
+#   libFuzzer:
+#     CC=clang meson setup build -Denable_fuzzing=true -Dfuzzer=libfuzzer --wipe
+#     meson compile -C build fuzz_parser fuzz_tokenizer
+#
+#   AFL++:
+#     CC=afl-clang-fast meson setup build -Denable_fuzzing=true -Dfuzzer=afl --wipe
+#     meson compile -C build fuzz_parser_afl fuzz_tokenizer_afl
+#
+# Run examples:
+#   libFuzzer:
+#     ./build/fuzz_parser tests/fuzz/corpus/parser/ -max_len=4096
+#
+#   AFL++:
+#     afl-fuzz -i tests/fuzz/corpus/parser/ -o findings/ -- ./build/fuzz_parser_afl
+# ============================================================================
+
+fuzzing_enabled = get_option('enable_fuzzing')
+fuzzer_type = get_option('fuzzer')
+
+if fuzzing_enabled
+  message('Fuzzing enabled with engine: ' + fuzzer_type)
+
+  # Common sources needed for fuzzing (parser + dependencies)
+  # Uses fuzz_stubs.c for minimal implementations of executor/LLE functions
+  fuzz_common_sources = [
+    'src/parser.c',
+    'src/tokenizer.c',
+    'src/node.c',
+    'src/shell_mode.c',
+    'src/shell_error.c',
+    'src/strings.c',
+    'src/globals.c',
+    'src/symtable.c',
+    'src/libhashtable/ht.c',
+    'src/libhashtable/ht_fnv1a.c',
+    'src/libhashtable/ht_strstr.c',
+    'tests/fuzz/fuzz_stubs.c',
+  ]
+
+  if fuzzer_type == 'libfuzzer'
+    # ========================================================================
+    # libFuzzer targets (Clang only)
+    # ========================================================================
+    # Requires: CC=clang and -fsanitize=fuzzer
+    # libFuzzer provides its own main(), so we just define LLVMFuzzerTestOneInput
+    #
+    # Installation:
+    #   macOS: brew install llvm && use /opt/homebrew/opt/llvm/bin/clang
+    #   Linux: apt install clang libfuzzer-X-dev (or install full LLVM)
+    #   Fedora: dnf install clang compiler-rt
+
+    # Check that we're using Clang
+    if cc.get_id() != 'clang'
+      error('libFuzzer requires Clang. Use CC=clang or switch to -Dfuzzer=afl')
+    endif
+
+    # Detect LLVM installation path for proper libc++ linking
+    # Homebrew installs to /usr/local/opt/llvm (Intel) or /opt/homebrew/opt/llvm (ARM)
+    llvm_prefix = ''
+    llvm_libcxx_path = ''
+
+    # Try to find LLVM prefix from compiler path
+    compiler_path = cc.cmd_array()[0]
+    if compiler_path.contains('/llvm/')
+      # Extract prefix (e.g., /usr/local/opt/llvm from /usr/local/opt/llvm/bin/clang)
+      # Remove /bin/clang* from the end to get the prefix
+      if compiler_path.contains('/bin/clang')
+        # Find the /bin/ part and take everything before it
+        llvm_prefix = compiler_path.split('/bin/')[0]
+        llvm_libcxx_path = llvm_prefix / 'lib' / 'c++'
+      endif
+    endif
+
+    # Check common Homebrew paths if not found from compiler
+    if llvm_libcxx_path == ''
+      foreach prefix : ['/usr/local/opt/llvm', '/opt/homebrew/opt/llvm']
+        test_path = prefix / 'lib' / 'c++'
+        if fs.is_dir(test_path)
+          llvm_prefix = prefix
+          llvm_libcxx_path = test_path
+          break
+        endif
+      endforeach
+    endif
+
+    # Build link args - need libc++ path on macOS with Homebrew LLVM
+    fuzz_link_args = ['-fsanitize=fuzzer,address,undefined']
+    fuzz_rpath = ''
+    if host_machine.system() == 'darwin' and llvm_libcxx_path != ''
+      fuzz_link_args += ['-L' + llvm_libcxx_path]
+      fuzz_rpath = llvm_libcxx_path
+      message('Using LLVM libc++ from: ' + llvm_libcxx_path)
+    endif
+
+    # Check if libFuzzer runtime is available by testing a link
+    fuzzer_test_code = '''
+    #include <stdint.h>
+    #include <stddef.h>
+    int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) { return 0; }
+    '''
+    has_libfuzzer = cc.links(fuzzer_test_code,
+                             args: fuzz_link_args,
+                             name: 'libFuzzer runtime')
+
+    if not has_libfuzzer
+      error('libFuzzer runtime not found. Options:\n' +
+            '  macOS: Install LLVM via Homebrew:\n' +
+            '    brew install llvm\n' +
+            '    CC=/usr/local/opt/llvm/bin/clang meson setup build -Denable_fuzzing=true\n' +
+            '    (Use /opt/homebrew/opt/llvm/bin/clang on Apple Silicon)\n' +
+            '  Linux: Install compiler-rt or libfuzzer package:\n' +
+            '    Debian/Ubuntu: apt install libfuzzer-14-dev (adjust version)\n' +
+            '    Fedora: dnf install compiler-rt\n' +
+            '  Alternative: Use AFL++ instead:\n' +
+            '    meson setup build -Denable_fuzzing=true -Dfuzzer=afl')
+    endif
+
+    # Fuzzer compile args: coverage instrumentation + sanitizers
+    fuzz_args = [
+      '-fsanitize=fuzzer,address,undefined',
+      '-fno-omit-frame-pointer',
+      '-g',
+    ]
+
+    # Parser fuzzer (libFuzzer)
+    fuzz_parser = executable('fuzz_parser',
+                             'tests/fuzz/fuzz_parser.c',
+                             fuzz_common_sources,
+                             include_directories: inc,
+                             c_args: fuzz_args,
+                             link_args: fuzz_link_args,
+                             build_rpath: fuzz_rpath,
+                             build_by_default: false)
+
+    # Tokenizer fuzzer (libFuzzer)
+    fuzz_tokenizer = executable('fuzz_tokenizer',
+                                'tests/fuzz/fuzz_tokenizer.c',
+                                fuzz_common_sources,
+                                include_directories: inc,
+                                c_args: fuzz_args,
+                                link_args: fuzz_link_args,
+                                build_rpath: fuzz_rpath,
+                                build_by_default: false)
+
+    message('libFuzzer targets: fuzz_parser, fuzz_tokenizer')
+
+  elif fuzzer_type == 'afl'
+    # ========================================================================
+    # AFL++ targets (GCC or Clang)
+    # ========================================================================
+    # Requires: CC=afl-clang-fast or CC=afl-gcc-fast
+    # AFL++ instruments via compiler wrapper, we provide main() via FUZZ_AFL_MAIN
+
+    # AFL compile args: define FUZZ_AFL_MAIN to enable main() wrapper
+    afl_args = [
+      '-DFUZZ_AFL_MAIN',
+      '-g',
+    ]
+
+    # Parser fuzzer (AFL++)
+    fuzz_parser_afl = executable('fuzz_parser_afl',
+                                 'tests/fuzz/fuzz_parser.c',
+                                 fuzz_common_sources,
+                                 include_directories: inc,
+                                 c_args: afl_args,
+                                 build_by_default: false)
+
+    # Tokenizer fuzzer (AFL++)
+    fuzz_tokenizer_afl = executable('fuzz_tokenizer_afl',
+                                    'tests/fuzz/fuzz_tokenizer.c',
+                                    fuzz_common_sources,
+                                    include_directories: inc,
+                                    c_args: afl_args,
+                                    build_by_default: false)
+
+    message('AFL++ targets: fuzz_parser_afl, fuzz_tokenizer_afl')
+  endif
+endif

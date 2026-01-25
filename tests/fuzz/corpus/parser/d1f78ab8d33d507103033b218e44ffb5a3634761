@@ -1,0 +1,3 @@
+[[ -f file && "test"ã]]
+[.txt 3>cat& $! $
+ ]$s

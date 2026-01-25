@@ -1,0 +1,3 @@
+echo "hello $world"
+ech'literal $dollar'
+echo "nested \"quotes\""

@@ -1,0 +1,3 @@
+[[ -f file  &$&x /==echo "hello $world"
+echo 'literal $dollar'
+echo "neste "test"d

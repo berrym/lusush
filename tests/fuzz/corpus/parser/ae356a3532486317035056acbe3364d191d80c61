@@ -1,0 +1,7 @@
+echo test > file.txt 2>&1
+cat < input.txFFFFFFFFFFFFFFFFFFFFFFFFFFFt >> outputecho ${var:Ó›š™Š“‡.tx}
+echo${var%pattern}
+echo ${var%%partern}
+echo ${vartÿpattern}
+
+echo ${vab

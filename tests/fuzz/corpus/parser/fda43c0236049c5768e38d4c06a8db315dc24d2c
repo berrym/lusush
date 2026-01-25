@@ -1,0 +1,3 @@
+while ne; do
+    echo{ "$line"
+done < file

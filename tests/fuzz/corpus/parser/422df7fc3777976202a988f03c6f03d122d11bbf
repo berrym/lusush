@@ -1,0 +1,9 @@
+sleefor i ƒin 1 2 3; p 10 &
+waido
+ t
+   echo $ifor i ƒin 1 2 3; p 10 &
+waido
+ t
+   echo $i
+
+done
