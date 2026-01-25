@@ -673,3 +673,507 @@ const char *fixer_result_string(fixer_result_t result) {
     default:               return "Unknown error";
     }
 }
+
+/* ============================================================================
+ * Interactive Fix Mode
+ * ============================================================================ */
+
+/**
+ * @brief Get the line content at a given line number
+ */
+static const char *get_line_at(const char *content, int line_num,
+                                size_t *line_len) {
+    const char *p = content;
+    int current = 1;
+    
+    while (*p && current < line_num) {
+        if (*p == '\n') {
+            current++;
+        }
+        p++;
+    }
+    
+    if (current != line_num) {
+        if (line_len) *line_len = 0;
+        return NULL;
+    }
+    
+    const char *end = strchr(p, '\n');
+    if (!end) {
+        end = p + strlen(p);
+    }
+    
+    if (line_len) {
+        *line_len = (size_t)(end - p);
+    }
+    return p;
+}
+
+fixer_result_t fixer_interactive_init(fixer_interactive_t *session,
+                                       fixer_context_t *ctx,
+                                       const fixer_options_t *options) {
+    if (!session || !ctx) {
+        return FIXER_ERR_NOMEM;
+    }
+    
+    memset(session, 0, sizeof(*session));
+    session->ctx = ctx;
+    
+    if (options) {
+        session->options = *options;
+    }
+    
+    /* Allocate accepted flags array */
+    if (ctx->count > 0) {
+        session->accepted = calloc(ctx->count, sizeof(bool));
+        if (!session->accepted) {
+            return FIXER_ERR_NOMEM;
+        }
+    }
+    
+    session->current = 0;
+    session->apply_all = false;
+    session->aborted = false;
+    
+    return FIXER_OK;
+}
+
+void fixer_interactive_cleanup(fixer_interactive_t *session) {
+    if (!session) {
+        return;
+    }
+    
+    free(session->accepted);
+    memset(session, 0, sizeof(*session));
+}
+
+bool fixer_interactive_next(fixer_interactive_t *session,
+                            const fixer_fix_t **fix) {
+    if (!session || !session->ctx || !fix) {
+        return false;
+    }
+    
+    /* Find next applicable fix */
+    while (session->current < session->ctx->count) {
+        const fixer_fix_t *f = &session->ctx->fixes[session->current];
+        
+        /* Skip manual fixes - they can't be auto-applied */
+        if (f->type == FIX_TYPE_MANUAL) {
+            session->current++;
+            continue;
+        }
+        
+        /* Skip unsafe if not included */
+        if (f->type == FIX_TYPE_UNSAFE && !session->options.include_unsafe) {
+            session->current++;
+            continue;
+        }
+        
+        /* Skip fixes without replacement */
+        if (!f->replacement) {
+            session->current++;
+            continue;
+        }
+        
+        *fix = f;
+        return true;
+    }
+    
+    return false;
+}
+
+void fixer_interactive_respond(fixer_interactive_t *session,
+                               fixer_response_t response) {
+    if (!session || session->current >= session->ctx->count) {
+        return;
+    }
+    
+    switch (response) {
+    case FIXER_RESPONSE_YES:
+        session->accepted[session->current] = true;
+        session->current++;
+        break;
+        
+    case FIXER_RESPONSE_NO:
+        session->accepted[session->current] = false;
+        session->current++;
+        break;
+        
+    case FIXER_RESPONSE_ALL:
+        /* Accept current and all remaining applicable fixes */
+        session->apply_all = true;
+        for (size_t i = session->current; i < session->ctx->count; i++) {
+            const fixer_fix_t *f = &session->ctx->fixes[i];
+            if (f->type == FIX_TYPE_MANUAL) {
+                continue;
+            }
+            if (f->type == FIX_TYPE_UNSAFE && !session->options.include_unsafe) {
+                continue;
+            }
+            if (f->replacement) {
+                session->accepted[i] = true;
+            }
+        }
+        session->current = session->ctx->count; /* End the loop */
+        break;
+        
+    case FIXER_RESPONSE_QUIT:
+        session->aborted = true;
+        session->current = session->ctx->count; /* End the loop */
+        break;
+        
+    case FIXER_RESPONSE_DIFF:
+    case FIXER_RESPONSE_HELP:
+        /* These don't advance - handled by caller */
+        break;
+    }
+}
+
+fixer_result_t fixer_interactive_apply(fixer_interactive_t *session,
+                                        char **output,
+                                        size_t *fixes_applied) {
+    if (!session || !session->ctx || !output) {
+        return FIXER_ERR_NOMEM;
+    }
+    
+    /* Count accepted fixes */
+    size_t accepted_count = 0;
+    for (size_t i = 0; i < session->ctx->count; i++) {
+        if (session->accepted[i]) {
+            accepted_count++;
+        }
+    }
+    
+    if (accepted_count == 0) {
+        /* No fixes to apply - return original content */
+        *output = strdup(session->ctx->content);
+        if (!*output) {
+            return FIXER_ERR_NOMEM;
+        }
+        if (fixes_applied) *fixes_applied = 0;
+        return FIXER_OK;
+    }
+    
+    /* Sort fixes in reverse order for application */
+    qsort(session->ctx->fixes, session->ctx->count,
+          sizeof(fixer_fix_t), compare_fixes_reverse);
+    
+    /* We need to re-map accepted flags after sort - but since we sorted
+     * by match_start descending, we need to track which fixes were accepted
+     * by their original index. For simplicity, we'll apply all accepted
+     * fixes based on the match_start position. */
+    
+    /* Start with a copy of the original */
+    size_t buf_size = session->ctx->content_len * 2 + 1;
+    char *working = malloc(buf_size);
+    if (!working) {
+        return FIXER_ERR_NOMEM;
+    }
+    memcpy(working, session->ctx->content, session->ctx->content_len + 1);
+    size_t working_len = session->ctx->content_len;
+    
+    size_t applied = 0;
+    
+    for (size_t i = 0; i < session->ctx->count; i++) {
+        if (!session->accepted[i]) {
+            continue;
+        }
+        
+        fixer_fix_t *fix = &session->ctx->fixes[i];
+        
+        if (!fix->replacement || fix->match_start >= working_len) {
+            continue;
+        }
+        
+        /* Apply replacement */
+        size_t repl_len = strlen(fix->replacement);
+        size_t new_len = working_len - fix->match_length + repl_len;
+        
+        /* Make room if needed */
+        if (new_len >= buf_size) {
+            buf_size = new_len * 2;
+            char *new_working = realloc(working, buf_size);
+            if (!new_working) {
+                free(working);
+                return FIXER_ERR_NOMEM;
+            }
+            working = new_working;
+        }
+        
+        /* Shift tail */
+        size_t tail_start = fix->match_start + fix->match_length;
+        size_t tail_len = working_len - tail_start;
+        memmove(working + fix->match_start + repl_len,
+                working + tail_start, tail_len + 1);
+        
+        /* Insert replacement */
+        memcpy(working + fix->match_start, fix->replacement, repl_len);
+        working_len = new_len;
+        
+        applied++;
+    }
+    
+    *output = working;
+    if (fixes_applied) *fixes_applied = applied;
+    
+    return FIXER_OK;
+}
+
+void fixer_print_fix_interactive(const fixer_context_t *ctx,
+                                 const fixer_fix_t *fix,
+                                 size_t index, size_t total) {
+    if (!ctx || !fix) {
+        return;
+    }
+    
+    const char *path = ctx->script_path ? ctx->script_path : "<stdin>";
+    
+    /* Fix type indicator */
+    const char *type_str;
+    const char *type_color;
+    switch (fix->type) {
+    case FIX_TYPE_SAFE:
+        type_str = "safe";
+        type_color = "\033[32m"; /* Green */
+        break;
+    case FIX_TYPE_UNSAFE:
+        type_str = "unsafe";
+        type_color = "\033[33m"; /* Yellow */
+        break;
+    default:
+        type_str = "fix";
+        type_color = "\033[0m";
+        break;
+    }
+    
+    printf("\n");
+    printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+    printf("Fix %zu/%zu [%s%s\033[0m] %s:%d\n",
+           index, total, type_color, type_str, path, fix->line);
+    printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+    
+    /* Show the message */
+    if (fix->message) {
+        printf("\n  %s\n", fix->message);
+    }
+    
+    /* Show the line context */
+    size_t line_len = 0;
+    const char *line = get_line_at(ctx->content, fix->line, &line_len);
+    
+    if (line && line_len > 0) {
+        printf("\n  \033[31m- %.*s\033[0m\n", (int)line_len, line);
+        
+        /* Show the replacement in context */
+        if (fix->replacement && fix->column > 0) {
+            /* Reconstruct the line with the fix applied */
+            int col = fix->column - 1;
+            if (col >= 0 && (size_t)col < line_len) {
+                printf("  \033[32m+ %.*s%s%.*s\033[0m\n",
+                       col, line,
+                       fix->replacement,
+                       (int)(line_len - col - fix->match_length),
+                       line + col + fix->match_length);
+            }
+        }
+    }
+    
+    printf("\n");
+}
+
+void fixer_print_interactive_help(void) {
+    printf("\nInteractive fix commands:\n");
+    printf("  y - Yes, apply this fix\n");
+    printf("  n - No, skip this fix\n");
+    printf("  a - Apply All remaining fixes\n");
+    printf("  q - Quit (apply accepted fixes so far)\n");
+    printf("  d - show Diff for this fix\n");
+    printf("  ? - show this help\n");
+    printf("\n");
+}
+
+fixer_response_t fixer_read_response(void) {
+    printf("Apply this fix? [y/n/a/q/d/?] ");
+    fflush(stdout);
+    
+    char buf[32];
+    if (!fgets(buf, sizeof(buf), stdin)) {
+        return FIXER_RESPONSE_QUIT;
+    }
+    
+    /* Handle just Enter as 'yes' */
+    if (buf[0] == '\n') {
+        return FIXER_RESPONSE_YES;
+    }
+    
+    switch (buf[0]) {
+    case 'y':
+    case 'Y':
+        return FIXER_RESPONSE_YES;
+        
+    case 'n':
+    case 'N':
+        return FIXER_RESPONSE_NO;
+        
+    case 'a':
+    case 'A':
+        return FIXER_RESPONSE_ALL;
+        
+    case 'q':
+    case 'Q':
+        return FIXER_RESPONSE_QUIT;
+        
+    case 'd':
+    case 'D':
+        return FIXER_RESPONSE_DIFF;
+        
+    case '?':
+    case 'h':
+    case 'H':
+        return FIXER_RESPONSE_HELP;
+        
+    default:
+        printf("Unknown command '%c'. Press '?' for help.\n", buf[0]);
+        return fixer_read_response(); /* Retry */
+    }
+}
+
+int fixer_run_interactive(fixer_context_t *ctx,
+                          const fixer_options_t *options,
+                          const char *script_path) {
+    if (!ctx || !options) {
+        return -1;
+    }
+    
+    /* Count applicable fixes */
+    size_t applicable = 0;
+    for (size_t i = 0; i < ctx->count; i++) {
+        const fixer_fix_t *f = &ctx->fixes[i];
+        if (f->type == FIX_TYPE_MANUAL) continue;
+        if (f->type == FIX_TYPE_UNSAFE && !options->include_unsafe) continue;
+        if (!f->replacement) continue;
+        applicable++;
+    }
+    
+    if (applicable == 0) {
+        printf("No automatic fixes available.\n");
+        return 0;
+    }
+    
+    printf("\nInteractive fix mode: %zu fix(es) available\n", applicable);
+    printf("Press '?' for help\n");
+    
+    /* Initialize session */
+    fixer_interactive_t session;
+    if (fixer_interactive_init(&session, ctx, options) != FIXER_OK) {
+        fprintf(stderr, "Failed to initialize interactive session\n");
+        return -1;
+    }
+    
+    /* Process each fix */
+    const fixer_fix_t *fix;
+    size_t fix_index = 0;
+    
+    while (fixer_interactive_next(&session, &fix)) {
+        fix_index++;
+        
+        /* Show the fix */
+        fixer_print_fix_interactive(ctx, fix, fix_index, applicable);
+        
+        /* Get user response */
+        fixer_response_t response;
+        do {
+            response = fixer_read_response();
+            
+            if (response == FIXER_RESPONSE_HELP) {
+                fixer_print_interactive_help();
+            } else if (response == FIXER_RESPONSE_DIFF) {
+                /* Show just this fix as a diff */
+                printf("\n");
+                if (fix->original && fix->replacement) {
+                    printf("  @@ -%d,%d +%d,%d @@\n",
+                           fix->line, 1, fix->line, 1);
+                    printf("  - %s\n", fix->original);
+                    printf("  + %s\n", fix->replacement);
+                }
+                printf("\n");
+            }
+        } while (response == FIXER_RESPONSE_HELP ||
+                 response == FIXER_RESPONSE_DIFF);
+        
+        fixer_interactive_respond(&session, response);
+    }
+    
+    /* Count accepted */
+    size_t accepted = 0;
+    for (size_t i = 0; i < ctx->count; i++) {
+        if (session.accepted[i]) {
+            accepted++;
+        }
+    }
+    
+    if (accepted == 0) {
+        printf("\nNo fixes applied.\n");
+        fixer_interactive_cleanup(&session);
+        return 0;
+    }
+    
+    /* Apply accepted fixes */
+    printf("\nApplying %zu fix(es)...\n", accepted);
+    
+    char *fixed_content = NULL;
+    size_t applied = 0;
+    
+    fixer_result_t result = fixer_interactive_apply(&session, &fixed_content,
+                                                     &applied);
+    
+    if (result != FIXER_OK) {
+        fprintf(stderr, "Failed to apply fixes: %s\n",
+                fixer_result_string(result));
+        fixer_interactive_cleanup(&session);
+        return -1;
+    }
+    
+    /* Verify syntax if requested */
+    if (options->verify_syntax && fixed_content) {
+        if (!fixer_verify_syntax(fixed_content, options->target)) {
+            fprintf(stderr,
+                "ERROR: Fixed script has syntax errors, not applying\n");
+            free(fixed_content);
+            fixer_interactive_cleanup(&session);
+            return -1;
+        }
+    }
+    
+    /* Write to file if not dry run */
+    if (!options->dry_run && script_path && fixed_content) {
+        result = fixer_write_file(script_path, fixed_content,
+                                   options->create_backup);
+        if (result != FIXER_OK) {
+            fprintf(stderr, "Failed to write fixed file: %s\n",
+                    fixer_result_string(result));
+            free(fixed_content);
+            fixer_interactive_cleanup(&session);
+            return -1;
+        }
+        
+        printf("Applied %zu fix(es) to %s\n", applied, script_path);
+        if (options->create_backup) {
+            printf("Backup saved to %s.bak\n", script_path);
+        }
+    } else if (options->dry_run) {
+        printf("\nDry run - would apply %zu fix(es):\n", applied);
+        /* Show diff */
+        if (fixed_content && ctx->content) {
+            printf("--- %s\n", script_path ? script_path : "<stdin>");
+            printf("+++ %s (fixed)\n", script_path ? script_path : "<stdin>");
+            /* Simple diff output */
+            printf("%s", fixed_content);
+        }
+    }
+    
+    free(fixed_content);
+    fixer_interactive_cleanup(&session);
+    
+    return (int)applied;
+}

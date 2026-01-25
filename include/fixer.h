@@ -288,4 +288,126 @@ void fixer_print_fixes(const fixer_context_t *ctx, bool include_unsafe);
  */
 const char *fixer_result_string(fixer_result_t result);
 
+/* ============================================================================
+ * Interactive Fix Mode
+ * ============================================================================ */
+
+/**
+ * @brief User response for interactive fix mode
+ */
+typedef enum {
+    FIXER_RESPONSE_YES,      /**< Apply this fix */
+    FIXER_RESPONSE_NO,       /**< Skip this fix */
+    FIXER_RESPONSE_ALL,      /**< Apply all remaining fixes */
+    FIXER_RESPONSE_QUIT,     /**< Stop and apply accepted fixes */
+    FIXER_RESPONSE_DIFF,     /**< Show diff for this fix */
+    FIXER_RESPONSE_HELP,     /**< Show help */
+} fixer_response_t;
+
+/**
+ * @brief Interactive fix session state
+ */
+typedef struct {
+    fixer_context_t *ctx;       /**< Fixer context */
+    fixer_options_t options;    /**< Fix options */
+    bool *accepted;             /**< Array of accepted fix flags */
+    size_t current;             /**< Current fix index */
+    bool apply_all;             /**< Apply all remaining without prompting */
+    bool aborted;               /**< Session was aborted */
+} fixer_interactive_t;
+
+/**
+ * @brief Initialize interactive fix session
+ *
+ * @param session Session state to initialize
+ * @param ctx Fixer context with collected fixes
+ * @param options Fix options
+ * @return FIXER_OK on success, error code on failure
+ */
+fixer_result_t fixer_interactive_init(fixer_interactive_t *session,
+                                       fixer_context_t *ctx,
+                                       const fixer_options_t *options);
+
+/**
+ * @brief Clean up interactive session
+ *
+ * @param session Session to clean up
+ */
+void fixer_interactive_cleanup(fixer_interactive_t *session);
+
+/**
+ * @brief Get next fix to present to user
+ *
+ * @param session Interactive session
+ * @param fix Output: next fix (not owned)
+ * @return true if there's a fix to present, false if done
+ */
+bool fixer_interactive_next(fixer_interactive_t *session,
+                            const fixer_fix_t **fix);
+
+/**
+ * @brief Process user response for current fix
+ *
+ * @param session Interactive session
+ * @param response User's response
+ */
+void fixer_interactive_respond(fixer_interactive_t *session,
+                               fixer_response_t response);
+
+/**
+ * @brief Apply accepted fixes from interactive session
+ *
+ * @param session Interactive session
+ * @param output Output pointer for fixed content (caller must free)
+ * @param fixes_applied Output: number of fixes applied
+ * @return FIXER_OK on success, error code on failure
+ */
+fixer_result_t fixer_interactive_apply(fixer_interactive_t *session,
+                                        char **output,
+                                        size_t *fixes_applied);
+
+/**
+ * @brief Print a single fix with context for interactive review
+ *
+ * Shows the fix location, original code, proposed change, and
+ * the fix description in a user-friendly format.
+ *
+ * @param ctx Fixer context
+ * @param fix Fix to display
+ * @param index Fix number (1-based, for display)
+ * @param total Total number of fixes
+ */
+void fixer_print_fix_interactive(const fixer_context_t *ctx,
+                                 const fixer_fix_t *fix,
+                                 size_t index, size_t total);
+
+/**
+ * @brief Print interactive mode help
+ */
+void fixer_print_interactive_help(void);
+
+/**
+ * @brief Read user response in interactive mode
+ *
+ * Reads a single character response from the user.
+ *
+ * @return User response
+ */
+fixer_response_t fixer_read_response(void);
+
+/**
+ * @brief Run interactive fix session
+ *
+ * High-level function that runs the full interactive session,
+ * prompting the user for each fix and applying accepted changes.
+ *
+ * @param ctx Fixer context with collected fixes
+ * @param options Fix options
+ * @param script_path Path to script (for writing)
+ * @return Number of fixes applied, or -1 on error
+ */
+int fixer_run_interactive(fixer_context_t *ctx,
+                          const fixer_options_t *options,
+                          const char *script_path);
+
 #endif /* FIXER_H */

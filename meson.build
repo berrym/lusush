@@ -1508,5 +1508,26 @@ if fs.exists('tests/unit/test_prompt_layer.c')
        timeout: 30)
 endif
 
+# ============================================================================
+# Fixer Module Tests
+# Tests auto-fix linter: context lifecycle, fix collection, application, interactive mode
+if fs.exists('tests/unit/test_fixer.c')
+  test_fixer_sources = []
+  foreach s : src
+    if not s.endswith('lush.c')
+      test_fixer_sources += s
+    endif
+  endforeach
+  test_fixer = executable('test_fixer',
+                          'tests/unit/test_fixer.c',
+                          'tests/unit/test_executor_stubs.c',
+                          test_fixer_sources + lle_shell_sources,
+                          include_directories: inc,
+                          dependencies: [lle_dep, libm])
+  test('Fixer Module', test_fixer,
+       suite: 'unit',
+       timeout: 30)
+endif
+
 # Phase 4: Continuation Prompt Tests
 # ============================================================================

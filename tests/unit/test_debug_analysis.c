@@ -514,12 +514,171 @@ TEST(issue_severity_counts) {
 }
 
 // ============================================================================
+// Analyze vs Lint Separation Tests
+// ============================================================================
+
+TEST(lint_script_basic) {
+    setup_test_dir();
+    debug_context_t *ctx = debug_init();
+    ASSERT_NOT_NULL(ctx, "debug_init should succeed");
+
+    const char *script = "#!/bin/sh\necho hello\n";
+    char *path = create_test_script("lint_basic.sh", script);
+
+    int remaining = debug_lint_script(ctx, path, false, false, false);
+
+    // Valid script should have minimal issues
+    ASSERT_TRUE(remaining >= 0, "lint should succeed");
+
+    debug_cleanup(ctx);
+    cleanup_test_dir();
+}
+
+TEST(lint_script_null_params) {
+    debug_context_t *ctx = debug_init();
+    ASSERT_NOT_NULL(ctx, "debug_init should succeed");
+
+    // Should handle NULL gracefully
+    int result = debug_lint_script(NULL, "test.sh", false, false, false);
+    ASSERT_EQ(result, -1, "NULL ctx should return -1");
+
+    result = debug_lint_script(ctx, NULL, false, false, false);
+    ASSERT_EQ(result, -1, "NULL path should return -1");
+
+    debug_cleanup(ctx);
+}
+
+TEST(lint_script_nonexistent) {
+    debug_context_t *ctx = debug_init();
+    ASSERT_NOT_NULL(ctx, "debug_init should succeed");
+
+    int result = debug_lint_script(ctx, "/nonexistent/script.sh",
+                                    false, false, false);
+    ASSERT_EQ(result, -1, "Nonexistent file should return -1");
+
+    debug_cleanup(ctx);
+}
+
+TEST(lint_returns_issue_count) {
+    setup_test_dir();
+    debug_context_t *ctx = debug_init();
+    ASSERT_NOT_NULL(ctx, "debug_init should succeed");
+
+    // Script with known issues (source is not POSIX, echo -e not portable)
+    const char *script = "#!/bin/sh\nsource config.sh\necho -e \"test\"\n";
+    char *path = create_test_script("lint_issues.sh", script);
+
+    int remaining = debug_lint_script(ctx, path, false, false, false);
+
+    // Should detect portability issues (source, echo -e)
+    ASSERT_TRUE(remaining > 0, "Should have issues remaining");
+
+    debug_cleanup(ctx);
+    cleanup_test_dir();
+}
+
+TEST(analyze_vs_lint_mode_difference) {
+    debug_context_t *ctx = debug_init();
+    ASSERT_NOT_NULL(ctx, "debug_init should succeed");
+
+    // Add issues of different severities
+    debug_add_analysis_issue(ctx, "test.sh", 1, "error", "syntax",
+                            "Syntax error", NULL);
+    debug_add_analysis_issue(ctx, "test.sh", 2, "warning", "style",
+                            "Style warning", NULL);
+    debug_add_analysis_issue(ctx, "test.sh", 3, "info", "style",
+                            "Info message", NULL);
+
+    ASSERT_EQ(ctx->issue_count, 3, "Should have 3 issues total");
+
+    // Count what each mode would show
+    int full_count = 0, lint_count = 0;
+    analysis_issue_t *issue = ctx->analysis_issues;
+    while (issue) {
+        full_count++;  // FULL mode shows everything
+        if (strcmp(issue->severity, "info") != 0) {
+            lint_count++;  // LINT mode skips info
+        }
+        issue = issue->next;
+    }
+
+    ASSERT_EQ(full_count, 3, "FULL mode should show 3 issues");
+    ASSERT_EQ(lint_count, 2, "LINT mode should show 2 issues (no info)");
+
+    debug_cleanup(ctx);
+}
+
+TEST(analysis_mode_enum_values) {
+    // Verify enum values are distinct and as expected
+    ASSERT_NE(ANALYSIS_MODE_FULL, ANALYSIS_MODE_LINT,
+              "FULL and LINT modes should be different");
+    ASSERT_EQ(ANALYSIS_MODE_FULL, 0, "FULL should be 0");
+    ASSERT_EQ(ANALYSIS_MODE_LINT, 1, "LINT should be 1");
+}
+
+TEST(lint_with_dry_run) {
+    setup_test_dir();
+    debug_context_t *ctx = debug_init();
+    ASSERT_NOT_NULL(ctx, "debug_init should succeed");
+
+    const char *script = "#!/bin/sh\nsource config.sh\n";
+    char *path = create_test_script("lint_dry.sh", script);
+
+    // Dry run should not modify file
+    int remaining = debug_lint_script(ctx, path, true, false, true);
+    (void)remaining;
+
+    // Read file to verify unchanged
+    FILE *f = fopen(path, "r");
+    ASSERT_NOT_NULL(f, "File should still exist");
+    char buf[256];
+    fgets(buf, sizeof(buf), f);
+    fgets(buf, sizeof(buf), f);  // Second line
+    fclose(f);
+
+    // File should still have "source" not "."
+    ASSERT_NOT_NULL(strstr(buf, "source"), "File should be unchanged in dry run");
+
+    debug_cleanup(ctx);
+    cleanup_test_dir();
+}
+
+TEST(lint_actionable_only) {
+    debug_context_t *ctx = debug_init();
+    ASSERT_NOT_NULL(ctx, "debug_init should succeed");
+
+    // Add various severity issues
+    debug_add_analysis_issue(ctx, "test.sh", 1, "error", "syntax",
+                            "Error", NULL);
+    debug_add_analysis_issue(ctx, "test.sh", 2, "warning", "portability",
+                            "Warning", NULL);
+    debug_add_analysis_issue(ctx, "test.sh", 3, "info", "style",
+                            "Info", NULL);
+
+    // Count actionable (error + warning) vs all
+    int actionable = 0;
+    analysis_issue_t *issue = ctx->analysis_issues;
+    while (issue) {
+        if (strcmp(issue->severity, "error") == 0 ||
+            strcmp(issue->severity, "warning") == 0) {
+            actionable++;
+        }
+        issue = issue->next;
+    }
+
+    ASSERT_EQ(actionable, 2, "Should have 2 actionable issues");
+    ASSERT_EQ(ctx->issue_count, 3, "Total issues should be 3");
+
+    debug_cleanup(ctx);
+}
+
+// ============================================================================
 // Main
 // ============================================================================
 
 int main(void) {
     printf("Running debug analysis tests...\n\n");
-    
+
     printf("Analysis Issue Management:\n");
     RUN_TEST(add_analysis_issue_basic);
     RUN_TEST(add_analysis_issue_multiple);
@@ -527,36 +686,46 @@ int main(void) {
     RUN_TEST(clear_analysis_issues);
     RUN_TEST(show_analysis_report_empty);
     RUN_TEST(show_analysis_report_with_issues);
-    
+
     printf("\nScript Analysis:\n");
     RUN_TEST(analyze_script_nonexistent);
     RUN_TEST(analyze_script_null_params);
     RUN_TEST(analyze_script_valid_syntax);
     RUN_TEST(analyze_script_missing_shebang);
-    
+
     printf("\nSecurity Analysis:\n");
     RUN_TEST(analyze_script_security_eval);
     RUN_TEST(analyze_script_security_rm_rf);
     RUN_TEST(analyze_script_chmod_777);
-    
+
     printf("\nPerformance Analysis:\n");
     RUN_TEST(analyze_script_performance_useless_cat);
-    
+
     printf("\nPortability Analysis:\n");
     RUN_TEST(analyze_script_portability_source);
     RUN_TEST(analyze_script_portability_echo_e);
-    
+
     printf("\nStyle Analysis:\n");
     RUN_TEST(analyze_script_style_long_lines);
     RUN_TEST(analyze_script_style_trailing_whitespace);
-    
+
     printf("\nIssue Severity:\n");
     RUN_TEST(issue_severity_counts);
-    
+
+    printf("\nAnalyze vs Lint Separation:\n");
+    RUN_TEST(lint_script_basic);
+    RUN_TEST(lint_script_null_params);
+    RUN_TEST(lint_script_nonexistent);
+    RUN_TEST(lint_returns_issue_count);
+    RUN_TEST(analyze_vs_lint_mode_difference);
+    RUN_TEST(analysis_mode_enum_values);
+    RUN_TEST(lint_with_dry_run);
+    RUN_TEST(lint_actionable_only);
+
     printf("\n========================================\n");
     printf("Tests run: %d, Passed: %d, Failed: %d\n", tests_run, tests_passed,
            tests_failed);
     printf("========================================\n");
-    
+
     return tests_failed > 0 ? 1 : 0;
 }

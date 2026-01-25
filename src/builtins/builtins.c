@@ -25,6 +25,7 @@
 #include "display/composition_engine.h"
 #include "errors.h"
 #include "executor.h"
+#include "fixer.h"
 #include "ht.h"
 #include "input.h"
 #include "lle/adaptive_terminal_integration.h"
@@ -7569,6 +7570,7 @@ int bin_analyze(int argc, char **argv) {
 int bin_lint(int argc, char **argv) {
     bool strict_mode = false;
     bool fix_mode = false;
+    bool fix_interactive = false;
     bool unsafe_fixes = false;
     bool dry_run = false;
     bool show_diff = false;
@@ -7585,6 +7587,7 @@ int bin_lint(int argc, char **argv) {
             printf("  -t, --target=SHELL  Target shell (posix, bash, zsh)\n");
             printf("  -s, --strict        Treat warnings as errors\n");
             printf("  --fix               Apply safe automatic fixes\n");
+            printf("  --fix-interactive   Interactively approve each fix\n");
             printf("  --unsafe-fixes      Also apply unsafe fixes (implies --fix)\n");
             printf("  --dry-run           Preview fixes without applying\n");
             printf("  --diff              Show unified diff of changes\n");
@@ -7604,6 +7607,8 @@ int bin_lint(int argc, char **argv) {
             strict_mode = true;
         } else if (strcmp(argv[i], "--fix") == 0) {
             fix_mode = true;
+        } else if (strcmp(argv[i], "--fix-interactive") == 0) {
+            fix_interactive = true;
         } else if (strcmp(argv[i], "--unsafe-fixes") == 0) {
             fix_mode = true;
             unsafe_fixes = true;
@@ -7658,14 +7663,57 @@ int bin_lint(int argc, char **argv) {
     /* Enable context so debug_printf works for output */
     debug_enable(ctx, true);
     
-    /* Suppress unused variable warnings - these will be used when fixer
-     * is fully integrated with TOML fix patterns */
+    /* Suppress unused variable warnings */
     (void)show_diff;
-    (void)create_backup;
-    
-    /* Run lint analysis with optional fix */
-    int remaining = debug_lint_script(ctx, script_file, fix_mode, 
+
+    int remaining;
+
+    if (fix_interactive) {
+        /* Interactive fix mode - run analysis first, then interactive fixer */
+        remaining = debug_lint_script(ctx, script_file, false, false, false);
+
+        if (remaining > 0) {
+            /* Load script for interactive fixing */
+            fixer_context_t fixer_ctx;
+            if (fixer_init(&fixer_ctx) == FIXER_OK) {
+                if (fixer_load_file(&fixer_ctx, script_file) == FIXER_OK) {
+                    /* Get target shell */
+                    shell_mode_t target = SHELL_MODE_POSIX;
+                    const char *target_str = compat_get_target();
+                    if (target_str) {
+                        shell_mode_parse(target_str, &target);
+                    }
+
+                    /* Collect fixes */
+                    size_t fixes_found = fixer_collect_fixes(&fixer_ctx, target);
+
+                    if (fixes_found > 0) {
+                        fixer_options_t opts = {
+                            .include_unsafe = unsafe_fixes,
+                            .dry_run = dry_run,
+                            .create_backup = create_backup,
+                            .verify_syntax = true,
+                            .target = target,
+                        };
+
+                        int applied = fixer_run_interactive(&fixer_ctx, &opts,
+                                                             script_file);
+                        if (applied > 0) {
+                            remaining -= applied;
+                            if (remaining < 0) remaining = 0;
+                        }
+                    } else {
+                        printf("No automatic fixes available.\n");
+                    }
+                }
+                fixer_cleanup(&fixer_ctx);
+            }
+        }
+    } else {
+        /* Standard fix mode (automatic or none) */
+        remaining = debug_lint_script(ctx, script_file, fix_mode,
                                        unsafe_fixes, dry_run);
+    }
     
     /* Determine exit code */
     int exit_status = 0;
