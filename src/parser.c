@@ -3317,10 +3317,44 @@ static node_t *parse_case_statement(parser_t *parser) {
         return NULL;
     }
 
-    // Parse the word to test
-    token_t *word_token = tokenizer_current(parser->tokenizer);
-    if (!token_is_word_like(word_token->type) &&
-        word_token->type != TOK_VARIABLE) {
+    // Parse the word to test - collect multiple tokens until 'in'
+    // This handles cases like: case $var in, case :$PATH: in, case "$foo" in
+    char *case_word = NULL;
+    size_t case_word_len = 0;
+
+    while (!tokenizer_match(parser->tokenizer, TOK_IN) &&
+           !tokenizer_match(parser->tokenizer, TOK_EOF) &&
+           !tokenizer_match(parser->tokenizer, TOK_NEWLINE)) {
+
+        token_t *word_token = tokenizer_current(parser->tokenizer);
+
+        // Accept word-like tokens, variables, strings, and colons for case words
+        if (token_is_word_like(word_token->type) ||
+            word_token->type == TOK_VARIABLE ||
+            word_token->type == TOK_STRING ||
+            word_token->type == TOK_EXPANDABLE_STRING) {
+
+            size_t token_len = strlen(word_token->text);
+            char *new_word = realloc(case_word, case_word_len + token_len + 1);
+            if (!new_word) {
+                free(case_word);
+                free_node_tree(case_node);
+                parser_pop_context(parser);
+                return NULL;
+            }
+            case_word = new_word;
+            memcpy(case_word + case_word_len, word_token->text, token_len);
+            case_word_len += token_len;
+            case_word[case_word_len] = '\0';
+
+            tokenizer_advance(parser->tokenizer);
+        } else {
+            break;
+        }
+    }
+
+    if (!case_word || case_word_len == 0) {
+        free(case_word);
         free_node_tree(case_node);
         parser_error_add_with_help(parser, SHELL_ERR_UNEXPECTED_TOKEN,
                          "syntax: case WORD in [PATTERN) COMMANDS ;;]... esac",
@@ -3330,13 +3364,8 @@ static node_t *parse_case_statement(parser_t *parser) {
     }
 
     // Store the test word
-    case_node->val.str = strdup(word_token->text);
+    case_node->val.str = case_word;
     case_node->val_type = VAL_STR;
-    if (!case_node->val.str) {
-        free_node_tree(case_node);
-        return NULL;
-    }
-    tokenizer_advance(parser->tokenizer);
 
     // Skip separators
     skip_separators(parser);
