@@ -325,9 +325,19 @@ executor_t *executor_new_with_symtable(symtable_manager_t *symtable) {
     executor->loop_control = LOOP_NORMAL;
     executor->loop_depth = 0;
     executor->source_depth = 0;
+
+    /* Initialize error context stack (Phase 3) */
+    executor->context_depth = 0;
+    for (size_t i = 0; i < EXECUTOR_CONTEXT_STACK_MAX; i++) {
+        executor->context_stack[i] = NULL;
+        executor->context_locations[i] = SOURCE_LOC_UNKNOWN;
+    }
+
+    /* Initialize process substitution fd tracking */
     executor->procsub_fd_count = 0;
     memset(executor->procsub_fds, -1, sizeof(executor->procsub_fds));
     memset(executor->procsub_pids, 0, sizeof(executor->procsub_pids));
+
     initialize_job_control(executor);
 
     return executor;
