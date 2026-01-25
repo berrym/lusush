@@ -1366,11 +1366,11 @@ int config_execute_system_profile(void) {
     }
 
     // 2. Source /etc/profile if it exists (standard POSIX login config)
-    // Switch to POSIX mode for compatibility with system scripts
-    // (similar to zsh's `emulate -L sh` when sourcing /etc/profile)
+    // Switch to bash mode for compatibility with system scripts
+    // Most /etc/profile.d scripts use bash extensions like [[ ]] and $-
     if (config_script_exists("/etc/profile")) {
         shell_mode_t saved_mode = shell_mode_get();
-        shell_mode_set(SHELL_MODE_POSIX);
+        shell_mode_set(SHELL_MODE_BASH);
         int script_result = config_execute_script_file("/etc/profile");
         shell_mode_set(saved_mode);
         if (script_result != 0) {
@@ -1436,9 +1436,10 @@ int config_execute_system_profile(void) {
         if (scripts && script_count > 0) {
             qsort(scripts, script_count, sizeof(char *), profile_d_compare);
 
-            // Execute each script in POSIX mode for compatibility
+            // Execute each script in bash mode for compatibility
+            // Most profile.d scripts use bash extensions like [[ ]] and $-
             shell_mode_t saved_mode = shell_mode_get();
-            shell_mode_set(SHELL_MODE_POSIX);
+            shell_mode_set(SHELL_MODE_BASH);
             for (size_t i = 0; i < script_count; i++) {
                 if (config_execute_script_file(scripts[i]) != 0) {
                     fprintf(stderr, "lush: warning: error sourcing %s\n",
@@ -1498,11 +1499,12 @@ int config_execute_login_scripts(void) {
     int result = 0;
 
     // Execute .profile if it exists (POSIX standard)
-    // Run in POSIX mode for compatibility with standard shell scripts
+    // Run in bash mode for better compatibility with user scripts
+    // that may use bash extensions
     char *profile_path = config_get_profile_script_path();
     if (profile_path && config_script_exists(profile_path)) {
         shell_mode_t saved_mode = shell_mode_get();
-        shell_mode_set(SHELL_MODE_POSIX);
+        shell_mode_set(SHELL_MODE_BASH);
         int script_result = config_execute_script_file(profile_path);
         shell_mode_set(saved_mode);
         if (script_result != 0) {
