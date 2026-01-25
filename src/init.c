@@ -42,6 +42,7 @@
 #include <errno.h>
 #include <getopt.h>
 #include <locale.h>
+#include <pwd.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -65,6 +66,85 @@ static bool IS_INTERACTIVE_SHELL = false;
 
 static int parse_opts(int argc, char **argv);
 static void usage(int err);
+
+/**
+ * @brief Initialize environment variables for login shells
+ *
+ * Ensures critical environment variables are set for login shells.
+ * Only sets variables if they are not already present in the environment.
+ *
+ * Variables initialized:
+ * - SHELL: Path to the shell executable
+ * - USER: Current username (from getpwuid)
+ * - LOGNAME: Current username (POSIX standard)
+ * - HOME: User's home directory
+ * - PATH: Default path if completely unset
+ *
+ * @param argv0 The shell's argv[0] for determining SHELL path
+ */
+static void init_login_environment(const char *argv0) {
+    struct passwd *pw = getpwuid(getuid());
+
+    // Set SHELL if not already set
+    if (!getenv("SHELL")) {
+        // Try to find our executable path
+        char shell_path[PATH_MAX];
+        if (argv0 && argv0[0] == '/') {
+            // Absolute path provided
+            setenv("SHELL", argv0, 0);
+        } else if (realpath("/proc/self/exe", shell_path) != NULL) {
+            // Linux: use /proc/self/exe
+            setenv("SHELL", shell_path, 0);
+        } else if (pw && pw->pw_shell && pw->pw_shell[0]) {
+            // Fall back to passwd entry
+            setenv("SHELL", pw->pw_shell, 0);
+        } else {
+            // Last resort: assume we're in PATH
+            setenv("SHELL", "lush", 0);
+        }
+        // Also set in symbol table
+        const char *shell = getenv("SHELL");
+        if (shell) {
+            symtable_set_global("SHELL", shell);
+            symtable_export_global("SHELL");
+        }
+    }
+
+    // Set USER if not already set
+    if (!getenv("USER")) {
+        if (pw && pw->pw_name) {
+            setenv("USER", pw->pw_name, 0);
+            symtable_set_global("USER", pw->pw_name);
+            symtable_export_global("USER");
+        }
+    }
+
+    // Set LOGNAME if not already set (POSIX standard)
+    if (!getenv("LOGNAME")) {
+        if (pw && pw->pw_name) {
+            setenv("LOGNAME", pw->pw_name, 0);
+            symtable_set_global("LOGNAME", pw->pw_name);
+            symtable_export_global("LOGNAME");
+        }
+    }
+
+    // Set HOME if not already set
+    if (!getenv("HOME")) {
+        if (pw && pw->pw_dir) {
+            setenv("HOME", pw->pw_dir, 0);
+            symtable_set_global("HOME", pw->pw_dir);
+            symtable_export_global("HOME");
+        }
+    }
+
+    // Set PATH if completely unset (very rare, but handle it)
+    if (!getenv("PATH")) {
+        const char *default_path = "/usr/local/bin:/usr/bin:/bin";
+        setenv("PATH", default_path, 0);
+        symtable_set_global("PATH", default_path);
+        symtable_export_global("PATH");
+    }
+}
 
 /**
  * @brief Ensure safe bottom margin for interactive shell display
@@ -240,6 +320,12 @@ int init(int argc, char **argv, FILE **in) {
 
     // Initialize configuration system
     config_init();
+
+    // Initialize critical environment variables for login shells
+    // This must happen before profile scripts which may depend on them
+    if (IS_LOGIN_SHELL) {
+        init_login_environment(argv[0]);
+    }
 
     // Execute login scripts for login shells
     if (IS_LOGIN_SHELL) {
