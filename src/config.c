@@ -15,6 +15,7 @@
 #include "alias.h"
 #include "autocorrect.h"
 #include "config_registry.h"
+#include "executor.h"
 #include "input.h"
 #include "lle/lle_shell_integration.h"
 #include "lle/unicode_compare.h"
@@ -1300,6 +1301,16 @@ int config_execute_script_file(const char *path) {
         return -1;
     }
 
+    // Track source depth so 'return' builtin works correctly in sourced scripts
+    // Use get_global_executor() since parse_and_execute uses global_executor
+    executor_t *executor = get_global_executor();
+    bool saved_source_return = false;
+    if (executor) {
+        saved_source_return = executor->source_return;
+        executor->source_depth++;
+        executor->source_return = false;
+    }
+
     char *complete_input;
     int result = 0;
 
@@ -1321,6 +1332,17 @@ int config_execute_script_file(const char *path) {
         }
 
         free(complete_input);
+
+        // Check if 'return' was called in the sourced script
+        if (executor && executor->source_return) {
+            break;
+        }
+    }
+
+    // Restore source depth and source_return state
+    if (executor) {
+        executor->source_depth--;
+        executor->source_return = saved_source_return;
     }
 
     fclose(file);
