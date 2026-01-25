@@ -1,0 +1,69 @@
+@test "unquoted variable word splitting"
+@feature FEATURE_WORD_SPLIT_DEFAULT
+@profiles bash zsh lush
+
+# This is a key semantic difference:
+# - bash: word splitting happens by default on parameter expansion
+# - zsh:  word splitting does NOT happen by default on parameter expansion
+# - lush: should follow zsh (safer default) per VISION.md
+#
+# See GitHub issue #21: FEATURE_WORD_SPLIT_DEFAULT not respected
+
+@input
+var="one two three"
+set -- $var
+echo "$#"
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+# bash splits into 3 words
+@expect bash:output "3"
+# zsh keeps as 1 word (no splitting on parameter expansion)
+@expect zsh:output "1"
+# lush should follow zsh default (no splitting)
+@expect lush:output "1"
+
+---
+
+@test "quoted variable no splitting"
+@feature FEATURE_WORD_SPLIT_DEFAULT
+@profiles bash zsh lush
+
+@input
+var="one two three"
+set -- "$var"
+echo "$#"
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+# Quoted expansion - no splitting in any shell
+@expect bash:output "1"
+@expect zsh:output "1"
+@expect lush:output "1"
+
+---
+
+@test "command substitution word splitting"
+@feature FEATURE_WORD_SPLIT_DEFAULT
+@profiles bash zsh lush
+
+# NOTE: zsh DOES split command substitution output by default!
+# The no-split behavior only applies to parameter expansion ($var),
+# not command substitution $(cmd)
+
+@input
+set -- $(echo "a b c")
+echo "$#"
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+# All shells split command substitution output
+@expect bash:output "3"
+@expect zsh:output "3"
+@expect lush:output "3"

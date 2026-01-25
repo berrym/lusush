@@ -1,0 +1,194 @@
+@test "arithmetic command"
+@feature FEATURE_ARITH_COMMAND
+@profiles bash zsh lush
+
+@input
+(( x = 5 + 3 ))
+echo $x
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "8"
+@expect zsh:output "8"
+@expect lush:output "8"
+
+---
+
+@test "arithmetic expansion"
+@feature none
+@profiles bash zsh lush
+
+@input
+echo $(( 2 + 2 ))
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "4"
+@expect zsh:output "4"
+@expect lush:output "4"
+
+---
+
+@test "arithmetic comparison true"
+@feature FEATURE_ARITH_COMMAND
+@profiles bash zsh lush
+
+@input
+(( 5 > 3 )) && echo yes
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "yes"
+@expect zsh:output "yes"
+@expect lush:output "yes"
+
+---
+
+@test "arithmetic comparison false"
+@feature FEATURE_ARITH_COMMAND
+@profiles bash zsh lush
+
+@input
+(( 3 > 5 )) || echo no
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "no"
+@expect zsh:output "no"
+@expect lush:output "no"
+
+---
+
+@test "arithmetic increment"
+@feature FEATURE_ARITH_COMMAND
+@profiles bash zsh lush
+
+@input
+x=5
+(( x++ ))
+echo $x
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "6"
+@expect zsh:output "6"
+@expect lush:output "6"
+
+---
+
+@test "arithmetic decrement"
+@feature FEATURE_ARITH_COMMAND
+@profiles bash zsh lush
+
+@input
+x=5
+(( x-- ))
+echo $x
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "4"
+@expect zsh:output "4"
+@expect lush:output "4"
+
+---
+
+@test "arithmetic compound assignment"
+@feature FEATURE_ARITH_COMMAND
+@profiles bash zsh lush
+
+@input
+x=10
+(( x += 5 ))
+echo $x
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "15"
+@expect zsh:output "15"
+@expect lush:output "15"
+
+---
+
+@test "arithmetic multiplication"
+@feature none
+@profiles bash zsh lush
+
+@input
+echo $(( 6 * 7 ))
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "42"
+@expect zsh:output "42"
+@expect lush:output "42"
+
+---
+
+@test "arithmetic division"
+@feature none
+@profiles bash zsh lush
+
+@input
+echo $(( 20 / 4 ))
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "5"
+@expect zsh:output "5"
+@expect lush:output "5"
+
+---
+
+@test "arithmetic modulo"
+@feature none
+@profiles bash zsh lush
+
+@input
+echo $(( 17 % 5 ))
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "2"
+@expect zsh:output "2"
+@expect lush:output "2"
+
+---
+
+@test "let builtin"
+@feature FEATURE_LET_BUILTIN
+@profiles bash zsh lush
+
+# See GitHub issue #23: let builtin not implemented
+
+@input
+let x=5+3
+echo $x
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "8"
+@expect zsh:output "8"
+@expect lush:output "8"

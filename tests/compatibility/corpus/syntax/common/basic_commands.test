@@ -1,0 +1,126 @@
+@test "simple command"
+@feature none
+@profiles bash zsh lush
+
+@input
+echo hello
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "hello"
+@expect zsh:output "hello"
+@expect lush:output "hello"
+
+---
+
+@test "command with arguments"
+@feature none
+@profiles bash zsh lush
+
+@input
+echo hello world
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+
+---
+
+@test "pipeline"
+@feature none
+@profiles bash zsh lush
+
+@input
+echo hello | cat
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+
+---
+
+@test "command list with semicolon"
+@feature none
+@profiles bash zsh lush
+
+@input
+echo a; echo b
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+
+---
+
+@test "logical AND"
+@feature none
+@profiles bash zsh lush
+
+@input
+true && echo yes
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+
+---
+
+@test "logical OR"
+@feature none
+@profiles bash zsh lush
+
+@input
+false || echo fallback
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+
+---
+
+@test "background job"
+@feature none
+@profiles bash zsh lush
+
+@input
+sleep 1 &
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+
+---
+
+@test "subshell"
+@feature none
+@profiles bash zsh lush
+
+@input
+(echo inside subshell)
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+
+---
+
+@test "brace group"
+@feature none
+@profiles bash zsh lush
+
+@input
+{ echo inside braces; }
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok

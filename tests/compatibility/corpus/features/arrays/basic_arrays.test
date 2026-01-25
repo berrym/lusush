@@ -1,0 +1,126 @@
+@test "array assignment"
+@feature FEATURE_INDEXED_ARRAYS
+@profiles bash zsh lush
+
+@input
+arr=(one two three)
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+
+---
+
+@test "array element access - index 0"
+@feature FEATURE_INDEXED_ARRAYS
+@profiles bash zsh lush
+
+@input
+arr=(a b c)
+echo "${arr[0]}"
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+# Semantic difference: bash/lush are 0-indexed, zsh is 1-indexed by default
+@expect bash:output "a"
+@expect zsh:output ""
+@expect lush:output "a"
+# Lush in zsh profile should behave like zsh
+@expect lush:zsh:output ""
+
+---
+
+@test "array element access - index 1"
+@feature FEATURE_INDEXED_ARRAYS
+@profiles bash zsh lush
+
+@input
+arr=(a b c)
+echo "${arr[1]}"
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+# In bash/lush index 1 is "b", in zsh index 1 is "a"
+@expect bash:output "b"
+@expect zsh:output "a"
+@expect lush:output "b"
+@expect lush:zsh:output "a"
+
+---
+
+@test "array all elements with @"
+@feature FEATURE_INDEXED_ARRAYS
+@profiles bash zsh lush
+
+@input
+arr=(one two three)
+echo "${arr[@]}"
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "one two three"
+@expect zsh:output "one two three"
+@expect lush:output "one two three"
+
+---
+
+@test "array length"
+@feature FEATURE_INDEXED_ARRAYS
+@profiles bash zsh lush
+
+@input
+arr=(a b c d e)
+echo "${#arr[@]}"
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "5"
+@expect zsh:output "5"
+@expect lush:output "5"
+
+---
+
+@test "array append"
+@feature FEATURE_ARRAY_APPEND
+@profiles bash zsh lush
+
+@input
+arr=(a b)
+arr+=(c d)
+echo "${arr[@]}"
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "a b c d"
+@expect zsh:output "a b c d"
+@expect lush:output "a b c d"
+
+---
+
+@test "associative array declaration"
+@feature FEATURE_ASSOCIATIVE_ARRAYS
+@profiles bash zsh lush
+
+@input
+declare -A assoc
+assoc[key]=value
+echo "${assoc[key]}"
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "value"
+@expect zsh:output "value"
+@expect lush:output "value"

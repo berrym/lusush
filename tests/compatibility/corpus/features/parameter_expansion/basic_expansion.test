@@ -1,0 +1,231 @@
+@test "simple variable expansion"
+@feature none
+@profiles bash zsh lush
+
+@input
+var=hello
+echo "$var"
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "hello"
+@expect zsh:output "hello"
+@expect lush:output "hello"
+
+---
+
+@test "default value expansion"
+@feature none
+@profiles bash zsh lush
+
+@input
+unset var
+echo "${var:-default}"
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "default"
+@expect zsh:output "default"
+@expect lush:output "default"
+
+---
+
+@test "assign default value"
+@feature none
+@profiles bash zsh lush
+
+@input
+unset var
+echo "${var:=assigned}"
+echo "$var"
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+
+---
+
+@test "substring expansion"
+@feature FEATURE_SUBSTRING_EXPANSION
+@profiles bash zsh lush
+
+@input
+var=hello
+echo "${var:1:3}"
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "ell"
+@expect zsh:output "ell"
+@expect lush:output "ell"
+
+---
+
+@test "string length"
+@feature none
+@profiles bash zsh lush
+
+@input
+var=hello
+echo "${#var}"
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "5"
+@expect zsh:output "5"
+@expect lush:output "5"
+
+---
+
+@test "pattern substitution single"
+@feature FEATURE_PATTERN_SUBSTITUTION
+@profiles bash zsh lush
+
+@input
+var="hello world"
+echo "${var/world/there}"
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "hello there"
+@expect zsh:output "hello there"
+@expect lush:output "hello there"
+
+---
+
+@test "pattern substitution global"
+@feature FEATURE_PATTERN_SUBSTITUTION
+@profiles bash zsh lush
+
+@input
+var="aaa"
+echo "${var//a/b}"
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "bbb"
+@expect zsh:output "bbb"
+@expect lush:output "bbb"
+
+---
+
+@test "case modification uppercase bash-style"
+@feature FEATURE_CASE_MODIFICATION
+@profiles bash lush
+
+# Note: zsh doesn't support ${var^^} - it uses ${(U)var} instead
+# lush supports both as a superset shell
+
+@input
+var=hello
+echo "${var^^}"
+@end
+
+@expect bash:parse ok
+@expect lush:parse ok
+@expect bash:output "HELLO"
+@expect lush:output "HELLO"
+
+---
+
+@test "case modification lowercase bash-style"
+@feature FEATURE_CASE_MODIFICATION
+@profiles bash lush
+
+# Note: zsh doesn't support ${var,,} - it uses ${(L)var} instead
+# lush supports both as a superset shell
+
+@input
+var=HELLO
+echo "${var,,}"
+@end
+
+@expect bash:parse ok
+@expect lush:parse ok
+@expect bash:output "hello"
+@expect lush:output "hello"
+
+---
+
+@test "prefix removal shortest"
+@feature none
+@profiles bash zsh lush
+
+@input
+var="/path/to/file"
+echo "${var#*/}"
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "path/to/file"
+@expect zsh:output "path/to/file"
+@expect lush:output "path/to/file"
+
+---
+
+@test "prefix removal longest"
+@feature none
+@profiles bash zsh lush
+
+@input
+var="/path/to/file"
+echo "${var##*/}"
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "file"
+@expect zsh:output "file"
+@expect lush:output "file"
+
+---
+
+@test "suffix removal shortest"
+@feature none
+@profiles bash zsh lush
+
+@input
+var="file.tar.gz"
+echo "${var%.*}"
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "file.tar"
+@expect zsh:output "file.tar"
+@expect lush:output "file.tar"
+
+---
+
+@test "suffix removal longest"
+@feature none
+@profiles bash zsh lush
+
+@input
+var="file.tar.gz"
+echo "${var%%.*}"
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "file"
+@expect zsh:output "file"
+@expect lush:output "file"

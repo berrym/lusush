@@ -1,0 +1,64 @@
+@test "process substitution input"
+@feature FEATURE_PROCESS_SUBSTITUTION
+@profiles bash zsh lush
+
+@input
+cat <(echo hello)
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "hello"
+@expect zsh:output "hello"
+@expect lush:output "hello"
+
+---
+
+@test "process substitution output"
+@feature FEATURE_PROCESS_SUBSTITUTION
+@profiles bash zsh lush
+
+@input
+echo test > >(cat)
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+
+---
+
+@test "diff with process substitution"
+@feature FEATURE_PROCESS_SUBSTITUTION
+@profiles bash zsh lush
+
+@input
+diff <(echo a) <(echo a)
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:exit 0
+@expect zsh:exit 0
+@expect lush:exit 0
+
+---
+
+@test "nested process substitution"
+@feature FEATURE_PROCESS_SUBSTITUTION
+@profiles bash zsh lush
+
+# See GitHub issue #22: nested process substitution produces empty output
+
+@input
+cat <(cat <(echo nested))
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "nested"
+@expect zsh:output "nested"
+@expect lush:output "nested"

@@ -1,0 +1,150 @@
+@test "extended test string equality"
+@feature FEATURE_EXTENDED_TEST
+@profiles bash zsh lush
+
+@input
+[[ "hello" == "hello" ]] && echo match
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "match"
+@expect zsh:output "match"
+@expect lush:output "match"
+
+---
+
+@test "extended test string inequality"
+@feature FEATURE_EXTENDED_TEST
+@profiles bash zsh lush
+
+@input
+[[ "hello" != "world" ]] && echo different
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "different"
+@expect zsh:output "different"
+@expect lush:output "different"
+
+---
+
+@test "extended test pattern matching"
+@feature FEATURE_PATTERN_MATCH
+@profiles bash zsh lush
+
+@input
+[[ "hello" == h* ]] && echo pattern
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "pattern"
+@expect zsh:output "pattern"
+@expect lush:output "pattern"
+
+---
+
+@test "extended test regex match"
+@feature FEATURE_REGEX_MATCH
+@profiles bash zsh lush
+
+@input
+[[ "hello123" =~ [0-9]+ ]] && echo hasnum
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "hasnum"
+@expect zsh:output "hasnum"
+@expect lush:output "hasnum"
+
+---
+
+@test "extended test logical and"
+@feature FEATURE_EXTENDED_TEST
+@profiles bash zsh lush
+
+@input
+[[ -n "a" && -n "b" ]] && echo both
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "both"
+@expect zsh:output "both"
+@expect lush:output "both"
+
+---
+
+@test "extended test logical or"
+@feature FEATURE_EXTENDED_TEST
+@profiles bash zsh lush
+
+@input
+[[ -z "" || -n "x" ]] && echo either
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "either"
+@expect zsh:output "either"
+@expect lush:output "either"
+
+---
+
+@test "extended test negation"
+@feature FEATURE_EXTENDED_TEST
+@profiles bash zsh lush
+
+@input
+[[ ! -z "x" ]] && echo notempty
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "notempty"
+@expect zsh:output "notempty"
+@expect lush:output "notempty"
+
+---
+
+@test "extended test grouping"
+@feature FEATURE_EXTENDED_TEST
+@profiles bash zsh lush
+
+@input
+[[ ( -n "a" ) ]] && echo grouped
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "grouped"
+@expect zsh:output "grouped"
+@expect lush:output "grouped"
+
+---
+
+@test "extended test numeric comparison"
+@feature FEATURE_EXTENDED_TEST
+@profiles bash zsh lush
+
+@input
+[[ 5 -gt 3 ]] && echo greater
+@end
+
+@expect bash:parse ok
+@expect zsh:parse ok
+@expect lush:parse ok
+@expect bash:output "greater"
+@expect zsh:output "greater"
+@expect lush:output "greater"
