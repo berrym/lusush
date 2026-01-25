@@ -45,6 +45,14 @@ message = "read -p is bash-specific"
 suggestion = "Use printf '%s' 'prompt: '; read var for portability"
 pattern = "read\\s+.*-p\\b"
 
+[read_prompt.fix]
+# read -p 'prompt' var -> printf 'prompt'; read var
+# Requires multi-statement rewrite, manual intervention
+posix = "manual"
+bash = "none"
+zsh = "manual"
+lush = "none"
+
 [read_timeout]
 category = "builtin"
 feature = "read"

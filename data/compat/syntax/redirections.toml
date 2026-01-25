@@ -137,6 +137,13 @@ message = "&> is not portable"
 suggestion = "Use >file 2>&1 for POSIX compatibility"
 pattern = "&>"
 
+[redir_both.fix]
+# &>file -> >file 2>&1 requires knowing the filename, manual rewrite
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [redir_append_both]
 category = "syntax"
 feature = "redirect_append_both"
@@ -154,6 +161,13 @@ message = "&>> is not portable"
 suggestion = "Use >>file 2>&1 for POSIX compatibility"
 pattern = "&>>"
 
+[redir_append_both.fix]
+# &>>file -> >>file 2>&1 requires knowing the filename, manual rewrite
+posix = "manual"
+bash = "none"
+zsh = "none"
+lush = "none"
+
 [redir_pipe_stderr]
 category = "syntax"
 feature = "redirect_pipe_stderr"
@@ -170,6 +184,14 @@ severity = "warning"
 message = "|& is not portable"
 suggestion = "Use 2>&1 | for POSIX compatibility"
 pattern = "\\|&"
+
+[redir_pipe_stderr.fix]
+# |& -> 2>&1 | is a safe replacement
+posix = "safe"
+bash = "none"
+zsh = "none"
+lush = "none"
+replacement = "2>&1 |"
 
 [redir_here_doc]
 category = "syntax"
