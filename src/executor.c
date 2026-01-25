@@ -2101,41 +2101,52 @@ static int execute_for(executor_t *executor, node_t *for_node) {
                                 }
                             }
                         } else {
-                            // No brace expansion needed - do IFS splitting
-                            // Get IFS for field splitting (default to
-                            // space/tab/newline)
-                            const char *ifs =
-                                symtable_get(executor->symtable, "IFS");
-                            if (!ifs) {
-                                ifs = " \t\n"; // Default IFS
-                            }
-
-                            // Split the expanded string into individual words
-                            char *expanded_copy = strdup(expanded);
-                            char *token = strtok(expanded_copy, ifs);
-
-                            while (token) {
-                                // Resize array if needed
-                                expanded_words =
-                                    realloc(expanded_words,
-                                            (word_count + 1) * sizeof(char *));
-                                if (!expanded_words) {
-                                    set_executor_error(
-                                        executor,
-                                        "Memory allocation failed in for loop");
-                                    free(expanded);
-                                    free(expanded_copy);
-                                    symtable_pop_scope(executor->symtable);
-                                    return 1;
+                            // No brace expansion needed - check if IFS splitting is enabled
+                            if (shell_mode_allows(FEATURE_WORD_SPLIT_DEFAULT)) {
+                                // IFS splitting enabled - split the expanded string
+                                const char *ifs =
+                                    symtable_get(executor->symtable, "IFS");
+                                if (!ifs) {
+                                    ifs = " \t\n"; // Default IFS
                                 }
 
-                                expanded_words[word_count] = strdup(token);
-                                word_count++;
-                                token = strtok(NULL, ifs);
-                            }
+                                // Split the expanded string into individual words
+                                char *expanded_copy = strdup(expanded);
+                                char *token = strtok(expanded_copy, ifs);
 
-                            free(expanded_copy);
-                            free(expanded);
+                                while (token) {
+                                    // Resize array if needed
+                                    expanded_words =
+                                        realloc(expanded_words,
+                                                (word_count + 1) * sizeof(char *));
+                                    if (!expanded_words) {
+                                        set_executor_error(
+                                            executor,
+                                            "Memory allocation failed in for loop");
+                                        free(expanded);
+                                        free(expanded_copy);
+                                        symtable_pop_scope(executor->symtable);
+                                        return 1;
+                                    }
+
+                                    expanded_words[word_count] = strdup(token);
+                                    word_count++;
+                                    token = strtok(NULL, ifs);
+                                }
+
+                                free(expanded_copy);
+                                free(expanded);
+                            } else {
+                                // Word splitting disabled (zsh-style) - keep as single word
+                                expanded_words = realloc(expanded_words,
+                                                         (word_count + 1) * sizeof(char *));
+                                if (expanded_words) {
+                                    expanded_words[word_count] = expanded;
+                                    word_count++;
+                                } else {
+                                    free(expanded);
+                                }
+                            }
                         }
                     }
                 }
@@ -3280,11 +3291,22 @@ static char **build_argv_from_ast(executor_t *executor, node_t *command,
                         free(
                             expanded_arg); // We copied the strings or used them
                     } else {
-                        // Check if this needs field splitting (only for
-                        // variable expansions)
-                        if (child->val.str && child->val.str[0] == '$' &&
-                            child->type != NODE_STRING_LITERAL &&
-                            child->type != NODE_STRING_EXPANDABLE) {
+                        // Check if this needs field splitting
+                        // - Command substitution $(cmd): always split (all shells do this)
+                        // - Parameter expansion $var: only split if FEATURE_WORD_SPLIT_DEFAULT enabled
+                        // - Quoted strings: never split
+                        bool should_word_split = false;
+                        if (child->type == NODE_COMMAND_SUB) {
+                            // Command substitution always gets word split
+                            should_word_split = true;
+                        } else if (child->type == NODE_VAR &&
+                                   shell_mode_allows(FEATURE_WORD_SPLIT_DEFAULT)) {
+                            // Parameter expansion only splits if feature enabled
+                            should_word_split = true;
+                        }
+                        // Quoted strings (NODE_STRING_LITERAL, NODE_STRING_EXPANDABLE) never split
+                        
+                        if (should_word_split) {
 
                             // Get IFS for field splitting
                             const char *ifs =
