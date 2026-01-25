@@ -3457,8 +3457,12 @@ static node_t *parse_case_statement(parser_t *parser) {
         }
         tokenizer_advance(parser->tokenizer);
 
-        // Skip separators
-        skip_separators(parser);
+        // Skip only newlines/whitespace after ), NOT semicolons
+        // (semicolons are case terminators that we need to detect)
+        while (tokenizer_match(parser->tokenizer, TOK_NEWLINE) ||
+               tokenizer_match(parser->tokenizer, TOK_WHITESPACE)) {
+            tokenizer_advance(parser->tokenizer);
+        }
 
         // Parse commands until case terminator (;;, ;&, ;;&) or esac
         node_t *commands = NULL;
@@ -3471,10 +3475,11 @@ static node_t *parse_case_statement(parser_t *parser) {
                 break;
             }
 
-            // Skip only newlines and whitespace, NOT semicolons (preserve
-            // terminators for detection)
+            // Skip newlines, whitespace, and comments, but NOT semicolons
+            // (semicolons are case terminators that we need to detect)
             while (tokenizer_match(parser->tokenizer, TOK_NEWLINE) ||
-                   tokenizer_match(parser->tokenizer, TOK_WHITESPACE)) {
+                   tokenizer_match(parser->tokenizer, TOK_WHITESPACE) ||
+                   tokenizer_match(parser->tokenizer, TOK_COMMENT)) {
                 tokenizer_advance(parser->tokenizer);
             }
 
