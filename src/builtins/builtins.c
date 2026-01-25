@@ -13,6 +13,7 @@
 #include "builtins.h"
 
 #include "alias.h"
+#include "arithmetic.h"
 #include "compat.h"
 #include "dirstack.h"
 #include "config.h"
@@ -77,6 +78,7 @@ int bin_env(int argc, char **argv);
 int bin_analyze(int argc, char **argv);
 int bin_lint(int argc, char **argv);
 int bin_disown(int argc, char **argv);
+int bin_let(int argc, char **argv);
 
 // Forward declarations for POSIX compliance
 bool is_posix_mode_enabled(void);
@@ -178,6 +180,7 @@ builtin builtins[] = {
     {"local", "declare local variables", bin_local},
     {"declare", "declare variables with attributes", bin_declare},
     {"typeset", "declare variables with attributes", bin_declare},
+    {"let", "evaluate arithmetic expressions", bin_let},
     {":", "null command (no-op)", bin_colon},
     {"readonly", "create read-only variables", bin_readonly},
     {"config", "manage shell configuration", bin_config},
@@ -2375,6 +2378,113 @@ int bin_false(int argc, char **argv) {
     (void)argc;
     (void)argv;
     return 1;
+}
+
+/**
+ * @brief Get current source location from executor context stack
+ *
+ * Returns the most recent source location from the executor's context stack,
+ * or SOURCE_LOC_UNKNOWN if no context is available.
+ */
+static source_location_t builtin_get_source_location(void) {
+    if (current_executor && current_executor->context_depth > 0) {
+        return current_executor->context_locations[current_executor->context_depth - 1];
+    }
+    return SOURCE_LOC_UNKNOWN;
+}
+
+/**
+ * @brief Evaluate arithmetic expressions (let builtin)
+ *
+ * Evaluates each argument as an arithmetic expression.
+ * Returns 0 if the last expression evaluates to non-zero,
+ * returns 1 if the last expression evaluates to zero.
+ *
+ * Usage: let expr [expr ...]
+ *
+ * Examples:
+ *   let x=5+3        # Sets x to 8
+ *   let "x += 1"     # Increments x
+ *   let a=1 b=2 c=a+b  # Multiple expressions
+ *
+ * @param argc Argument count
+ * @param argv Argument vector containing arithmetic expressions
+ * @return 0 if last expression is non-zero, 1 if zero or on error
+ */
+int bin_let(int argc, char **argv) {
+    if (argc < 2) {
+        source_location_t loc = builtin_get_source_location();
+        shell_error_t *error = shell_error_create(
+            SHELL_ERR_MISSING_ARGUMENT, SHELL_SEVERITY_ERROR,
+            loc, "missing arithmetic expression");
+        if (error) {
+            /* Add executor context stack if available */
+            if (current_executor) {
+                for (size_t i = 0; i < current_executor->context_depth; i++) {
+                    if (current_executor->context_stack[i]) {
+                        shell_error_push_context(error, "%s",
+                            current_executor->context_stack[i]);
+                    }
+                }
+            }
+            shell_error_push_context(error, "in builtin 'let'");
+            shell_error_set_detail(error, "let requires at least one expression to evaluate");
+            shell_error_set_suggestion(error,
+                "usage: let expr [expr ...]\n"
+                "   examples: let x=5+3    let \"x++\"    let a=1 b=2 c=a+b");
+            shell_error_display(error, stderr, isatty(STDERR_FILENO));
+            shell_error_free(error);
+        }
+        return 1;
+    }
+
+    ssize_t last_result = 0;
+
+    /* Evaluate each argument as an arithmetic expression */
+    for (int i = 1; i < argc; i++) {
+        arithm_clear_error();
+        char *result = arithm_expand(argv[i]);
+
+        if (arithm_error_flag || !result) {
+            const char *err_msg = arithm_get_last_error();
+            source_location_t loc = builtin_get_source_location();
+            shell_error_t *error = shell_error_create(
+                SHELL_ERR_ARITHMETIC_SYNTAX, SHELL_SEVERITY_ERROR,
+                loc, "invalid expression '%s'", argv[i]);
+            if (error) {
+                /* Add executor context stack if available */
+                if (current_executor) {
+                    for (size_t i = 0; i < current_executor->context_depth; i++) {
+                        if (current_executor->context_stack[i]) {
+                            shell_error_push_context(error, "%s",
+                                current_executor->context_stack[i]);
+                        }
+                    }
+                }
+                shell_error_push_context(error, "in builtin 'let'");
+                shell_error_push_context(error, "evaluating argument %d of %d", i, argc - 1);
+                if (err_msg) {
+                    shell_error_set_detail(error, err_msg);
+                }
+                shell_error_set_suggestion(error,
+                    "supported operators: + - * / %% ** ++ -- = += -= *= /= %%=\n"
+                    "   comparisons: == != < > <= >= && || !\n"
+                    "   note: variables don't need $: let x=5 y=x+1");
+                shell_error_display(error, stderr, isatty(STDERR_FILENO));
+                shell_error_free(error);
+            }
+            if (result) {
+                free(result);
+            }
+            return 1;
+        }
+
+        last_result = strtol(result, NULL, 10);
+        free(result);
+    }
+
+    /* Return 0 if last result is non-zero, 1 if zero (bash behavior) */
+    return (last_result == 0) ? 1 : 0;
 }
 
 /**
