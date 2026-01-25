@@ -1,26 +1,26 @@
-#!/usr/bin/env lusush
-# Example .lusush_login script for LUSUSH Shell
-# This file is executed by login shells for lusush-specific login initialization
+#!/usr/bin/env lush
+# Example .lush_login script for Lush Shell
+# This file is executed by login shells for lush-specific login initialization
 # Complements .profile for shell-specific login configuration
 
 # ============================================================================
-# LUSUSH Login Shell Configuration
+# Lush Login Shell Configuration
 # ============================================================================
-# This script runs after .profile but before .lusushrc.sh for login shells
-# Use this for lusush-specific login configuration that shouldn't be in .profile
+# This script runs after .profile but before .lushrc for login shells
+# Use this for lush-specific login configuration that shouldn't be in .profile
 
 # Display login banner
 echo "==============================================="
-echo "  LUSUSH Shell - Modern POSIX-Compliant Shell"
-echo "  Version: $(lusush --version 2>/dev/null || echo 'Development')"
+echo "  Lush Shell - Modern POSIX-Compliant Shell"
+echo "  Version: $(lush --version 2>/dev/null || echo 'Development')"
 echo "  Login: $(date)"
 echo "==============================================="
 
-# Set lusush-specific environment variables
-export LUSUSH_LOGIN_TIME=$(date +%s)
-export LUSUSH_SESSION_ID="lusush_$$_$(date +%s)"
+# Set lush-specific environment variables
+export LUSH_LOGIN_TIME=$(date +%s)
+export LUSH_SESSION_ID="lush_$$_$(date +%s)"
 
-# Configure lusush-specific login settings
+# Configure lush-specific login settings
 if [ -n "$PS1" ]; then
     # Set corporate theme for login shells
     theme set corporate
@@ -50,14 +50,14 @@ if [ -n "$PS1" ]; then
     config set autocorrect_interactive true
 fi
 
-# Load system-wide lusush login configuration
-if [ -f /etc/lusush/login.sh ]; then
-    . /etc/lusush/login.sh
+# Load system-wide lush login configuration
+if [ -f /etc/lush/login.sh ]; then
+    . /etc/lush/login.sh
 fi
 
 # Load user-specific login extensions
-if [ -d "$HOME/.lusush.d/login" ]; then
-    for script in "$HOME/.lusush.d/login"/*.sh; do
+if [ -d "$HOME/.lush.d/login" ]; then
+    for script in "$HOME/.lush.d/login"/*.sh; do
         if [ -r "$script" ]; then
             . "$script"
         fi
@@ -66,7 +66,7 @@ fi
 
 # Set up login-specific aliases
 alias logout='config_execute_logout_scripts; exit'
-alias login-info='echo "Login session: $LUSUSH_SESSION_ID started at $(date -d @$LUSUSH_LOGIN_TIME)"'
+alias login-info='echo "Login session: $LUSH_SESSION_ID started at $(date -d @$LUSH_LOGIN_TIME)"'
 
 # Configure SSH agent if available
 if command -v ssh-agent >/dev/null 2>&1 && [ -z "$SSH_AUTH_SOCK" ]; then
@@ -133,9 +133,9 @@ fi
 # Set up login-specific functions
 login_session_info() {
     echo "Login Session Information:"
-    echo "  Session ID: $LUSUSH_SESSION_ID"
-    echo "  Login Time: $(date -d @$LUSUSH_LOGIN_TIME)"
-    echo "  Session Duration: $(($(date +%s) - $LUSUSH_LOGIN_TIME)) seconds"
+    echo "  Session ID: $LUSH_SESSION_ID"
+    echo "  Login Time: $(date -d @$LUSH_LOGIN_TIME)"
+    echo "  Session Duration: $(($(date +%s) - $LUSH_LOGIN_TIME)) seconds"
     echo "  Current Theme: $(theme info 2>/dev/null | head -1 || echo 'default')"
     echo "  PID: $$"
     echo "  PPID: $PPID"
@@ -151,7 +151,7 @@ fi
 
 # Display welcome message
 if [ -n "$PS1" ]; then
-    echo "Welcome to your LUSUSH login shell session!"
+    echo "Welcome to your Lush login shell session!"
     echo "Type 'login-info' for session information"
     echo "Type 'theme list' to see available themes"
     echo "Type 'config show' to see current configuration"
@@ -160,13 +160,13 @@ fi
 
 # Log login event
 if [ -w "$HOME" ]; then
-    echo "$(date): Login shell started (PID: $$)" >> "$HOME/.lusush_login.log"
+    echo "$(date): Login shell started (PID: $$)" >> "$HOME/.lush_login.log"
 fi
 
 # Set up exit trap for login shells
 cleanup_login() {
     if [ -w "$HOME" ]; then
-        echo "$(date): Login shell ended (PID: $$, Duration: $(($(date +%s) - $LUSUSH_LOGIN_TIME))s)" >> "$HOME/.lusush_login.log"
+        echo "$(date): Login shell ended (PID: $$, Duration: $(($(date +%s) - $LUSH_LOGIN_TIME))s)" >> "$HOME/.lush_login.log"
     fi
 }
 

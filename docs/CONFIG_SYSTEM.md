@@ -62,8 +62,8 @@ Lush uses the XDG Base Directory specification:
 
 ```
 ~/.config/lush/
-├── config.toml          # Main configuration (TOML format)
-└── config.sh            # Optional shell script (sourced after config.toml)
+├── lushrc.toml          # Main configuration (TOML format)
+└── lushrc               # Optional shell script (sourced after lushrc.toml)
 ```
 
 The path respects `$XDG_CONFIG_HOME` if set.
@@ -73,7 +73,7 @@ The path respects `$XDG_CONFIG_HOME` if set.
 The primary configuration file uses TOML format:
 
 ```toml
-# ~/.config/lush/config.toml
+# ~/.config/lush/lushrc.toml
 # Lush Shell Configuration
 
 [shell]
@@ -109,11 +109,11 @@ theme = "default"
 
 ### Optional Shell Script
 
-For advanced configuration that requires shell commands, create `config.sh`:
+For advanced configuration that requires shell commands, create `lushrc`:
 
 ```bash
-# ~/.config/lush/config.sh
-# Sourced after config.toml - for aliases, functions, and complex setup
+# ~/.config/lush/lushrc
+# Sourced after lushrc.toml - for aliases, functions, and complex setup
 
 # Aliases
 alias ll='ls -la'
@@ -181,7 +181,7 @@ Boolean values: `true`, `false`, `on`, `off`, `1`, `0`
 Save current configuration to TOML file:
 
 ```bash
-config save              # Save to ~/.config/lush/config.toml
+config save              # Save to ~/.config/lush/lushrc.toml
 ```
 
 ### config path
@@ -195,7 +195,7 @@ config path
 Output:
 ```
 Configuration paths:
-  User config: /home/user/.config/lush/config.toml
+  User config: /home/user/.config/lush/lushrc.toml
   System config: /etc/lush/lushrc
   XDG directory: /home/user/.config/lush
   Legacy path: /home/user/.lushrc
@@ -208,7 +208,7 @@ Configuration paths:
 Explicitly migrate legacy config to XDG location:
 
 ```bash
-config migrate           # Convert ~/.lushrc to ~/.config/lush/config.toml
+config migrate           # Convert ~/.lushrc to ~/.config/lush/lushrc.toml
 ```
 
 ### config reset
@@ -271,7 +271,7 @@ Options set via `setopt`/`unsetopt` are saved when you run `config save`:
 
 ```bash
 setopt extended_glob
-config save              # Saves to [shell.features] in config.toml
+config save              # Saves to [shell.features] in lushrc.toml
 ```
 
 ---
@@ -405,13 +405,13 @@ If you have an existing `~/.lushrc`:
 
 1. Lush loads it on startup
 2. Displays: `Loading configuration from ~/.lushrc (legacy location)`
-3. Displays: `Run 'config save' to migrate to ~/.config/lush/config.toml`
+3. Displays: `Run 'config save' to migrate to ~/.config/lush/lushrc.toml`
 
 Run `config save` to migrate:
 
 ```bash
 config save
-# Output: Configuration saved to /home/user/.config/lush/config.toml
+# Output: Configuration saved to /home/user/.config/lush/lushrc.toml
 # Output: You may remove the old ~/.lushrc file
 ```
 
@@ -429,9 +429,9 @@ config migrate
 - Shell options → `[shell]` section
 - Feature flags → `[shell.features]` section
 
-### What Stays in config.sh
+### What Stays in lushrc
 
-Move these to `~/.config/lush/config.sh`:
+Move these to `~/.config/lush/lushrc`:
 
 - Aliases
 - Functions
@@ -463,10 +463,10 @@ Move these to `~/.config/lush/config.sh`:
 
 ## Best Practices
 
-### Recommended config.toml
+### Recommended lushrc.toml
 
 ```toml
-# ~/.config/lush/config.toml
+# ~/.config/lush/lushrc.toml
 
 [shell]
 mode = "lush"
@@ -489,10 +489,10 @@ enabled = true
 fuzzy = true
 ```
 
-### Recommended config.sh
+### Recommended lushrc
 
 ```bash
-# ~/.config/lush/config.sh
+# ~/.config/lush/lushrc
 
 # Aliases
 alias ll='ls -la'

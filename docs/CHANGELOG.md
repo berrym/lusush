@@ -35,11 +35,11 @@ Rust-style structured error reporting with source locations, context chains, and
 
 #### Unified Configuration System
 - TOML configuration format replacing legacy INI
-- XDG Base Directory compliance (`~/.config/lush/config.toml`)
+- XDG Base Directory compliance (`~/.config/lush/lushrc.toml`)
 - Config registry with centralized storage and change notification
 - Bidirectional sync between runtime commands and config registry
 - Legacy migration from `~/.lushrc`
-- Two-file config pattern: `config.toml` (declarative) + `config.sh` (power-user escape hatch)
+- Two-file config pattern: `lushrc.toml` (declarative) + `lushrc` (power-user escape hatch)
 
 #### New Builtins
 - **setopt/unsetopt** - Zsh-style shell option control

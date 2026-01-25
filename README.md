@@ -58,7 +58,7 @@ debug step                       # Step to next line
 TOML-based configuration with XDG Base Directory compliance:
 
 ```toml
-# ~/.config/lush/config.toml
+# ~/.config/lush/lushrc.toml
 [shell]
 mode = "lush"
 

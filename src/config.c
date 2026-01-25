@@ -1151,7 +1151,7 @@ bool config_get_shell_option(const char *option_name) {
 // Traditional shell script file paths
 #define PROFILE_SCRIPT_FILE ".profile"
 #define LOGIN_SCRIPT_FILE ".lush_login"
-#define RC_SCRIPT_FILE ".lushrc.sh"
+#define RC_SCRIPT_FILE ".lushrc"
 #define LOGOUT_SCRIPT_FILE ".lush_logout"
 
 /**
@@ -1217,7 +1217,7 @@ char *config_get_login_script_path(void) {
 /**
  * @brief Get the path to the RC script file
  *
- * Returns the full path to ~/.lushrc.sh.
+ * Returns the full path to ~/.lushrc.
  *
  * @return Allocated path string, or NULL on failure (caller must free)
  */
@@ -1328,7 +1328,7 @@ int config_execute_script_file(const char *path) {
 /**
  * @brief Execute startup scripts for interactive shells
  *
- * Executes ~/.lushrc.sh if it exists and script execution is enabled.
+ * Executes ~/.lushrc if it exists and script execution is enabled.
  *
  * @return 0 on success, -1 if any script fails
  */
@@ -1339,7 +1339,7 @@ int config_execute_startup_scripts(void) {
 
     int result = 0;
 
-    // Execute .lushrc.sh if it exists (lush-specific RC script)
+    // Execute .lushrc if it exists (lush-specific RC script)
     char *rc_path = config_get_rc_script_path();
     if (rc_path && config_script_exists(rc_path)) {
         if (config_execute_script_file(rc_path) != 0) {
@@ -2109,7 +2109,7 @@ int config_get_xdg_dir(char *buffer, size_t size) {
 /**
  * @brief Get the XDG config file path
  *
- * Returns the path to config.toml in the XDG directory.
+ * Returns the path to lushrc.toml in the XDG directory.
  *
  * @param buffer Buffer to receive the path
  * @param size Size of the buffer
@@ -2154,7 +2154,7 @@ int config_get_legacy_config_path(char *buffer, size_t size) {
 /**
  * @brief Get the path to the shell script config file
  *
- * Returns the path to config.sh (sourced after config.toml).
+ * Returns the path to lushrc (sourced after lushrc.toml).
  *
  * @param buffer Buffer to receive the path
  * @param size Size of the buffer
@@ -2203,7 +2203,7 @@ static int ensure_xdg_dir_exists(void) {
 /**
  * @brief Migrate legacy config to XDG location
  *
- * Converts ~/.lushrc to ~/.config/lush/config.toml format.
+ * Converts ~/.lushrc to ~/.config/lush/lushrc.toml format.
  * This is a placeholder - full implementation requires the registry.
  *
  * @return 0 on success, -1 on error
@@ -2318,7 +2318,7 @@ int config_load_system(void) {
  *
  * When saving, always uses the XDG TOML location for new saves.
  * This enables automatic migration from legacy ~/.lushrc to
- * ~/.config/lush/config.toml format.
+ * ~/.config/lush/lushrc.toml format.
  *
  * @return 0 on success, -1 on failure
  */

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Example .profile script for LUSUSH Shell
+# Example .profile script for Lush Shell
 # This file is executed by login shells following POSIX conventions
 # Compatible with traditional shell users migrating from bash/zsh
 
@@ -26,9 +26,9 @@ export XDG_CACHE_HOME="$HOME/.cache"
 export CLICOLOR=1
 export GREP_OPTIONS='--color=auto'
 
-# History configuration (can be overridden by .lusushrc)
+# History configuration (can be overridden by .lushrc)
 export HISTSIZE=10000
-export HISTFILE="$HOME/.lusush_history"
+export HISTFILE="$HOME/.lush_history"
 
 # Set terminal title capability
 case "$TERM" in
@@ -53,7 +53,7 @@ fi
 
 # Print login message for interactive login shells
 if [ -n "$PS1" ]; then
-    echo "Welcome to LUSUSH Shell - Modern POSIX-compliant shell"
+    echo "Welcome to Lush Shell - Modern POSIX-compliant shell"
     echo "Profile loaded: $(date)"
 
     # Show system information

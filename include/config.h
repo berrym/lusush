@@ -24,11 +24,11 @@
 /** @brief XDG config directory name (relative to XDG_CONFIG_HOME) */
 #define CONFIG_XDG_DIR "lush"
 
-/** @brief XDG config file name */
-#define CONFIG_XDG_FILE "config.toml"
+/** @brief XDG TOML config file name */
+#define CONFIG_XDG_FILE "lushrc.toml"
 
-/** @brief XDG shell script file (sourced after config.toml) */
-#define CONFIG_XDG_SCRIPT "config.sh"
+/** @brief XDG shell script file name (sourced after lushrc.toml) */
+#define CONFIG_XDG_SCRIPT "lushrc"
 
 /** @brief Maximum path length for configuration files */
 #define CONFIG_PATH_MAX 4096
@@ -45,7 +45,7 @@
 typedef enum {
     CONFIG_FORMAT_UNKNOWN,  /**< Unknown or invalid format */
     CONFIG_FORMAT_LEGACY,   /**< Legacy INI-like format (.lushrc) */
-    CONFIG_FORMAT_TOML      /**< TOML format (config.toml) */
+    CONFIG_FORMAT_TOML      /**< TOML format (lushrc.toml) */
 } config_format_t;
 
 /**
@@ -579,7 +579,7 @@ int config_create_user_config(void);
 /**
  * @brief Get the path to the user configuration file
  *
- * Returns the XDG config path (~/.config/lush/config.toml) if it exists,
+ * Returns the XDG config path (~/.config/lush/lushrc.toml) if it exists,
  * otherwise returns the legacy path (~/.lushrc) if it exists.
  * If neither exists, returns the XDG path for new config creation.
  *
@@ -638,7 +638,7 @@ bool config_needs_migration(void);
 /**
  * @brief Migrate legacy config to XDG location
  *
- * Converts ~/.lushrc to ~/.config/lush/config.toml format.
+ * Converts ~/.lushrc to ~/.config/lush/lushrc.toml format.
  *
  * @return 0 on success, -1 on error
  */
@@ -647,7 +647,7 @@ int config_migrate_to_xdg(void);
 /**
  * @brief Get the path to the shell script config file
  *
- * Returns the path to config.sh (sourced after config.toml).
+ * Returns the path to lushrc (sourced after lushrc.toml).
  *
  * @param buffer Buffer to receive the path
  * @param size Size of the buffer

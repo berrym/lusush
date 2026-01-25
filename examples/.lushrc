@@ -1,5 +1,5 @@
 #!/usr/bin/env lush
-# Example .lushrc.sh script for LUSH Shell
+# Example .lushrc script for LUSH Shell
 # This file is executed by interactive shells for shell-specific configuration
 # Provides traditional shell script configuration alongside the modern config system
 
@@ -161,7 +161,7 @@ if [ -f "$HOME/.cargo/env" ]; then
 fi
 
 # Configure modern shell features using config commands
-# These work alongside the .lushrc configuration file
+# These work alongside the lushrc.toml configuration file
 
 # Enable advanced features if running interactively
 if [ -n "$PS1" ]; then
@@ -204,7 +204,7 @@ fi
 
 # Print startup message for interactive shells
 if [ -n "$PS1" ]; then
-    echo "LUSH configuration loaded from .lushrc.sh"
+    echo "LUSH configuration loaded from .lushrc"
     echo "Traditional shell commands and modern config system active"
     echo "Type 'config show' to see current configuration"
     echo "Type 'theme list' to see available themes"

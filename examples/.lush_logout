@@ -1,23 +1,23 @@
-#!/usr/bin/env lusush
-# Example .lusush_logout script for LUSUSH Shell
+#!/usr/bin/env lush
+# Example .lush_logout script for Lush Shell
 # This file is executed by login shells when the shell exits
 # Used for cleanup tasks and logout procedures
 
 # ============================================================================
-# LUSUSH Logout Shell Configuration
+# Lush Logout Shell Configuration
 # ============================================================================
 # This script runs when a login shell exits, allowing for cleanup tasks
-# and logout procedures specific to lusush
+# and logout procedures specific to lush
 
 # Display logout banner
 echo "==============================================="
-echo "  LUSUSH Shell - Logout Procedures"
+echo "  Lush Shell - Logout Procedures"
 echo "  Logout: $(date)"
 echo "==============================================="
 
 # Calculate session duration if login time is available
-if [ -n "$LUSUSH_LOGIN_TIME" ]; then
-    duration=$(($(date +%s) - $LUSUSH_LOGIN_TIME))
+if [ -n "$LUSH_LOGIN_TIME" ]; then
+    duration=$(($(date +%s) - $LUSH_LOGIN_TIME))
     hours=$((duration / 3600))
     minutes=$(((duration % 3600) / 60))
     seconds=$((duration % 60))
@@ -38,19 +38,19 @@ if [ -n "$HISTFILE" ] && [ -f "$HISTFILE" ]; then
 fi
 
 # Clean up temporary files
-if [ -d "$HOME/.lusush_tmp" ]; then
+if [ -d "$HOME/.lush_tmp" ]; then
     echo "Cleaning up temporary files..."
-    rm -rf "$HOME/.lusush_tmp"
+    rm -rf "$HOME/.lush_tmp"
 fi
 
 # Clean up old log files (keep last 10)
-if [ -f "$HOME/.lusush_login.log" ]; then
-    tail -100 "$HOME/.lusush_login.log" > "$HOME/.lusush_login.log.tmp"
-    mv "$HOME/.lusush_login.log.tmp" "$HOME/.lusush_login.log"
+if [ -f "$HOME/.lush_login.log" ]; then
+    tail -100 "$HOME/.lush_login.log" > "$HOME/.lush_login.log.tmp"
+    mv "$HOME/.lush_login.log.tmp" "$HOME/.lush_login.log"
 fi
 
 # Kill SSH agent if we started it
-if [ -n "$SSH_AGENT_PID" ] && [ -n "$LUSUSH_SESSION_ID" ]; then
+if [ -n "$SSH_AGENT_PID" ] && [ -n "$LUSH_SESSION_ID" ]; then
     if ps -p "$SSH_AGENT_PID" > /dev/null 2>&1; then
         echo "Terminating SSH agent..."
         ssh-agent -k > /dev/null 2>&1
@@ -59,7 +59,7 @@ fi
 
 # Save current working directory for next session
 if [ -w "$HOME" ]; then
-    pwd > "$HOME/.lusush_last_dir"
+    pwd > "$HOME/.lush_last_dir"
 fi
 
 # Clean up background jobs
@@ -75,17 +75,17 @@ fi
 if [ -w "$HOME" ]; then
     {
         echo "Logout: $(date)"
-        echo "Session ID: ${LUSUSH_SESSION_ID:-unknown}"
+        echo "Session ID: ${LUSH_SESSION_ID:-unknown}"
         echo "Duration: ${duration:-0} seconds"
         echo "PID: $$"
         echo "Working Directory: $(pwd)"
         echo "---"
-    } >> "$HOME/.lusush_session_stats"
+    } >> "$HOME/.lush_session_stats"
 fi
 
 # Run user-specific logout scripts
-if [ -d "$HOME/.lusush.d/logout" ]; then
-    for script in "$HOME/.lusush.d/logout"/*.sh; do
+if [ -d "$HOME/.lush.d/logout" ]; then
+    for script in "$HOME/.lush.d/logout"/*.sh; do
         if [ -r "$script" ]; then
             echo "Running logout script: $(basename "$script")"
             . "$script"
@@ -94,35 +94,35 @@ if [ -d "$HOME/.lusush.d/logout" ]; then
 fi
 
 # Clean up completion cache
-if [ -f "$HOME/.lusush_completion_cache" ]; then
-    rm -f "$HOME/.lusush_completion_cache"
+if [ -f "$HOME/.lush_completion_cache" ]; then
+    rm -f "$HOME/.lush_completion_cache"
 fi
 
 # Backup important configuration files
-if [ -f "$HOME/.lusushrc" ]; then
-    cp "$HOME/.lusushrc" "$HOME/.lusushrc.backup.$(date +%Y%m%d)"
+if [ -f "$HOME/.lushrc" ]; then
+    cp "$HOME/.lushrc" "$HOME/.lushrc.backup.$(date +%Y%m%d)"
     # Keep only last 5 backups
-    ls -t "$HOME/.lusushrc.backup."* 2>/dev/null | tail -n +6 | xargs rm -f 2>/dev/null
+    ls -t "$HOME/.lushrc.backup."* 2>/dev/null | tail -n +6 | xargs rm -f 2>/dev/null
 fi
 
 # Display logout statistics
-if [ -f "$HOME/.lusush_session_stats" ]; then
-    session_count=$(grep -c "Session ID:" "$HOME/.lusush_session_stats" 2>/dev/null || echo 0)
-    echo "Total lusush sessions: $session_count"
+if [ -f "$HOME/.lush_session_stats" ]; then
+    session_count=$(grep -c "Session ID:" "$HOME/.lush_session_stats" 2>/dev/null || echo 0)
+    echo "Total lush sessions: $session_count"
 fi
 
 # Show farewell message
 echo ""
-echo "Thank you for using LUSUSH Shell!"
+echo "Thank you for using Lush Shell!"
 echo "Session ended gracefully."
 
 # Clean up environment variables
-unset LUSUSH_LOGIN_TIME
-unset LUSUSH_SESSION_ID
+unset LUSH_LOGIN_TIME
+unset LUSH_SESSION_ID
 
 # Log logout event
 if [ -w "$HOME" ]; then
-    echo "$(date): Logout script completed (PID: $$)" >> "$HOME/.lusush_login.log"
+    echo "$(date): Logout script completed (PID: $$)" >> "$HOME/.lush_login.log"
 fi
 
 echo "==============================================="

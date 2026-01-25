@@ -725,8 +725,8 @@ Lush v1.5.0 uses a unified TOML-based configuration system with XDG Base Directo
 
 ```
 ~/.config/lush/
-├── config.toml          # Main configuration (TOML format)
-├── config.sh            # Optional shell script (sourced after config.toml)
+├── lushrc.toml          # Main configuration (TOML format)
+├── lushrc               # Optional shell script (sourced after lushrc.toml)
 └── themes/              # Theme files
 ```
 
@@ -779,12 +779,12 @@ set -o errexit
 
 Changes persist when you run `config save`.
 
-### TOML Configuration (~/.config/lush/config.toml)
+### TOML Configuration (~/.config/lush/lushrc.toml)
 
 Human-readable TOML format:
 
 ```toml
-# ~/.config/lush/config.toml
+# ~/.config/lush/lushrc.toml
 
 [shell]
 mode = "lush"
@@ -816,12 +816,12 @@ fuzzy = true
 case_sensitive = false
 ```
 
-### Shell Script Configuration (~/.config/lush/config.sh)
+### Shell Script Configuration (~/.config/lush/lushrc)
 
-Optional power-user escape hatch, sourced after config.toml:
+Optional power-user escape hatch, sourced after lushrc.toml:
 
 ```bash
-# ~/.config/lush/config.sh
+# ~/.config/lush/lushrc
 
 # Aliases
 alias ll='ls -la'
@@ -847,7 +847,7 @@ If you have an existing `~/.lushrc` file, Lush will load it and display a migrat
 
 ```
 lush: Loading configuration from ~/.lushrc (legacy location)
-lush: Run 'config save' to migrate to ~/.config/lush/config.toml
+lush: Run 'config save' to migrate to ~/.config/lush/lushrc.toml
 ```
 
 After running `config save`, your settings are migrated to the new location.

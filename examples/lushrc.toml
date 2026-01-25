@@ -1,4 +1,4 @@
-# Lusush Configuration File
+# Lush Configuration File
 # Modern shell configuration using the unified config system
 
 # History Configuration
@@ -7,7 +7,7 @@ history_enabled = true
 history_size = 1000
 history_no_dups = true
 history_timestamps = false
-history_file = ~/.lusush_history
+history_file = ~/.lush_history
 
 # Completion Configuration
 [completion]
@@ -118,11 +118,11 @@ e = echo
 # Script Integration:
 # Traditional shell scripts can be used alongside this config file:
 # - ~/.profile              - POSIX login script
-# - ~/.lusush_login         - LUSUSH login script
-# - ~/.lusushrc.sh          - LUSUSH interactive script
-# - ~/.lusush_logout        - LUSUSH logout script
+# - ~/.lush_login           - Lush login script
+# - ~/.lushrc               - Lush interactive script
+# - ~/.lush_logout          - Lush logout script
 
 # For advanced configuration, see:
 # - docs/SHELL_SCRIPT_CONFIGURATION.md
-# - examples/.lusushrc.sh
+# - examples/.lushrc
 # - examples/.profile
