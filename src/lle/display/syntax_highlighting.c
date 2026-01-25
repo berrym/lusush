@@ -848,21 +848,19 @@ int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
         }
 
         if (c == '>' || c == '<') {
-            /* Process substitution: >(...) or <(...) */
+            /* Process substitution: >(...) or <(...)
+             * Only emit the <( or >( operator token, then let normal
+             * tokenization continue for the contents. This enables proper
+             * syntax highlighting of commands inside process substitutions
+             * like: cat <(cat <(echo nested))
+             */
             if (pos + 1 < input_len && input[pos + 1] == '(') {
                 lle_syntax_token_type_t pstype =
                     (c == '<') ? LLE_TOKEN_PROCSUB_IN : LLE_TOKEN_PROCSUB_OUT;
                 pos += 2; /* Skip <( or >( */
-                int depth = 1;
-                while (pos < input_len && depth > 0) {
-                    if (input[pos] == '(')
-                        depth++;
-                    else if (input[pos] == ')')
-                        depth--;
-                    pos++;
-                }
                 add_token(highlighter, pstype, token_start, pos);
-                expect_command = false;
+                /* Next token is a command inside the process substitution */
+                expect_command = true;
                 continue;
             }
 
@@ -1492,7 +1490,54 @@ void lle_syntax_highlighter_set_colors(lle_syntax_highlighter_t *highlighter,
                                        const lle_syntax_colors_t *colors) {
     if (!highlighter || !colors)
         return;
-    highlighter->colors = *colors;
+    
+    /* Merge colors: only apply non-zero values from the source, preserving
+     * defaults for unspecified colors. This allows themes to partially
+     * override syntax colors without clearing unspecified ones to black. */
+#define MERGE_COLOR(field) \
+    if (colors->field != 0) highlighter->colors.field = colors->field
+    
+    MERGE_COLOR(command_valid);
+    MERGE_COLOR(command_invalid);
+    MERGE_COLOR(command_builtin);
+    MERGE_COLOR(command_alias);
+    MERGE_COLOR(command_function);
+    MERGE_COLOR(keyword);
+    MERGE_COLOR(string);
+    MERGE_COLOR(string_escape);
+    MERGE_COLOR(variable);
+    MERGE_COLOR(variable_special);
+    MERGE_COLOR(path_valid);
+    MERGE_COLOR(path_invalid);
+    MERGE_COLOR(pipe);
+    MERGE_COLOR(redirect);
+    MERGE_COLOR(operator_other);
+    MERGE_COLOR(assignment);
+    MERGE_COLOR(comment);
+    MERGE_COLOR(number);
+    MERGE_COLOR(option);
+    MERGE_COLOR(glob);
+    MERGE_COLOR(extglob);
+    MERGE_COLOR(glob_qual);
+    MERGE_COLOR(argument);
+    MERGE_COLOR(heredoc_op);
+    MERGE_COLOR(heredoc_delim);
+    MERGE_COLOR(heredoc_content);
+    MERGE_COLOR(herestring);
+    MERGE_COLOR(procsub);
+    MERGE_COLOR(string_ansic);
+    MERGE_COLOR(arithmetic);
+    MERGE_COLOR(error);
+    MERGE_COLOR(error_fg);
+    
+#undef MERGE_COLOR
+    
+    /* Boolean attributes are always copied (they default to false) */
+    highlighter->colors.keyword_bold = colors->keyword_bold;
+    highlighter->colors.command_bold = colors->command_bold;
+    highlighter->colors.error_underline = colors->error_underline;
+    highlighter->colors.path_underline = colors->path_underline;
+    highlighter->colors.comment_dim = colors->comment_dim;
 }
 
 /**

@@ -581,6 +581,10 @@ map_spec_token_type(lle_syntax_token_type_t spec_type) {
     case LLE_TOKEN_PIPE:
         return COMMAND_TOKEN_PIPE;
     case LLE_TOKEN_REDIRECT:
+    case LLE_TOKEN_PROCSUB_IN:
+    case LLE_TOKEN_PROCSUB_OUT:
+    case LLE_TOKEN_HEREDOC_OP:
+    case LLE_TOKEN_HERESTRING:
         return COMMAND_TOKEN_REDIRECT;
     case LLE_TOKEN_AND:
     case LLE_TOKEN_OR:
