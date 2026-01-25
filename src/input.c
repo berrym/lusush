@@ -984,6 +984,16 @@ char *get_input_complete(FILE *in) {
         // Analyze this line to update state
         analyze_line(line, &state);
 
+        // Check if previous line had backslash continuation
+        // If so, we need to join lines without newline and remove the backslash
+        bool had_backslash_continuation = false;
+        if (accumulated_len > 0 && accumulated[accumulated_len - 1] == '\\') {
+            // Remove trailing backslash from accumulated
+            accumulated[accumulated_len - 1] = '\0';
+            accumulated_len--;
+            had_backslash_continuation = true;
+        }
+
         // Accumulate the line
         if (accumulated == NULL) {
             accumulated =
@@ -1004,9 +1014,13 @@ char *get_input_complete(FILE *in) {
                 return NULL;
             }
             accumulated = new_accumulated;
-            strcat(accumulated, "\n");
+            // Only add newline if previous line didn't have backslash continuation
+            if (!had_backslash_continuation) {
+                strcat(accumulated, "\n");
+                accumulated_len++;
+            }
             strcat(accumulated, line);
-            accumulated_len = new_len - 1;
+            accumulated_len += read;
         }
 
         // Check if we have a complete construct
