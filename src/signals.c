@@ -146,8 +146,10 @@ int send_sighup_to_jobs(void) {
 
     while (job) {
         // Skip jobs marked to not receive SIGHUP (disown -h)
-        // Note: no_sighup field will be added in Phase 4 (disown builtin)
-        // For now, send to all jobs
+        if (job->no_sighup) {
+            job = job->next;
+            continue;
+        }
 
         if (job->pgid > 0) {
             // Send SIGHUP to the process group

@@ -56,6 +56,7 @@ typedef struct job {
     pid_t pgid;
     job_state_t state;
     bool foreground;
+    bool no_sighup;       /**< If true, job won't receive SIGHUP on shell exit */
     process_t *processes;
     char *command_line;
     struct job *next;
