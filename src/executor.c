@@ -10894,7 +10894,31 @@ static void initialize_job_control(executor_t *executor) {
 
     executor->jobs = NULL;
     executor->next_job_id = 1;
-    executor->shell_pgid = getpgrp();
+
+    // For interactive login shells, take control of the terminal
+    if (isatty(STDIN_FILENO)) {
+        // Wait until we're in the foreground
+        while (tcgetpgrp(STDIN_FILENO) != (executor->shell_pgid = getpgrp())) {
+            kill(-executor->shell_pgid, SIGTTIN);
+        }
+
+        // Put ourselves in our own process group
+        executor->shell_pgid = getpid();
+        if (setpgid(0, executor->shell_pgid) < 0) {
+            // Not fatal - we may already be a process group leader
+            executor->shell_pgid = getpgrp();
+        }
+
+        // Grab control of the terminal
+        tcsetpgrp(STDIN_FILENO, executor->shell_pgid);
+
+        // Ignore interactive and job-control signals in the shell process
+        signal(SIGTSTP, SIG_IGN);
+        signal(SIGTTIN, SIG_IGN);
+        signal(SIGTTOU, SIG_IGN);
+    } else {
+        executor->shell_pgid = getpgrp();
+    }
 }
 
 /**
@@ -11249,6 +11273,11 @@ int executor_builtin_fg(executor_t *executor, char **argv) {
         return 1;
     }
 
+    // Give the job's process group control of the terminal
+    if (isatty(STDIN_FILENO) && job->pgid > 0) {
+        tcsetpgrp(STDIN_FILENO, job->pgid);
+    }
+
     // Continue the job if it was stopped
     if (job->state == JOB_STOPPED) {
         kill(-job->pgid, SIGCONT);
@@ -11260,6 +11289,11 @@ int executor_builtin_fg(executor_t *executor, char **argv) {
     // Wait for the job to complete or stop
     int status;
     waitpid(-job->pgid, &status, WUNTRACED);
+
+    // Reclaim terminal control for the shell
+    if (isatty(STDIN_FILENO)) {
+        tcsetpgrp(STDIN_FILENO, executor->shell_pgid);
+    }
 
     if (WIFEXITED(status) || WIFSIGNALED(status)) {
         executor_remove_job(executor, job_id);
