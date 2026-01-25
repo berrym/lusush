@@ -74,4 +74,15 @@ bool is_interactive_shell(void);
  */
 bool is_login_shell(void);
 
+/**
+ * @brief Check if shell is the session leader
+ *
+ * A session leader is a process whose PID equals its session ID.
+ * This is useful for determining terminal ownership and signal
+ * handling behavior.
+ *
+ * @return true if session leader, false otherwise
+ */
+bool is_session_leader(void);
+
 #endif

@@ -63,6 +63,7 @@ extern char **environ;
 static int SHELL_TYPE;
 static bool IS_LOGIN_SHELL = false;
 static bool IS_INTERACTIVE_SHELL = false;
+static bool IS_SESSION_LEADER = false;
 
 static int parse_opts(int argc, char **argv);
 static void usage(int err);
@@ -240,6 +241,17 @@ bool is_interactive_shell(void) { return IS_INTERACTIVE_SHELL; }
 bool is_login_shell(void) { return IS_LOGIN_SHELL; }
 
 /**
+ * @brief Check if this shell is the session leader
+ *
+ * A shell is a session leader if its PID equals its session ID.
+ * This typically happens when the shell is started directly by
+ * a login process or terminal emulator.
+ *
+ * @return true if session leader, false otherwise
+ */
+bool is_session_leader(void) { return IS_SESSION_LEADER; }
+
+/**
  * @brief Cleanup wrapper for POSIX history (atexit compatible)
  *
  * Saves and destroys the global POSIX history manager.
@@ -392,7 +404,10 @@ int init(int argc, char **argv, FILE **in) {
     // 1. Determine if this is a login shell
     IS_LOGIN_SHELL = (**argv == '-') || shell_opts.login_shell;
 
-    // 2. Determine interactive vs non-interactive
+    // 2. Check if we are the session leader (PID == SID)
+    IS_SESSION_LEADER = (getsid(0) == getpid());
+
+    // 3. Determine interactive vs non-interactive
     bool has_script_file = (optind && argv[optind] && *argv[optind]);
     bool forced_interactive = shell_opts.interactive;
     bool stdin_is_terminal = isatty(STDIN_FILENO);
