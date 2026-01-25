@@ -39,6 +39,10 @@
 #include "lush_memory_pool.h"
 #include "version.h"
 
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
+
 #include <errno.h>
 #include <getopt.h>
 #include <locale.h>
@@ -90,16 +94,41 @@ static void init_login_environment(const char *argv0) {
     if (!getenv("SHELL")) {
         // Try to find our executable path
         char shell_path[PATH_MAX];
+        bool found_path = false;
+
         if (argv0 && argv0[0] == '/') {
             // Absolute path provided
             setenv("SHELL", argv0, 0);
-        } else if (realpath("/proc/self/exe", shell_path) != NULL) {
+            found_path = true;
+        }
+#ifdef __APPLE__
+        if (!found_path) {
+            // macOS: use _NSGetExecutablePath
+            uint32_t size = sizeof(shell_path);
+            if (_NSGetExecutablePath(shell_path, &size) == 0) {
+                // Resolve symlinks to get canonical path
+                char resolved[PATH_MAX];
+                if (realpath(shell_path, resolved) != NULL) {
+                    setenv("SHELL", resolved, 0);
+                } else {
+                    setenv("SHELL", shell_path, 0);
+                }
+                found_path = true;
+            }
+        }
+#else
+        if (!found_path && realpath("/proc/self/exe", shell_path) != NULL) {
             // Linux: use /proc/self/exe
             setenv("SHELL", shell_path, 0);
-        } else if (pw && pw->pw_shell && pw->pw_shell[0]) {
+            found_path = true;
+        }
+#endif
+        if (!found_path && pw && pw->pw_shell && pw->pw_shell[0]) {
             // Fall back to passwd entry
             setenv("SHELL", pw->pw_shell, 0);
-        } else {
+            found_path = true;
+        }
+        if (!found_path) {
             // Last resort: assume we're in PATH
             setenv("SHELL", "lush", 0);
         }
@@ -330,6 +359,21 @@ int init(int argc, char **argv, FILE **in) {
     // Initialize POSIX shell options with defaults
     init_posix_options();
 
+    // Parse command line options EARLY - needed for login/interactive detection
+    size_t optind = parse_opts(argc, argv);
+
+    // POSIX-compliant shell type determination - must happen before config scripts
+    // 1. Determine if this is a login shell
+    IS_LOGIN_SHELL = (**argv == '-') || shell_opts.login_shell;
+
+    // 2. Check if we are the session leader (PID == SID)
+    IS_SESSION_LEADER = (getsid(0) == getpid());
+
+    // 3. Preliminary interactive detection for startup scripts
+    // Full detection happens later after we know about script files
+    bool preliminary_interactive = shell_opts.interactive ||
+                                   (isatty(STDIN_FILENO) && isatty(STDOUT_FILENO));
+
     // Initialize configuration system
     config_init();
 
@@ -347,8 +391,9 @@ int init(int argc, char **argv, FILE **in) {
         config_execute_login_scripts();
     }
 
-    // Execute startup scripts for interactive shells
-    if (IS_INTERACTIVE_SHELL) {
+    // Execute startup scripts for interactive shells (preliminary check)
+    // Note: This uses a preliminary check; full interactive detection happens below
+    if (preliminary_interactive && !shell_opts.command_mode) {
         config_execute_startup_scripts();
     }
 
@@ -393,21 +438,8 @@ int init(int argc, char **argv, FILE **in) {
     autocorrect_cfg.case_sensitive = config.autocorrect_case_sensitive;
     autocorrect_load_config(&autocorrect_cfg);
 
-    // Parse command line options
-    size_t optind = parse_opts(argc, argv);
-
-    // Terminal detection using standard methods
-    // Enhanced terminal integration has been replaced with readline
-
-    // POSIX-compliant shell type determination
-
-    // 1. Determine if this is a login shell
-    IS_LOGIN_SHELL = (**argv == '-') || shell_opts.login_shell;
-
-    // 2. Check if we are the session leader (PID == SID)
-    IS_SESSION_LEADER = (getsid(0) == getpid());
-
-    // 3. Determine interactive vs non-interactive
+    // Final interactive vs non-interactive determination
+    // (parse_opts and login/session detection already done above)
     bool has_script_file = (optind && argv[optind] && *argv[optind]);
     bool forced_interactive = shell_opts.interactive;
     bool stdin_is_terminal = isatty(STDIN_FILENO);

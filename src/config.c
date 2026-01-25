@@ -15,6 +15,7 @@
 #include "alias.h"
 #include "autocorrect.h"
 #include "config_registry.h"
+#include "input.h"
 #include "lle/lle_shell_integration.h"
 #include "lle/unicode_compare.h"
 #include "lush.h"
@@ -1292,36 +1293,36 @@ int config_execute_script_file(const char *path) {
         return -1;
     }
 
-    // Use the same approach as bin_source builtin
+    // Use the same approach as bin_source builtin - read complete multi-line
+    // constructs instead of line by line to handle if/then/fi, while/do/done, etc.
     FILE *file = fopen(path, "r");
     if (!file) {
         return -1;
     }
 
-    char *line = NULL;
-    size_t len = 0;
-    ssize_t read;
+    char *complete_input;
     int result = 0;
 
-    while ((read = getline(&line, &len, file)) != -1) {
-        // Remove newline
-        if (line[read - 1] == '\n') {
-            line[read - 1] = '\0';
-        }
-
-        // Skip empty lines and comments
-        if (line[0] == '\0' || line[0] == '#') {
+    // Read complete multi-line constructs (same as bin_source)
+    while ((complete_input = get_input_complete(file)) != NULL) {
+        // Skip empty constructs
+        char *trimmed = complete_input;
+        while (*trimmed == ' ' || *trimmed == '\t' || *trimmed == '\n')
+            trimmed++;
+        if (*trimmed == '\0') {
+            free(complete_input);
             continue;
         }
 
-        // Parse and execute the line
-        int line_result = parse_and_execute(line);
-        if (line_result != 0) {
-            result = line_result;
+        // Parse and execute the complete construct
+        int construct_result = parse_and_execute(complete_input);
+        if (construct_result != 0) {
+            result = construct_result;
         }
+
+        free(complete_input);
     }
 
-    free(line);
     fclose(file);
     return result;
 }
@@ -1355,6 +1356,7 @@ int config_execute_system_profile(void) {
     int result = 0;
 
     // 1. Source /etc/lushrc if it exists (lush-specific system config)
+    // This runs in native lush mode since it's a lush-specific file
     if (config_script_exists("/etc/lushrc")) {
         if (config_execute_script_file("/etc/lushrc") != 0) {
             // Log warning but continue - system config failure shouldn't block login
@@ -1364,14 +1366,21 @@ int config_execute_system_profile(void) {
     }
 
     // 2. Source /etc/profile if it exists (standard POSIX login config)
+    // Switch to POSIX mode for compatibility with system scripts
+    // (similar to zsh's `emulate -L sh` when sourcing /etc/profile)
     if (config_script_exists("/etc/profile")) {
-        if (config_execute_script_file("/etc/profile") != 0) {
+        shell_mode_t saved_mode = shell_mode_get();
+        shell_mode_set(SHELL_MODE_POSIX);
+        int script_result = config_execute_script_file("/etc/profile");
+        shell_mode_set(saved_mode);
+        if (script_result != 0) {
             fprintf(stderr, "lush: warning: error sourcing /etc/profile\n");
             result = -1;
         }
     }
 
     // 3. Source /etc/profile.d/*.sh files in alphabetical order
+    // These also run in POSIX mode for compatibility
     DIR *dir = opendir("/etc/profile.d");
     if (dir) {
         // Collect all .sh files first for sorting
@@ -1427,7 +1436,9 @@ int config_execute_system_profile(void) {
         if (scripts && script_count > 0) {
             qsort(scripts, script_count, sizeof(char *), profile_d_compare);
 
-            // Execute each script
+            // Execute each script in POSIX mode for compatibility
+            shell_mode_t saved_mode = shell_mode_get();
+            shell_mode_set(SHELL_MODE_POSIX);
             for (size_t i = 0; i < script_count; i++) {
                 if (config_execute_script_file(scripts[i]) != 0) {
                     fprintf(stderr, "lush: warning: error sourcing %s\n",
@@ -1437,6 +1448,7 @@ int config_execute_system_profile(void) {
                 }
                 free(scripts[i]);
             }
+            shell_mode_set(saved_mode);
             free(scripts);
         }
     }
@@ -1486,15 +1498,21 @@ int config_execute_login_scripts(void) {
     int result = 0;
 
     // Execute .profile if it exists (POSIX standard)
+    // Run in POSIX mode for compatibility with standard shell scripts
     char *profile_path = config_get_profile_script_path();
     if (profile_path && config_script_exists(profile_path)) {
-        if (config_execute_script_file(profile_path) != 0) {
+        shell_mode_t saved_mode = shell_mode_get();
+        shell_mode_set(SHELL_MODE_POSIX);
+        int script_result = config_execute_script_file(profile_path);
+        shell_mode_set(saved_mode);
+        if (script_result != 0) {
             result = -1;
         }
     }
     free(profile_path);
 
     // Execute .lush_login if it exists (lush-specific login script)
+    // This runs in native lush mode since it's a lush-specific file
     char *login_path = config_get_login_script_path();
     if (login_path && config_script_exists(login_path)) {
         if (config_execute_script_file(login_path) != 0) {
