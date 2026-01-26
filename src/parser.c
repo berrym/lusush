@@ -108,6 +108,9 @@ parser_t *parser_new_with_source(const char *input, const char *source_name) {
         parser->context_stack[i] = NULL;
     }
 
+    /* Initialize recursion depth tracking */
+    parser->recursion_depth = 0;
+
     return parser;
 }
 
@@ -300,6 +303,78 @@ void parser_pop_context(parser_t *parser) {
     }
     parser->context_depth--;
     parser->context_stack[parser->context_depth] = NULL;
+}
+
+/* ============================================================================
+ * Recursion Depth Tracking (Stack Overflow Protection)
+ * ============================================================================ */
+
+/**
+ * @brief Enter a recursive parsing operation
+ *
+ * Increments the recursion depth counter and checks against the maximum
+ * allowed depth. If the limit is exceeded, sets a parser error and returns
+ * false. The caller should abort parsing if this returns false.
+ *
+ * @param parser Parser context
+ * @return true if depth is within limits, false if limit exceeded
+ */
+bool parser_enter_recursion(parser_t *parser) {
+    if (!parser) {
+        return false;
+    }
+
+    parser->recursion_depth++;
+
+    if (parser->recursion_depth > PARSER_MAX_RECURSION_DEPTH) {
+        parser_error_add_with_help(parser, SHELL_ERR_RESOURCE_LIMIT,
+            "reduce nesting depth or simplify the script",
+            "maximum parsing depth exceeded (%zu levels) - "
+            "possible stack overflow attack or excessively nested code",
+            PARSER_MAX_RECURSION_DEPTH);
+        return false;
+    }
+
+    return true;
+}
+
+/**
+ * @brief Exit a recursive parsing operation
+ *
+ * Decrements the recursion depth counter. Should be called when returning
+ * from a recursive parsing function, regardless of success or failure.
+ * Uses an assertion to catch underflow during development.
+ *
+ * @param parser Parser context
+ */
+void parser_exit_recursion(parser_t *parser) {
+    if (!parser) {
+        return;
+    }
+
+    /* Assert that we're not underflowing - indicates mismatched enter/exit */
+    if (parser->recursion_depth == 0) {
+        /* In debug builds this would be an assertion failure.
+         * In release, we just prevent underflow. */
+#ifndef NDEBUG
+        fprintf(stderr, "PARSER BUG: recursion depth underflow\n");
+#endif
+        return;
+    }
+
+    parser->recursion_depth--;
+}
+
+/**
+ * @brief Get current recursion depth
+ *
+ * Useful for debugging and testing.
+ *
+ * @param parser Parser context
+ * @return Current recursion depth, or 0 if parser is NULL
+ */
+size_t parser_get_recursion_depth(parser_t *parser) {
+    return parser ? parser->recursion_depth : 0;
 }
 
 /**
@@ -573,8 +648,14 @@ static node_t *parse_if_body(parser_t *parser) {
  * @return AST node for logical expression
  */
 static node_t *parse_logical_expression(parser_t *parser) {
+    /* Track recursion depth for stack overflow protection */
+    if (!parser_enter_recursion(parser)) {
+        return NULL;
+    }
+
     node_t *left = parse_pipeline(parser);
     if (!left) {
+        parser_exit_recursion(parser);
         return NULL;
     }
 
@@ -590,6 +671,7 @@ static node_t *parse_logical_expression(parser_t *parser) {
         node_t *right = parse_pipeline(parser);
         if (!right) {
             free_node_tree(left);
+            parser_exit_recursion(parser);
             return NULL;
         }
 
@@ -599,6 +681,7 @@ static node_t *parse_logical_expression(parser_t *parser) {
         if (!logical_node) {
             free_node_tree(left);
             free_node_tree(right);
+            parser_exit_recursion(parser);
             return NULL;
         }
 
@@ -607,6 +690,7 @@ static node_t *parse_logical_expression(parser_t *parser) {
         left = logical_node;
     }
 
+    parser_exit_recursion(parser);
     return left;
 }
 
@@ -675,6 +759,11 @@ static node_t *parse_command_list(parser_t *parser) {
  * @return Pipeline AST node
  */
 static node_t *parse_pipeline(parser_t *parser) {
+    /* Track recursion depth for stack overflow protection */
+    if (!parser_enter_recursion(parser)) {
+        return NULL;
+    }
+
     // Check for negation prefix (! pipeline)
     bool negate = false;
     token_t *current = tokenizer_current(parser->tokenizer);
@@ -690,6 +779,7 @@ static node_t *parse_pipeline(parser_t *parser) {
 
     node_t *left = parse_simple_command(parser);
     if (!left) {
+        parser_exit_recursion(parser);
         return NULL;
     }
 
@@ -708,6 +798,7 @@ static node_t *parse_pipeline(parser_t *parser) {
         node_t *right = parse_pipeline(parser);
         if (!right) {
             free_node_tree(left);
+            parser_exit_recursion(parser);
             return NULL;
         }
 
@@ -715,6 +806,7 @@ static node_t *parse_pipeline(parser_t *parser) {
         if (!pipe_node) {
             free_node_tree(left);
             free_node_tree(right);
+            parser_exit_recursion(parser);
             return NULL;
         }
 
@@ -735,6 +827,7 @@ static node_t *parse_pipeline(parser_t *parser) {
         node_t *background_node = new_node(NODE_BACKGROUND);
         if (!background_node) {
             free_node_tree(left);
+            parser_exit_recursion(parser);
             return NULL;
         }
 
@@ -747,12 +840,15 @@ static node_t *parse_pipeline(parser_t *parser) {
         node_t *negate_node = new_node(NODE_NEGATE);
         if (!negate_node) {
             free_node_tree(left);
+            parser_exit_recursion(parser);
             return NULL;
         }
         add_child_node(negate_node, left);
+        parser_exit_recursion(parser);
         return negate_node;
     }
 
+    parser_exit_recursion(parser);
     return left;
 }
 
@@ -1438,11 +1534,17 @@ static node_t *parse_simple_command(parser_t *parser) {
  * @return Brace group AST node
  */
 static node_t *parse_brace_group(parser_t *parser) {
+    /* Track recursion depth for stack overflow protection */
+    if (!parser_enter_recursion(parser)) {
+        return NULL;
+    }
+
     token_t *current = tokenizer_current(parser->tokenizer);
     if (!current || current->type != TOK_LBRACE) {
         parser_error_add_with_help(parser, SHELL_ERR_UNEXPECTED_TOKEN,
                          "brace groups execute commands in the current shell",
                          "expected '{'");
+        parser_exit_recursion(parser);
         return NULL;
     }
 
@@ -1456,6 +1558,7 @@ static node_t *parse_brace_group(parser_t *parser) {
     node_t *group_node = new_node_at(NODE_BRACE_GROUP, brace_loc);
     if (!group_node) {
         parser_pop_context(parser);
+        parser_exit_recursion(parser);
         return NULL;
     }
 
@@ -1476,6 +1579,7 @@ static node_t *parse_brace_group(parser_t *parser) {
             }
             free_node_tree(group_node);
             parser_pop_context(parser);
+            parser_exit_recursion(parser);
             return NULL;
         }
 
@@ -1490,6 +1594,7 @@ static node_t *parse_brace_group(parser_t *parser) {
             "brace group must end with '}'")) {
         free_node_tree(group_node);
         parser_pop_context(parser);
+        parser_exit_recursion(parser);
         return NULL;
     }
 
@@ -1498,9 +1603,11 @@ static node_t *parse_brace_group(parser_t *parser) {
     // Parse any trailing redirections: { cmd; } >/dev/null 2>&1
     if (!parse_trailing_redirections(parser, group_node)) {
         free_node_tree(group_node);
+        parser_exit_recursion(parser);
         return NULL;
     }
 
+    parser_exit_recursion(parser);
     return group_node;
 }
 
@@ -1513,11 +1620,17 @@ static node_t *parse_brace_group(parser_t *parser) {
  * @return Subshell AST node
  */
 static node_t *parse_subshell(parser_t *parser) {
+    /* Track recursion depth for stack overflow protection */
+    if (!parser_enter_recursion(parser)) {
+        return NULL;
+    }
+
     token_t *current = tokenizer_current(parser->tokenizer);
     if (!current || current->type != TOK_LPAREN) {
         parser_error_add_with_help(parser, SHELL_ERR_UNEXPECTED_TOKEN,
                          "subshells execute commands in a child process",
                          "expected '('");
+        parser_exit_recursion(parser);
         return NULL;
     }
 
@@ -1531,6 +1644,7 @@ static node_t *parse_subshell(parser_t *parser) {
     node_t *subshell_node = new_node_at(NODE_SUBSHELL, subshell_loc);
     if (!subshell_node) {
         parser_pop_context(parser);
+        parser_exit_recursion(parser);
         return NULL;
     }
 
@@ -1551,6 +1665,7 @@ static node_t *parse_subshell(parser_t *parser) {
             }
             free_node_tree(subshell_node);
             parser_pop_context(parser);
+            parser_exit_recursion(parser);
             return NULL;
         }
 
@@ -1565,6 +1680,7 @@ static node_t *parse_subshell(parser_t *parser) {
             "subshell must end with ')'")) {
         free_node_tree(subshell_node);
         parser_pop_context(parser);
+        parser_exit_recursion(parser);
         return NULL;
     }
 
@@ -1573,9 +1689,11 @@ static node_t *parse_subshell(parser_t *parser) {
     // Parse any trailing redirections: (cmd) >/dev/null 2>&1
     if (!parse_trailing_redirections(parser, subshell_node)) {
         free_node_tree(subshell_node);
+        parser_exit_recursion(parser);
         return NULL;
     }
 
+    parser_exit_recursion(parser);
     return subshell_node;
 }
 

@@ -672,6 +672,57 @@ TEST(alternating_unclosed) {
     ASSERT_PARSE_FAILS("({({({");
 }
 
+/**
+ * @brief Test that deeply nested valid syntax triggers depth limit
+ *
+ * This tests the PARSER_MAX_RECURSION_DEPTH protection. We generate
+ * a valid but extremely deeply nested structure that would cause
+ * stack overflow without the depth limit.
+ */
+TEST(recursion_depth_limit) {
+    /* Generate deeply nested subshells: ((( ... ))) */
+    /* PARSER_MAX_RECURSION_DEPTH is 256, so we need more than that */
+    const int depth = 300;
+    size_t len = depth * 2 + 10;  /* ( * depth + echo + ) * depth */
+    char *input = malloc(len);
+    if (!input) return;
+    
+    char *p = input;
+    for (int i = 0; i < depth; i++) {
+        *p++ = '(';
+    }
+    *p++ = 'e'; *p++ = 'c'; *p++ = 'h'; *p++ = 'o';
+    for (int i = 0; i < depth; i++) {
+        *p++ = ')';
+    }
+    *p = '\0';
+    
+    /* This should fail due to depth limit, not parse successfully */
+    parser_t *parser = parser_new(input);
+    if (!parser) {
+        free(input);
+        return;
+    }
+    
+    node_t *ast = parser_parse(parser);
+    int has_error = parser_has_error(parser);
+    
+    if (!has_error && ast != NULL) {
+        printf(" FAILED\n");
+        printf("      Expected recursion depth error for %d-deep nesting\n", depth);
+        tests_failed++;
+        free_node_tree(ast);
+        parser_free(parser);
+        free(input);
+        return;
+    }
+    
+    /* Success - parser correctly rejected deeply nested input */
+    if (ast) free_node_tree(ast);
+    parser_free(parser);
+    free(input);
+}
+
 TEST(control_chars_in_input) {
     /* Control characters in command */
     ASSERT_PARSE_FAILS("echo \x01\x02\x03");
@@ -896,6 +947,7 @@ int main(void) {
     RUN_TEST(deeply_nested_unclosed);
     RUN_TEST(many_unclosed_braces);
     RUN_TEST(alternating_unclosed);
+    RUN_TEST(recursion_depth_limit);
     RUN_TEST(control_chars_in_input);
     print_category_summary("Pathological");
 

@@ -20,6 +20,20 @@
 /** Maximum depth of parser context stack */
 #define PARSER_CONTEXT_MAX 16
 
+/**
+ * Maximum recursion depth for parsing nested constructs.
+ * Prevents stack overflow on deeply nested or malicious input.
+ * This limit applies to all recursive parsing operations including:
+ * - Nested control structures (if, while, for, case)
+ * - Subshells and brace groups
+ * - Command substitutions
+ * - Pipelines and logical expressions
+ *
+ * A depth of 256 allows for complex real-world scripts while
+ * protecting against stack overflow attacks.
+ */
+#define PARSER_MAX_RECURSION_DEPTH 256
+
 /** Parser state */
 typedef struct parser {
     tokenizer_t *tokenizer;
@@ -33,6 +47,9 @@ typedef struct parser {
     /* Parser context stack for context-aware error messages */
     const char *context_stack[PARSER_CONTEXT_MAX];
     size_t context_depth;
+
+    /* Recursion depth tracking for stack overflow protection */
+    size_t recursion_depth;
 } parser_t;
 
 /* ============================================================================
@@ -198,5 +215,38 @@ void parser_pop_context(parser_t *parser);
  */
 void parser_error_add_with_help(parser_t *parser, shell_error_code_t code,
                                 const char *help, const char *fmt, ...);
+
+/* ============================================================================
+ * Recursion Depth Tracking (Stack Overflow Protection)
+ * ============================================================================ */
+
+/**
+ * @brief Enter a recursive parsing operation
+ *
+ * Increments the recursion depth counter and checks against the maximum
+ * allowed depth. If the limit is exceeded, sets a parser error.
+ *
+ * @param parser Parser context
+ * @return true if depth is within limits, false if limit exceeded
+ */
+bool parser_enter_recursion(parser_t *parser);
+
+/**
+ * @brief Exit a recursive parsing operation
+ *
+ * Decrements the recursion depth counter. Should be called when returning
+ * from a recursive parsing function, regardless of success or failure.
+ *
+ * @param parser Parser context
+ */
+void parser_exit_recursion(parser_t *parser);
+
+/**
+ * @brief Get current recursion depth
+ *
+ * @param parser Parser context
+ * @return Current recursion depth
+ */
+size_t parser_get_recursion_depth(parser_t *parser);
 
 #endif // PARSER_H
