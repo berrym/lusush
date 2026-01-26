@@ -210,6 +210,60 @@ static const lle_builtin_subcommand_t display_lle_theme_subcmds[] = {
     {"reload", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_NONE},
 };
 
+/* display lle history dedup scope values */
+static const lle_builtin_subcommand_t display_lle_history_dedup_scope_vals[] = {
+    {"none", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_NONE},
+    {"session", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_NONE},
+    {"recent", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_NONE},
+    {"global", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_NONE},
+};
+
+/* display lle history dedup strategy values */
+static const lle_builtin_subcommand_t display_lle_history_dedup_strategy_vals[] = {
+    {"ignore", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_NONE},
+    {"keep-recent", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_NONE},
+    {"keep-frequent", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_NONE},
+    {"merge", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_NONE},
+    {"keep-all", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_NONE},
+};
+
+/* display lle history dedup subcommands */
+static const lle_builtin_subcommand_t display_lle_history_dedup_subcmds[] = {
+    {"on", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_NONE},
+    {"off", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_NONE},
+    {"scope", display_lle_history_dedup_scope_vals,
+     sizeof(display_lle_history_dedup_scope_vals) /
+         sizeof(display_lle_history_dedup_scope_vals[0]),
+     NULL, 0, LLE_BUILTIN_ARG_NONE},
+    {"strategy", display_lle_history_dedup_strategy_vals,
+     sizeof(display_lle_history_dedup_strategy_vals) /
+         sizeof(display_lle_history_dedup_strategy_vals[0]),
+     NULL, 0, LLE_BUILTIN_ARG_NONE},
+};
+
+/* display lle history nav-dedup values */
+static const lle_builtin_subcommand_t display_lle_history_onoff_vals[] = {
+    {"on", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_NONE},
+    {"off", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_NONE},
+};
+
+/* display lle history subcommands */
+static const lle_builtin_subcommand_t display_lle_history_subcmds[] = {
+    {"status", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_NONE},
+    {"dedup", display_lle_history_dedup_subcmds,
+     sizeof(display_lle_history_dedup_subcmds) /
+         sizeof(display_lle_history_dedup_subcmds[0]),
+     NULL, 0, LLE_BUILTIN_ARG_NONE},
+    {"nav-dedup", display_lle_history_onoff_vals,
+     sizeof(display_lle_history_onoff_vals) /
+         sizeof(display_lle_history_onoff_vals[0]),
+     NULL, 0, LLE_BUILTIN_ARG_NONE},
+    {"nav-unique", display_lle_history_onoff_vals,
+     sizeof(display_lle_history_onoff_vals) /
+         sizeof(display_lle_history_onoff_vals[0]),
+     NULL, 0, LLE_BUILTIN_ARG_NONE},
+};
+
 /* display lle subcommands */
 static const lle_builtin_subcommand_t display_lle_subcmds[] = {
     {"status", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_NONE},
@@ -220,10 +274,12 @@ static const lle_builtin_subcommand_t display_lle_subcmds[] = {
     {"theme", display_lle_theme_subcmds,
      sizeof(display_lle_theme_subcmds) / sizeof(display_lle_theme_subcmds[0]),
      NULL, 0, LLE_BUILTIN_ARG_NONE},
+    {"history", display_lle_history_subcmds,
+     sizeof(display_lle_history_subcmds) / sizeof(display_lle_history_subcmds[0]),
+     NULL, 0, LLE_BUILTIN_ARG_NONE},
     {"reset", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_NONE},
     {"keybindings", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_NONE},
     {"completions", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_NONE},
-    {"history-import", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_NONE},
 };
 
 /* display performance subcommands */

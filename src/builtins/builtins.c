@@ -5998,7 +5998,34 @@ int bin_display(int argc, char **argv) {
 
         } else if (strcmp(lle_cmd, "history") == 0) {
             /* History behavior configuration commands */
-            const char *hist_subcmd = (argc >= 4) ? argv[3] : "status";
+            if (argc < 4) {
+                /* No subcommand - show help with all options and values */
+                printf("Usage: display lle history <command> [options]\n");
+                printf("\nCommands:\n");
+                printf("  status                  - Show current settings\n");
+                printf("  dedup on|off            - Enable/disable write-time "
+                       "deduplication\n");
+                printf("  dedup scope <value>     - Set dedup scope\n");
+                printf("      Values: none, session, recent, global\n");
+                printf("  dedup strategy <value>  - Set dedup strategy\n");
+                printf("      Values: ignore, keep-recent, keep-frequent, "
+                       "merge, keep-all\n");
+                printf("  nav-dedup on|off        - Skip duplicates when "
+                       "navigating history\n");
+                printf("  nav-unique on|off       - Show each command once "
+                       "per navigation session\n");
+                printf("\nExamples:\n");
+                printf("  display lle history status\n");
+                printf("  display lle history dedup on\n");
+                printf("  display lle history dedup scope global\n");
+                printf("  display lle history dedup strategy keep-recent\n");
+                printf("  display lle history nav-dedup off\n");
+                printf("  display lle history nav-unique on\n");
+                printf("\nNote: Use 'config save' to persist changes.\n");
+                return 0;
+            }
+
+            const char *hist_subcmd = argv[3];
 
             if (strcmp(hist_subcmd, "status") == 0) {
                 /* Show current history settings */
