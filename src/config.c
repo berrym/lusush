@@ -1305,14 +1305,22 @@ int config_execute_script_file(const char *path) {
     // Use get_global_executor() since parse_and_execute uses global_executor
     executor_t *executor = get_global_executor();
     bool saved_source_return = false;
+    const char *saved_script_file = NULL;
     if (executor) {
         saved_source_return = executor->source_return;
+        saved_script_file = executor_get_current_script_file(executor);
+        if (saved_script_file) {
+            saved_script_file = strdup(saved_script_file);
+        }
         executor->source_depth++;
         executor->source_return = false;
+        // Set script context for proper error reporting with file path
+        executor_set_script_context(executor, path, 1);
     }
 
     char *complete_input;
     int result = 0;
+    int construct_number = 1;
 
     // Read complete multi-line constructs (same as bin_source)
     while ((complete_input = get_input_complete(file)) != NULL) {
@@ -1322,16 +1330,35 @@ int config_execute_script_file(const char *path) {
             trimmed++;
         if (*trimmed == '\0') {
             free(complete_input);
+            construct_number++;
             continue;
+        }
+
+        // Update script context line number for debugging
+        if (executor) {
+            executor_set_script_context(executor, path, construct_number);
         }
 
         // Parse and execute the complete construct
         int construct_result = parse_and_execute(complete_input);
+
+        // Check for return from sourced script (exit code 200+)
+        // This matches how bin_source handles the special return code
+        if (construct_result >= 200 && construct_result <= 455) {
+            result = construct_result - 200;
+            if (executor) {
+                executor->source_return = true;
+            }
+            free(complete_input);
+            break;
+        }
+
         if (construct_result != 0) {
             result = construct_result;
         }
 
         free(complete_input);
+        construct_number++;
 
         // Check if 'return' was called in the sourced script
         if (executor && executor->source_return) {
@@ -1339,23 +1366,16 @@ int config_execute_script_file(const char *path) {
         }
     }
 
-    // Restore source depth and source_return state
+    // Restore source depth, source_return state, and script context
     if (executor) {
         executor->source_depth--;
         executor->source_return = saved_source_return;
+        executor_set_script_context(executor, saved_script_file, 1);
+        free((char *)saved_script_file);
     }
 
     fclose(file);
     return result;
-}
-
-/**
- * @brief Compare function for sorting directory entries alphabetically
- */
-static int profile_d_compare(const void *a, const void *b) {
-    const char *const *sa = a;
-    const char *const *sb = b;
-    return strcmp(*sa, *sb);
 }
 
 /**
@@ -1401,80 +1421,10 @@ int config_execute_system_profile(void) {
         }
     }
 
-    // 3. Source /etc/profile.d/*.sh files in alphabetical order
-    // These also run in POSIX mode for compatibility
-    DIR *dir = opendir("/etc/profile.d");
-    if (dir) {
-        // Collect all .sh files first for sorting
-        char **scripts = NULL;
-        size_t script_count = 0;
-        size_t script_capacity = 0;
-
-        struct dirent *entry;
-        while ((entry = readdir(dir)) != NULL) {
-            // Skip . and ..
-            if (entry->d_name[0] == '.') {
-                continue;
-            }
-
-            // Check for .sh extension
-            size_t len = strlen(entry->d_name);
-            if (len < 4 || strcmp(entry->d_name + len - 3, ".sh") != 0) {
-                continue;
-            }
-
-            // Build full path
-            char path[CONFIG_PATH_MAX];
-            int written = snprintf(path, sizeof(path), "/etc/profile.d/%s",
-                                   entry->d_name);
-            if (written < 0 || (size_t)written >= sizeof(path)) {
-                continue;
-            }
-
-            // Verify it's a regular file and readable
-            struct stat st;
-            if (stat(path, &st) != 0 || !S_ISREG(st.st_mode)) {
-                continue;
-            }
-
-            // Add to list
-            if (script_count >= script_capacity) {
-                script_capacity = script_capacity ? script_capacity * 2 : 16;
-                char **new_scripts = realloc(scripts,
-                                             script_capacity * sizeof(char *));
-                if (!new_scripts) {
-                    break;
-                }
-                scripts = new_scripts;
-            }
-            scripts[script_count] = strdup(path);
-            if (scripts[script_count]) {
-                script_count++;
-            }
-        }
-        closedir(dir);
-
-        // Sort alphabetically
-        if (scripts && script_count > 0) {
-            qsort(scripts, script_count, sizeof(char *), profile_d_compare);
-
-            // Execute each script in bash mode for compatibility
-            // Most profile.d scripts use bash extensions like [[ ]] and $-
-            shell_mode_t saved_mode = shell_mode_get();
-            shell_mode_set(SHELL_MODE_BASH);
-            for (size_t i = 0; i < script_count; i++) {
-                if (config_execute_script_file(scripts[i]) != 0) {
-                    fprintf(stderr, "lush: warning: error sourcing %s\n",
-                            scripts[i]);
-                    // Don't set result = -1 for individual profile.d failures
-                    // These are often optional and may have shell-specific code
-                }
-                free(scripts[i]);
-            }
-            shell_mode_set(saved_mode);
-            free(scripts);
-        }
-    }
+    // Note: /etc/profile.d/*.sh files are NOT sourced directly here because
+    // /etc/profile already sources them via its internal loop. Sourcing them
+    // again would cause double-execution and potential issues with scripts
+    // that check for conditions like interactive mode or TTY status.
 
     return result;
 }
