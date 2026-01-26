@@ -46,8 +46,8 @@ extern "C" {
 // ANSI codes for selection highlighting
 #define LLE_MENU_SELECTION_START "\033[7m" // Reverse video
 #define LLE_MENU_SELECTION_END "\033[0m"   // Reset
-#define LLE_MENU_CATEGORY_START "\033[1m"  // Bold
-#define LLE_MENU_CATEGORY_END "\033[0m"    // Reset
+#define LLE_MENU_CATEGORY_START "\033[1;36m" // Bold cyan
+#define LLE_MENU_CATEGORY_END "\033[0m"      // Reset
 
 // ============================================================================
 // TYPE DEFINITIONS
