@@ -37,6 +37,7 @@
  */
 struct lle_history_dedup_engine {
     lle_history_dedup_strategy_t strategy; /* Active strategy */
+    lle_history_dedup_scope_t scope;       /* Dedup scope (how far to scan) */
     lle_history_core_t *history_core;      /* Reference to history core */
 
     /* Statistics */
@@ -240,18 +241,20 @@ merge_forensic_metadata(lle_history_entry_t *new_entry,
  * @brief Create deduplication engine
  *
  * Allocates and initializes a new deduplication engine with the specified
- * strategy and default configuration (case-sensitive, trim whitespace,
+ * strategy, scope, and default configuration (case-sensitive, trim whitespace,
  * merge forensics, Unicode normalize).
  *
  * @param dedup Output pointer for created engine (must not be NULL)
  * @param history_core History core to deduplicate (must not be NULL)
  * @param strategy Deduplication strategy to use
+ * @param scope Deduplication scope (how far back to scan for duplicates)
  * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if dedup or history_core is NULL,
  *         LLE_ERROR_OUT_OF_MEMORY on allocation failure
  */
 lle_result_t lle_history_dedup_create(lle_history_dedup_engine_t **dedup,
                                       lle_history_core_t *history_core,
-                                      lle_history_dedup_strategy_t strategy) {
+                                      lle_history_dedup_strategy_t strategy,
+                                      lle_history_dedup_scope_t scope) {
     if (!dedup || !history_core) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -264,6 +267,7 @@ lle_result_t lle_history_dedup_create(lle_history_dedup_engine_t **dedup,
 
     /* Initialize engine */
     engine->strategy = strategy;
+    engine->scope = scope;
     engine->history_core = history_core;
     engine->duplicates_detected = 0;
     engine->duplicates_merged = 0;
@@ -301,7 +305,8 @@ lle_result_t lle_history_dedup_destroy(lle_history_dedup_engine_t *dedup) {
 /**
  * @brief Check if entry is duplicate of existing entry
  *
- * Scans the last 100 history entries for a matching command.
+ * Scans history entries for a matching command, respecting the configured
+ * dedup scope from the dedup engine's configuration.
  * Note: Must be called from within add_entry which holds the write lock.
  *
  * @param dedup Dedup engine (must not be NULL)
@@ -322,6 +327,11 @@ lle_result_t lle_history_dedup_check(lle_history_dedup_engine_t *dedup,
         *duplicate_entry = NULL;
     }
 
+    /* Check dedup scope - if NONE, skip deduplication entirely */
+    if (dedup->scope == LLE_HISTORY_DEDUP_SCOPE_NONE) {
+        return LLE_ERROR_NOT_FOUND; /* No dedup = no duplicates found */
+    }
+
     /* Get history entries (we need to scan backwards from most recent) */
     lle_history_core_t *core = dedup->history_core;
     if (!core) {
@@ -335,8 +345,34 @@ lle_result_t lle_history_dedup_check(lle_history_dedup_engine_t *dedup,
      */
     size_t entry_count = core->entry_count;
 
-    /* Scan backwards through recent entries (check last 100 for duplicates) */
-    size_t check_limit = (entry_count > 100) ? 100 : entry_count;
+    /* Determine how many entries to check based on dedup scope (issue #41)
+     *
+     * - LLE_HISTORY_DEDUP_SCOPE_NONE:    No deduplication (handled above)
+     * - LLE_HISTORY_DEDUP_SCOPE_SESSION: Check entries from current session
+     *                                    (approximated by last 1000 entries)
+     * - LLE_HISTORY_DEDUP_SCOPE_RECENT:  Check last N entries (default 100)
+     * - LLE_HISTORY_DEDUP_SCOPE_GLOBAL:  Check entire history
+     */
+    size_t check_limit;
+    switch (dedup->scope) {
+    case LLE_HISTORY_DEDUP_SCOPE_SESSION:
+        /* Session scope: check a reasonable number of recent entries
+         * that would typically represent a session's worth of commands */
+        check_limit = (entry_count > 1000) ? 1000 : entry_count;
+        break;
+    case LLE_HISTORY_DEDUP_SCOPE_RECENT:
+        /* Recent scope: check last 100 entries (the original behavior) */
+        check_limit = (entry_count > 100) ? 100 : entry_count;
+        break;
+    case LLE_HISTORY_DEDUP_SCOPE_GLOBAL:
+        /* Global scope: check entire history */
+        check_limit = entry_count;
+        break;
+    default:
+        /* Fallback to recent behavior */
+        check_limit = (entry_count > 100) ? 100 : entry_count;
+        break;
+    }
 
     for (size_t i = entry_count; i > entry_count - check_limit && i > 0; i--) {
         /* Direct array access - safe because caller holds lock */

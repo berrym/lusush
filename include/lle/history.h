@@ -66,6 +66,17 @@ typedef enum lle_history_dedup_strategy {
     LLE_DEDUP_KEEP_ALL        /* No deduplication (keep all instances) */
 } lle_history_dedup_strategy_t;
 
+/**
+ * Deduplication scope enumeration
+ * Determines how far back in history to check for duplicates.
+ */
+typedef enum lle_history_dedup_scope {
+    LLE_HISTORY_DEDUP_SCOPE_NONE = 0, /* No deduplication */
+    LLE_HISTORY_DEDUP_SCOPE_SESSION,  /* Within current session (~1000 entries) */
+    LLE_HISTORY_DEDUP_SCOPE_RECENT,   /* Last N entries (default 100) */
+    LLE_HISTORY_DEDUP_SCOPE_GLOBAL    /* Entire history */
+} lle_history_dedup_scope_t;
+
 /* ============================================================================
  * CONSTANTS AND CONFIGURATION
  * ============================================================================
@@ -211,6 +222,7 @@ struct lle_history_config {
     /* Behavior settings */
     bool ignore_duplicates;                      /* Ignore duplicate commands */
     lle_history_dedup_strategy_t dedup_strategy; /* Deduplication strategy */
+    lle_history_dedup_scope_t dedup_scope;       /* Deduplication scope */
     bool unicode_normalize;   /* Use Unicode NFC normalization for dedup */
     bool ignore_space_prefix; /* Ignore commands starting with space */
     bool save_timestamps;     /* Save timestamp metadata */
@@ -1399,16 +1411,18 @@ typedef struct lle_history_dedup_stats {
 /**
  * Create deduplication engine
  *
- * Initializes deduplication engine with specified strategy.
+ * Initializes deduplication engine with specified strategy and scope.
  *
  * @param dedup Output pointer for dedup engine
  * @param history_core Reference to history core engine
  * @param strategy Initial deduplication strategy
+ * @param scope Deduplication scope (how far back to scan for duplicates)
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_history_dedup_create(lle_history_dedup_engine_t **dedup,
                                       lle_history_core_t *history_core,
-                                      lle_history_dedup_strategy_t strategy);
+                                      lle_history_dedup_strategy_t strategy,
+                                      lle_history_dedup_scope_t scope);
 
 /**
  * Destroy deduplication engine

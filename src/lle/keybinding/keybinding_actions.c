@@ -2069,6 +2069,11 @@ lle_result_t lle_history_previous(lle_editor_t *editor) {
         editor->history_navigation_pos++; /* Always advance position */
 
         if (result == LLE_SUCCESS && entry && entry->command) {
+            /* Skip deleted/archived/corrupted entries (issue #42) */
+            if (entry->state != LLE_HISTORY_STATE_ACTIVE) {
+                continue; /* Skip non-active entry */
+            }
+
             /* Skip if dedup enabled and this entry matches current buffer
              * content */
             if (dedup_enabled && current_content &&
@@ -2151,6 +2156,11 @@ lle_result_t lle_history_next(lle_editor_t *editor) {
             lle_history_get_entry_by_index(editor->history_system, idx, &entry);
 
         if (result == LLE_SUCCESS && entry && entry->command) {
+            /* Skip deleted/archived/corrupted entries (issue #42) */
+            if (entry->state != LLE_HISTORY_STATE_ACTIVE) {
+                continue; /* Skip non-active entry */
+            }
+
             /* Skip if dedup enabled and this entry matches current buffer
              * content */
             if (dedup_enabled && current_content &&

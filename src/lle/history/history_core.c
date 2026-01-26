@@ -70,6 +70,8 @@ lle_result_t lle_history_config_create_default(lle_history_config_t **config,
 
     /* Behavior settings */
     cfg->ignore_duplicates = false;  /* Phase 4 - deduplication */
+    cfg->dedup_strategy = LLE_DEDUP_KEEP_RECENT;          /* Default strategy */
+    cfg->dedup_scope = LLE_HISTORY_DEDUP_SCOPE_SESSION;   /* Default scope */
     cfg->ignore_space_prefix = true; /* Standard shell behavior */
     cfg->save_timestamps = true;
     cfg->save_working_dir = true;
@@ -361,9 +363,10 @@ lle_result_t lle_history_core_create(lle_history_core_t **core,
 
     /* Phase 4 Day 12: Create deduplication engine if configured */
     if (c->config->ignore_duplicates) {
-        /* Use configured strategy (default: KEEP_RECENT) */
+        /* Use configured strategy and scope (defaults: KEEP_RECENT, SESSION) */
         result = lle_history_dedup_create(&c->dedup_engine, c,
-                                          c->config->dedup_strategy);
+                                          c->config->dedup_strategy,
+                                          c->config->dedup_scope);
         if (result != LLE_SUCCESS) {
             if (c->entry_lookup) {
                 lle_history_index_destroy(c->entry_lookup);

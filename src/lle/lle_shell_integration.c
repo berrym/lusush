@@ -166,6 +166,25 @@ static void populate_history_config(lle_history_config_t *hist_config) {
         break;
     }
 
+    /* Map dedup scope (issue #41) */
+    switch (config.lle_dedup_scope) {
+    case LLE_DEDUP_SCOPE_NONE:
+        hist_config->dedup_scope = LLE_HISTORY_DEDUP_SCOPE_NONE;
+        break;
+    case LLE_DEDUP_SCOPE_SESSION:
+        hist_config->dedup_scope = LLE_HISTORY_DEDUP_SCOPE_SESSION;
+        break;
+    case LLE_DEDUP_SCOPE_RECENT:
+        hist_config->dedup_scope = LLE_HISTORY_DEDUP_SCOPE_RECENT;
+        break;
+    case LLE_DEDUP_SCOPE_GLOBAL:
+        hist_config->dedup_scope = LLE_HISTORY_DEDUP_SCOPE_GLOBAL;
+        break;
+    default:
+        hist_config->dedup_scope = LLE_HISTORY_DEDUP_SCOPE_SESSION;
+        break;
+    }
+
     hist_config->unicode_normalize = config.lle_dedup_unicode_normalize;
     hist_config->ignore_space_prefix = false;
 

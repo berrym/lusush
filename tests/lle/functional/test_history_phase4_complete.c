@@ -199,7 +199,8 @@ void test_dedup_engine_creation(void) {
 
     /* Create dedup engine */
     lle_history_dedup_engine_t *dedup = NULL;
-    result = lle_history_dedup_create(&dedup, core, LLE_DEDUP_KEEP_RECENT);
+    result = lle_history_dedup_create(&dedup, core, LLE_DEDUP_KEEP_RECENT,
+                                      LLE_HISTORY_DEDUP_SCOPE_SESSION);
     ASSERT_EQ(result, LLE_SUCCESS, "Dedup creation should succeed");
     ASSERT_NOT_NULL(dedup, "Dedup engine should not be NULL");
 
@@ -220,7 +221,8 @@ void test_dedup_duplicate_detection(void) {
 
     /* Create dedup engine */
     lle_history_dedup_engine_t *dedup = NULL;
-    result = lle_history_dedup_create(&dedup, core, LLE_DEDUP_KEEP_RECENT);
+    result = lle_history_dedup_create(&dedup, core, LLE_DEDUP_KEEP_RECENT,
+                                      LLE_HISTORY_DEDUP_SCOPE_SESSION);
     ASSERT_EQ(result, LLE_SUCCESS, "Dedup creation should succeed");
 
     /* Add first entry */
@@ -257,7 +259,8 @@ void test_dedup_strategies(void) {
 
     /* Test LLE_DEDUP_IGNORE strategy */
     lle_history_dedup_engine_t *dedup = NULL;
-    result = lle_history_dedup_create(&dedup, core, LLE_DEDUP_IGNORE);
+    result = lle_history_dedup_create(&dedup, core, LLE_DEDUP_IGNORE,
+                                      LLE_HISTORY_DEDUP_SCOPE_SESSION);
     ASSERT_EQ(result, LLE_SUCCESS, "Dedup creation should succeed");
 
     /* Add entry */
@@ -291,7 +294,8 @@ void test_dedup_statistics(void) {
     ASSERT_EQ(result, LLE_SUCCESS, "Core creation should succeed");
 
     lle_history_dedup_engine_t *dedup = NULL;
-    result = lle_history_dedup_create(&dedup, core, LLE_DEDUP_KEEP_RECENT);
+    result = lle_history_dedup_create(&dedup, core, LLE_DEDUP_KEEP_RECENT,
+                                      LLE_HISTORY_DEDUP_SCOPE_SESSION);
     ASSERT_EQ(result, LLE_SUCCESS, "Dedup creation should succeed");
 
     /* Add some entries */
