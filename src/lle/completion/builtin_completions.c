@@ -143,6 +143,59 @@ static const lle_builtin_option_t setopt_options[] = {
     {"-q", "Query silently (exit status only)"},
 };
 
+/* disown options */
+static const lle_builtin_option_t disown_options[] = {
+    {"-h", "Mark jobs to not receive SIGHUP instead of removing"},
+    {"-a", "Apply to all jobs"},
+    {"-r", "Apply to running jobs only"},
+};
+
+/* mapfile/readarray options */
+static const lle_builtin_option_t mapfile_options[] = {
+    {"-d", "Use specified delimiter instead of newline"},
+    {"-n", "Read at most count lines"},
+    {"-O", "Start assigning at index origin"},
+    {"-s", "Skip first count lines"},
+    {"-t", "Remove trailing delimiter from each line"},
+    {"-u", "Read from file descriptor instead of stdin"},
+    {"-C", "Execute callback every quantum lines"},
+    {"-c", "Quantum for callback (default 5000)"},
+};
+
+/* env options */
+static const lle_builtin_option_t env_options[] = {
+    {"-i", "Start with empty environment"},
+    {"-u", "Remove variable from environment"},
+    {"-0", "Use NUL instead of newline for output"},
+    {"--help", "Display help message"},
+};
+
+/* analyze options */
+static const lle_builtin_option_t analyze_options[] = {
+    {"-t", "Target shell (posix, bash, zsh)"},
+    {"--target", "Target shell (posix, bash, zsh)"},
+    {"-s", "Treat warnings as errors"},
+    {"--strict", "Treat warnings as errors"},
+    {"-h", "Show help message"},
+    {"--help", "Show help message"},
+};
+
+/* lint options */
+static const lle_builtin_option_t lint_options[] = {
+    {"-t", "Target shell (posix, bash, zsh)"},
+    {"--target", "Target shell (posix, bash, zsh)"},
+    {"-s", "Treat warnings as errors"},
+    {"--strict", "Treat warnings as errors"},
+    {"--fix", "Apply safe automatic fixes"},
+    {"--fix-interactive", "Interactively approve each fix"},
+    {"--unsafe-fixes", "Also apply unsafe fixes"},
+    {"--dry-run", "Preview fixes without applying"},
+    {"--diff", "Show unified diff of changes"},
+    {"--no-backup", "Don't create backup when fixing"},
+    {"-h", "Show help message"},
+    {"--help", "Show help message"},
+};
+
 /* getopts - no options, just takes optstring and varname */
 
 // ============================================================================
@@ -355,6 +408,32 @@ static const lle_builtin_completion_spec_t builtin_specs[] = {
     {"test", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_FILE},
     {"[", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_FILE},
     {"eval", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_NONE},
+
+    /* Job control builtins */
+    {"disown", disown_options,
+     sizeof(disown_options) / sizeof(disown_options[0]), NULL, 0,
+     LLE_BUILTIN_ARG_JOB},
+
+    /* Array builtins */
+    {"mapfile", mapfile_options,
+     sizeof(mapfile_options) / sizeof(mapfile_options[0]), NULL, 0,
+     LLE_BUILTIN_ARG_NONE},
+    {"readarray", mapfile_options,
+     sizeof(mapfile_options) / sizeof(mapfile_options[0]), NULL, 0,
+     LLE_BUILTIN_ARG_NONE},
+
+    /* Environment builtins */
+    {"env", env_options, sizeof(env_options) / sizeof(env_options[0]), NULL, 0,
+     LLE_BUILTIN_ARG_COMMAND},
+    {"printenv", env_options, sizeof(env_options) / sizeof(env_options[0]),
+     NULL, 0, LLE_BUILTIN_ARG_VARIABLE},
+
+    /* Script analysis builtins */
+    {"analyze", analyze_options,
+     sizeof(analyze_options) / sizeof(analyze_options[0]), NULL, 0,
+     LLE_BUILTIN_ARG_FILE},
+    {"lint", lint_options, sizeof(lint_options) / sizeof(lint_options[0]), NULL,
+     0, LLE_BUILTIN_ARG_FILE},
 };
 
 static const size_t builtin_specs_count =
@@ -489,9 +568,11 @@ static lle_result_t generate_theme_completions(lle_memory_pool_t *pool,
                                                const char *prefix,
                                                lle_completion_result_t *result) {
     (void)pool; /* Completions allocated via result's pool */
-    /* Common built-in theme names */
-    static const char *themes[] = {"default", "minimal", "powerline", "arrow",
-                                   "classic", NULL};
+    /* All built-in theme names */
+    static const char *themes[] = {"default",     "minimal",   "powerline",
+                                   "classic",     "nerd",      "informative",
+                                   "two_line",    "corporate", "dark",
+                                   "light",       "colorful",  NULL};
 
     size_t prefix_len = prefix ? strlen(prefix) : 0;
 
