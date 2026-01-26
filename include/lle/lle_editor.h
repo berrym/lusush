@@ -105,6 +105,13 @@ typedef struct lle_editor {
     size_t history_nav_seen_count; /* Number of seen hashes */
     size_t history_nav_seen_capacity; /* Capacity of seen hash array */
 
+    /* Navigation display stack for symmetric up/down navigation (issue #40)
+     * Tracks which entries were actually displayed during up navigation
+     * so down navigation can retrace the exact same path in reverse */
+    size_t *history_nav_display_stack;   /* Stack of displayed entry indices */
+    size_t history_nav_display_count;    /* Current stack depth */
+    size_t history_nav_display_capacity; /* Stack capacity */
+
     /* Display and output */
     lle_display_controller_t *display_controller; /* Display management */
 
