@@ -599,7 +599,10 @@ finalize:
     
     g_compat.initialized = true;
     
-    return (total_loaded > 0) ? 0 : -1;
+    /* Always succeed on init, even if no data files are loaded.
+     * The module can operate with defaults when no compat data exists. */
+    (void)total_loaded;
+    return 0;
 }
 
 void compat_cleanup(void) {
