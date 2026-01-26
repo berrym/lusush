@@ -10146,7 +10146,8 @@ static char *expand_command_substitution(executor_t *executor,
             node_t *ast = parser_parse(parser);
             if (!parser_has_error(parser) && ast) {
                 // Execute in current context (functions are inherited via fork)
-                result = execute_node(executor, ast);
+                // Use executor_execute to handle command sequences (next_sibling)
+                result = executor_execute(executor, ast);
                 free_node_tree(ast);
             }
             parser_free(parser);
