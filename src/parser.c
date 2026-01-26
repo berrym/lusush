@@ -849,9 +849,8 @@ static node_t *parse_simple_command(parser_t *parser) {
         case TOK_COPROC:
             return parse_coproc(parser);
         default:
-            // Other keywords not implemented yet
-            printf("DEBUG: Unhandled keyword type %d (%s)\n", current->type,
-                   token_type_name(current->type));
+            // Other keywords (like ESAC, FI, DONE, etc.) are handled by their
+            // parent constructs - returning NULL here lets the parent detect them
             return NULL;
         }
     }

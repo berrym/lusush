@@ -3760,7 +3760,8 @@ char *expand_if_needed(executor_t *executor, const char *text) {
             const char *p = text + 1;  // Skip $
             // Find end of variable name
             if (*p == '?' || *p == '$' || *p == '#' || *p == '*' ||
-                *p == '@' || *p == '!' || (*p >= '0' && *p <= '9')) {
+                *p == '@' || *p == '!' || *p == '-' ||
+                (*p >= '0' && *p <= '9')) {
                 p++;  // Single character special variable
             } else {
                 while (*p && (isalnum(*p) || *p == '_')) {
@@ -8224,9 +8225,20 @@ static char *expand_variables_in_string(executor_t *executor, const char *str) {
                 }
             } else {
                 // Handle $var format
-                while (var_end < len &&
-                       (isalnum(str[var_end]) || str[var_end] == '_')) {
-                    var_end++;
+                // Check for special single-character variables first
+                if (var_end < len &&
+                    (str[var_end] == '?' || str[var_end] == '$' ||
+                     str[var_end] == '#' || str[var_end] == '*' ||
+                     str[var_end] == '@' || str[var_end] == '!' ||
+                     str[var_end] == '-' ||
+                     (str[var_end] >= '0' && str[var_end] <= '9'))) {
+                    var_end++;  // Single character special variable
+                } else {
+                    // Regular variable names (alphanumeric + underscore)
+                    while (var_end < len &&
+                           (isalnum(str[var_end]) || str[var_end] == '_')) {
+                        var_end++;
+                    }
                 }
             }
 
@@ -9078,6 +9090,20 @@ static char *parse_parameter_expansion(executor_t *executor,
     if (op_pos) {
         // Extract variable name
         size_t var_len = op_pos - expansion;
+        
+        // If operator is at position 0, it might actually be a special variable
+        // like $- (which contains the '-' character itself)
+        if (var_len == 0 && strlen(expansion) == 1 && expansion[0] == '-') {
+            // This is $- (shell options), not a parameter expansion operator
+            // Fall through to regular variable lookup below
+            op_pos = NULL;
+            op_type = -1;
+        }
+    }
+    
+    if (op_pos) {
+        // Extract variable name
+        size_t var_len = op_pos - expansion;
         char *var_name = malloc(var_len + 1);
         if (!var_name) {
             return strdup("");
@@ -9387,6 +9413,29 @@ static char *parse_parameter_expansion(executor_t *executor,
                 return strdup("");
             }
 
+        case '-': { // Current option flags
+            // Build string of current shell option flags
+            char flags[32];
+            int pos = 0;
+            if (is_interactive_shell()) flags[pos++] = 'i';
+            if (shell_opts.job_control) flags[pos++] = 'm';
+            if (shell_opts.exit_on_error) flags[pos++] = 'e';
+            if (shell_opts.unset_error) flags[pos++] = 'u';
+            if (shell_opts.trace_execution) flags[pos++] = 'x';
+            if (shell_opts.verbose) flags[pos++] = 'v';
+            if (shell_opts.noclobber) flags[pos++] = 'C';
+            if (shell_opts.no_globbing) flags[pos++] = 'f';
+            if (shell_opts.syntax_check) flags[pos++] = 'n';
+            if (shell_opts.allexport) flags[pos++] = 'a';
+            if (shell_opts.notify) flags[pos++] = 'b';
+            if (shell_opts.physical_mode) flags[pos++] = 'P';
+            if (shell_opts.privileged_mode) flags[pos++] = 'p';
+            if (shell_opts.history_mode) flags[pos++] = 'H';
+            if (shell_opts.histexpand_mode) flags[pos++] = 'B';
+            flags[pos] = '\0';
+            return strdup(flags);
+        }
+
         case '*': // All positional parameters as single word
             if (shell_argc > 1) {
                 size_t total_len = 0;
@@ -9493,7 +9542,8 @@ static char *parse_parameter_expansion(executor_t *executor,
         if (strlen(expansion) != 1 ||
             (expansion[0] != '?' && expansion[0] != '$' &&
              expansion[0] != '#' && expansion[0] != '0' &&
-             expansion[0] != '@' && expansion[0] != '*')) {
+             expansion[0] != '@' && expansion[0] != '*' &&
+             expansion[0] != '-' && expansion[0] != '!')) {
             // Report structured error for unbound variable
             executor_error_report(executor, SHELL_ERR_UNBOUND_VARIABLE,
                                   SOURCE_LOC_UNKNOWN,
@@ -9576,6 +9626,7 @@ static char *expand_variable(executor_t *executor, const char *var_text) {
         // Check for special single-character variables first
         if (var_name[0] == '?' || var_name[0] == '$' || var_name[0] == '#' ||
             var_name[0] == '*' || var_name[0] == '@' || var_name[0] == '!' ||
+            var_name[0] == '-' ||
             (var_name[0] >= '0' && var_name[0] <= '9')) {
             name_len = 1;
         } else {
@@ -9619,7 +9670,8 @@ static char *expand_variable(executor_t *executor, const char *var_text) {
                     // behavior
                     if (name_len != 1 ||
                         (name[0] != '?' && name[0] != '$' && name[0] != '#' &&
-                         name[0] != '0' && name[0] != '@' && name[0] != '*')) {
+                         name[0] != '0' && name[0] != '@' && name[0] != '*' &&
+                         name[0] != '-' && name[0] != '!')) {
                         // Report structured error for unbound variable
                         executor_error_report(executor, SHELL_ERR_UNBOUND_VARIABLE,
                                               SOURCE_LOC_UNKNOWN,
@@ -9835,6 +9887,29 @@ static char *expand_variable(executor_t *executor, const char *var_text) {
                             free(name);
                             return strdup("");
                         }
+                    }
+
+                    case '-': { // Current option flags
+                        char flags[32];
+                        int fpos = 0;
+                        if (is_interactive_shell()) flags[fpos++] = 'i';
+                        if (shell_opts.job_control) flags[fpos++] = 'm';
+                        if (shell_opts.exit_on_error) flags[fpos++] = 'e';
+                        if (shell_opts.unset_error) flags[fpos++] = 'u';
+                        if (shell_opts.trace_execution) flags[fpos++] = 'x';
+                        if (shell_opts.verbose) flags[fpos++] = 'v';
+                        if (shell_opts.noclobber) flags[fpos++] = 'C';
+                        if (shell_opts.no_globbing) flags[fpos++] = 'f';
+                        if (shell_opts.syntax_check) flags[fpos++] = 'n';
+                        if (shell_opts.allexport) flags[fpos++] = 'a';
+                        if (shell_opts.notify) flags[fpos++] = 'b';
+                        if (shell_opts.physical_mode) flags[fpos++] = 'P';
+                        if (shell_opts.privileged_mode) flags[fpos++] = 'p';
+                        if (shell_opts.history_mode) flags[fpos++] = 'H';
+                        if (shell_opts.histexpand_mode) flags[fpos++] = 'B';
+                        flags[fpos] = '\0';
+                        free(name);
+                        return strdup(flags);
                     }
 
                     default:
@@ -10742,6 +10817,7 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
                 if (str[var_start] == '?' || str[var_start] == '$' ||
                     str[var_start] == '#' || str[var_start] == '*' ||
                     str[var_start] == '@' || str[var_start] == '!' ||
+                    str[var_start] == '-' ||
                     (str[var_start] >= '0' && str[var_start] <= '9')) {
                     var_name_len = 1;
                 } else {

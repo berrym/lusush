@@ -79,4 +79,12 @@ void error_syscall(const char *str) {
  * Global Variables
  * ============================================================================ */
 
+#include "lush.h"
+
 int last_exit_status = 0;
+shell_options_t shell_opts = {0};
+
+/* Interactive shell stub */
+bool is_interactive_shell(void) {
+    return false;
+}

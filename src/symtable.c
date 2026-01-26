@@ -25,6 +25,7 @@
 #include "symtable.h"
 
 #include "ht.h"
+#include "init.h"
 #include "lush.h"
 #include "shell_mode.h"
 
@@ -606,6 +607,29 @@ char *symtable_get_var(symtable_manager_t *manager, const char *name) {
         char buffer[16];
         snprintf(buffer, sizeof(buffer), "%d", current_lineno);
         return strdup(buffer);
+    }
+
+    // Handle $- (current shell option flags)
+    if (strcmp(name, "-") == 0) {
+        char flags[32];
+        int pos = 0;
+        if (is_interactive_shell()) flags[pos++] = 'i';
+        if (shell_opts.job_control) flags[pos++] = 'm';
+        if (shell_opts.exit_on_error) flags[pos++] = 'e';
+        if (shell_opts.unset_error) flags[pos++] = 'u';
+        if (shell_opts.trace_execution) flags[pos++] = 'x';
+        if (shell_opts.verbose) flags[pos++] = 'v';
+        if (shell_opts.noclobber) flags[pos++] = 'C';
+        if (shell_opts.no_globbing) flags[pos++] = 'f';
+        if (shell_opts.syntax_check) flags[pos++] = 'n';
+        if (shell_opts.allexport) flags[pos++] = 'a';
+        if (shell_opts.notify) flags[pos++] = 'b';
+        if (shell_opts.physical_mode) flags[pos++] = 'P';
+        if (shell_opts.privileged_mode) flags[pos++] = 'p';
+        if (shell_opts.history_mode) flags[pos++] = 'H';
+        if (shell_opts.histexpand_mode) flags[pos++] = 'B';
+        flags[pos] = '\0';
+        return strdup(flags);
     }
 
     // Resolve nameref if applicable
