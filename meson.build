@@ -96,6 +96,7 @@ src = ['src/builtins/alias.c',
        'src/libhashtable/ht_strstr.c',
        'src/lush.c',
        'src/node.c',
+       'src/node_to_source.c',
        'src/shell_error.c',
        'src/opts.c',
        'src/parser.c',
@@ -1138,6 +1139,29 @@ if fs.exists('tests/unit/test_parser_negative.c')
                            include_directories: inc,
                            dependencies: [lle_dep])
   test('Parser Negative', test_parser_negative,
+       suite: 'unit',
+       timeout: 60)
+endif
+
+# AST Round-Trip Tests - Verify parse → source → parse produces equivalent AST
+if fs.exists('tests/unit/test_ast_roundtrip.c')
+  test_ast_roundtrip = executable('test_ast_roundtrip',
+                           'tests/unit/test_ast_roundtrip.c',
+                           'src/parser.c',
+                           'src/tokenizer.c',
+                           'src/node.c',
+                           'src/node_to_source.c',
+                           'src/shell_mode.c',
+                           'src/shell_error.c',
+                           'src/strings.c',
+                           'src/symtable.c',
+                           'src/libhashtable/ht.c',
+                           'src/libhashtable/ht_fnv1a.c',
+                           'src/libhashtable/ht_strstr.c',
+                           'tests/unit/test_parser_stubs.c',
+                           include_directories: inc,
+                           dependencies: [lle_dep])
+  test('AST Round-Trip', test_ast_roundtrip,
        suite: 'unit',
        timeout: 60)
 endif
