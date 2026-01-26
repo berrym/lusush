@@ -1788,3 +1788,294 @@ if fuzzing_enabled
     message('AFL++ targets: fuzz_parser_afl, fuzz_tokenizer_afl')
   endif
 endif
+
+# ============================================================================
+# ADDITIONAL UNIT TESTS FOR COVERAGE IMPROVEMENT
+# ============================================================================
+
+# String Utilities Tests
+if fs.exists('tests/unit/test_strings.c')
+  test_strings_sources = []
+  foreach s : src
+    if not s.endswith('lush.c')
+      test_strings_sources += s
+    endif
+  endforeach
+  test_strings = executable('test_strings',
+                            'tests/unit/test_strings.c',
+                            'tests/unit/test_executor_stubs.c',
+                            test_strings_sources + lle_shell_sources,
+                            include_directories: inc,
+                            dependencies: [lle_dep, libm])
+  test('String Utilities', test_strings,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# Shell Error System Tests
+if fs.exists('tests/unit/test_shell_error.c')
+  test_shell_error_sources = []
+  foreach s : src
+    if not s.endswith('lush.c')
+      test_shell_error_sources += s
+    endif
+  endforeach
+  test_shell_error = executable('test_shell_error',
+                                'tests/unit/test_shell_error.c',
+                                'tests/unit/test_executor_stubs.c',
+                                test_shell_error_sources + lle_shell_sources,
+                                include_directories: inc,
+                                dependencies: [lle_dep, libm])
+  test('Shell Error System', test_shell_error,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# Memory Pool Tests
+if fs.exists('tests/unit/test_memory_pool.c')
+  test_memory_pool_sources = []
+  foreach s : src
+    if not s.endswith('lush.c')
+      test_memory_pool_sources += s
+    endif
+  endforeach
+  test_memory_pool = executable('test_memory_pool',
+                                'tests/unit/test_memory_pool.c',
+                                'tests/unit/test_executor_stubs.c',
+                                test_memory_pool_sources + lle_shell_sources,
+                                include_directories: inc,
+                                dependencies: [lle_dep, libm])
+  test('Memory Pool', test_memory_pool,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# Signal Handling Tests
+if fs.exists('tests/unit/test_signals.c')
+  test_signals_sources = []
+  foreach s : src
+    if not s.endswith('lush.c')
+      test_signals_sources += s
+    endif
+  endforeach
+  test_signals = executable('test_signals',
+                            'tests/unit/test_signals.c',
+                            'tests/unit/test_executor_stubs.c',
+                            test_signals_sources + lle_shell_sources,
+                            include_directories: inc,
+                            dependencies: [lle_dep, libm])
+  test('Signal Handling', test_signals,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# Alias System Tests
+if fs.exists('tests/unit/test_alias.c')
+  test_alias_sources = []
+  foreach s : src
+    if not s.endswith('lush.c')
+      test_alias_sources += s
+    endif
+  endforeach
+  test_alias = executable('test_alias',
+                          'tests/unit/test_alias.c',
+                          'tests/unit/test_executor_stubs.c',
+                          test_alias_sources + lle_shell_sources,
+                          include_directories: inc,
+                          dependencies: [lle_dep, libm])
+  test('Alias System', test_alias,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# Redirection Tests
+if fs.exists('tests/unit/test_redirection.c')
+  test_redirection_sources = []
+  foreach s : src
+    if not s.endswith('lush.c')
+      test_redirection_sources += s
+    endif
+  endforeach
+  test_redirection = executable('test_redirection',
+                                'tests/unit/test_redirection.c',
+                                'tests/unit/test_executor_stubs.c',
+                                test_redirection_sources + lle_shell_sources,
+                                include_directories: inc,
+                                dependencies: [lle_dep, libm])
+  test('Redirection', test_redirection,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# Compatibility Database Tests
+if fs.exists('tests/unit/test_compat.c')
+  test_compat_sources = []
+  foreach s : src
+    if not s.endswith('lush.c')
+      test_compat_sources += s
+    endif
+  endforeach
+  test_compat = executable('test_compat',
+                           'tests/unit/test_compat.c',
+                           'tests/unit/test_executor_stubs.c',
+                           test_compat_sources + lle_shell_sources,
+                           include_directories: inc,
+                           dependencies: [lle_dep, libm])
+  test('Compatibility Database', test_compat,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# Expand Module Tests
+if fs.exists('tests/unit/test_expand.c')
+  test_expand_sources = []
+  foreach s : src
+    if not s.endswith('lush.c')
+      test_expand_sources += s
+    endif
+  endforeach
+  test_expand = executable('test_expand',
+                           'tests/unit/test_expand.c',
+                           'tests/unit/test_executor_stubs.c',
+                           test_expand_sources + lle_shell_sources,
+                           include_directories: inc,
+                           dependencies: [lle_dep, libm])
+  test('Expand Module', test_expand,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# Hash Table Library Tests
+if fs.exists('tests/unit/test_hashtable.c')
+  test_hashtable = executable('test_hashtable_lib',
+                              'tests/unit/test_hashtable.c',
+                              'src/libhashtable/ht.c',
+                              'src/libhashtable/ht_fnv1a.c',
+                              'src/libhashtable/ht_strstr.c',
+                              'src/libhashtable/ht_strint.c',
+                              'src/libhashtable/ht_strfloat.c',
+                              'src/libhashtable/ht_strdouble.c',
+                              include_directories: inc,
+                              dependencies: [libm])
+  test('Hash Table Library', test_hashtable,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# Debug Core Tests
+if fs.exists('tests/unit/test_debug_core.c')
+  test_debug_core_sources = []
+  foreach s : src
+    if not s.endswith('lush.c')
+      test_debug_core_sources += s
+    endif
+  endforeach
+  test_debug_core = executable('test_debug_core',
+                               'tests/unit/test_debug_core.c',
+                               'tests/unit/test_executor_stubs.c',
+                               test_debug_core_sources + lle_shell_sources,
+                               include_directories: inc,
+                               dependencies: [lle_dep, libm])
+  test('Debug Core', test_debug_core,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# Node to Source Tests
+if fs.exists('tests/unit/test_node_to_source.c')
+  test_node_to_source = executable('test_node_to_source',
+                                   'tests/unit/test_node_to_source.c',
+                                   'src/node_to_source.c',
+                                   'src/parser.c',
+                                   'src/tokenizer.c',
+                                   'src/node.c',
+                                   'src/shell_mode.c',
+                                   'src/shell_error.c',
+                                   'src/strings.c',
+                                   'src/symtable.c',
+                                   'src/libhashtable/ht.c',
+                                   'src/libhashtable/ht_fnv1a.c',
+                                   'src/libhashtable/ht_strstr.c',
+                                   'tests/unit/test_parser_stubs.c',
+                                   include_directories: inc,
+                                   dependencies: [lle_dep])
+  test('Node to Source', test_node_to_source,
+       suite: 'unit',
+       timeout: 60)
+endif
+
+# Configuration System Tests
+if fs.exists('tests/unit/test_config.c')
+  test_config_sources = []
+  foreach s : src
+    if not s.endswith('lush.c')
+      test_config_sources += s
+    endif
+  endforeach
+  test_config = executable('test_config',
+                           'tests/unit/test_config.c',
+                           'tests/unit/test_executor_stubs.c',
+                           test_config_sources + lle_shell_sources,
+                           include_directories: inc,
+                           dependencies: [lle_dep, libm])
+  test('Configuration System', test_config,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# POSIX Options Tests
+if fs.exists('tests/unit/test_posix_opts.c')
+  test_posix_opts_sources = []
+  foreach s : src
+    if not s.endswith('lush.c')
+      test_posix_opts_sources += s
+    endif
+  endforeach
+  test_posix_opts = executable('test_posix_opts',
+                               'tests/unit/test_posix_opts.c',
+                               'tests/unit/test_executor_stubs.c',
+                               test_posix_opts_sources + lle_shell_sources,
+                               include_directories: inc,
+                               dependencies: [lle_dep, libm])
+  test('POSIX Options', test_posix_opts,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# Plugin System Tests
+if fs.exists('tests/unit/test_lush_plugin.c')
+  test_plugin_sources = []
+  foreach s : src
+    if not s.endswith('lush.c')
+      test_plugin_sources += s
+    endif
+  endforeach
+  test_lush_plugin = executable('test_lush_plugin',
+                                'tests/unit/test_lush_plugin.c',
+                                'tests/unit/test_executor_stubs.c',
+                                test_plugin_sources + lle_shell_sources,
+                                include_directories: inc,
+                                dependencies: [lle_dep, libm])
+  test('Plugin System', test_lush_plugin,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# Input Continuation Tests
+if fs.exists('tests/unit/test_input_continuation.c')
+  test_input_cont_sources = []
+  foreach s : src
+    if not s.endswith('lush.c')
+      test_input_cont_sources += s
+    endif
+  endforeach
+  test_input_continuation = executable('test_input_continuation',
+                                       'tests/unit/test_input_continuation.c',
+                                       'tests/unit/test_executor_stubs.c',
+                                       test_input_cont_sources + lle_shell_sources,
+                                       include_directories: inc,
+                                       dependencies: [lle_dep, libm])
+  test('Input Continuation', test_input_continuation,
+       suite: 'unit',
+       timeout: 30)
+endif

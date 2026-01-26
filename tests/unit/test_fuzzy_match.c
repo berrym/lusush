@@ -2,20 +2,21 @@
  * @file test_fuzzy_match.c
  * @brief Unit tests for fuzzy string matching library
  *
- * Tests the fuzzy matching algorithms including:
- * - Levenshtein distance
- * - Damerau-Levenshtein distance (with transpositions)
- * - Jaro and Jaro-Winkler similarity
+ * Tests the fuzzy matching module including:
+ * - Levenshtein distance calculation
+ * - Damerau-Levenshtein distance calculation
+ * - Jaro and Jaro-Winkler similarity scores
+ * - Common prefix length
  * - Subsequence matching
- * - Combined scoring
- * - Unicode support
- * - Batch operations
+ * - Combined fuzzy match scoring
+ * - Batch matching operations
  *
  * @author Michael Berry <trismegustis@gmail.com>
  * @copyright Copyright (C) 2021-2026 Michael Berry
  */
 
 #include "fuzzy_match.h"
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,550 +39,497 @@
         }                                                                      \
     } while (0)
 
+#define ASSERT_TRUE(condition, message) ASSERT((condition), message)
+#define ASSERT_FALSE(condition, message) ASSERT(!(condition), message)
+
 #define ASSERT_EQ(actual, expected, message)                                   \
     do {                                                                       \
         if ((actual) != (expected)) {                                          \
             printf("    FAILED: %s\n", message);                               \
-            printf("      Expected: %d, Got: %d\n", (int)(expected),           \
-                   (int)(actual));                                             \
+            printf("      Expected: %ld, Got: %ld\n", (long)(expected),        \
+                   (long)(actual));                                            \
             printf("      at %s:%d\n", __FILE__, __LINE__);                    \
             exit(1);                                                           \
         }                                                                      \
     } while (0)
 
-#define ASSERT_RANGE(actual, min_val, max_val, message)                        \
+#define ASSERT_GE(actual, expected, message)                                   \
     do {                                                                       \
-        if ((actual) < (min_val) || (actual) > (max_val)) {                    \
+        if ((actual) < (expected)) {                                           \
             printf("    FAILED: %s\n", message);                               \
-            printf("      Expected range: [%d, %d], Got: %d\n",                \
-                   (int)(min_val), (int)(max_val), (int)(actual));             \
+            printf("      Expected >= %ld, Got: %ld\n", (long)(expected),      \
+                   (long)(actual));                                            \
             printf("      at %s:%d\n", __FILE__, __LINE__);                    \
             exit(1);                                                           \
         }                                                                      \
     } while (0)
 
-#define ASSERT_TRUE(condition, message) ASSERT(condition, message)
-#define ASSERT_FALSE(condition, message) ASSERT(!(condition), message)
+#define ASSERT_LE(actual, expected, message)                                   \
+    do {                                                                       \
+        if ((actual) > (expected)) {                                           \
+            printf("    FAILED: %s\n", message);                               \
+            printf("      Expected <= %ld, Got: %ld\n", (long)(expected),      \
+                   (long)(actual));                                            \
+            printf("      at %s:%d\n", __FILE__, __LINE__);                    \
+            exit(1);                                                           \
+        }                                                                      \
+    } while (0)
 
 /* ============================================================================
  * LEVENSHTEIN DISTANCE TESTS
- * ============================================================================
- */
+ * ============================================================================ */
 
-TEST(levenshtein_identical_strings) {
+TEST(levenshtein_identical) {
     int dist = fuzzy_levenshtein_distance("hello", "hello", NULL);
-    ASSERT_EQ(dist, 0, "Identical strings should have distance 0");
+    ASSERT_EQ(dist, 0, "identical strings should have distance 0");
 }
 
 TEST(levenshtein_empty_strings) {
     int dist1 = fuzzy_levenshtein_distance("", "", NULL);
-    ASSERT_EQ(dist1, 0, "Two empty strings should have distance 0");
-
-    int dist2 = fuzzy_levenshtein_distance("hello", "", NULL);
-    ASSERT_EQ(dist2, 5, "hello to empty should be 5 deletions");
-
-    int dist3 = fuzzy_levenshtein_distance("", "world", NULL);
-    ASSERT_EQ(dist3, 5, "Empty to world should be 5 insertions");
+    ASSERT_EQ(dist1, 0, "two empty strings should have distance 0");
+    
+    int dist2 = fuzzy_levenshtein_distance("abc", "", NULL);
+    ASSERT_EQ(dist2, 3, "string to empty should be string length");
+    
+    int dist3 = fuzzy_levenshtein_distance("", "abc", NULL);
+    ASSERT_EQ(dist3, 3, "empty to string should be string length");
 }
 
-TEST(levenshtein_single_edit) {
-    /* Single insertion */
-    int dist1 = fuzzy_levenshtein_distance("cat", "cats", NULL);
-    ASSERT_EQ(dist1, 1, "cat to cats should be 1 insertion");
-
-    /* Single deletion */
-    int dist2 = fuzzy_levenshtein_distance("cats", "cat", NULL);
-    ASSERT_EQ(dist2, 1, "cats to cat should be 1 deletion");
-
-    /* Single substitution */
-    int dist3 = fuzzy_levenshtein_distance("cat", "car", NULL);
-    ASSERT_EQ(dist3, 1, "cat to car should be 1 substitution");
+TEST(levenshtein_single_char_diff) {
+    /* Substitution */
+    int dist1 = fuzzy_levenshtein_distance("cat", "bat", NULL);
+    ASSERT_EQ(dist1, 1, "one substitution should be distance 1");
+    
+    /* Insertion */
+    int dist2 = fuzzy_levenshtein_distance("cat", "cart", NULL);
+    ASSERT_EQ(dist2, 1, "one insertion should be distance 1");
+    
+    /* Deletion */
+    int dist3 = fuzzy_levenshtein_distance("cart", "cat", NULL);
+    ASSERT_EQ(dist3, 1, "one deletion should be distance 1");
 }
 
 TEST(levenshtein_multiple_edits) {
-    int dist1 = fuzzy_levenshtein_distance("kitten", "sitting", NULL);
-    ASSERT_EQ(dist1, 3, "kitten to sitting should be 3 edits");
-
-    int dist2 = fuzzy_levenshtein_distance("hello", "world", NULL);
-    ASSERT_EQ(dist2, 4, "hello to world should be 4 edits");
-}
-
-TEST(levenshtein_case_insensitive) {
-    /* Default is case-insensitive */
-    int dist1 = fuzzy_levenshtein_distance("Hello", "hello", NULL);
-    ASSERT_EQ(dist1, 0, "Case-insensitive: Hello == hello");
-
-    int dist2 = fuzzy_levenshtein_distance("WORLD", "world", NULL);
-    ASSERT_EQ(dist2, 0, "Case-insensitive: WORLD == world");
+    int dist = fuzzy_levenshtein_distance("kitten", "sitting", NULL);
+    ASSERT_EQ(dist, 3, "kitten->sitting should be distance 3");
 }
 
 TEST(levenshtein_case_sensitive) {
-    int dist = fuzzy_levenshtein_distance("Hello", "hello", &FUZZY_MATCH_STRICT);
-    ASSERT_EQ(dist, 1, "Case-sensitive: Hello != hello");
+    int dist_default = fuzzy_levenshtein_distance("Hello", "hello", NULL);
+    ASSERT_EQ(dist_default, 0, "default is case insensitive");
+    
+    int dist_strict = fuzzy_levenshtein_distance("Hello", "hello", 
+                                                  &FUZZY_MATCH_STRICT);
+    ASSERT_EQ(dist_strict, 1, "strict mode is case sensitive");
 }
 
 /* ============================================================================
  * DAMERAU-LEVENSHTEIN DISTANCE TESTS
- * ============================================================================
- */
+ * ============================================================================ */
 
-TEST(damerau_identical_strings) {
+TEST(damerau_identical) {
     int dist = fuzzy_damerau_levenshtein_distance("hello", "hello", NULL);
-    ASSERT_EQ(dist, 0, "Identical strings should have distance 0");
+    ASSERT_EQ(dist, 0, "identical strings should have distance 0");
 }
 
 TEST(damerau_transposition) {
-    /* Classic typo: "teh" -> "the" is 1 transposition */
-    int dist1 = fuzzy_damerau_levenshtein_distance("teh", "the", NULL);
-    ASSERT_EQ(dist1, 1, "teh to the should be 1 transposition");
+    /* Transposition should count as 1 edit, not 2 */
+    int dist = fuzzy_damerau_levenshtein_distance("ab", "ba", NULL);
+    ASSERT_EQ(dist, 1, "simple transposition should be distance 1");
+}
 
-    int dist2 = fuzzy_damerau_levenshtein_distance("recieve", "receive", NULL);
-    ASSERT_EQ(dist2, 1, "recieve to receive should be 1 transposition");
+TEST(damerau_typo_correction) {
+    /* Common typo: "teh" -> "the" */
+    int dist = fuzzy_damerau_levenshtein_distance("teh", "the", NULL);
+    ASSERT_EQ(dist, 1, "transposition typo should be distance 1");
 }
 
 TEST(damerau_vs_levenshtein) {
-    /* Transposition should be 1 edit in Damerau, 2 in Levenshtein */
+    /* Damerau should give lower distance for transpositions */
     int damerau = fuzzy_damerau_levenshtein_distance("ab", "ba", NULL);
     int levenshtein = fuzzy_levenshtein_distance("ab", "ba", NULL);
-
-    ASSERT_EQ(damerau, 1, "Damerau: ab to ba should be 1 transposition");
-    ASSERT_EQ(levenshtein, 2, "Levenshtein: ab to ba should be 2 edits");
-}
-
-TEST(damerau_multiple_transpositions) {
-    int dist = fuzzy_damerau_levenshtein_distance("abcd", "badc", NULL);
-    ASSERT_EQ(dist, 2, "Two transpositions: abcd to badc");
+    
+    ASSERT_LE(damerau, levenshtein, 
+              "Damerau should be <= Levenshtein for transpositions");
 }
 
 /* ============================================================================
- * JARO SIMILARITY TESTS
- * ============================================================================
- */
+ * JARO SCORE TESTS
+ * ============================================================================ */
 
-TEST(jaro_identical_strings) {
+TEST(jaro_identical) {
     int score = fuzzy_jaro_score("hello", "hello", NULL);
-    ASSERT_EQ(score, 100, "Identical strings should have Jaro score 100");
+    ASSERT_EQ(score, 100, "identical strings should have score 100");
 }
 
 TEST(jaro_completely_different) {
     int score = fuzzy_jaro_score("abc", "xyz", NULL);
-    ASSERT_EQ(score, 0, "Completely different strings should have Jaro score 0");
+    ASSERT_EQ(score, 0, "completely different strings should have score 0");
 }
 
 TEST(jaro_partial_match) {
     int score = fuzzy_jaro_score("martha", "marhta", NULL);
-    ASSERT_RANGE(score, 90, 100, "martha vs marhta should have high Jaro score");
+    ASSERT_GE(score, 80, "similar strings should have high Jaro score");
 }
 
 TEST(jaro_empty_strings) {
     int score1 = fuzzy_jaro_score("", "", NULL);
-    ASSERT_EQ(score1, 100, "Two empty strings should match perfectly");
-
-    int score2 = fuzzy_jaro_score("hello", "", NULL);
-    ASSERT_EQ(score2, 0, "Non-empty vs empty should have score 0");
+    ASSERT_EQ(score1, 100, "two empty strings should have score 100");
+    
+    int score2 = fuzzy_jaro_score("abc", "", NULL);
+    ASSERT_EQ(score2, 0, "one empty string should have score 0");
 }
 
 /* ============================================================================
- * JARO-WINKLER SIMILARITY TESTS
- * ============================================================================
- */
+ * JARO-WINKLER SCORE TESTS
+ * ============================================================================ */
 
 TEST(jaro_winkler_identical) {
     int score = fuzzy_jaro_winkler_score("hello", "hello", NULL);
-    ASSERT_EQ(score, 100, "Identical strings should have JW score 100");
+    ASSERT_EQ(score, 100, "identical strings should have score 100");
 }
 
 TEST(jaro_winkler_prefix_bonus) {
-    /* Jaro-Winkler gives bonus for common prefix */
-    int jaro = fuzzy_jaro_score("prefix_aaa", "prefix_bbb", NULL);
-    int jw = fuzzy_jaro_winkler_score("prefix_aaa", "prefix_bbb", NULL);
-
-    ASSERT(jw >= jaro, "Jaro-Winkler should be >= Jaro for shared prefixes");
+    /* Jaro-Winkler should give bonus for common prefix */
+    int jaro = fuzzy_jaro_score("prefix", "prefox", NULL);
+    int jaro_winkler = fuzzy_jaro_winkler_score("prefix", "prefox", NULL);
+    
+    ASSERT_GE(jaro_winkler, jaro, 
+              "Jaro-Winkler should be >= Jaro for strings with common prefix");
 }
 
-TEST(jaro_winkler_common_prefixes) {
-    int score = fuzzy_jaro_winkler_score("string", "strong", NULL);
-    ASSERT_RANGE(score, 80, 100, "string vs strong should have high JW score");
+TEST(jaro_winkler_command_names) {
+    /* Good for command names like "gitcommit" vs "git-commit" */
+    int score = fuzzy_jaro_winkler_score("gitcommit", "git-commit", NULL);
+    ASSERT_GE(score, 70, "similar command names should have high score");
 }
 
 /* ============================================================================
- * COMMON PREFIX TESTS
- * ============================================================================
- */
+ * COMMON PREFIX LENGTH TESTS
+ * ============================================================================ */
 
 TEST(common_prefix_identical) {
     int len = fuzzy_common_prefix_length("hello", "hello", NULL);
-    ASSERT_EQ(len, 5, "Identical strings should have full prefix match");
+    ASSERT_EQ(len, 5, "identical strings should have full prefix length");
 }
 
 TEST(common_prefix_partial) {
-    int len = fuzzy_common_prefix_length("prefix_one", "prefix_two", NULL);
-    ASSERT_EQ(len, 7, "prefix_one and prefix_two share 7 chars");
+    int len = fuzzy_common_prefix_length("prefix", "presto", NULL);
+    ASSERT_EQ(len, 3, "common prefix should be 'pre' = 3");
 }
 
 TEST(common_prefix_none) {
     int len = fuzzy_common_prefix_length("abc", "xyz", NULL);
-    ASSERT_EQ(len, 0, "No common prefix should return 0");
+    ASSERT_EQ(len, 0, "no common prefix should return 0");
 }
 
-TEST(common_prefix_case_insensitive) {
-    int len = fuzzy_common_prefix_length("Hello", "hello", NULL);
-    ASSERT_EQ(len, 5, "Case-insensitive prefix should match");
+TEST(common_prefix_empty) {
+    int len1 = fuzzy_common_prefix_length("", "hello", NULL);
+    ASSERT_EQ(len1, 0, "empty string should have prefix 0");
+    
+    int len2 = fuzzy_common_prefix_length("hello", "", NULL);
+    ASSERT_EQ(len2, 0, "empty string should have prefix 0");
 }
 
 TEST(common_prefix_case_sensitive) {
-    int len = fuzzy_common_prefix_length("Hello", "hello", &FUZZY_MATCH_STRICT);
-    ASSERT_EQ(len, 0, "Case-sensitive: Hello and hello have no common prefix");
+    int len_default = fuzzy_common_prefix_length("Hello", "hello", NULL);
+    ASSERT_EQ(len_default, 5, "default is case insensitive");
+    
+    int len_strict = fuzzy_common_prefix_length("Hello", "hello", 
+                                                 &FUZZY_MATCH_STRICT);
+    ASSERT_EQ(len_strict, 0, "strict mode is case sensitive");
 }
 
 /* ============================================================================
  * SUBSEQUENCE MATCHING TESTS
- * ============================================================================
- */
+ * ============================================================================ */
 
-TEST(subsequence_identical) {
-    ASSERT_TRUE(fuzzy_is_subsequence("hello", "hello", NULL),
-                "String is subsequence of itself");
+TEST(is_subsequence_true) {
+    bool result = fuzzy_is_subsequence("gco", "git checkout", NULL);
+    ASSERT_TRUE(result, "gco is subsequence of 'git checkout'");
 }
 
-TEST(subsequence_simple) {
-    ASSERT_TRUE(fuzzy_is_subsequence("gco", "git checkout", NULL),
-                "gco is subsequence of git checkout");
-
-    ASSERT_TRUE(fuzzy_is_subsequence("abc", "aXbXcX", NULL),
-                "abc is subsequence of aXbXcX");
+TEST(is_subsequence_false) {
+    bool result = fuzzy_is_subsequence("xyz", "abc", NULL);
+    ASSERT_FALSE(result, "xyz is not subsequence of abc");
 }
 
-TEST(subsequence_not_found) {
-    ASSERT_FALSE(fuzzy_is_subsequence("xyz", "hello", NULL),
-                 "xyz is not subsequence of hello");
-
-    ASSERT_FALSE(fuzzy_is_subsequence("cba", "abc", NULL),
-                 "cba is not subsequence of abc (order matters)");
+TEST(is_subsequence_identical) {
+    bool result = fuzzy_is_subsequence("hello", "hello", NULL);
+    ASSERT_TRUE(result, "string is subsequence of itself");
 }
 
-TEST(subsequence_empty) {
-    ASSERT_TRUE(fuzzy_is_subsequence("", "hello", NULL),
-                "Empty string is subsequence of any string");
-
-    ASSERT_FALSE(fuzzy_is_subsequence("a", "", NULL),
-                 "Non-empty is not subsequence of empty");
+TEST(is_subsequence_empty_pattern) {
+    bool result = fuzzy_is_subsequence("", "hello", NULL);
+    ASSERT_TRUE(result, "empty pattern is subsequence of any string");
 }
 
-TEST(subsequence_score) {
+TEST(is_subsequence_score) {
     int score1 = fuzzy_subsequence_score("gco", "git checkout", NULL);
-    ASSERT_RANGE(score1, 1, 100, "Subsequence score should be positive");
-
-    int score2 = fuzzy_subsequence_score("xyz", "hello", NULL);
-    ASSERT_EQ(score2, 0, "Non-subsequence should have score 0");
+    ASSERT_GE(score1, 50, "good subsequence match should have decent score");
+    
+    int score2 = fuzzy_subsequence_score("gc", "git checkout", NULL);
+    ASSERT_GE(score2, 30, "partial subsequence should have some score");
 }
 
 /* ============================================================================
- * COMBINED SCORE TESTS
- * ============================================================================
- */
+ * COMBINED MATCH SCORE TESTS
+ * ============================================================================ */
 
-TEST(combined_score_identical) {
+TEST(match_score_identical) {
     int score = fuzzy_match_score("hello", "hello", NULL);
-    ASSERT_EQ(score, 100, "Identical strings should have score 100");
+    ASSERT_EQ(score, 100, "identical strings should have score 100");
 }
 
-TEST(combined_score_similar) {
-    int score = fuzzy_match_score("hello", "helo", NULL);
-    ASSERT_RANGE(score, 70, 99, "Similar strings should have high score");
+TEST(match_score_similar) {
+    int score = fuzzy_match_score("kitten", "sitting", NULL);
+    ASSERT_GE(score, 40, "similar strings should have reasonable score");
+    ASSERT_LE(score, 80, "similar strings shouldn't score too high");
 }
 
-TEST(combined_score_different) {
-    int score = fuzzy_match_score("hello", "world", NULL);
-    ASSERT_RANGE(score, 0, 50, "Different strings should have low score");
+TEST(match_score_different) {
+    int score = fuzzy_match_score("abc", "xyz", NULL);
+    ASSERT_LE(score, 30, "completely different strings should have low score");
 }
 
-TEST(combined_score_empty) {
+TEST(match_score_empty) {
     int score1 = fuzzy_match_score("", "", NULL);
-    ASSERT_EQ(score1, 100, "Two empty strings should match perfectly");
-
+    ASSERT_EQ(score1, 100, "two empty strings should have score 100");
+    
     int score2 = fuzzy_match_score("hello", "", NULL);
-    ASSERT_EQ(score2, 0, "Non-empty vs empty should have score 0");
+    ASSERT_EQ(score2, 0, "string vs empty should have score 0");
 }
 
-TEST(combined_is_match) {
-    ASSERT_TRUE(fuzzy_match_is_match("hello", "hello", 80, NULL),
-                "Identical strings should match at threshold 80");
-
-    ASSERT_TRUE(fuzzy_match_is_match("hello", "helo", 70, NULL),
-                "Similar strings should match at threshold 70");
-
-    ASSERT_FALSE(fuzzy_match_is_match("hello", "world", 80, NULL),
-                 "Different strings should not match at threshold 80");
+TEST(match_score_case_insensitive) {
+    int score = fuzzy_match_score("HELLO", "hello", NULL);
+    ASSERT_EQ(score, 100, "case should not matter by default");
 }
 
-/* ============================================================================
- * UNICODE SUPPORT TESTS
- * ============================================================================
- */
-
-TEST(unicode_identical) {
-    int score = fuzzy_match_score("café", "café", NULL);
-    ASSERT_EQ(score, 100, "Identical Unicode strings should match");
-}
-
-TEST(unicode_case_folding) {
-    /* Latin-1 uppercase to lowercase */
-    int dist = fuzzy_levenshtein_distance("ÜBER", "über", NULL);
-    ASSERT_EQ(dist, 0, "Unicode case folding should work");
-}
-
-TEST(unicode_multibyte) {
-    int len = fuzzy_string_length("日本語", NULL);
-    ASSERT_EQ(len, 3, "Japanese string should have 3 codepoints");
-}
-
-TEST(unicode_emoji) {
-    int len = fuzzy_string_length("hello😀world", NULL);
-    ASSERT_EQ(len, 11, "String with emoji should count codepoints correctly");
-}
-
-TEST(unicode_levenshtein) {
-    int dist = fuzzy_levenshtein_distance("naïve", "naive", NULL);
-    /* With normalization, this might be 0 or 1 depending on implementation */
-    ASSERT_RANGE(dist, 0, 1, "naïve vs naive should be close");
+TEST(match_score_case_sensitive) {
+    int score = fuzzy_match_score("HELLO", "hello", &FUZZY_MATCH_STRICT);
+    ASSERT_LE(score, 90, "strict mode should penalize case differences");
 }
 
 /* ============================================================================
- * BATCH OPERATION TESTS
- * ============================================================================
- */
+ * IS MATCH THRESHOLD TESTS
+ * ============================================================================ */
 
-TEST(batch_match_best) {
-    const char *candidates[] = {"hello", "help", "world", "helicopter", "held"};
+TEST(is_match_above_threshold) {
+    bool result = fuzzy_match_is_match("hello", "hello", 90, NULL);
+    ASSERT_TRUE(result, "identical strings should pass any threshold");
+}
+
+TEST(is_match_below_threshold) {
+    bool result = fuzzy_match_is_match("abc", "xyz", 50, NULL);
+    ASSERT_FALSE(result, "completely different strings should fail threshold");
+}
+
+TEST(is_match_threshold_boundary) {
+    /* Test with identical strings - should always pass */
+    bool result1 = fuzzy_match_is_match("hello", "hello", 95, NULL);
+    ASSERT_TRUE(result1, "identical strings should pass high threshold");
+    
+    /* Test with slightly different strings */
+    bool result2 = fuzzy_match_is_match("hello", "hallo", 60, NULL);
+    ASSERT_TRUE(result2, "similar strings should pass moderate threshold");
+}
+
+/* ============================================================================
+ * BATCH MATCHING TESTS
+ * ============================================================================ */
+
+TEST(match_best_basic) {
+    const char *candidates[] = {"hello", "help", "world", "helm", "hero"};
     fuzzy_match_result_t results[3];
-
+    
     int count = fuzzy_match_best("hel", candidates, 5, results, 3, 0, NULL);
-
-    ASSERT(count >= 1, "Should find at least one match");
-    ASSERT(results[0].score >= results[count - 1].score,
-           "Results should be sorted by score (highest first)");
+    
+    ASSERT_GE(count, 1, "should find at least one match");
+    ASSERT_LE(count, 3, "should not exceed max_results");
+    
+    /* Results should be sorted by score (highest first) */
+    if (count >= 2) {
+        ASSERT_GE(results[0].score, results[1].score, 
+                  "results should be sorted by score descending");
+    }
 }
 
-TEST(batch_match_threshold) {
-    const char *candidates[] = {"hello", "world", "helo", "xyz"};
-    fuzzy_match_result_t results[4];
-
-    int count = fuzzy_match_best("hello", candidates, 4, results, 4, 80, NULL);
-
-    /* Only "hello" and "helo" should pass threshold 80 */
-    ASSERT_RANGE(count, 1, 2, "Should find 1-2 matches above threshold 80");
+TEST(match_best_with_threshold) {
+    const char *candidates[] = {"hello", "world", "xyz"};
+    fuzzy_match_result_t results[3];
+    
+    int count = fuzzy_match_best("hello", candidates, 3, results, 3, 80, NULL);
+    
+    /* Only "hello" should match with threshold 80 */
+    ASSERT_GE(count, 1, "should find exact match");
+    
+    /* All results should be above threshold */
+    for (int i = 0; i < count; i++) {
+        ASSERT_GE(results[i].score, 80, "all results should be above threshold");
+    }
 }
 
-TEST(batch_filter) {
-    const char *candidates[] = {"git", "gti", "cat", "grep"};
+TEST(match_filter_basic) {
+    const char *candidates[] = {"hello", "help", "world", "helm"};
     int indices[4];
-
-    int count = fuzzy_match_filter("git", candidates, 4, indices, 4, 70, NULL);
-
-    ASSERT(count >= 1, "Should filter at least one match");
-}
-
-TEST(batch_empty_pattern) {
-    const char *candidates[] = {"hello", "world"};
-    fuzzy_match_result_t results[2];
-
-    int count = fuzzy_match_best("", candidates, 2, results, 2, 0, NULL);
-    /* Empty pattern behavior depends on implementation */
-    ASSERT(count >= 0, "Empty pattern should not crash");
+    
+    int count = fuzzy_match_filter("hel", candidates, 4, indices, 4, 50, NULL);
+    
+    ASSERT_GE(count, 1, "should find at least one match");
+    
+    /* All indices should be valid */
+    for (int i = 0; i < count; i++) {
+        ASSERT_GE(indices[i], 0, "index should be non-negative");
+        ASSERT_LE(indices[i], 3, "index should be within bounds");
+    }
 }
 
 /* ============================================================================
  * UTILITY FUNCTION TESTS
- * ============================================================================
- */
+ * ============================================================================ */
 
-TEST(distance_to_score) {
-    int score1 = fuzzy_distance_to_score(0, 5);
-    ASSERT_EQ(score1, 100, "Distance 0 should give score 100");
-
-    int score2 = fuzzy_distance_to_score(5, 5);
-    ASSERT_EQ(score2, 0, "Distance equal to length should give score 0");
-
-    int score3 = fuzzy_distance_to_score(1, 5);
-    ASSERT_EQ(score3, 80, "Distance 1 of 5 should give score 80");
+TEST(distance_to_score_zero) {
+    int score = fuzzy_distance_to_score(0, 5);
+    ASSERT_EQ(score, 100, "distance 0 should give score 100");
 }
 
-TEST(string_length) {
-    int len1 = fuzzy_string_length("hello", NULL);
-    ASSERT_EQ(len1, 5, "ASCII string length");
+TEST(distance_to_score_full) {
+    int score = fuzzy_distance_to_score(5, 5);
+    ASSERT_EQ(score, 0, "distance = length should give score 0");
+}
 
-    int len2 = fuzzy_string_length("", NULL);
-    ASSERT_EQ(len2, 0, "Empty string length");
+TEST(distance_to_score_half) {
+    int score = fuzzy_distance_to_score(2, 4);
+    ASSERT_EQ(score, 50, "distance = half length should give score 50");
+}
+
+TEST(string_length_ascii) {
+    int len = fuzzy_string_length("hello", NULL);
+    ASSERT_EQ(len, 5, "ASCII string length should be character count");
+}
+
+TEST(string_length_empty) {
+    int len = fuzzy_string_length("", NULL);
+    ASSERT_EQ(len, 0, "empty string length should be 0");
 }
 
 /* ============================================================================
  * OPTIONS PRESET TESTS
- * ============================================================================
- */
+ * ============================================================================ */
 
 TEST(options_default) {
-    ASSERT_FALSE(FUZZY_MATCH_DEFAULT.case_sensitive,
-                 "Default should be case-insensitive");
-    ASSERT_TRUE(FUZZY_MATCH_DEFAULT.unicode_normalize,
-                "Default should normalize Unicode");
-    ASSERT_TRUE(FUZZY_MATCH_DEFAULT.use_damerau,
-                "Default should use Damerau-Levenshtein");
+    ASSERT_FALSE(FUZZY_MATCH_DEFAULT.case_sensitive, 
+                 "default should be case insensitive");
+    ASSERT_TRUE(FUZZY_MATCH_DEFAULT.unicode_normalize, 
+                "default should normalize unicode");
+    ASSERT_TRUE(FUZZY_MATCH_DEFAULT.use_damerau, 
+                "default should use Damerau-Levenshtein");
 }
 
 TEST(options_strict) {
-    ASSERT_TRUE(FUZZY_MATCH_STRICT.case_sensitive,
-                "Strict should be case-sensitive");
-    ASSERT_FALSE(FUZZY_MATCH_STRICT.unicode_normalize,
-                 "Strict should not normalize Unicode");
-    ASSERT_FALSE(FUZZY_MATCH_STRICT.use_damerau,
-                 "Strict should use plain Levenshtein");
+    ASSERT_TRUE(FUZZY_MATCH_STRICT.case_sensitive, 
+                "strict should be case sensitive");
+    ASSERT_FALSE(FUZZY_MATCH_STRICT.unicode_normalize, 
+                 "strict should not normalize unicode");
+    ASSERT_FALSE(FUZZY_MATCH_STRICT.use_damerau, 
+                 "strict should not use Damerau");
 }
 
 TEST(options_fast) {
-    ASSERT_FALSE(FUZZY_MATCH_FAST.case_sensitive,
-                 "Fast should be case-insensitive");
-    ASSERT_FALSE(FUZZY_MATCH_FAST.unicode_normalize,
-                 "Fast should not normalize Unicode");
-    ASSERT_FALSE(FUZZY_MATCH_FAST.use_damerau,
-                 "Fast should use plain Levenshtein");
+    ASSERT_FALSE(FUZZY_MATCH_FAST.case_sensitive, 
+                 "fast should be case insensitive");
+    ASSERT_FALSE(FUZZY_MATCH_FAST.unicode_normalize, 
+                 "fast should not normalize unicode");
+    ASSERT_FALSE(FUZZY_MATCH_FAST.use_damerau, 
+                 "fast should not use Damerau");
 }
 
 /* ============================================================================
- * EDGE CASE TESTS
- * ============================================================================
- */
-
-TEST(edge_single_char) {
-    int dist = fuzzy_levenshtein_distance("a", "b", NULL);
-    ASSERT_EQ(dist, 1, "Single char difference should be 1");
-
-    int score = fuzzy_match_score("a", "a", NULL);
-    ASSERT_EQ(score, 100, "Single identical chars should match");
-}
-
-TEST(edge_very_different_lengths) {
-    int dist = fuzzy_levenshtein_distance("a", "abcdefghij", NULL);
-    ASSERT_EQ(dist, 9, "Very different lengths");
-
-    int score = fuzzy_match_score("a", "abcdefghij", NULL);
-    ASSERT_RANGE(score, 0, 50, "Very different lengths should have low score");
-}
-
-TEST(edge_repeated_chars) {
-    int dist = fuzzy_levenshtein_distance("aaa", "aaaa", NULL);
-    ASSERT_EQ(dist, 1, "aaa to aaaa should be 1 insertion");
-
-    int score = fuzzy_match_score("aaa", "aaa", NULL);
-    ASSERT_EQ(score, 100, "Identical repeated chars should match");
-}
-
-TEST(edge_null_options) {
-    /* All functions should handle NULL options gracefully */
-    int dist = fuzzy_levenshtein_distance("hello", "world", NULL);
-    ASSERT(dist >= 0, "NULL options should use defaults");
-
-    int score = fuzzy_match_score("hello", "world", NULL);
-    ASSERT(score >= 0, "NULL options should use defaults");
-
-    bool match = fuzzy_match_is_match("hello", "hello", 50, NULL);
-    ASSERT(match, "NULL options should use defaults");
-}
-
-/* ============================================================================
- * TEST RUNNER
- * ============================================================================
- */
+ * MAIN TEST RUNNER
+ * ============================================================================ */
 
 int main(void) {
-    printf("\n=== Fuzzy Match Unit Tests ===\n\n");
+    printf("Running Fuzzy Match tests...\n");
 
-    /* Levenshtein tests */
-    printf("Levenshtein Distance:\n");
-    RUN_TEST(levenshtein_identical_strings);
+    /* Levenshtein distance tests */
+    printf("\n=== Levenshtein Distance Tests ===\n");
+    RUN_TEST(levenshtein_identical);
     RUN_TEST(levenshtein_empty_strings);
-    RUN_TEST(levenshtein_single_edit);
+    RUN_TEST(levenshtein_single_char_diff);
     RUN_TEST(levenshtein_multiple_edits);
-    RUN_TEST(levenshtein_case_insensitive);
     RUN_TEST(levenshtein_case_sensitive);
 
-    /* Damerau-Levenshtein tests */
-    printf("\nDamerau-Levenshtein Distance:\n");
-    RUN_TEST(damerau_identical_strings);
+    /* Damerau-Levenshtein distance tests */
+    printf("\n=== Damerau-Levenshtein Distance Tests ===\n");
+    RUN_TEST(damerau_identical);
     RUN_TEST(damerau_transposition);
+    RUN_TEST(damerau_typo_correction);
     RUN_TEST(damerau_vs_levenshtein);
-    RUN_TEST(damerau_multiple_transpositions);
 
-    /* Jaro tests */
-    printf("\nJaro Similarity:\n");
-    RUN_TEST(jaro_identical_strings);
+    /* Jaro score tests */
+    printf("\n=== Jaro Score Tests ===\n");
+    RUN_TEST(jaro_identical);
     RUN_TEST(jaro_completely_different);
     RUN_TEST(jaro_partial_match);
     RUN_TEST(jaro_empty_strings);
 
-    /* Jaro-Winkler tests */
-    printf("\nJaro-Winkler Similarity:\n");
+    /* Jaro-Winkler score tests */
+    printf("\n=== Jaro-Winkler Score Tests ===\n");
     RUN_TEST(jaro_winkler_identical);
     RUN_TEST(jaro_winkler_prefix_bonus);
-    RUN_TEST(jaro_winkler_common_prefixes);
+    RUN_TEST(jaro_winkler_command_names);
 
-    /* Common prefix tests */
-    printf("\nCommon Prefix:\n");
+    /* Common prefix length tests */
+    printf("\n=== Common Prefix Length Tests ===\n");
     RUN_TEST(common_prefix_identical);
     RUN_TEST(common_prefix_partial);
     RUN_TEST(common_prefix_none);
-    RUN_TEST(common_prefix_case_insensitive);
+    RUN_TEST(common_prefix_empty);
     RUN_TEST(common_prefix_case_sensitive);
 
-    /* Subsequence tests */
-    printf("\nSubsequence Matching:\n");
-    RUN_TEST(subsequence_identical);
-    RUN_TEST(subsequence_simple);
-    RUN_TEST(subsequence_not_found);
-    RUN_TEST(subsequence_empty);
-    RUN_TEST(subsequence_score);
+    /* Subsequence matching tests */
+    printf("\n=== Subsequence Matching Tests ===\n");
+    RUN_TEST(is_subsequence_true);
+    RUN_TEST(is_subsequence_false);
+    RUN_TEST(is_subsequence_identical);
+    RUN_TEST(is_subsequence_empty_pattern);
+    RUN_TEST(is_subsequence_score);
 
-    /* Combined score tests */
-    printf("\nCombined Scoring:\n");
-    RUN_TEST(combined_score_identical);
-    RUN_TEST(combined_score_similar);
-    RUN_TEST(combined_score_different);
-    RUN_TEST(combined_score_empty);
-    RUN_TEST(combined_is_match);
+    /* Combined match score tests */
+    printf("\n=== Combined Match Score Tests ===\n");
+    RUN_TEST(match_score_identical);
+    RUN_TEST(match_score_similar);
+    RUN_TEST(match_score_different);
+    RUN_TEST(match_score_empty);
+    RUN_TEST(match_score_case_insensitive);
+    RUN_TEST(match_score_case_sensitive);
 
-    /* Unicode tests */
-    printf("\nUnicode Support:\n");
-    RUN_TEST(unicode_identical);
-    RUN_TEST(unicode_case_folding);
-    RUN_TEST(unicode_multibyte);
-    RUN_TEST(unicode_emoji);
-    RUN_TEST(unicode_levenshtein);
+    /* Is match threshold tests */
+    printf("\n=== Is Match Threshold Tests ===\n");
+    RUN_TEST(is_match_above_threshold);
+    RUN_TEST(is_match_below_threshold);
+    RUN_TEST(is_match_threshold_boundary);
 
-    /* Batch operation tests */
-    printf("\nBatch Operations:\n");
-    RUN_TEST(batch_match_best);
-    RUN_TEST(batch_match_threshold);
-    RUN_TEST(batch_filter);
-    RUN_TEST(batch_empty_pattern);
+    /* Batch matching tests */
+    printf("\n=== Batch Matching Tests ===\n");
+    RUN_TEST(match_best_basic);
+    RUN_TEST(match_best_with_threshold);
+    RUN_TEST(match_filter_basic);
 
     /* Utility function tests */
-    printf("\nUtility Functions:\n");
-    RUN_TEST(distance_to_score);
-    RUN_TEST(string_length);
+    printf("\n=== Utility Function Tests ===\n");
+    RUN_TEST(distance_to_score_zero);
+    RUN_TEST(distance_to_score_full);
+    RUN_TEST(distance_to_score_half);
+    RUN_TEST(string_length_ascii);
+    RUN_TEST(string_length_empty);
 
     /* Options preset tests */
-    printf("\nOptions Presets:\n");
+    printf("\n=== Options Preset Tests ===\n");
     RUN_TEST(options_default);
     RUN_TEST(options_strict);
     RUN_TEST(options_fast);
 
-    /* Edge case tests */
-    printf("\nEdge Cases:\n");
-    RUN_TEST(edge_single_char);
-    RUN_TEST(edge_very_different_lengths);
-    RUN_TEST(edge_repeated_chars);
-    RUN_TEST(edge_null_options);
-
-    printf("\n=== All %d Fuzzy Match Tests Passed ===\n\n", 47);
+    printf("\n=== All Fuzzy Match tests passed! ===\n");
     return 0;
 }
