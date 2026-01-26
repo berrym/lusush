@@ -542,24 +542,55 @@ static void find_current_subcommand(const lle_builtin_completion_spec_t *spec,
         return;
     }
 
-    /* We need to look at what arguments have been typed so far.
-     * argument_index tells us the current position (0-based).
-     * We need to trace through the subcommand hierarchy. */
-
-    /* For now, use a simple approach: look at partial_word and command context
-     * The context analyzer gives us command_name and argument_index.
-     * We need to rebuild the subcommand chain from the input line. */
-
-    /* Simple case: if argument_index is 0, we're completing the first arg
-     * after the command, so we should offer top-level subcommands/options */
-
-    if (context->argument_index == 0) {
-        /* At first argument - offer top-level subcommands */
+    /* If no arguments yet, we're at top level */
+    if (context->argument_count == 0 || !context->arguments) {
         return;
     }
 
-    /* TODO: For deeper nesting, we would need access to the full argument list
-     * For now, this handles the common case of first-level completion */
+    /* Traverse the subcommand hierarchy using the typed arguments */
+    const lle_builtin_subcommand_t *subcommands = spec->subcommands;
+    size_t subcommand_count = spec->subcommand_count;
+    const lle_builtin_subcommand_t *current = NULL;
+
+    for (int i = 0; i < context->argument_count; i++) {
+        const char *arg = context->arguments[i];
+        if (!arg) {
+            break;
+        }
+
+        /* Skip options (arguments starting with -) */
+        if (arg[0] == '-') {
+            continue;
+        }
+
+        /* Find matching subcommand at current level */
+        bool found = false;
+        for (size_t j = 0; j < subcommand_count; j++) {
+            if (strcmp(subcommands[j].name, arg) == 0) {
+                current = &subcommands[j];
+                (*out_depth)++;
+                found = true;
+
+                /* Descend into this subcommand's children if it has any */
+                if (current->subcommands && current->subcommand_count > 0) {
+                    subcommands = current->subcommands;
+                    subcommand_count = current->subcommand_count;
+                } else {
+                    /* No more children - stop here */
+                    subcommands = NULL;
+                    subcommand_count = 0;
+                }
+                break;
+            }
+        }
+
+        /* If no match found at this level, stop traversing */
+        if (!found) {
+            break;
+        }
+    }
+
+    *out_subcmd = current;
 }
 
 // ============================================================================

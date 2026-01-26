@@ -481,6 +481,71 @@ lle_result_t lle_completion_menu_move_left(lle_completion_menu_state_t *state) {
 }
 
 /**
+ * @brief Move to next item sequentially (TAB cycling)
+ *
+ * Moves right across columns, then wraps to first column of next row.
+ * Wraps from last item to first item.
+ */
+lle_result_t lle_completion_menu_move_next(lle_completion_menu_state_t *state) {
+    if (state == NULL || !state->menu_active) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+
+    if (state->result == NULL || state->result->count == 0) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+
+    /* Simple sequential increment with wrap */
+    state->selected_index++;
+    if (state->selected_index >= state->result->count) {
+        state->selected_index = 0;
+    }
+
+    /* Update target column for arrow key navigation */
+    size_t columns = get_columns(state);
+    size_t cat_start, cat_end;
+    find_category_for_index(state, state->selected_index, &cat_start, &cat_end);
+    size_t index_in_cat = state->selected_index - cat_start;
+    state->target_column = index_in_cat % columns;
+
+    ensure_visible(state);
+    return LLE_SUCCESS;
+}
+
+/**
+ * @brief Move to previous item sequentially (Shift+TAB cycling)
+ *
+ * Moves left across columns, then wraps to last column of previous row.
+ * Wraps from first item to last item.
+ */
+lle_result_t lle_completion_menu_move_prev(lle_completion_menu_state_t *state) {
+    if (state == NULL || !state->menu_active) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+
+    if (state->result == NULL || state->result->count == 0) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+
+    /* Simple sequential decrement with wrap */
+    if (state->selected_index == 0) {
+        state->selected_index = state->result->count - 1;
+    } else {
+        state->selected_index--;
+    }
+
+    /* Update target column for arrow key navigation */
+    size_t columns = get_columns(state);
+    size_t cat_start, cat_end;
+    find_category_for_index(state, state->selected_index, &cat_start, &cat_end);
+    size_t index_in_cat = state->selected_index - cat_start;
+    state->target_column = index_in_cat % columns;
+
+    ensure_visible(state);
+    return LLE_SUCCESS;
+}
+
+/**
  * @brief Jump to the next category
  *
  * Moves selection to the first item of the next category,

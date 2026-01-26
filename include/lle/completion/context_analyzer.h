@@ -48,6 +48,8 @@ typedef struct lle_context_analyzer {
     /* Command context (if applicable) */
     char *command_name; /**< Current command (if in argument position) */
     int argument_index; /**< Which argument (0-based) */
+    char **arguments;   /**< Array of argument strings (for subcommand lookup) */
+    int argument_count; /**< Number of arguments in array */
 
     /* State flags */
     bool in_quotes;      /**< Inside quotes? */

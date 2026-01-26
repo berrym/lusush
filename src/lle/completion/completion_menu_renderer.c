@@ -39,6 +39,8 @@ static const char *get_type_category_name(lle_completion_type_t type) {
         return "alias";
     case LLE_COMPLETION_TYPE_HISTORY:
         return "history";
+    case LLE_COMPLETION_TYPE_CUSTOM:
+        return "option";
     default:
         return "completion";
     }

@@ -2403,8 +2403,8 @@ lle_result_t lle_complete(lle_editor_t *editor) {
         lle_completion_menu_state_t *menu =
             lle_completion_system_get_menu(editor->completion_system);
         if (menu) {
-            /* Move to next item (cycles back to first when at end) */
-            lle_completion_menu_move_down(menu);
+            /* Move to next item sequentially (across columns, then next row) */
+            lle_completion_menu_move_next(menu);
 
             /* Update command line with newly selected completion (inline
              * update) */

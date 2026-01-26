@@ -92,9 +92,27 @@ static bool is_path_prefix(const char *prefix) {
  * @return true if argument, redirect, or command with path prefix
  */
 static bool file_source_applicable(const lle_context_analyzer_t *context) {
-    /* Always applicable for arguments and redirects */
-    if (context->type == LLE_CONTEXT_ARGUMENT ||
-        context->type == LLE_CONTEXT_REDIRECT) {
+    /* Always applicable for redirects */
+    if (context->type == LLE_CONTEXT_REDIRECT) {
+        return true;
+    }
+    /* For arguments, check builtin context */
+    if (context->type == LLE_CONTEXT_ARGUMENT) {
+        if (context->command_name) {
+            const lle_builtin_completion_spec_t *spec =
+                lle_builtin_get_spec(context->command_name);
+            if (spec) {
+                /* Check if builtin explicitly expects file/directory args */
+                if (spec->default_arg_type == LLE_BUILTIN_ARG_FILE ||
+                    spec->default_arg_type == LLE_BUILTIN_ARG_DIRECTORY) {
+                    return true;
+                }
+                /* If builtin has subcommands, suppress generic file completion */
+                if (spec->subcommand_count > 0) {
+                    return false;
+                }
+            }
+        }
         return true;
     }
     /* Also applicable at command position if prefix indicates a path */

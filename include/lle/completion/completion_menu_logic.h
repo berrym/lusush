@@ -71,6 +71,28 @@ lle_result_t lle_completion_menu_move_right(lle_completion_menu_state_t *state);
 lle_result_t lle_completion_menu_move_left(lle_completion_menu_state_t *state);
 
 /**
+ * @brief Move to next item sequentially (TAB cycling)
+ *
+ * Moves right across columns, then wraps to first column of next row.
+ * Wraps from last item to first item.
+ *
+ * @param state Menu state to update
+ * @return LLE_SUCCESS on success, error code on failure
+ */
+lle_result_t lle_completion_menu_move_next(lle_completion_menu_state_t *state);
+
+/**
+ * @brief Move to previous item sequentially (Shift+TAB cycling)
+ *
+ * Moves left across columns, then wraps to last column of previous row.
+ * Wraps from first item to last item.
+ *
+ * @param state Menu state to update
+ * @return LLE_SUCCESS on success, error code on failure
+ */
+lle_result_t lle_completion_menu_move_prev(lle_completion_menu_state_t *state);
+
+/**
  * @brief Move selection down by one page
  *
  * A page is defined by visible_count items. Does not wrap - stops at last item.

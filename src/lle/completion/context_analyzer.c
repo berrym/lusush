@@ -220,13 +220,18 @@ static lle_completion_context_type_t determine_context_type(const char *buffer,
  * @param pos Current position
  * @param command Output for command name
  * @param arg_index Output for argument index
+ * @param arguments Output for argument array
+ * @param arg_count Output for argument count
  * @param pool Memory pool for allocations
  */
 static void extract_command_context(const char *buffer, size_t pos,
                                     char **command, int *arg_index,
+                                    char ***arguments, int *arg_count,
                                     lle_memory_pool_t *pool) {
     *command = NULL;
     *arg_index = -1;
+    *arguments = NULL;
+    *arg_count = 0;
 
     /* Find start of current command */
     size_t cmd_start = 0;
@@ -255,20 +260,56 @@ static void extract_command_context(const char *buffer, size_t pos,
 
     *command = extract_word(buffer, cmd_start, cmd_end, pool);
 
-    /* Count arguments */
-    int arg_count = 0;
+    /* First pass: count arguments */
+    int count = 0;
     bool in_word = false;
 
     for (size_t i = cmd_end; i < pos; i++) {
         if (isspace(buffer[i])) {
             in_word = false;
         } else if (!in_word) {
-            arg_count++;
+            count++;
             in_word = true;
         }
     }
 
-    *arg_index = arg_count;
+    *arg_index = count;
+
+    /* Second pass: extract argument strings */
+    if (count > 0) {
+        char **args = lle_pool_alloc(sizeof(char *) * (size_t)count);
+        if (!args) {
+            return;
+        }
+
+        int idx = 0;
+        size_t word_start_pos = 0;
+        in_word = false;
+
+        for (size_t i = cmd_end; i < pos; i++) {
+            if (isspace(buffer[i])) {
+                if (in_word) {
+                    /* End of word - extract it */
+                    args[idx] = extract_word(buffer, word_start_pos, i, pool);
+                    idx++;
+                    in_word = false;
+                }
+            } else if (!in_word) {
+                /* Start of new word */
+                word_start_pos = i;
+                in_word = true;
+            }
+        }
+
+        /* Handle last word if still in progress (shouldn't happen normally
+         * since we stop at pos which is start of current partial word) */
+        if (in_word && idx < count) {
+            args[idx] = extract_word(buffer, word_start_pos, pos, pool);
+        }
+
+        *arguments = args;
+        *arg_count = count;
+    }
 }
 
 // ============================================================================
@@ -307,9 +348,11 @@ lle_result_t lle_context_analyze(const char *buffer, size_t cursor_pos,
     /* Extract command context if in argument position */
     char *command_name = NULL;
     int arg_index = -1;
+    char **arguments = NULL;
+    int arg_count = 0;
     if (type == LLE_CONTEXT_ARGUMENT) {
         extract_command_context(buffer, word_start, &command_name, &arg_index,
-                                pool);
+                                &arguments, &arg_count, pool);
     }
 
     /* Create context structure */
@@ -324,6 +367,8 @@ lle_result_t lle_context_analyze(const char *buffer, size_t cursor_pos,
     context->partial_word = partial_word;
     context->command_name = command_name;
     context->argument_index = arg_index;
+    context->arguments = arguments;
+    context->argument_count = arg_count;
     context->in_quotes = is_inside_quotes(buffer, cursor_pos);
     context->after_redirect = is_after_redirect(buffer, word_start);
     context->in_assignment = is_in_assignment(buffer, word_start);
