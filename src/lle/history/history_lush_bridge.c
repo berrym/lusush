@@ -703,6 +703,11 @@ lle_result_t lle_history_bridge_handle_builtin(int argc, char **argv,
             continue;
         }
 
+        /* Skip deleted entries (removed by deduplication) */
+        if (entry->state == LLE_HISTORY_STATE_DELETED) {
+            continue;
+        }
+
         /* Format entry */
         int written = snprintf(
             buffer + buffer_used, buffer_size - buffer_used, "%5llu  %s\n",

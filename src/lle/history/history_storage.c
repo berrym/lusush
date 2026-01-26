@@ -378,6 +378,10 @@ lle_result_t lle_history_save_to_file(lle_history_core_t *core,
         if (!entry)
             continue;
 
+        /* Skip deleted entries - they were removed by deduplication */
+        if (entry->state == LLE_HISTORY_STATE_DELETED)
+            continue;
+
         result = lle_history_format_entry(entry, line_buffer,
                                           LLE_HISTORY_MAX_LINE_LENGTH);
         if (result != LLE_SUCCESS) {
