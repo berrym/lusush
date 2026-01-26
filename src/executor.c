@@ -773,13 +773,39 @@ int executor_execute_command_line(executor_t *executor, const char *input) {
         return 1;
     }
 
+    // Preprocess input to handle line continuation (backslash-newline)
+    // This is needed for -c option where the string comes directly without
+    // going through get_input_complete() which normally handles this
+    char *processed_input = NULL;
+    const char *parse_input = input;
+    
+    if (strchr(input, '\\') != NULL) {
+        // May contain line continuations - preprocess
+        size_t len = strlen(input);
+        processed_input = malloc(len + 1);
+        if (processed_input) {
+            size_t j = 0;
+            for (size_t i = 0; i < len; i++) {
+                if (input[i] == '\\' && i + 1 < len && input[i + 1] == '\n') {
+                    // Skip backslash-newline (line continuation)
+                    i++; // Skip the newline too (loop will increment past backslash)
+                } else {
+                    processed_input[j++] = input[i];
+                }
+            }
+            processed_input[j] = '\0';
+            parse_input = processed_input;
+        }
+    }
+
     // Parse the input, using script filename if executing a script
     const char *source_name = executor->current_script_file 
                               ? executor->current_script_file 
                               : "<stdin>";
-    parser_t *parser = parser_new_with_source(input, source_name);
+    parser_t *parser = parser_new_with_source(parse_input, source_name);
     if (!parser) {
         set_executor_error(executor, "Failed to create parser");
+        free(processed_input);
         return 1;
     }
 
@@ -796,9 +822,11 @@ int executor_execute_command_line(executor_t *executor, const char *input) {
                 set_executor_error(executor, legacy_err);
             }
             parser_free(parser);
+            free(processed_input);
             return 2; // Syntax error
         }
         parser_free(parser);
+        free(processed_input);
         return 0; // Syntax check successful
     }
 
@@ -811,11 +839,13 @@ int executor_execute_command_line(executor_t *executor, const char *input) {
             set_executor_error(executor, legacy_err);
         }
         parser_free(parser);
+        free(processed_input);
         return 1;
     }
 
     if (!ast) {
         parser_free(parser);
+        free(processed_input);
         return 0; // Empty command
     }
 
@@ -823,6 +853,7 @@ int executor_execute_command_line(executor_t *executor, const char *input) {
 
     free_node_tree(ast);
     parser_free(parser);
+    free(processed_input);
 
     return result;
 }
