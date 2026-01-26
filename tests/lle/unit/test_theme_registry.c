@@ -464,15 +464,16 @@ TEST(register_builtins) {
     lle_theme_registry_init(&registry);
 
     size_t count = lle_theme_register_builtins(&registry);
-    ASSERT_EQ(count, 10);
-    ASSERT_EQ(registry.count, 10);
-    ASSERT_EQ(registry.builtin_count, 10);
+    ASSERT_EQ(count, 11);
+    ASSERT_EQ(registry.count, 11);
+    ASSERT_EQ(registry.builtin_count, 11);
 
     /* Verify all themes registered */
     ASSERT_NOT_NULL(lle_theme_registry_find(&registry, "minimal"));
     ASSERT_NOT_NULL(lle_theme_registry_find(&registry, "default"));
     ASSERT_NOT_NULL(lle_theme_registry_find(&registry, "classic"));
     ASSERT_NOT_NULL(lle_theme_registry_find(&registry, "powerline"));
+    ASSERT_NOT_NULL(lle_theme_registry_find(&registry, "nerd"));
     ASSERT_NOT_NULL(lle_theme_registry_find(&registry, "informative"));
     ASSERT_NOT_NULL(lle_theme_registry_find(&registry, "two-line"));
     ASSERT_NOT_NULL(lle_theme_registry_find(&registry, "corporate"));

@@ -520,6 +520,16 @@ lle_theme_t *lle_theme_create_classic(void);
 lle_theme_t *lle_theme_create_powerline(void);
 
 /**
+ * @brief Create the nerd theme (Nerd Font icons)
+ *
+ * Full Nerd Font icon support with git branch icon, folder icons,
+ * and other visual enhancements. Requires a Nerd Font patched font.
+ *
+ * @return New theme or NULL on error
+ */
+lle_theme_t *lle_theme_create_nerd(void);
+
+/**
  * @brief Create the informative theme
  * @return New theme or NULL on error
  */
@@ -549,6 +559,33 @@ void lle_symbol_set_init_unicode(lle_symbol_set_t *symbols);
  * @param symbols  Symbol set to initialize
  */
 void lle_symbol_set_init_ascii(lle_symbol_set_t *symbols);
+
+/**
+ * @brief Initialize symbol set with Nerd Font icons
+ *
+ * Uses Nerd Font icons for a rich visual experience. Requires a
+ * Nerd Font patched terminal font (e.g., FiraCode Nerd Font,
+ * JetBrains Mono Nerd Font, Hack Nerd Font, etc.)
+ *
+ * Icons used:
+ *   - Branch:     (nf-dev-git_branch U+E0A0)
+ *   - Staged:     (nf-fa-plus U+F067)
+ *   - Unstaged:   (nf-fa-pencil U+F040)
+ *   - Untracked:  (nf-fa-question U+F128)
+ *   - Ahead:     ⇡ or  (nf-md-arrow_up U+F55C)
+ *   - Behind:    ⇣ or  (nf-md-arrow_down U+F544)
+ *   - Stash:      (nf-fa-inbox U+F01C)
+ *   - Conflict:   (nf-fa-bolt U+F0E7)
+ *   - Directory:  (nf-fa-folder U+F07B)
+ *   - Home:       (nf-fa-home U+F015)
+ *   - Error:      (nf-fa-times_circle U+F057)
+ *   - Success:    (nf-fa-check_circle U+F058)
+ *   - Jobs:       (nf-fa-cogs U+F085)
+ *   - Time:       (nf-fa-clock_o U+F017)
+ *
+ * @param symbols  Symbol set to initialize
+ */
+void lle_symbol_set_init_nerd_font(lle_symbol_set_t *symbols);
 
 #ifdef __cplusplus
 }

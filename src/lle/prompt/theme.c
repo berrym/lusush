@@ -725,6 +725,87 @@ void lle_symbol_set_init_ascii(lle_symbol_set_t *symbols) {
     snprintf(symbols->jobs, sizeof(symbols->jobs), "%s", "*");
 }
 
+/**
+ * @brief Initialize symbol set with Nerd Font icons
+ *
+ * Uses Nerd Font icons from the Nerd Fonts project for a rich visual
+ * experience. Requires a Nerd Font patched terminal font.
+ *
+ * Nerd Font codepoints used:
+ *   U+E0A0  - Git branch (Powerline)
+ *   U+E0B0  - Right arrow separator (Powerline)
+ *   U+E0B2  - Left arrow separator (Powerline)
+ *   U+F067  - Plus (FontAwesome)
+ *   U+F040  - Pencil (FontAwesome)
+ *   U+F128  - Question (FontAwesome)
+ *   U+F062  - Arrow up (FontAwesome)
+ *   U+F063  - Arrow down (FontAwesome)
+ *   U+F01C  - Inbox/stash (FontAwesome)
+ *   U+F0E7  - Bolt/conflict (FontAwesome)
+ *   U+F07B  - Folder (FontAwesome)
+ *   U+F015  - Home (FontAwesome)
+ *   U+F057  - Times circle/error (FontAwesome)
+ *   U+F058  - Check circle/success (FontAwesome)
+ *   U+F085  - Cogs/jobs (FontAwesome)
+ *   U+F017  - Clock (FontAwesome)
+ *
+ * @param symbols Pointer to symbol set to initialize (ignored if NULL)
+ */
+void lle_symbol_set_init_nerd_font(lle_symbol_set_t *symbols) {
+    if (!symbols) {
+        return;
+    }
+
+    memset(symbols, 0, sizeof(*symbols));
+
+    /* Prompt symbols */
+    snprintf(symbols->prompt, sizeof(symbols->prompt), "%s", "❯");
+    snprintf(symbols->prompt_root, sizeof(symbols->prompt_root), "%s", "❯");
+    snprintf(symbols->continuation, sizeof(symbols->continuation), "%s", "…");
+
+    /* Powerline separators (U+E0B0, U+E0B2) */
+    snprintf(symbols->separator_left, sizeof(symbols->separator_left),
+             "\xee\x82\xb0");  /* U+E0B0  */
+    snprintf(symbols->separator_right, sizeof(symbols->separator_right),
+             "\xee\x82\xb2"); /* U+E0B2  */
+
+    /* Git symbols */
+    snprintf(symbols->branch, sizeof(symbols->branch),
+             "\xee\x82\xa0 "); /* U+E0A0  + space */
+    snprintf(symbols->staged, sizeof(symbols->staged),
+             "\xef\x81\xa7");  /* U+F067  */
+    snprintf(symbols->unstaged, sizeof(symbols->unstaged),
+             "\xef\x81\x80"); /* U+F040  */
+    snprintf(symbols->untracked, sizeof(symbols->untracked),
+             "\xef\x84\xa8"); /* U+F128  */
+    snprintf(symbols->ahead, sizeof(symbols->ahead),
+             "\xef\x81\xa2");  /* U+F062  */
+    snprintf(symbols->behind, sizeof(symbols->behind),
+             "\xef\x81\xa3"); /* U+F063  */
+    snprintf(symbols->stash, sizeof(symbols->stash),
+             "\xef\x80\x9c");  /* U+F01C  */
+    snprintf(symbols->conflict, sizeof(symbols->conflict),
+             "\xef\x83\xa7"); /* U+F0E7  */
+
+    /* Directory symbols */
+    snprintf(symbols->directory, sizeof(symbols->directory),
+             "\xef\x81\xbb"); /* U+F07B  */
+    snprintf(symbols->home, sizeof(symbols->home),
+             "\xef\x80\x95");  /* U+F015  */
+
+    /* Status symbols */
+    snprintf(symbols->error, sizeof(symbols->error),
+             "\xef\x81\x97");   /* U+F057  */
+    snprintf(symbols->success, sizeof(symbols->success),
+             "\xef\x81\x98"); /* U+F058  */
+
+    /* Other symbols */
+    snprintf(symbols->jobs, sizeof(symbols->jobs),
+             "\xef\x82\x85"); /* U+F085  */
+    snprintf(symbols->time, sizeof(symbols->time),
+             "\xef\x80\x97"); /* U+F017  */
+}
+
 /* ============================================================================
  * Built-in Themes
  * ============================================================================
@@ -984,6 +1065,66 @@ lle_theme_t *lle_theme_create_two_line(void) {
 }
 
 /**
+ * @brief Create the nerd theme (Nerd Font icons)
+ *
+ * Full Nerd Font icon support with git branch icon, folder icons,
+ * and other visual enhancements. Requires a Nerd Font patched font
+ * (e.g., FiraCode Nerd Font, JetBrains Mono Nerd Font, Hack Nerd Font).
+ *
+ * Features:
+ *   - Git branch icon before branch name
+ *   - Folder icon in directory display
+ *   - FontAwesome icons for status indicators
+ *   - Powerline arrow separators
+ *   - 256-color support for vibrant appearance
+ *
+ * @return Pointer to newly allocated theme, or NULL on allocation failure
+ */
+lle_theme_t *lle_theme_create_nerd(void) {
+    lle_theme_t *theme = lle_theme_create(
+        "nerd", "Nerd Font icons theme (requires Nerd Font)",
+        LLE_THEME_CATEGORY_POWERLINE);
+    if (!theme) {
+        return NULL;
+    }
+
+    theme->source = LLE_THEME_SOURCE_BUILTIN;
+    theme->capabilities = LLE_THEME_CAP_UNICODE | LLE_THEME_CAP_NERD_FONT |
+                          LLE_THEME_CAP_POWERLINE | LLE_THEME_CAP_TRANSIENT |
+                          LLE_THEME_CAP_ASYNC_SEGMENTS;
+
+    /* Initialize with Nerd Font symbols */
+    lle_symbol_set_init_nerd_font(&theme->symbols);
+
+    /* Colors - vibrant 256-color palette */
+    theme->colors.primary = lle_color_256(39);       /* Bright blue */
+    theme->colors.secondary = lle_color_256(245);    /* Gray */
+    theme->colors.path_normal = lle_color_256(33);   /* Blue */
+    theme->colors.git_branch = lle_color_256(141);   /* Light purple */
+    theme->colors.git_staged = lle_color_256(83);    /* Green */
+    theme->colors.git_dirty = lle_color_256(214);    /* Orange */
+    theme->colors.git_untracked = lle_color_256(245);/* Gray */
+    theme->colors.git_ahead = lle_color_256(39);     /* Blue */
+    theme->colors.git_behind = lle_color_256(202);   /* Orange-red */
+    theme->colors.git_clean = lle_color_256(82);     /* Green */
+    theme->colors.error = lle_color_256(196);        /* Red */
+    theme->colors.success = lle_color_256(82);       /* Green */
+    theme->colors.text = lle_color_256(255);         /* White */
+    theme->colors.text_dim = lle_color_256(245);     /* Gray */
+
+    /* Layout with Nerd Font folder icon (U+F07B) */
+    snprintf(theme->layout.ps1_format, sizeof(theme->layout.ps1_format),
+             "${user}@${host} \xef\x81\xbb ${directory}${?git: (${git})} ${symbol} ");
+    snprintf(theme->layout.ps2_format, sizeof(theme->layout.ps2_format),
+             "... ");
+    snprintf(theme->layout.transient_format,
+             sizeof(theme->layout.transient_format), "${symbol} ");
+    theme->layout.enable_transient = true;
+
+    return theme;
+}
+
+/**
  * @brief Create the corporate theme (ported from legacy)
  *
  * Professional theme for business environments with 256-color support.
@@ -1233,6 +1374,12 @@ size_t lle_theme_register_builtins(lle_theme_registry_t *registry) {
 
     /* Powerline theme */
     theme = lle_theme_create_powerline();
+    if (theme && lle_theme_registry_register(registry, theme) == LLE_SUCCESS) {
+        count++;
+    }
+
+    /* Nerd Font theme */
+    theme = lle_theme_create_nerd();
     if (theme && lle_theme_registry_register(registry, theme) == LLE_SUCCESS) {
         count++;
     }
