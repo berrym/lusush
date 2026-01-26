@@ -239,6 +239,14 @@ lle_result_t lle_editor_destroy(lle_editor_t *editor) {
         editor->history_nav_seen_capacity = 0;
     }
 
+    /* Free history navigation display stack (issue #40 symmetric navigation) */
+    if (editor->history_nav_display_stack) {
+        free(editor->history_nav_display_stack);
+        editor->history_nav_display_stack = NULL;
+        editor->history_nav_display_count = 0;
+        editor->history_nav_display_capacity = 0;
+    }
+
     /* Destroy keybinding manager */
     if (editor->keybinding_manager) {
         lle_keybinding_manager_destroy(editor->keybinding_manager);

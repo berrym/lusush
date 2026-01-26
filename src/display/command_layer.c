@@ -110,12 +110,6 @@ static command_layer_error_t add_to_cache(command_layer_t *layer,
                                           const command_metrics_t *metrics);
 static void expire_old_cache_entries(command_layer_t *layer);
 
-// Syntax highlighting implementation
-static const char *get_token_color(command_layer_t *layer,
-                                   command_token_type_t token_type);
-static command_token_type_t
-map_spec_token_type(lle_syntax_token_type_t spec_type);
-
 // Event handling
 static layer_events_error_t handle_layer_event(const layer_event_t *event,
                                                void *user_data);
@@ -214,13 +208,6 @@ command_layer_error_t command_layer_init(command_layer_t *layer,
 
     // Store event system reference
     layer->event_system = events;
-
-    // Create default color scheme
-    command_layer_error_t result =
-        command_layer_create_default_colors(&layer->syntax_config.color_scheme);
-    if (result != COMMAND_LAYER_SUCCESS) {
-        return result;
-    }
 
     // Subscribe to relevant events
     // Temporarily disable theme subscription to isolate issue
@@ -552,78 +539,18 @@ void command_layer_destroy(command_layer_t *layer) {
 // ============================================================================
 
 /**
- * @brief Map spec token type to command layer token type
- * @param spec_type LLE syntax token type to convert
- * @return Corresponding command layer token type
- */
-static command_token_type_t
-map_spec_token_type(lle_syntax_token_type_t spec_type) {
-    switch (spec_type) {
-    case LLE_TOKEN_COMMAND_VALID:
-    case LLE_TOKEN_COMMAND_BUILTIN:
-    case LLE_TOKEN_COMMAND_ALIAS:
-    case LLE_TOKEN_COMMAND_FUNCTION:
-        return COMMAND_TOKEN_COMMAND;
-    case LLE_TOKEN_COMMAND_INVALID:
-        return COMMAND_TOKEN_ERROR;
-    case LLE_TOKEN_KEYWORD:
-        return COMMAND_TOKEN_KEYWORD;
-    case LLE_TOKEN_STRING_SINGLE:
-    case LLE_TOKEN_STRING_DOUBLE:
-    case LLE_TOKEN_STRING_BACKTICK:
-        return COMMAND_TOKEN_STRING;
-    case LLE_TOKEN_VARIABLE:
-    case LLE_TOKEN_VARIABLE_SPECIAL:
-        return COMMAND_TOKEN_VARIABLE;
-    case LLE_TOKEN_PATH_VALID:
-    case LLE_TOKEN_PATH_INVALID:
-        return COMMAND_TOKEN_PATH;
-    case LLE_TOKEN_PIPE:
-        return COMMAND_TOKEN_PIPE;
-    case LLE_TOKEN_REDIRECT:
-    case LLE_TOKEN_PROCSUB_IN:
-    case LLE_TOKEN_PROCSUB_OUT:
-    case LLE_TOKEN_HEREDOC_OP:
-    case LLE_TOKEN_HERESTRING:
-        return COMMAND_TOKEN_REDIRECT;
-    case LLE_TOKEN_AND:
-    case LLE_TOKEN_OR:
-    case LLE_TOKEN_BACKGROUND:
-    case LLE_TOKEN_SEMICOLON:
-    case LLE_TOKEN_SUBSHELL_START:
-    case LLE_TOKEN_SUBSHELL_END:
-    case LLE_TOKEN_BRACE_START:
-    case LLE_TOKEN_BRACE_END:
-        return COMMAND_TOKEN_OPERATOR;
-    case LLE_TOKEN_COMMENT:
-        return COMMAND_TOKEN_COMMENT;
-    case LLE_TOKEN_NUMBER:
-        return COMMAND_TOKEN_NUMBER;
-    case LLE_TOKEN_OPTION:
-        return COMMAND_TOKEN_OPTION;
-    case LLE_TOKEN_ARGUMENT:
-    case LLE_TOKEN_GLOB:
-        return COMMAND_TOKEN_ARGUMENT;
-    case LLE_TOKEN_ERROR:
-    case LLE_TOKEN_UNCLOSED_STRING:
-    case LLE_TOKEN_UNCLOSED_SUBSHELL:
-        return COMMAND_TOKEN_ERROR;
-    default:
-        return COMMAND_TOKEN_NONE;
-    }
-}
-
-/**
  * @brief Primary syntax highlighting using spec-compliant system (Spec 11)
  *
- * Falls back to inline implementation if spec highlighter unavailable.
+ * Delegates entirely to the LLE spec-compliant syntax highlighter which
+ * handles tokenization and ANSI color rendering. Falls back to plain text
+ * if the highlighter is unavailable.
  *
  * @param layer Command layer to perform highlighting on
  * @return COMMAND_LAYER_SUCCESS on success, error code otherwise
  */
 static command_layer_error_t
 perform_syntax_highlighting(command_layer_t *layer) {
-    if (!layer->syntax_config.enabled) {
+    if (!layer->syntax_config.enabled || !layer->syntax_config.use_colors) {
         // If highlighting is disabled, just copy the command text
         safe_string_copy(layer->highlighted_text, layer->command_text,
                          sizeof(layer->highlighted_text));
@@ -642,7 +569,7 @@ perform_syntax_highlighting(command_layer_t *layer) {
         return COMMAND_LAYER_SUCCESS;
     }
 
-    // Use spec-compliant highlighter if available
+    // Use spec-compliant highlighter (Spec 11)
     if (layer->spec_highlighter) {
         size_t command_len = strlen(layer->command_text);
 
@@ -651,136 +578,18 @@ perform_syntax_highlighting(command_layer_t *layer) {
             layer->spec_highlighter, layer->command_text, command_len);
 
         if (token_count >= 0) {
-            // Get tokens from spec highlighter
-            size_t spec_token_count;
-            const lle_syntax_token_t *spec_tokens = lle_syntax_get_tokens(
-                layer->spec_highlighter, &spec_token_count);
+            // Use spec highlighter's render function which applies its own
+            // colors based on the LLE theme system
+            int rendered = lle_syntax_render_ansi(
+                layer->spec_highlighter, layer->command_text,
+                layer->highlighted_text, sizeof(layer->highlighted_text));
 
-            // Build highlighted output using command layer's color scheme
-            // This preserves the command layer's theme integration
-            size_t output_pos = 0;
-            size_t last_end = 0;
-
-            for (size_t i = 0;
-                 i < spec_token_count &&
-                 layer->region_count < COMMAND_LAYER_MAX_HIGHLIGHT_REGIONS;
-                 i++) {
-                const lle_syntax_token_t *tok = &spec_tokens[i];
-
-                // Add any whitespace/text between tokens
-                if (last_end < tok->start) {
-                    size_t gap_len = tok->start - last_end;
-                    if (output_pos + gap_len <
-                        sizeof(layer->highlighted_text) - 1) {
-                        memcpy(layer->highlighted_text + output_pos,
-                               layer->command_text + last_end, gap_len);
-                        output_pos += gap_len;
-                    }
-                }
-
-                // Map spec token type to command layer type
-                command_token_type_t cmd_type = map_spec_token_type(tok->type);
-
-                // Skip whitespace tokens for coloring
-                if (tok->type == LLE_TOKEN_WHITESPACE) {
-                    size_t tok_len = tok->end - tok->start;
-                    if (output_pos + tok_len <
-                        sizeof(layer->highlighted_text) - 1) {
-                        memcpy(layer->highlighted_text + output_pos,
-                               layer->command_text + tok->start, tok_len);
-                        output_pos += tok_len;
-                    }
-                    last_end = tok->end;
-                    continue;
-                }
-
-                // Get color from command layer's color scheme
-                const char *color = get_token_color(layer, cmd_type);
-                bool has_color =
-                    layer->syntax_config.use_colors && color && color[0];
-
-                // Add color code
-                if (has_color) {
-                    size_t color_len = strlen(color);
-                    if (output_pos + color_len <
-                        sizeof(layer->highlighted_text) - 1) {
-                        memcpy(layer->highlighted_text + output_pos, color,
-                               color_len);
-                        output_pos += color_len;
-                    }
-                }
-
-                // Add token text, re-applying color after newlines for
-                // multiline tokens
-                size_t tok_len = tok->end - tok->start;
-                const char *tok_text = layer->command_text + tok->start;
-                for (size_t j = 0;
-                     j < tok_len &&
-                     output_pos < sizeof(layer->highlighted_text) - 1;
-                     j++) {
-                    layer->highlighted_text[output_pos++] = tok_text[j];
-
-                    // Re-apply color after newlines within tokens
-                    if (tok_text[j] == '\n' && has_color && j + 1 < tok_len) {
-                        size_t color_len = strlen(color);
-                        if (output_pos + color_len <
-                            sizeof(layer->highlighted_text) - 1) {
-                            memcpy(layer->highlighted_text + output_pos, color,
-                                   color_len);
-                            output_pos += color_len;
-                        }
-                    }
-                }
-
-                // Add reset code
-                if (has_color) {
-                    const char *reset =
-                        layer->syntax_config.color_scheme.reset_color;
-                    size_t reset_len = strlen(reset);
-                    if (output_pos + reset_len <
-                        sizeof(layer->highlighted_text) - 1) {
-                        memcpy(layer->highlighted_text + output_pos, reset,
-                               reset_len);
-                        output_pos += reset_len;
-                    }
-                }
-
-                // Store region info
-                command_highlight_region_t *region =
-                    &layer->highlight_regions[layer->region_count];
-                region->start = tok->start;
-                region->length = tok->end - tok->start;
-                region->token_type = cmd_type;
-                if (color) {
-                    safe_string_copy(region->color_code, color,
-                                     sizeof(region->color_code));
-                } else {
-                    region->color_code[0] = '\0';
-                }
-                layer->region_count++;
-
-                last_end = tok->end;
-                g_highlighting_stats.tokens_parsed++;
+            if (rendered >= 0) {
+                uint64_t highlighting_time = get_current_time_ns() - start_time;
+                g_highlighting_stats.highlighting_time_ns += highlighting_time;
+                g_highlighting_stats.tokens_parsed += (uint64_t)token_count;
+                return COMMAND_LAYER_SUCCESS;
             }
-
-            // Add any remaining text
-            if (last_end < command_len) {
-                size_t remaining = command_len - last_end;
-                if (output_pos + remaining <
-                    sizeof(layer->highlighted_text) - 1) {
-                    memcpy(layer->highlighted_text + output_pos,
-                           layer->command_text + last_end, remaining);
-                    output_pos += remaining;
-                }
-            }
-
-            layer->highlighted_text[output_pos] = '\0';
-
-            uint64_t highlighting_time = get_current_time_ns() - start_time;
-            g_highlighting_stats.highlighting_time_ns += highlighting_time;
-            g_highlighting_stats.regions_created += layer->region_count;
-
-            return COMMAND_LAYER_SUCCESS;
         }
         // Spec highlighting returned error - fall through to plain text
     }
@@ -791,50 +600,6 @@ perform_syntax_highlighting(command_layer_t *layer) {
     safe_string_copy(layer->highlighted_text, layer->command_text,
                      sizeof(layer->highlighted_text));
     return COMMAND_LAYER_SUCCESS;
-}
-
-/**
- * @brief Get ANSI color code for a token type
- * @param layer Command layer with color scheme configuration
- * @param token_type Token type to get color for
- * @return ANSI color code string, or empty string if colors disabled
- */
-static const char *get_token_color(command_layer_t *layer,
-                                   command_token_type_t token_type) {
-    if (!layer->syntax_config.use_colors) {
-        return "";
-    }
-
-    switch (token_type) {
-    case COMMAND_TOKEN_COMMAND:
-        return layer->syntax_config.color_scheme.command_color;
-    case COMMAND_TOKEN_ARGUMENT:
-        return layer->syntax_config.color_scheme.argument_color;
-    case COMMAND_TOKEN_OPTION:
-        return layer->syntax_config.color_scheme.option_color;
-    case COMMAND_TOKEN_STRING:
-        return layer->syntax_config.color_scheme.string_color;
-    case COMMAND_TOKEN_VARIABLE:
-        return layer->syntax_config.color_scheme.variable_color;
-    case COMMAND_TOKEN_REDIRECT:
-        return layer->syntax_config.color_scheme.redirect_color;
-    case COMMAND_TOKEN_PIPE:
-        return layer->syntax_config.color_scheme.pipe_color;
-    case COMMAND_TOKEN_KEYWORD:
-        return layer->syntax_config.color_scheme.keyword_color;
-    case COMMAND_TOKEN_OPERATOR:
-        return layer->syntax_config.color_scheme.operator_color;
-    case COMMAND_TOKEN_PATH:
-        return layer->syntax_config.color_scheme.path_color;
-    case COMMAND_TOKEN_NUMBER:
-        return layer->syntax_config.color_scheme.number_color;
-    case COMMAND_TOKEN_COMMENT:
-        return layer->syntax_config.color_scheme.comment_color;
-    case COMMAND_TOKEN_ERROR:
-        return layer->syntax_config.color_scheme.error_color;
-    default:
-        return "";
-    }
 }
 
 // ============================================================================
@@ -1078,8 +843,7 @@ static layer_events_error_t handle_layer_event(const layer_event_t *event,
 
     switch (event->type) {
     case LAYER_EVENT_THEME_CHANGED:
-        // Update color scheme when theme changes
-        command_layer_create_default_colors(&layer->syntax_config.color_scheme);
+        // Theme changes are handled by the LLE spec-compliant highlighter
         layer->needs_redraw = true;
         publish_command_event(layer, LAYER_EVENT_REDRAW_NEEDED);
         break;
@@ -1220,35 +984,6 @@ bool command_layer_is_syntax_enabled(command_layer_t *layer) {
     }
 
     return layer->syntax_config.enabled;
-}
-
-command_layer_error_t
-command_layer_set_color_scheme(command_layer_t *layer,
-                               const command_color_scheme_t *color_scheme) {
-    if (!validate_layer_state(layer) || !color_scheme) {
-        return COMMAND_LAYER_ERROR_INVALID_PARAM;
-    }
-
-    layer->syntax_config.color_scheme = *color_scheme;
-    layer->needs_redraw = true;
-
-    // Clear cache since colors changed
-    command_layer_clear_cache(layer);
-
-    publish_command_event(layer, LAYER_EVENT_STYLE_UPDATED);
-
-    return COMMAND_LAYER_SUCCESS;
-}
-
-command_layer_error_t
-command_layer_get_color_scheme(command_layer_t *layer,
-                               command_color_scheme_t *color_scheme) {
-    if (!validate_layer_state(layer) || !color_scheme) {
-        return COMMAND_LAYER_ERROR_INVALID_PARAM;
-    }
-
-    *color_scheme = layer->syntax_config.color_scheme;
-    return COMMAND_LAYER_SUCCESS;
 }
 
 command_layer_error_t
@@ -1428,132 +1163,6 @@ command_layer_error_t command_layer_get_debug_info(command_layer_t *layer,
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
-
-command_layer_error_t
-command_layer_create_default_config(command_syntax_config_t *config) {
-    if (!config) {
-        return COMMAND_LAYER_ERROR_INVALID_PARAM;
-    }
-
-    config->enabled = true;
-    config->use_colors = true;
-    config->highlight_errors = true;
-    config->cache_enabled = true;
-    config->cache_expiry_ms = COMMAND_LAYER_CACHE_EXPIRY_MS;
-    config->max_update_time_ms = COMMAND_LAYER_TARGET_UPDATE_TIME_MS;
-
-    return command_layer_create_default_colors(&config->color_scheme);
-}
-
-command_layer_error_t
-command_layer_create_default_colors(command_color_scheme_t *color_scheme) {
-    if (!color_scheme) {
-        return COMMAND_LAYER_ERROR_INVALID_PARAM;
-    }
-
-    // Detect terminal capabilities for adaptive color support via LLE
-    lle_terminal_detection_result_t *detection = NULL;
-    lle_detect_terminal_capabilities_optimized(&detection);
-
-    // Determine color mode based on terminal capabilities
-    bool has_colors = detection && detection->supports_colors;
-    bool has_256_colors = detection && detection->supports_256_colors;
-    bool has_truecolor = detection && detection->supports_truecolor;
-
-    // Reset color is always the same when colors are supported
-    if (has_colors) {
-        safe_string_copy(color_scheme->reset_color, "\033[0m",
-                         sizeof(color_scheme->reset_color));
-    } else {
-        // No colors - use empty string
-        color_scheme->reset_color[0] = '\0';
-    }
-
-    if (!has_colors) {
-        // Terminal doesn't support colors - use empty strings for all colors
-        // This allows the shell to work on dumb terminals or when piping
-        color_scheme->command_color[0] = '\0';
-        color_scheme->argument_color[0] = '\0';
-        color_scheme->option_color[0] = '\0';
-        color_scheme->string_color[0] = '\0';
-        color_scheme->variable_color[0] = '\0';
-        color_scheme->redirect_color[0] = '\0';
-        color_scheme->pipe_color[0] = '\0';
-        color_scheme->keyword_color[0] = '\0';
-        color_scheme->operator_color[0] = '\0';
-        color_scheme->path_color[0] = '\0';
-        color_scheme->number_color[0] = '\0';
-        color_scheme->comment_color[0] = '\0';
-        color_scheme->error_color[0] = '\0';
-    } else if (has_256_colors || has_truecolor) {
-        // 256-color or truecolor terminal - use enhanced color palette
-        // These colors provide better visual distinction on modern terminals
-        safe_string_copy(
-            color_scheme->command_color, "\033[38;5;82m",
-            sizeof(color_scheme->command_color)); // Bright lime green (82)
-        safe_string_copy(
-            color_scheme->argument_color, "\033[38;5;252m",
-            sizeof(color_scheme->argument_color)); // Light gray (252)
-        safe_string_copy(color_scheme->option_color, "\033[38;5;51m",
-                         sizeof(color_scheme->option_color)); // Cyan (51)
-        safe_string_copy(color_scheme->string_color, "\033[38;5;214m",
-                         sizeof(color_scheme->string_color)); // Orange (214)
-        safe_string_copy(
-            color_scheme->variable_color, "\033[38;5;177m",
-            sizeof(color_scheme->variable_color)); // Light purple (177)
-        safe_string_copy(
-            color_scheme->redirect_color, "\033[38;5;203m",
-            sizeof(color_scheme->redirect_color)); // Salmon red (203)
-        safe_string_copy(color_scheme->pipe_color, "\033[38;5;69m",
-                         sizeof(color_scheme->pipe_color)); // Steel blue (69)
-        safe_string_copy(color_scheme->keyword_color, "\033[38;5;75m",
-                         sizeof(color_scheme->keyword_color)); // Sky blue (75)
-        safe_string_copy(
-            color_scheme->operator_color, "\033[38;5;167m",
-            sizeof(color_scheme->operator_color)); // Indian red (167)
-        safe_string_copy(color_scheme->path_color, "\033[38;5;114m",
-                         sizeof(color_scheme->path_color)); // Pale green (114)
-        safe_string_copy(
-            color_scheme->number_color, "\033[38;5;229m",
-            sizeof(color_scheme->number_color)); // Light yellow (229)
-        safe_string_copy(color_scheme->comment_color, "\033[38;5;244m",
-                         sizeof(color_scheme->comment_color)); // Gray (244)
-        safe_string_copy(color_scheme->error_color, "\033[38;5;196m",
-                         sizeof(color_scheme->error_color)); // Bright red (196)
-    } else {
-        // Basic 16-color terminal - use standard ANSI colors with bold for
-        // bright
-        safe_string_copy(color_scheme->command_color, "\033[1;32m",
-                         sizeof(color_scheme->command_color)); // Bright green
-        safe_string_copy(color_scheme->argument_color, "\033[0;37m",
-                         sizeof(color_scheme->argument_color)); // White
-        safe_string_copy(color_scheme->option_color, "\033[1;36m",
-                         sizeof(color_scheme->option_color)); // Bright cyan
-        safe_string_copy(color_scheme->string_color, "\033[1;33m",
-                         sizeof(color_scheme->string_color)); // Bright yellow
-        safe_string_copy(
-            color_scheme->variable_color, "\033[1;35m",
-            sizeof(color_scheme->variable_color)); // Bright magenta
-        safe_string_copy(color_scheme->redirect_color, "\033[1;31m",
-                         sizeof(color_scheme->redirect_color)); // Bright red
-        safe_string_copy(color_scheme->pipe_color, "\033[1;34m",
-                         sizeof(color_scheme->pipe_color)); // Bright blue
-        safe_string_copy(color_scheme->keyword_color, "\033[1;34m",
-                         sizeof(color_scheme->keyword_color)); // Bright blue
-        safe_string_copy(color_scheme->operator_color, "\033[1;31m",
-                         sizeof(color_scheme->operator_color)); // Bright red
-        safe_string_copy(color_scheme->path_color, "\033[0;32m",
-                         sizeof(color_scheme->path_color)); // Green
-        safe_string_copy(color_scheme->number_color, "\033[1;37m",
-                         sizeof(color_scheme->number_color)); // Bright white
-        safe_string_copy(color_scheme->comment_color, "\033[0;90m",
-                         sizeof(color_scheme->comment_color)); // Dark gray
-        safe_string_copy(color_scheme->error_color, "\033[1;31m",
-                         sizeof(color_scheme->error_color)); // Bright red
-    }
-
-    return COMMAND_LAYER_SUCCESS;
-}
 
 /**
  * @brief Get human-readable error message for error code
@@ -1744,6 +1353,30 @@ command_layer_error_t command_layer_set_menu_selection(command_layer_t *layer,
 
     layer->completion_menu_selected_index = selected_index;
     layer->needs_redraw = true;
+
+    return COMMAND_LAYER_SUCCESS;
+}
+
+/**
+ * @brief Create default syntax highlighting configuration
+ * @param config Output buffer for default configuration
+ * @return COMMAND_LAYER_SUCCESS on success, error code on failure
+ */
+command_layer_error_t
+command_layer_create_default_config(command_syntax_config_t *config) {
+    if (!config) {
+        return COMMAND_LAYER_ERROR_INVALID_PARAM;
+    }
+
+    config->enabled = true;
+    config->use_colors = true;
+    config->highlight_errors = true;
+    config->cache_enabled = true;
+    config->cache_expiry_ms = COMMAND_LAYER_CACHE_EXPIRY_MS;
+    config->max_update_time_ms = COMMAND_LAYER_TARGET_UPDATE_TIME_MS;
+
+    // Color scheme is no longer used - colors are handled by spec highlighter
+    memset(&config->color_scheme, 0, sizeof(config->color_scheme));
 
     return COMMAND_LAYER_SUCCESS;
 }
