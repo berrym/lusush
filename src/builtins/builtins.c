@@ -5955,8 +5955,13 @@ int bin_display(int argc, char **argv) {
             printf("                      list    - Show all sources\n");
             printf("                      reload  - Reload from config file\n");
             printf("\nHistory:\n");
-            printf(
-                "  history-import   - Import history from ~/.lush_history\n");
+            printf("  history [cmd]    - History behavior configuration\n");
+            printf("                     status  - Show current settings\n");
+            printf("                     dedup <scope|strategy|on|off>\n");
+            printf("                     nav-dedup on|off - Skip dups when "
+                   "navigating\n");
+            printf("                     nav-unique on|off - Show each cmd "
+                   "once per session\n");
             printf("\nNote: Changes apply immediately. Use 'config save' to "
                    "persist.\n");
             return 0;
@@ -5991,45 +5996,250 @@ int bin_display(int argc, char **argv) {
             }
             return 0;
 
-        } else if (strcmp(lle_cmd, "history-import") == 0) {
-            lle_editor_t *editor = lle_get_global_editor();
+        } else if (strcmp(lle_cmd, "history") == 0) {
+            /* History behavior configuration commands */
+            const char *hist_subcmd = (argc >= 4) ? argv[3] : "status";
 
-            if (!editor || !editor->history_system) {
-                fprintf(stderr, "Error: LLE history system not initialized\n");
-                fprintf(stderr,
-                        "This shouldn't happen - please report this bug\n");
-                return 1;
-            }
+            if (strcmp(hist_subcmd, "status") == 0) {
+                /* Show current history settings */
+                printf("LLE History Settings:\n");
+                printf("\nWrite-time Deduplication:\n");
+                printf("  Enabled: %s\n",
+                       config.lle_enable_deduplication ? "yes" : "no");
 
-            /* Import from GNU Readline history using bridge */
-            printf("Importing GNU Readline history into LLE...\n");
-            lle_result_t result = lle_history_bridge_import_from_readline();
+                /* Scope */
+                const char *scope_str = "unknown";
+                switch (config.lle_dedup_scope) {
+                case LLE_DEDUP_SCOPE_NONE:
+                    scope_str = "none";
+                    break;
+                case LLE_DEDUP_SCOPE_SESSION:
+                    scope_str = "session";
+                    break;
+                case LLE_DEDUP_SCOPE_RECENT:
+                    scope_str = "recent";
+                    break;
+                case LLE_DEDUP_SCOPE_GLOBAL:
+                    scope_str = "global";
+                    break;
+                }
+                printf("  Scope: %s\n", scope_str);
 
-            if (result == LLE_SUCCESS) {
-                /* Get entry count */
-                size_t count = 0;
-                lle_history_get_entry_count(editor->history_system, &count);
+                /* Strategy */
+                const char *strategy_str = "unknown";
+                switch (config.lle_dedup_strategy) {
+                case LLE_DEDUP_STRATEGY_IGNORE:
+                    strategy_str = "ignore";
+                    break;
+                case LLE_DEDUP_STRATEGY_KEEP_RECENT:
+                    strategy_str = "keep-recent";
+                    break;
+                case LLE_DEDUP_STRATEGY_KEEP_FREQUENT:
+                    strategy_str = "keep-frequent";
+                    break;
+                case LLE_DEDUP_STRATEGY_MERGE:
+                    strategy_str = "merge";
+                    break;
+                case LLE_DEDUP_STRATEGY_KEEP_ALL:
+                    strategy_str = "keep-all";
+                    break;
+                }
+                printf("  Strategy: %s\n", strategy_str);
 
-                printf(
-                    "✓ Successfully imported history from ~/.lush_history\n");
-                printf("  Total entries in LLE history: %zu\n", count);
+                printf("\nNavigation Deduplication:\n");
+                printf("  Skip duplicates: %s\n",
+                       config.lle_dedup_navigation ? "yes" : "no");
+                printf("  Unique per session: %s\n",
+                       config.lle_dedup_navigation_unique ? "yes" : "no");
 
-                /* Save to LLE history file */
-                const char *home = getenv("HOME");
-                if (home) {
-                    char history_path[1024];
-                    snprintf(history_path, sizeof(history_path),
-                             "%s/.lush_history", home);
-                    lle_history_save_to_file(editor->history_system,
-                                             history_path);
-                    printf("  Saved to: %s\n", history_path);
+                printf("\nOther Settings:\n");
+                printf("  Unicode normalize: %s\n",
+                       config.lle_dedup_unicode_normalize ? "yes" : "no");
+
+                printf("\nUse 'display lle history <option> <value>' to "
+                       "change settings.\n");
+                printf("Use 'config save' to persist changes.\n");
+                return 0;
+
+            } else if (strcmp(hist_subcmd, "dedup") == 0) {
+                /* Deduplication settings */
+                if (argc < 5) {
+                    printf("Usage: display lle history dedup <option>\n");
+                    printf("Options:\n");
+                    printf("  on              - Enable write-time "
+                           "deduplication\n");
+                    printf("  off             - Disable write-time "
+                           "deduplication\n");
+                    printf("  scope <value>   - Set scope (none, session, "
+                           "recent, global)\n");
+                    printf("  strategy <value> - Set strategy (ignore, "
+                           "keep-recent, keep-frequent, merge, keep-all)\n");
+                    return 0;
                 }
 
-                return 0;
+                const char *dedup_opt = argv[4];
+
+                if (strcmp(dedup_opt, "on") == 0) {
+                    config.lle_enable_deduplication = true;
+                    if (config_registry_is_initialized()) {
+                        config_registry_set_boolean("lle.enable_deduplication",
+                                                    true);
+                    }
+                    printf("Write-time deduplication enabled\n");
+                    return 0;
+
+                } else if (strcmp(dedup_opt, "off") == 0) {
+                    config.lle_enable_deduplication = false;
+                    if (config_registry_is_initialized()) {
+                        config_registry_set_boolean("lle.enable_deduplication",
+                                                    false);
+                    }
+                    printf("Write-time deduplication disabled\n");
+                    return 0;
+
+                } else if (strcmp(dedup_opt, "scope") == 0) {
+                    if (argc < 6) {
+                        printf("Usage: display lle history dedup scope "
+                               "<none|session|recent|global>\n");
+                        return 1;
+                    }
+                    const char *scope_val = argv[5];
+
+                    if (strcmp(scope_val, "none") == 0) {
+                        config.lle_dedup_scope = LLE_DEDUP_SCOPE_NONE;
+                    } else if (strcmp(scope_val, "session") == 0) {
+                        config.lle_dedup_scope = LLE_DEDUP_SCOPE_SESSION;
+                    } else if (strcmp(scope_val, "recent") == 0) {
+                        config.lle_dedup_scope = LLE_DEDUP_SCOPE_RECENT;
+                    } else if (strcmp(scope_val, "global") == 0) {
+                        config.lle_dedup_scope = LLE_DEDUP_SCOPE_GLOBAL;
+                    } else {
+                        fprintf(stderr,
+                                "Invalid scope '%s'. Use: none, session, "
+                                "recent, global\n",
+                                scope_val);
+                        return 1;
+                    }
+
+                    if (config_registry_is_initialized()) {
+                        config_registry_set_string("lle.dedup_scope",
+                                                   scope_val);
+                    }
+                    printf("Deduplication scope set to '%s'\n", scope_val);
+                    return 0;
+
+                } else if (strcmp(dedup_opt, "strategy") == 0) {
+                    if (argc < 6) {
+                        printf("Usage: display lle history dedup strategy "
+                               "<ignore|keep-recent|keep-frequent|merge|"
+                               "keep-all>\n");
+                        return 1;
+                    }
+                    const char *strategy_val = argv[5];
+
+                    if (strcmp(strategy_val, "ignore") == 0) {
+                        config.lle_dedup_strategy = LLE_DEDUP_STRATEGY_IGNORE;
+                    } else if (strcmp(strategy_val, "keep-recent") == 0) {
+                        config.lle_dedup_strategy =
+                            LLE_DEDUP_STRATEGY_KEEP_RECENT;
+                    } else if (strcmp(strategy_val, "keep-frequent") == 0) {
+                        config.lle_dedup_strategy =
+                            LLE_DEDUP_STRATEGY_KEEP_FREQUENT;
+                    } else if (strcmp(strategy_val, "merge") == 0) {
+                        config.lle_dedup_strategy = LLE_DEDUP_STRATEGY_MERGE;
+                    } else if (strcmp(strategy_val, "keep-all") == 0) {
+                        config.lle_dedup_strategy = LLE_DEDUP_STRATEGY_KEEP_ALL;
+                    } else {
+                        fprintf(stderr,
+                                "Invalid strategy '%s'. Use: ignore, "
+                                "keep-recent, keep-frequent, merge, keep-all\n",
+                                strategy_val);
+                        return 1;
+                    }
+
+                    if (config_registry_is_initialized()) {
+                        config_registry_set_string("lle.dedup_strategy",
+                                                   strategy_val);
+                    }
+                    printf("Deduplication strategy set to '%s'\n",
+                           strategy_val);
+                    return 0;
+
+                } else {
+                    fprintf(stderr,
+                            "Unknown dedup option '%s'. Use: on, off, scope, "
+                            "strategy\n",
+                            dedup_opt);
+                    return 1;
+                }
+
+            } else if (strcmp(hist_subcmd, "nav-dedup") == 0) {
+                /* Navigation-time duplicate skipping */
+                if (argc < 5) {
+                    printf("Navigation duplicate skipping: %s\n",
+                           config.lle_dedup_navigation ? "enabled" : "disabled");
+                    printf("Usage: display lle history nav-dedup on|off\n");
+                    return 0;
+                }
+
+                const char *val = argv[4];
+                if (strcmp(val, "on") == 0) {
+                    config.lle_dedup_navigation = true;
+                    if (config_registry_is_initialized()) {
+                        config_registry_set_boolean("lle.dedup_navigation",
+                                                    true);
+                    }
+                    printf("Navigation duplicate skipping enabled\n");
+                    return 0;
+                } else if (strcmp(val, "off") == 0) {
+                    config.lle_dedup_navigation = false;
+                    if (config_registry_is_initialized()) {
+                        config_registry_set_boolean("lle.dedup_navigation",
+                                                    false);
+                    }
+                    printf("Navigation duplicate skipping disabled\n");
+                    return 0;
+                } else {
+                    fprintf(stderr, "Invalid value '%s'. Use: on, off\n", val);
+                    return 1;
+                }
+
+            } else if (strcmp(hist_subcmd, "nav-unique") == 0) {
+                /* Unique entries per navigation session */
+                if (argc < 5) {
+                    printf("Unique entries per session: %s\n",
+                           config.lle_dedup_navigation_unique ? "enabled"
+                                                              : "disabled");
+                    printf("Usage: display lle history nav-unique on|off\n");
+                    return 0;
+                }
+
+                const char *val = argv[4];
+                if (strcmp(val, "on") == 0) {
+                    config.lle_dedup_navigation_unique = true;
+                    if (config_registry_is_initialized()) {
+                        config_registry_set_boolean(
+                            "lle.dedup_navigation_unique", true);
+                    }
+                    printf("Unique entries per navigation session enabled\n");
+                    return 0;
+                } else if (strcmp(val, "off") == 0) {
+                    config.lle_dedup_navigation_unique = false;
+                    if (config_registry_is_initialized()) {
+                        config_registry_set_boolean(
+                            "lle.dedup_navigation_unique", false);
+                    }
+                    printf("Unique entries per navigation session disabled\n");
+                    return 0;
+                } else {
+                    fprintf(stderr, "Invalid value '%s'. Use: on, off\n", val);
+                    return 1;
+                }
+
             } else {
+                fprintf(stderr, "Unknown history command '%s'\n", hist_subcmd);
                 fprintf(stderr,
-                        "Error: Failed to import history (error code: %d)\n",
-                        result);
+                        "Use 'display lle history' for available commands\n");
                 return 1;
             }
 
