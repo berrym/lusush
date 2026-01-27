@@ -6101,6 +6101,8 @@ int bin_display(int argc, char **argv) {
                            "recent, global)\n");
                     printf("  strategy <value> - Set strategy (ignore, "
                            "keep-recent, keep-frequent, merge, keep-all)\n");
+                    printf("  clean           - Remove all duplicates from "
+                           "existing history\n");
                     return 0;
                 }
 
@@ -6140,6 +6142,28 @@ int bin_display(int argc, char **argv) {
                         config.lle_dedup_scope = LLE_DEDUP_SCOPE_RECENT;
                     } else if (strcmp(scope_val, "global") == 0) {
                         config.lle_dedup_scope = LLE_DEDUP_SCOPE_GLOBAL;
+
+                        /* When switching to global scope, run full dedup scan */
+                        lle_editor_t *editor = lle_get_global_editor();
+                        if (editor && editor->history_system &&
+                            editor->history_system->dedup_engine) {
+                            size_t removed = 0;
+                            lle_history_dedup_full_scan(
+                                editor->history_system->dedup_engine, &removed);
+                            if (removed > 0) {
+                                printf("Cleaned %zu duplicate entries\n",
+                                       removed);
+                                /* Save to persist changes */
+                                const char *home = getenv("HOME");
+                                if (home) {
+                                    char history_path[1024];
+                                    snprintf(history_path, sizeof(history_path),
+                                             "%s/.lush_history", home);
+                                    lle_history_save_to_file(
+                                        editor->history_system, history_path);
+                                }
+                            }
+                        }
                     } else {
                         fprintf(stderr,
                                 "Invalid scope '%s'. Use: none, session, "
@@ -6192,10 +6216,51 @@ int bin_display(int argc, char **argv) {
                            strategy_val);
                     return 0;
 
+                } else if (strcmp(dedup_opt, "clean") == 0) {
+                    /* Full history deduplication scan */
+                    lle_editor_t *editor = lle_get_global_editor();
+                    if (!editor || !editor->history_system) {
+                        fprintf(stderr,
+                                "Error: History system not available\n");
+                        return 1;
+                    }
+
+                    if (!editor->history_system->dedup_engine) {
+                        fprintf(stderr,
+                                "Error: Deduplication engine not available\n");
+                        return 1;
+                    }
+
+                    size_t removed = 0;
+                    lle_result_t result = lle_history_dedup_full_scan(
+                        editor->history_system->dedup_engine, &removed);
+                    if (result != LLE_SUCCESS) {
+                        fprintf(stderr,
+                                "Error: Failed to run deduplication scan\n");
+                        return 1;
+                    }
+
+                    if (removed > 0) {
+                        printf("Removed %zu duplicate entries from history\n",
+                               removed);
+                        /* Save history to persist changes */
+                        const char *home = getenv("HOME");
+                        if (home) {
+                            char history_path[1024];
+                            snprintf(history_path, sizeof(history_path),
+                                     "%s/.lush_history", home);
+                            lle_history_save_to_file(editor->history_system,
+                                                     history_path);
+                        }
+                    } else {
+                        printf("No duplicate entries found in history\n");
+                    }
+                    return 0;
+
                 } else {
                     fprintf(stderr,
                             "Unknown dedup option '%s'. Use: on, off, scope, "
-                            "strategy\n",
+                            "strategy, clean\n",
                             dedup_opt);
                     return 1;
                 }

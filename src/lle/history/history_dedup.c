@@ -702,3 +702,121 @@ lle_history_dedup_set_unicode_normalize(lle_history_dedup_engine_t *dedup,
 
     return LLE_SUCCESS;
 }
+
+/**
+ * @brief Perform full deduplication scan of entire history
+ *
+ * Scans through all history entries and marks duplicates as DELETED based on
+ * the current deduplication strategy. Unlike incremental deduplication (which
+ * only checks when adding new entries), this function retroactively cleans up
+ * all existing duplicates in the history.
+ *
+ * For each unique command, keeps either the most recent (KEEP_RECENT) or most
+ * frequently used (KEEP_FREQUENT) entry and marks all others as DELETED.
+ *
+ * @param dedup Dedup engine (must not be NULL)
+ * @param duplicates_removed Output for count of duplicates marked as deleted (may be NULL)
+ * @return LLE_SUCCESS on success, LLE_ERROR_INVALID_PARAMETER if dedup is NULL,
+ *         LLE_ERROR_INVALID_STATE if history_core is not set
+ */
+lle_result_t lle_history_dedup_full_scan(lle_history_dedup_engine_t *dedup,
+                                         size_t *duplicates_removed) {
+    if (!dedup) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+
+    if (duplicates_removed) {
+        *duplicates_removed = 0;
+    }
+
+    /* KEEP_ALL strategy means no deduplication */
+    if (dedup->strategy == LLE_DEDUP_KEEP_ALL) {
+        return LLE_SUCCESS;
+    }
+
+    lle_history_core_t *core = dedup->history_core;
+    if (!core) {
+        return LLE_ERROR_INVALID_STATE;
+    }
+
+    size_t entry_count = core->entry_count;
+    if (entry_count < 2) {
+        return LLE_SUCCESS; /* Nothing to deduplicate */
+    }
+
+    size_t removed = 0;
+
+    /* Scan from oldest to newest, marking duplicates
+     * For KEEP_RECENT: when we find a duplicate, mark the older one as deleted
+     * For KEEP_FREQUENT: compare usage counts and mark the less frequent one
+     */
+    for (size_t i = 0; i < entry_count; i++) {
+        lle_history_entry_t *entry_i = core->entries[i];
+        if (!entry_i || entry_i->state != LLE_HISTORY_STATE_ACTIVE) {
+            continue;
+        }
+
+        /* Check against all later entries for duplicates */
+        for (size_t j = i + 1; j < entry_count; j++) {
+            lle_history_entry_t *entry_j = core->entries[j];
+            if (!entry_j || entry_j->state != LLE_HISTORY_STATE_ACTIVE) {
+                continue;
+            }
+
+            /* Check if commands are equal */
+            if (commands_equal(dedup, entry_i->command, entry_j->command)) {
+                /* Found a duplicate - decide which to keep based on strategy */
+                lle_history_entry_t *keep = NULL;
+                lle_history_entry_t *discard = NULL;
+
+                switch (dedup->strategy) {
+                case LLE_DEDUP_IGNORE:
+                case LLE_DEDUP_KEEP_RECENT:
+                case LLE_DEDUP_MERGE_METADATA:
+                    /* Keep the more recent entry (higher index = more recent) */
+                    keep = entry_j;
+                    discard = entry_i;
+                    break;
+
+                case LLE_DEDUP_KEEP_FREQUENT:
+                    /* Keep entry with higher usage count */
+                    if (entry_i->usage_count > entry_j->usage_count) {
+                        keep = entry_i;
+                        discard = entry_j;
+                    } else {
+                        keep = entry_j;
+                        discard = entry_i;
+                    }
+                    break;
+
+                case LLE_DEDUP_KEEP_ALL:
+                    /* Should not reach here - handled above */
+                    continue;
+                }
+
+                /* Merge forensic metadata if enabled */
+                if (dedup->merge_forensics && keep && discard) {
+                    merge_forensic_metadata(keep, discard);
+                }
+
+                /* Mark the discard entry as deleted */
+                if (discard) {
+                    discard->state = LLE_HISTORY_STATE_DELETED;
+                    removed++;
+                    dedup->duplicates_merged++;
+
+                    /* If we discarded entry_i, break inner loop and move to next i */
+                    if (discard == entry_i) {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    if (duplicates_removed) {
+        *duplicates_removed = removed;
+    }
+
+    return LLE_SUCCESS;
+}

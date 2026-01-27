@@ -239,6 +239,7 @@ static const lle_builtin_subcommand_t display_lle_history_dedup_subcmds[] = {
      sizeof(display_lle_history_dedup_strategy_vals) /
          sizeof(display_lle_history_dedup_strategy_vals[0]),
      NULL, 0, LLE_BUILTIN_ARG_NONE},
+    {"clean", NULL, 0, NULL, 0, LLE_BUILTIN_ARG_NONE},
 };
 
 /* display lle history nav-dedup values */

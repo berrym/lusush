@@ -1549,6 +1549,21 @@ lle_result_t
 lle_history_dedup_set_unicode_normalize(lle_history_dedup_engine_t *dedup,
                                         bool unicode_normalize);
 
+/**
+ * @brief Perform full deduplication scan of entire history
+ *
+ * Scans through all history entries and marks duplicates as DELETED based on
+ * the current deduplication strategy. Unlike incremental deduplication (which
+ * only checks when adding new entries), this function retroactively cleans up
+ * all existing duplicates in the history.
+ *
+ * @param dedup Dedup engine
+ * @param duplicates_removed Output for count of duplicates marked as deleted (may be NULL)
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_dedup_full_scan(lle_history_dedup_engine_t *dedup,
+                                         size_t *duplicates_removed);
+
 /* ============================================================================
  * MULTILINE COMMAND SUPPORT API (Phase 4 Day 13)
  * ============================================================================
