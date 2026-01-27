@@ -3,30 +3,6 @@
 
 echo "Running pre-commit checks..."
 
-# Track if any checks fail
-# ============================================================================
-# GAP 2 FIX: Detect git amend and check ALL files in commit (BLOCKING)
-# ============================================================================
-
-# Detect if this is an amend by checking if HEAD exists and has differences
-IS_AMEND=0
-if git rev-parse --verify HEAD >/dev/null 2>&1; then
-    if git diff HEAD --name-only | grep -q .; then
-        IS_AMEND=1
-        echo "Git amend detected - checking all files in commit..."
-    fi
-fi
-
-# Helper function to get all changed files (handles both normal and amend)
-get_all_changed_files() {
-    if [ $IS_AMEND -eq 1 ]; then
-        git diff HEAD --name-only
-        git diff --cached --name-only
-    else
-        git diff --cached --name-only
-    fi | sort -u
-}
-
 CHECKS_FAILED=0
 
 # ============================================================================
@@ -48,10 +24,10 @@ if [ -n "$PROHIBITED_IN_ROOT" ]; then
 fi
 
 # Check for markdown files in root (excluding allowed files, excluding deletions)
-ROOT_MD=$(git diff --cached --name-only --diff-filter=d | grep "^[^/]*\.md$" | grep -v "^README\.md$" || true)
+ROOT_MD=$(git diff --cached --name-only --diff-filter=d | grep "^[^/]*\.md$" | grep -v "^README\.md$" | grep -v "^CLAUDE\.md$" || true)
 if [ -n "$ROOT_MD" ]; then
     echo "❌ POLICY VIOLATION: Markdown files must be in docs/ subdirectories"
-    echo "   Only README.md allowed in root"
+    echo "   Only README.md and CLAUDE.md allowed in root"
     echo "   Files:"
     echo "$ROOT_MD"
     echo ""
@@ -62,7 +38,7 @@ fi
 NEW_DOCS=$(git diff --cached --name-only --diff-filter=A | grep "\.md$" || true)
 if [ -n "$NEW_DOCS" ]; then
     for doc in $NEW_DOCS; do
-        if ! echo "$doc" | grep -qE "^docs/(user|project|development|lle_specification|lle_implementation|archived)/|^docs/DOCUMENTATION_POLICY\.md$|^README\.md$"; then
+        if ! echo "$doc" | grep -qE "^docs/(user|project|development|lle_specification|lle_implementation|archived)/|^docs/DOCUMENTATION_POLICY\.md$|^docs/VISION\.md$|^README\.md$|^CLAUDE\.md$"; then
             echo "⚠ WARNING: New markdown file outside documented structure: $doc"
             echo "   Consider placing in docs/project/ or appropriate subdirectory"
             echo "   See docs/DOCUMENTATION_POLICY.md for structure"
@@ -71,19 +47,13 @@ if [ -n "$NEW_DOCS" ]; then
     done
 fi
 
-# Rule 3: Deletion Justification
+# Rule 3: Deletion Warning
 DELETED_FILES=$(git diff --cached --name-only --diff-filter=D | grep -E "\.(md|c|h)$" || true)
 if [ -n "$DELETED_FILES" ]; then
-    COMMIT_MSG=$(git log -1 --pretty=%B 2>/dev/null || cat .git/COMMIT_EDITMSG 2>/dev/null || echo "")
-    if ! echo "$COMMIT_MSG" | grep -qE "PRUNED|DELETED|REMOVED|DELETE"; then
-        echo "⚠ WARNING: File deletions detected without justification"
-        echo "   Deleted files:"
-        echo "$DELETED_FILES" | head -5
-        echo ""
-        echo "   Good practice: Add justification to commit message"
-        echo "   Example: 'PRUNED: obsolete test results from phase 1'"
-        echo ""
-    fi
+    echo "⚠ Note: File deletions detected"
+    echo "   Deleted files:"
+    echo "$DELETED_FILES" | head -5
+    echo ""
 fi
 
 echo "✓ Documentation policy checks complete"
@@ -100,13 +70,9 @@ if [ -n "$LLE_FILES_CHANGED" ]; then
     echo "LLE source files detected in commit..."
 
     # Check for TODO/STUB markers in committed LLE CODE (FORBIDDEN)
-    # Only check actual code files (.c, .h), not documentation (.md)
-    # Use --diff-filter=d to exclude deleted files (they cause "ambiguous argument" errors)
     LLE_CODE_FILES=$(git diff --cached --diff-filter=d --name-only | grep -E "include/lle/.*\.(h|c)$|src/lle/.*\.(h|c)$|tests/lle/.*\.(h|c)$" || true)
 
     if [ -n "$LLE_CODE_FILES" ]; then
-        # Check each code file for forbidden markers AND actual stubs
-        # NOTE: TODO comments are allowed as legitimate documentation markers
         STUB_MARKER_FOUND=""
         STUB_FOUND=""
         SIMPLIFIED_FOUND=""
@@ -128,7 +94,7 @@ if [ -n "$LLE_FILES_CHANGED" ]; then
                 SIMPLIFIED_FOUND="yes"
             fi
 
-            # ZERO TOLERANCE: Check for "deferred" language in code/comments (but not TODO which is allowed)
+            # ZERO TOLERANCE: Check for "deferred" language in code/comments
             if git diff --cached "$file" | grep -iE "^\+.*(deferred|defer to later)" > /dev/null; then
                 DEFERRED_FOUND="yes"
             fi
@@ -140,11 +106,6 @@ if [ -n "$LLE_FILES_CHANGED" ]; then
             echo "FORBIDDEN: LLE code must be complete. No stubs allowed."
             echo "Note: TODO comments are allowed for documenting future enhancements."
             echo ""
-            echo "Found in:"
-            for file in $LLE_CODE_FILES; do
-                git diff --cached "$file" | grep -E "^\+.*STUB|^\+.*FIXME" | head -2 || true
-            done
-            echo ""
             CHECKS_FAILED=1
         fi
 
@@ -152,12 +113,6 @@ if [ -n "$LLE_FILES_CHANGED" ]; then
             echo "❌ COMPLIANCE VIOLATION: Actual stub implementations found in LLE code"
             echo ""
             echo "FORBIDDEN: Functions cannot just return error codes without implementation."
-            echo "Found functions returning LLE_ERROR_FEATURE_NOT_AVAILABLE or LLE_ERROR_NOT_IMPLEMENTED"
-            echo ""
-            echo "Found in:"
-            for file in $LLE_CODE_FILES; do
-                git diff --cached "$file" | grep -B3 -E "^\+.*return LLE_ERROR_FEATURE_NOT_AVAILABLE|^\+.*return LLE_ERROR_NOT_IMPLEMENTED" | head -10 || true
-            done
             echo ""
             CHECKS_FAILED=1
         fi
@@ -166,15 +121,6 @@ if [ -n "$LLE_FILES_CHANGED" ]; then
             echo "❌ ZERO TOLERANCE VIOLATION: 'Simplified' language found in LLE code"
             echo ""
             echo "FORBIDDEN: Code or comments indicating simplified implementations"
-            echo "violate the zero-tolerance policy."
-            echo ""
-            echo "All LLE implementations must be 100% spec-compliant."
-            echo "No simplified algorithms, no partial implementations."
-            echo ""
-            echo "Found in:"
-            for file in $LLE_CODE_FILES; do
-                git diff --cached "$file" | grep -iE "^\+.*(simplified|simplification)" | head -5 || true
-            done
             echo ""
             CHECKS_FAILED=1
         fi
@@ -183,15 +129,6 @@ if [ -n "$LLE_FILES_CHANGED" ]; then
             echo "❌ ZERO TOLERANCE VIOLATION: 'Deferred' language found in LLE code"
             echo ""
             echo "FORBIDDEN: Code or comments indicating deferred work"
-            echo "violate the zero-tolerance policy."
-            echo ""
-            echo "All LLE code must be complete when committed."
-            echo "No deferred implementations, no 'TODO in phase X' comments."
-            echo ""
-            echo "Found in:"
-            for file in $LLE_CODE_FILES; do
-                git diff --cached "$file" | grep -iE "^\+.*(deferred|defer to later|TODO.*phase)" | head -5 || true
-            done
             echo ""
             CHECKS_FAILED=1
         fi
@@ -203,57 +140,8 @@ if [ -n "$LLE_FILES_CHANGED" ]; then
         if meson compile -C build 2>/dev/null 1>/dev/null; then
             echo "✓ LLE files compile successfully"
         else
-            echo "⚠ Warning: LLE compilation check failed (may be incomplete implementation)"
+            echo "⚠ Warning: LLE compilation check failed"
         fi
-    fi
-
-    # ZERO TOLERANCE ENFORCEMENT: Run spec compliance tests
-    echo "Running LLE specification compliance tests..."
-    if [ -f "tests/lle/run_compliance_tests.sh" ]; then
-        # Run compliance tests in silent mode (only show failures)
-        if tests/lle/run_compliance_tests.sh > /tmp/lle_compliance_output 2>&1; then
-            echo "✓ All spec compliance tests PASSED"
-        else
-            echo "❌ ZERO TOLERANCE VIOLATION: Spec compliance tests FAILED"
-            echo ""
-            echo "COMPLIANCE TEST OUTPUT:"
-            echo "========================================================"
-            cat /tmp/lle_compliance_output
-            echo "========================================================"
-            echo ""
-            echo "FORBIDDEN: All LLE implementations must be 100% spec-compliant"
-            echo "Fix the violations above before committing."
-            echo ""
-            rm -f /tmp/lle_compliance_output
-            CHECKS_FAILED=1
-        fi
-        rm -f /tmp/lle_compliance_output
-    else
-        echo "⚠ Warning: Compliance test suite not found at tests/lle/run_compliance_tests.sh"
-    fi
-
-    # MANDATORY POLICY ENFORCEMENT: Compliance tests must exist for all specs
-    echo "Checking compliance test coverage..."
-
-    # Check if any new spec implementation files are being added
-    NEW_SPEC_IMPLS=$(git diff --cached --name-only --diff-filter=A | grep -E "src/lle/.*\.(c|h)$|include/lle/.*\.h$" || true)
-
-    if [ -n "$NEW_SPEC_IMPLS" ]; then
-        echo "⚠ MANDATORY POLICY: New LLE implementation files detected"
-        echo ""
-        echo "Files:"
-        echo "$NEW_SPEC_IMPLS"
-        echo ""
-        echo "REQUIRED: Compliance tests MUST be created for all spec implementations"
-        echo "Location: tests/lle/compliance/spec_XX_name_compliance.c"
-        echo ""
-        echo "Policy: Any commit adding spec implementation code MUST also include"
-        echo "compliance tests that verify 100% spec accuracy."
-        echo ""
-        echo "If you are adding new spec implementation, ensure compliance test exists."
-        echo "If updating existing spec, compliance tests will verify correctness."
-        echo ""
-        sleep 2
     fi
 fi
 

@@ -460,11 +460,6 @@ This is simple, reliable, and sufficient for typical line editing. The broken di
 - `docs/lle_specification/02-22_*.md` - Core specifications (preserved as reference)
 - `docs/lle_specification/critical_gaps/*.md` - Integration specifications
 
-### Implementation Tracking
-- `docs/lle_implementation/tracking/KNOWN_ISSUES.md` - Active issues
-- `docs/lle_implementation/tracking/DECISION_LOG.md` - Technical decisions
-- `AI_ASSISTANT_HANDOFF_DOCUMENT.md` - Session continuity
-
 ### Critical Component Docs
 - `docs/development/SCREEN_BUFFER_SPECIFICATION.md` - Screen buffer design
 

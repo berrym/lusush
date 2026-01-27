@@ -1,0 +1,206 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Build Commands
+
+```bash
+# Configure and build (build directory MUST be named "build")
+meson setup build && meson compile -C build
+
+# Rebuild after changes
+meson compile -C build
+
+# Run the shell
+./build/lush
+
+# Run all tests
+meson test -C build
+
+# Run specific test suite
+meson test -C build test_buffer_operations
+meson test -C build -v  # verbose
+```
+
+## Project Vision
+
+Lush is a **superset shell**. It is not an emulator. It accepts both bash and zsh syntax because they are different ways to express the same underlying operations. The syntax is an interface layer; the feature engine is unified.
+
+**Core Principles**:
+- **Syntax is polyglot**: `${var^^}` and `${(U)var}` both uppercase a string
+- **Profiles are presets, not restrictions**: `set -o bash` loads defaults, but all features remain available
+- **When scripts don't work, lush knows why**: Compatibility database, static analyzer, debugger
+
+Lush does NOT write different tokenizers/parsers/executors to match other shells. Lush is rich enough that its components encompass the older shells.
+
+## Architecture Overview
+
+### Core Shell Pipeline
+
+```
+Input → Tokenizer → Parser → Executor → Output
+         (lexical)   (AST)    (interpret)
+```
+
+**Key files**:
+- `src/tokenizer.c` - Lexical analysis, 80+ token types, two-token lookahead
+- `src/parser.c` - Recursive descent parser, builds AST
+- `src/executor.c` - Tree-walking interpreter, command dispatch
+- `src/builtins/builtins.c` - 60+ builtin commands
+- `include/node.h` - AST node types (NODE_COMMAND, NODE_PIPE, NODE_IF, etc.)
+
+**Execution flow**:
+```c
+parser_t *parser = parser_new_with_source(input, "<stdin>");
+node_t *ast = parser_parse(parser);
+executor_execute(executor, ast);
+```
+
+### Shell Modes & Syntax Bridging
+
+Lush implements **syntax bridging** where multiple syntaxes map to the same underlying feature:
+
+```
+shopt -s extglob     →  FEATURE_EXTENDED_GLOB  ←  setopt extended_glob
+${var^^}             →  CASE_UPPER             ←  ${(U)var}
+```
+
+**Feature matrix** in `src/shell_mode.c`:
+- 42 features across 4 profiles (POSIX, Bash, Zsh, Lush)
+- `shell_mode_allows(FEATURE_X)` - query if feature enabled
+- `shell_feature_enable/disable()` - runtime override
+- `setopt`, `unsetopt`, `shopt` all operate on same underlying flags
+
+### LLE (Lush Line Editor)
+
+Native line editor replacing GNU Readline. Buffer-oriented, event-driven architecture.
+
+**13 modules** in `src/lle/`:
+| Module | Purpose |
+|--------|---------|
+| `core/` | Error handling, memory, performance, arena allocators |
+| `unicode/` | UTF-8 support, grapheme detection, character width |
+| `buffer/` | Command buffer, cursor management, change tracking |
+| `event/` | Event system and queue (async-ready) |
+| `terminal/` | Terminal abstraction, capability detection |
+| `input/` | Input parsing, key detection, escape sequences |
+| `display/` | Display integration, render pipeline |
+| `history/` | History storage, search, deduplication |
+| `multiline/` | Multiline editing, continuation detection |
+| `keybinding/` | Key mappings, Emacs bindings, kill ring |
+| `completion/` | Tab completion system |
+| `prompt/` | Prompt templates, themes |
+| `adaptive/` | Terminal detection and adaptation |
+
+**Key principle**: LLE is the **single source of truth** for buffer content and cursor position. The display system queries LLE; it never modifies LLE state.
+
+### Display System
+
+**CRITICAL: Lush does NOT use differential/diff-based display updates.**
+
+The display system uses **prompt-once, clear-and-redraw**:
+1. Prompt is drawn ONCE on first render
+2. Every subsequent update: clear from prompt position, redraw everything
+3. Cursor repositioned after redraw
+
+Many spec documents reference differential updates - **ignore those references**. The current working implementation is simpler.
+
+**Key components** in `src/display/`:
+- `display_controller.c` - Orchestrates render cycle
+- `screen_buffer.c` - Virtual screen representation for cursor calculation
+- `command_layer.c` - Receives command text from LLE, applies syntax highlighting
+
+**Render cycle**:
+```c
+// 1. Get content from layers
+command_layer_get_highlighted_text(layer, buffer, size);
+
+// 2. Render to virtual screen (calculates cursor position)
+screen_buffer_render(&buffer, prompt, command, cursor_offset);
+
+// 3. Output to terminal (clear + redraw)
+// Cursor position from buffer.cursor_row, buffer.cursor_col
+```
+
+**Screen buffer** handles:
+- UTF-8 character width (CJK = 2 columns)
+- ANSI escape sequence skipping
+- Line wrapping at terminal width
+- Cursor position tracking through all complexity
+
+### Configuration System
+
+TOML-based configuration with XDG compliance:
+- Primary: `~/.config/lush/lushrc.toml`
+- Shell script: `~/.config/lush/lushrc` (sourced after TOML)
+
+**Config registry** (`src/config.c`):
+- Pub/sub pattern for configuration changes
+- Type-safe access with change notifications
+- Sections: shell, history, completion, prompt, display, behavior
+
+## Code Standards
+
+- **C11 standard** with strict warnings
+- **Function prefixes**: `lle_` for LLE, `screen_buffer_` for screen buffer, etc.
+- **Error handling**: Return `lle_result_t` (LLE_SUCCESS, LLE_ERROR_*)
+- **Memory**: Arena allocators and memory pools where possible
+- **No memory leaks**: Valgrind clean
+
+## Git Standards
+
+- **No emojis** in commit messages
+- **No attribution lines** (no Co-Authored-By - git handles attribution)
+- Professional, descriptive messages
+- Format: `<type>: <description>`
+
+## Key Files Reference
+
+### Core Shell
+| File | Purpose |
+|------|---------|
+| `src/lush.c` | Main entry point, REPL loop |
+| `src/tokenizer.c` | Lexical analysis |
+| `src/parser.c` | AST construction |
+| `src/executor.c` | Command execution |
+| `src/shell_mode.c` | Feature matrix, profile system |
+| `src/config.c` | Configuration registry |
+
+### LLE
+| File | Purpose |
+|------|---------|
+| `src/lle/lle_editor.c` | Main line editor |
+| `src/lle/lle_readline.c` | Readline API compatibility |
+| `src/lle/buffer/buffer_management.c` | Core buffer operations |
+| `src/lle/keybinding/keybinding_actions.c` | Editing actions, cursor movement |
+| `src/lle/history/history_core.c` | History management |
+
+### Display
+| File | Purpose |
+|------|---------|
+| `src/display/display_controller.c` | Render cycle orchestration |
+| `src/display/screen_buffer.c` | Virtual screen, cursor calculation |
+| `src/display/command_layer.c` | Command text + syntax highlighting |
+| `src/display/prompt_layer.c` | Prompt rendering |
+
+## Testing
+
+40+ test suites organized by category:
+- `lle-unit` - Unit tests for LLE modules
+- `lle-functional` - Functional tests (buffer ops, history, multiline)
+- `lle-integration` - Integration tests
+- `lle-compliance` - Spec compliance verification
+
+Run specific categories:
+```bash
+meson test -C build -v test_buffer_operations
+meson test -C build -v test_history_phase1
+```
+
+## Important Documentation
+
+- `docs/VISION.md` - Project philosophy (read first)
+- `docs/development/ARCHITECTURE-SYNTAX-BRIDGING.md` - Syntax bridging design
+- `docs/development/SPEC-COMPATIBILITY.md` - Compatibility targets
+- `docs/lle_specification/LLE_DESIGN_DOCUMENT.md` - LLE architecture
+- `docs/development/SCREEN_BUFFER_SPECIFICATION.md` - Screen buffer details

@@ -785,7 +785,6 @@ The Screen Buffer component provides a robust foundation for terminal display re
 - **Header**: `include/display/screen_buffer.h`
 - **Usage**: `src/display/display_controller.c`
 - **LLE UTF-8**: `src/lle/utf8_support.c`
-- **Handoff Document**: `AI_ASSISTANT_HANDOFF_DOCUMENT.md` (Parts 3-5)
 
 ---
 
