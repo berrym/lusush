@@ -250,6 +250,7 @@ lle_sources += files(
 lle_sources += files(
   'lle_shell_event_hub.c',
   'lle_safety.c',
+  'notification.c',
 )
 
 # Shell integration init - depends on shell globals (config, etc.) and is

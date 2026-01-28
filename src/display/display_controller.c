@@ -44,6 +44,9 @@
 #include "lle/completion/completion_menu_renderer.h"
 #include "lle/completion/completion_menu_state.h"
 
+// LLE Notification support (transient hints)
+#include "lle/notification.h"
+
 #include <ctype.h>
 #include <inttypes.h>
 #include <stdio.h>
@@ -148,6 +151,8 @@ static bool screen_buffer_initialized = false;
 static bool prompt_rendered = false;
 static int last_terminal_end_row =
     0; /* Actual terminal row after ghost text/menu */
+/* Note: Notification is now tracked in screen_buffer like menu, so no separate
+ * tracking variable needed */
 
 /**
  * @brief Reset display state - called when starting new input session
@@ -517,6 +522,29 @@ static layer_events_error_t dc_handle_redraw_needed(const layer_event_t *event,
                  menu_start_row, menu_rows_added, desired_screen.num_rows);
     }
 
+    /* Get notification text if visible and add to screen_buffer for proper tracking
+     * Following the same pattern as menu to ensure correct cursor positioning */
+    char notification_buffer[LLE_NOTIFICATION_MAX_STYLED];
+    const char *notification_text = NULL;
+    int notification_rows_added = 0;
+
+    if (controller->notification_visible && controller->notification_copy.visible) {
+        notification_text = lle_notification_get_styled_text(
+            &controller->notification_copy, notification_buffer,
+            sizeof(notification_buffer));
+
+        /* Add notification to screen_buffer like we do for menu */
+        if (notification_text && *notification_text) {
+            int notif_start_row = desired_screen.num_rows;
+            notification_rows_added = screen_buffer_add_text_rows(
+                &desired_screen, notif_start_row, notification_text);
+
+            DC_DEBUG("Added notification to screen_buffer: start_row=%d, rows_added=%d, "
+                     "new_num_rows=%d",
+                     notif_start_row, notification_rows_added, desired_screen.num_rows);
+        }
+    }
+
     /* PROMPT-ONCE ARCHITECTURE per MODERN_EDITOR_WRAPPING_RESEARCH.md
      *
      * This implements the proven approach used by Replxx, Fish, and ZLE:
@@ -748,6 +776,13 @@ static layer_events_error_t dc_handle_redraw_needed(const layer_event_t *event,
         write(STDOUT_FILENO, menu_text, strlen(menu_text));
     }
 
+    /* Step 4c: Write notification below menu (if any)
+     * Notification is now tracked in screen_buffer like menu */
+    if (notification_text && *notification_text) {
+        write(STDOUT_FILENO, "\n", 1);
+        write(STDOUT_FILENO, notification_text, strlen(notification_text));
+    }
+
     /* Step 5: Position cursor at the correct location
      *
      * After drawing command text, ghost text, and menu, terminal cursor is at
@@ -794,9 +829,9 @@ static layer_events_error_t dc_handle_redraw_needed(const layer_event_t *event,
     /* Calculate rows to move up using screen_buffer's tracked state.
      *
      * screen_buffer_get_rows_below_cursor() returns: (num_rows - 1) -
-     * cursor_row This accounts for menu rows that were added via
-     * screen_buffer_add_text_rows(). We still need to add ghost_text_extra_rows
-     * since those aren't in screen_buffer yet.
+     * cursor_row This accounts for menu rows AND notification rows that were
+     * added via screen_buffer_add_text_rows(). We still need to add
+     * ghost_text_extra_rows since those aren't in screen_buffer yet.
      */
     int rows_to_move_up = screen_buffer_get_rows_below_cursor(&desired_screen) +
                           ghost_text_extra_rows;
@@ -832,11 +867,12 @@ static layer_events_error_t dc_handle_redraw_needed(const layer_event_t *event,
     prompt_rendered = true;
 
     /* Track where the terminal display actually ends (including ghost
-     * text/menu) This is needed by Step 2 on the next render to move up the
-     * correct amount.
+     * text/menu/notification) This is needed by Step 2 on the next render to
+     * move up the correct amount.
      *
-     * With menu rows now tracked in screen_buffer:
-     * - (num_rows - 1) gives the last row index in the buffer (includes menu)
+     * With menu AND notification rows now tracked in screen_buffer:
+     * - (num_rows - 1) gives the last row index in the buffer (includes menu
+     *   and notification)
      * - ghost_text_extra_rows adds any additional wrapping from autosuggestions
      */
     last_terminal_end_row =
@@ -2724,6 +2760,87 @@ void display_controller_set_autosuggestions_enabled(
     if (!enabled && controller->autosuggestions_layer) {
         autosuggestions_layer_clear(controller->autosuggestions_layer);
     }
+}
+
+// ============================================================================
+// NOTIFICATION INTEGRATION (Transient Hints)
+// ============================================================================
+
+display_controller_error_t display_controller_set_notification(
+    display_controller_t *controller,
+    const lle_notification_state_t *notification) {
+
+    if (!controller) {
+        return DISPLAY_CONTROLLER_ERROR_NULL_POINTER;
+    }
+
+    if (!controller->is_initialized) {
+        return DISPLAY_CONTROLLER_ERROR_NOT_INITIALIZED;
+    }
+
+    // Clear existing notification if NULL is passed
+    if (!notification) {
+        lle_notification_dismiss(&controller->notification_copy);
+        controller->notification_visible = false;
+        DC_DEBUG("Notification cleared");
+        return DISPLAY_CONTROLLER_SUCCESS;
+    }
+
+    // COPY the notification data (source may be on stack and get overwritten)
+    memcpy(&controller->notification_copy, notification, sizeof(*notification));
+    controller->notification_visible = true;
+
+    DC_DEBUG("Notification set (visible: %d)", controller->notification_visible);
+
+    // Notification state changed - mark that we need redraw
+    controller->notification_state_changed = true;
+
+    return DISPLAY_CONTROLLER_SUCCESS;
+}
+
+display_controller_error_t
+display_controller_clear_notification(display_controller_t *controller) {
+
+    if (!controller) {
+        return DISPLAY_CONTROLLER_ERROR_NULL_POINTER;
+    }
+
+    if (!controller->is_initialized) {
+        return DISPLAY_CONTROLLER_ERROR_NOT_INITIALIZED;
+    }
+
+    lle_notification_dismiss(&controller->notification_copy);
+    controller->notification_visible = false;
+
+    DC_DEBUG("Notification cleared");
+
+    // Notification state changed - mark that we need redraw
+    controller->notification_state_changed = true;
+
+    return DISPLAY_CONTROLLER_SUCCESS;
+}
+
+bool display_controller_has_notification(
+    const display_controller_t *controller) {
+
+    if (!controller) {
+        return false;
+    }
+
+    return controller->notification_visible &&
+           controller->notification_copy.visible;
+}
+
+bool display_controller_check_and_clear_notification_changed(
+    display_controller_t *controller) {
+
+    if (!controller) {
+        return false;
+    }
+
+    bool changed = controller->notification_state_changed;
+    controller->notification_state_changed = false; // Clear the flag after checking
+    return changed;
 }
 
 // ============================================================================

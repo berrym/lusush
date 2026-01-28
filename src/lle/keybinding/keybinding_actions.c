@@ -17,6 +17,7 @@
 #include "config.h" /* For lle_dedup_navigation config option */
 #include "display_controller.h"
 #include "display_integration.h"
+#include "lle/notification.h" /* For multiline history hint notifications */
 #include "lle/buffer_management.h"
 #include "lle/completion/completion_generator.h"
 #include "lle/completion/completion_menu_logic.h"
@@ -888,6 +889,38 @@ lle_result_t lle_previous_line(lle_editor_t *editor) {
 }
 
 /**
+ * @brief Move cursor to previous line with boundary detection
+ *
+ * Extended version that reports when the cursor was already on the first line.
+ *
+ * @param editor Editor instance
+ * @return Result with hit_boundary flag
+ */
+lle_line_nav_result_t lle_previous_line_ex(lle_editor_t *editor) {
+    lle_line_nav_result_t nav_result = {LLE_SUCCESS, false};
+
+    if (!editor || !editor->buffer || !editor->cursor_manager) {
+        nav_result.result = LLE_ERROR_INVALID_PARAMETER;
+        return nav_result;
+    }
+
+    /* Get current line boundaries */
+    size_t curr_line_start, curr_line_end;
+    get_current_line_bounds(editor->buffer, &curr_line_start, &curr_line_end);
+
+    /* Check if we're on the first line (boundary condition) */
+    if (curr_line_start == 0) {
+        nav_result.hit_boundary = true;
+        nav_result.result = LLE_SUCCESS; /* No-op, stay on first line */
+        return nav_result;
+    }
+
+    /* Not at boundary - perform the actual movement */
+    nav_result.result = lle_previous_line(editor);
+    return nav_result;
+}
+
+/**
  * @brief Move cursor to next line (down arrow in multiline mode)
  *
  * Preserves horizontal column position using sticky_column.
@@ -968,6 +1001,41 @@ lle_result_t lle_next_line(lle_editor_t *editor) {
     editor->cursor_manager->preferred_visual_column = saved_preferred;
 
     return result;
+}
+
+/**
+ * @brief Move cursor to next line with boundary detection
+ *
+ * Extended version that reports when the cursor was already on the last line.
+ *
+ * @param editor Editor instance
+ * @return Result with hit_boundary flag
+ */
+lle_line_nav_result_t lle_next_line_ex(lle_editor_t *editor) {
+    lle_line_nav_result_t nav_result = {LLE_SUCCESS, false};
+
+    if (!editor || !editor->buffer || !editor->cursor_manager) {
+        nav_result.result = LLE_ERROR_INVALID_PARAMETER;
+        return nav_result;
+    }
+
+    const char *data = editor->buffer->data;
+    size_t len = editor->buffer->length;
+
+    /* Get current line boundaries */
+    size_t curr_line_start, curr_line_end;
+    get_current_line_bounds(editor->buffer, &curr_line_start, &curr_line_end);
+
+    /* Check if we're on the last line (boundary condition) */
+    if (curr_line_end >= len || data[curr_line_end] != '\n') {
+        nav_result.hit_boundary = true;
+        nav_result.result = LLE_SUCCESS; /* No-op, stay on last line */
+        return nav_result;
+    }
+
+    /* Not at boundary - perform the actual movement */
+    nav_result.result = lle_next_line(editor);
+    return nav_result;
 }
 
 /**

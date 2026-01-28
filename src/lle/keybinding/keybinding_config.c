@@ -83,13 +83,13 @@ static const lle_action_registry_entry_t ACTION_REGISTRY[] = {
      .func.simple = lle_next_line,
      .description = "Move cursor to next line (multiline)"},
     {.name = "smart-up-arrow",
-     .type = LLE_ACTION_TYPE_SIMPLE,
-     .func.simple = lle_smart_up_arrow,
-     .description = "Context-aware up: history or previous line"},
+     .type = LLE_ACTION_TYPE_CONTEXT,
+     .func.context = lle_smart_up_arrow_context,
+     .description = "Context-aware up: history or previous line (with hints)"},
     {.name = "smart-down-arrow",
-     .type = LLE_ACTION_TYPE_SIMPLE,
-     .func.simple = lle_smart_down_arrow,
-     .description = "Context-aware down: history or next line"},
+     .type = LLE_ACTION_TYPE_CONTEXT,
+     .func.context = lle_smart_down_arrow_context,
+     .description = "Context-aware down: history or next line (with hints)"},
 
     /* ========================================================================
      * DELETION AND KILLING

@@ -35,6 +35,7 @@
 #define DISPLAY_CONTROLLER_H
 
 #include "../lle/completion/completion_menu_state.h"
+#include "../lle/notification.h"
 #include "autosuggestions_layer.h"
 
 /* Symbol compatibility mode for display rendering */
@@ -275,6 +276,13 @@ typedef struct {
     autosuggestions_layer_t
         *autosuggestions_layer;   // Autosuggestions layer (NULL if disabled)
     bool autosuggestions_enabled; // Whether autosuggestions are active
+
+    // Notification integration (transient hints below command line)
+    // We store a COPY of the notification, not a pointer, because the source
+    // may be on the stack and get overwritten by intermediate function calls
+    lle_notification_state_t notification_copy;  // Copy of notification data
+    bool notification_visible;   // Notification visibility state
+    bool notification_state_changed; // Flag: notification changed, needs redraw
 } display_controller_t;
 
 // ============================================================================
@@ -600,6 +608,60 @@ void display_controller_clear_autosuggestion(display_controller_t *controller);
  */
 void display_controller_set_autosuggestions_enabled(
     display_controller_t *controller, bool enabled);
+
+// ============================================================================
+// NOTIFICATION INTEGRATION (Transient Hints)
+// ============================================================================
+
+/**
+ * Set active notification for display composition.
+ *
+ * Associates a notification with the display controller. The notification will
+ * be composed with the command output during rendering, appearing below the
+ * command line (and below completion menu if present).
+ *
+ * The notification state is NOT owned by the display controller - caller
+ * retains ownership and is responsible for lifecycle management.
+ *
+ * @param controller The display controller
+ * @param notification Notification state (NULL to clear)
+ * @return DISPLAY_CONTROLLER_SUCCESS on success, error code on failure
+ */
+display_controller_error_t display_controller_set_notification(
+    display_controller_t *controller,
+    const lle_notification_state_t *notification);
+
+/**
+ * Clear active notification.
+ *
+ * Removes the notification from display composition. The next display
+ * update will show without the notification.
+ *
+ * @param controller The display controller
+ * @return DISPLAY_CONTROLLER_SUCCESS on success, error code on failure
+ */
+display_controller_error_t
+display_controller_clear_notification(display_controller_t *controller);
+
+/**
+ * Check if notification is currently visible.
+ *
+ * @param controller The display controller
+ * @return true if notification is visible, false otherwise
+ */
+bool display_controller_has_notification(const display_controller_t *controller);
+
+/**
+ * Check if notification state changed and clear the flag.
+ *
+ * This is used to determine if a redraw is needed due to notification
+ * state changes.
+ *
+ * @param controller The display controller
+ * @return true if notification state changed since last check, false otherwise
+ */
+bool display_controller_check_and_clear_notification_changed(
+    display_controller_t *controller);
 
 // ============================================================================
 // PERFORMANCE AND MONITORING FUNCTIONS

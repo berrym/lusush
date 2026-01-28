@@ -319,6 +319,41 @@ lle_result_t lle_history_search_forward(lle_editor_t *editor);
 lle_result_t lle_previous_line(lle_editor_t *editor);
 
 /**
+ * @brief Result type for extended line navigation functions
+ *
+ * Contains both the operation result and a flag indicating if the
+ * boundary was hit (first line for up, last line for down).
+ */
+typedef struct {
+    lle_result_t result;  /**< Operation result code */
+    bool hit_boundary;    /**< True if cursor was already at boundary */
+} lle_line_nav_result_t;
+
+/**
+ * @brief Previous line with boundary detection
+ *
+ * Extended version of lle_previous_line that reports when the cursor
+ * was already on the first line (boundary hit). Used by smart arrow
+ * functions to trigger notifications.
+ *
+ * @param editor Editor instance
+ * @return Result with boundary detection flag
+ */
+lle_line_nav_result_t lle_previous_line_ex(lle_editor_t *editor);
+
+/**
+ * @brief Next line with boundary detection
+ *
+ * Extended version of lle_next_line that reports when the cursor
+ * was already on the last line (boundary hit). Used by smart arrow
+ * functions to trigger notifications.
+ *
+ * @param editor Editor instance
+ * @return Result with boundary detection flag
+ */
+lle_line_nav_result_t lle_next_line_ex(lle_editor_t *editor);
+
+/**
  * @brief Next line (multiline buffer navigation)
  *
  * Moves cursor down one line while preserving column position via sticky_column.
@@ -372,6 +407,40 @@ lle_result_t lle_smart_up_arrow(lle_editor_t *editor);
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_smart_down_arrow(lle_editor_t *editor);
+
+/**
+ * @brief Smart up arrow with readline context (full context-aware)
+ *
+ * Context-aware action with full access to readline state. In multiline mode,
+ * shows notification hint when hitting first line boundary, reminding users
+ * to use Ctrl+P/Ctrl+N for history navigation.
+ *
+ * Behavior:
+ * - Completion menu active: Move up in menu
+ * - Multi-line mode: Navigate to previous line, show hint at boundary
+ * - Single-line mode: Navigate command history (backward)
+ *
+ * @param ctx Readline context with full access
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_smart_up_arrow_context(struct readline_context *ctx);
+
+/**
+ * @brief Smart down arrow with readline context (full context-aware)
+ *
+ * Context-aware action with full access to readline state. In multiline mode,
+ * shows notification hint when hitting last line boundary, reminding users
+ * to use Ctrl+P/Ctrl+N for history navigation.
+ *
+ * Behavior:
+ * - Completion menu active: Move down in menu
+ * - Multi-line mode: Navigate to next line, show hint at boundary
+ * - Single-line mode: Navigate command history (forward)
+ *
+ * @param ctx Readline context with full access
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_smart_down_arrow_context(struct readline_context *ctx);
 
 /* ============================================================================
  * COMPLETION ACTIONS

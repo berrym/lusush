@@ -70,6 +70,7 @@
 #include "lle/history.h"    /* History system for UP/DOWN navigation */
 #include "lle/keybinding.h" /* Keybinding manager for Group 1+ migration */
 #include "lle/keybinding_actions.h"    /* Smart arrow navigation functions */
+#include "lle/notification.h"          /* Notification system for hints */
 #include "lle/keybinding_config.h"     /* User keybinding configuration */
 #include "lle/lle_editor.h"            /* Proper LLE editor architecture */
 #include "lle/lle_readline_state.h"    /* State machine for input handling */
@@ -242,6 +243,9 @@ typedef struct readline_context {
      * Provides guaranteed exit paths and replaces implicit flag checks */
     lle_readline_state_t state;          /* Current state */
     lle_readline_state_t previous_state; /* For debugging/recovery */
+
+    /* Notification system for transient hints (multiline history hint, etc.) */
+    lle_notification_state_t notification; /* Notification state (inline, not pointer) */
 } readline_context_t;
 
 /* ============================================================================
@@ -947,6 +951,15 @@ static lle_result_t handle_character_input(lle_event_t *event,
         }
     }
 
+    /* Dismiss notification on character input (any action should dismiss it) */
+    if (lle_notification_is_visible(&ctx->notification)) {
+        lle_notification_dismiss(&ctx->notification);
+        display_controller_t *dc = display_integration_get_controller();
+        if (dc) {
+            display_controller_clear_notification(dc);
+        }
+    }
+
     /* Begin change sequence for undo tracking */
     begin_change_sequence(ctx, "insert char");
 
@@ -1406,7 +1419,23 @@ lle_result_t lle_abort_line_context(readline_context_t *ctx) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
 
-    /* Check if completion menu is active - if so, dismiss it first */
+    /* Tier 0: Check if notification is visible - dismiss it first */
+    if (lle_notification_is_visible(&ctx->notification)) {
+        lle_notification_dismiss(&ctx->notification);
+
+        /* Clear from display controller */
+        display_controller_t *dc = display_integration_get_controller();
+        if (dc) {
+            display_controller_clear_notification(dc);
+        }
+
+        /* Refresh display to clear notification from screen */
+        refresh_display(ctx);
+
+        return LLE_SUCCESS; /* Notification dismissed, don't abort line */
+    }
+
+    /* Tier 1: Check if completion menu is active - if so, dismiss it first */
     if (ctx->editor) {
         bool menu_visible = false;
 
@@ -1483,7 +1512,12 @@ lle_result_t lle_abort_line_context(readline_context_t *ctx) {
         display_controller_set_autosuggestion(dc, NULL);
         /* Clear completion menu if any */
         display_controller_clear_completion_menu(dc);
+        /* Clear notification if any */
+        display_controller_clear_notification(dc);
     }
+
+    /* Clear notification state */
+    lle_notification_dismiss(&ctx->notification);
 
     /* Suppress autosuggestion during final refresh */
     ctx->suppress_autosuggestion = true;
@@ -1529,6 +1563,22 @@ lle_result_t lle_abort_line_context(readline_context_t *ctx) {
 lle_result_t lle_escape_context(readline_context_t *ctx) {
     if (!ctx) {
         return LLE_ERROR_INVALID_PARAMETER;
+    }
+
+    /* Tier 0: Check if notification is visible - dismiss it first */
+    if (lle_notification_is_visible(&ctx->notification)) {
+        lle_notification_dismiss(&ctx->notification);
+
+        /* Clear from display controller */
+        display_controller_t *dc = display_integration_get_controller();
+        if (dc) {
+            display_controller_clear_notification(dc);
+        }
+
+        /* Refresh display to clear notification from screen */
+        refresh_display(ctx);
+
+        return LLE_SUCCESS; /* Notification dismissed, stop here */
     }
 
     /* Tier 1: Check if completion menu is active - dismiss it first */
@@ -2084,55 +2134,208 @@ static lle_result_t handle_kill_line(lle_event_t *event, void *user_data) {
 }
 
 /**
- * @brief Handle UP arrow - smart context-aware navigation
- * Single-line mode: Navigate history
- * Multi-line mode: Navigate to previous line in buffer
- * Proper architecture: delegates to lle_smart_up_arrow() action function
+ * @brief Show multiline history navigation hint
+ *
+ * Shows a notification hint when up/down arrow hits a boundary in multiline
+ * mode, reminding the user to use Ctrl+P/Ctrl+N for history navigation.
+ *
+ * Only shows if arrow_key_mode is CONTEXT_AWARE (the default Lush mode).
+ *
+ * @param ctx Readline context
+ * @param is_up_arrow true for up arrow, false for down arrow
  */
-static lle_result_t handle_arrow_up(lle_event_t *event, void *user_data) {
-    (void)event; /* Unused */
-    readline_context_t *ctx = (readline_context_t *)user_data;
-
-    /* Check if editor is available */
-    if (!ctx->editor) {
-        return LLE_SUCCESS; /* No editor available */
+static void show_multiline_history_hint(readline_context_t *ctx,
+                                        bool is_up_arrow) {
+    if (!ctx) {
+        return;
     }
 
-    /* Call the smart arrow function (context-aware) */
-    lle_result_t result = lle_smart_up_arrow(ctx->editor);
-
-    /* Refresh display after navigation */
-    if (result == LLE_SUCCESS) {
-        refresh_display(ctx);
+    /* Only show hint in context-aware mode (Lush default) */
+    if (config.lle_arrow_key_mode != LLE_ARROW_MODE_CONTEXT_AWARE) {
+        return;
     }
 
-    return result;
+    /* Determine trigger action for suppress-on-repeat */
+    lle_notification_trigger_action_t trigger =
+        is_up_arrow ? LLE_NOTIF_ACTION_UP_ARROW : LLE_NOTIF_ACTION_DOWN_ARROW;
+
+    /* Check if same action is repeating - don't dismiss in that case */
+    if (lle_notification_is_visible(&ctx->notification) &&
+        ctx->notification.trigger_action == trigger) {
+        /* Same action repeating at boundary - keep notification visible */
+        return;
+    }
+
+    /* Show the hint notification */
+    const char *msg = "Use Ctrl+P/Ctrl+N for history navigation in multiline mode";
+    lle_notification_show_with_trigger(&ctx->notification, msg,
+                                       LLE_NOTIFICATION_HINT, trigger);
+
+    /* Pass notification to display controller for rendering */
+    display_controller_t *dc = display_integration_get_controller();
+    if (dc) {
+        display_controller_set_notification(dc, &ctx->notification);
+    }
 }
 
 /**
- * @brief Handle DOWN arrow - smart context-aware navigation
- * Single-line mode: Navigate history
- * Multi-line mode: Navigate to next line in buffer
- * Proper architecture: delegates to lle_smart_down_arrow() action function
+ * @brief Dismiss notification if visible and action differs from trigger
+ *
+ * Called before actions that should dismiss the notification.
+ * Implements suppress-on-repeat: if the action matches the trigger,
+ * the notification stays visible.
+ *
+ * @param ctx Readline context
+ * @param action The action being performed (or NONE for generic action)
  */
-static lle_result_t handle_arrow_down(lle_event_t *event, void *user_data) {
-    (void)event; /* Unused */
-    readline_context_t *ctx = (readline_context_t *)user_data;
+static void maybe_dismiss_notification(readline_context_t *ctx,
+                                       lle_notification_trigger_action_t action) {
+    if (!ctx || !lle_notification_is_visible(&ctx->notification)) {
+        return;
+    }
 
+    if (lle_notification_should_dismiss_for_action(&ctx->notification, action)) {
+        lle_notification_dismiss(&ctx->notification);
+
+        /* Clear from display controller */
+        display_controller_t *dc = display_integration_get_controller();
+        if (dc) {
+            display_controller_clear_notification(dc);
+        }
+    }
+}
+
+/**
+ * @brief Smart up arrow with readline context (full context-aware)
+ *
+ * Context-aware action with full access to readline state. In multiline mode,
+ * shows notification hint when hitting first line boundary, reminding users
+ * to use Ctrl+P/Ctrl+N for history navigation.
+ */
+lle_result_t lle_smart_up_arrow_context(readline_context_t *ctx) {
     /* Check if editor is available */
-    if (!ctx->editor) {
+    if (!ctx->editor || !ctx->editor->buffer) {
         return LLE_SUCCESS; /* No editor available */
     }
 
-    /* Call the smart arrow function (context-aware) */
-    lle_result_t result = lle_smart_down_arrow(ctx->editor);
+    lle_editor_t *editor = ctx->editor;
 
-    /* Refresh display after navigation */
-    if (result == LLE_SUCCESS) {
-        refresh_display(ctx);
+    /* If completion menu is active, navigate within menu (delegate to smart
+     * arrow) */
+    if (editor->completion_system &&
+        lle_completion_system_is_menu_visible(editor->completion_system)) {
+        lle_result_t result = lle_smart_up_arrow(editor);
+        if (result == LLE_SUCCESS) {
+            refresh_display(ctx);
+        }
+        return result;
     }
 
-    return result;
+    /* Check if buffer is multiline */
+    bool is_multiline =
+        (editor->buffer->length > 0 &&
+         memchr(editor->buffer->data, '\n', editor->buffer->length) != NULL);
+
+    if (is_multiline) {
+        /* Multi-line mode: use extended function with boundary detection */
+        lle_line_nav_result_t nav = lle_previous_line_ex(editor);
+
+        if (nav.hit_boundary) {
+            /* Hit first line - show hint about Ctrl+P/Ctrl+N */
+            show_multiline_history_hint(ctx, true);
+        } else {
+            /* Moved successfully - dismiss any existing notification */
+            maybe_dismiss_notification(ctx, LLE_NOTIF_ACTION_UP_ARROW);
+        }
+
+        if (nav.result == LLE_SUCCESS) {
+            refresh_display(ctx);
+        }
+        return nav.result;
+    } else {
+        /* Single-line mode: navigate history, dismiss any notification */
+        maybe_dismiss_notification(ctx, LLE_NOTIF_ACTION_NONE);
+        lle_result_t result = lle_history_previous(editor);
+        if (result == LLE_SUCCESS) {
+            refresh_display(ctx);
+        }
+        return result;
+    }
+}
+
+/**
+ * @brief Smart down arrow with readline context (full context-aware)
+ *
+ * Context-aware action with full access to readline state. In multiline mode,
+ * shows notification hint when hitting last line boundary, reminding users
+ * to use Ctrl+P/Ctrl+N for history navigation.
+ */
+lle_result_t lle_smart_down_arrow_context(readline_context_t *ctx) {
+
+    /* Check if editor is available */
+    if (!ctx->editor || !ctx->editor->buffer) {
+        return LLE_SUCCESS; /* No editor available */
+    }
+
+    lle_editor_t *editor = ctx->editor;
+
+    /* If completion menu is active, navigate within menu (delegate to smart
+     * arrow) */
+    if (editor->completion_system &&
+        lle_completion_system_is_menu_visible(editor->completion_system)) {
+        lle_result_t result = lle_smart_down_arrow(editor);
+        if (result == LLE_SUCCESS) {
+            refresh_display(ctx);
+        }
+        return result;
+    }
+
+    /* Check if buffer is multiline */
+    bool is_multiline =
+        (editor->buffer->length > 0 &&
+         memchr(editor->buffer->data, '\n', editor->buffer->length) != NULL);
+
+    if (is_multiline) {
+        /* Multi-line mode: use extended function with boundary detection */
+        lle_line_nav_result_t nav = lle_next_line_ex(editor);
+
+        if (nav.hit_boundary) {
+            /* Hit last line - show hint about Ctrl+P/Ctrl+N */
+            show_multiline_history_hint(ctx, false);
+        } else {
+            /* Moved successfully - dismiss any existing notification */
+            maybe_dismiss_notification(ctx, LLE_NOTIF_ACTION_DOWN_ARROW);
+        }
+
+        if (nav.result == LLE_SUCCESS) {
+            refresh_display(ctx);
+        }
+        return nav.result;
+    } else {
+        /* Single-line mode: navigate history, dismiss any notification */
+        maybe_dismiss_notification(ctx, LLE_NOTIF_ACTION_NONE);
+        lle_result_t result = lle_history_next(editor);
+        if (result == LLE_SUCCESS) {
+            refresh_display(ctx);
+        }
+        return result;
+    }
+}
+
+/**
+ * @brief Event handler wrapper for up arrow (calls context-aware function)
+ */
+static lle_result_t handle_arrow_up(lle_event_t *event, void *user_data) {
+    (void)event;
+    return lle_smart_up_arrow_context((readline_context_t *)user_data);
+}
+
+/**
+ * @brief Event handler wrapper for down arrow (calls context-aware function)
+ */
+static lle_result_t handle_arrow_down(lle_event_t *event, void *user_data) {
+    (void)event;
+    return lle_smart_down_arrow_context((readline_context_t *)user_data);
 }
 
 /* ============================================================================
@@ -2740,6 +2943,14 @@ char *lle_readline(const char *prompt) {
         lle_keybinding_manager_bind_context(keybinding_manager, "ENTER",
                                             lle_accept_line_context,
                                             "accept-line");
+
+        /* UP/DOWN: Context-aware arrow keys with multiline notification hints */
+        lle_keybinding_manager_bind_context(keybinding_manager, "UP",
+                                            lle_smart_up_arrow_context,
+                                            "smart-up-arrow");
+        lle_keybinding_manager_bind_context(keybinding_manager, "DOWN",
+                                            lle_smart_down_arrow_context,
+                                            "smart-down-arrow");
     }
 
     readline_context_t ctx = {
@@ -2769,7 +2980,13 @@ char *lle_readline(const char *prompt) {
 
         /* State machine - start in IDLE state */
         .state = LLE_READLINE_STATE_IDLE,
-        .previous_state = LLE_READLINE_STATE_IDLE};
+        .previous_state = LLE_READLINE_STATE_IDLE,
+
+        /* Notification system - initialized to empty state */
+        .notification = {.message = {0},
+                         .type = LLE_NOTIFICATION_HINT,
+                         .visible = false,
+                         .trigger_action = LLE_NOTIF_ACTION_NONE}};
 
     /* CRITICAL: Reset per-readline-call flags on editor
      * The editor is persistent across readline calls, but these flags
